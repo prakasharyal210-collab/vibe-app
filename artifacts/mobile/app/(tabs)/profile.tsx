@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -35,6 +34,24 @@ const MOCK_GRID = Array.from({ length: 9 }, (_, i) => ({
 const MOCK_REELS_GRID = Array.from({ length: 6 }, (_, i) => ({
   id: String(i),
   image_url: `https://picsum.photos/seed/reel${i + 20}/300/400`,
+}));
+
+const MOCK_LIKED_GRID = Array.from({ length: 12 }, (_, i) => ({
+  id: String(i),
+  image_url: `https://picsum.photos/seed/liked${i + 5}/300/300`,
+  isReel: i % 4 === 0,
+}));
+
+const MOCK_SAVED_GRID = Array.from({ length: 9 }, (_, i) => ({
+  id: String(i),
+  image_url: `https://picsum.photos/seed/saved${i + 30}/300/300`,
+  isReel: i % 5 === 1,
+}));
+
+const MOCK_REPOSTS_GRID = Array.from({ length: 6 }, (_, i) => ({
+  id: String(i),
+  image_url: `https://picsum.photos/seed/repost${i + 50}/300/300`,
+  isReel: i % 3 === 0,
 }));
 
 const MOCK_PROFILE: Profile = {
@@ -82,7 +99,7 @@ function GuestProfile() {
   );
 }
 
-type ProfileTab = "posts" | "reels";
+type ProfileTab = "posts" | "reels" | "liked" | "saved" | "reposts";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -92,9 +109,6 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile>(MOCK_PROFILE);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [notificationsOn, setNotificationsOn] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
@@ -138,7 +152,7 @@ export default function ProfileScreen() {
             <TouchableOpacity onPress={() => router.push("/inbox")} style={styles.iconBtn}>
               <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowSettings((s) => !s)} style={styles.iconBtn}>
+            <TouchableOpacity onPress={() => router.push("/settings")} style={styles.iconBtn}>
               <Ionicons name="settings-outline" size={24} color={colors.foreground} />
             </TouchableOpacity>
           </View>
@@ -175,6 +189,10 @@ export default function ProfileScreen() {
           <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
             <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(124,58,237,0.15)", borderColor: "#7C3AED" }]}>
+            <Text style={styles.walletEmoji}>🪙</Text>
+            <Text style={styles.walletChipText}>Wallet</Text>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -199,59 +217,29 @@ export default function ProfileScreen() {
         </ScrollView>
       </View>
 
-      {showSettings && (
-        <View style={[styles.settingsPanel, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Settings</Text>
-          <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.foreground} />
-              <Text style={[styles.settingLabel, { color: colors.foreground }]}>Private Account</Text>
-            </View>
-            <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: "#7C3AED" }} thumbColor="#fff" />
-          </View>
-          <View style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="notifications-outline" size={20} color={colors.foreground} />
-              <Text style={[styles.settingLabel, { color: colors.foreground }]}>Notifications</Text>
-            </View>
-            <Switch value={notificationsOn} onValueChange={setNotificationsOn} trackColor={{ true: "#7C3AED" }} thumbColor="#fff" />
-          </View>
-          <TouchableOpacity style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="shield-outline" size={20} color={colors.foreground} />
-              <Text style={[styles.settingLabel, { color: colors.foreground }]}>Privacy Settings</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.settingRow, { borderBottomColor: colors.border }]}>
-            <View style={styles.settingLeft}>
-              <Ionicons name="flag-outline" size={20} color={colors.foreground} />
-              <Text style={[styles.settingLabel, { color: colors.foreground }]}>Block / Report</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={signOut} style={styles.logoutRow}>
-            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View style={[styles.gridTabRow, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => setActiveTab("posts")} style={[styles.gridTab, activeTab === "posts" && { borderBottomColor: "#7C3AED", borderBottomWidth: 2 }]}>
-          <Ionicons name="grid-outline" size={22} color={activeTab === "posts" ? "#7C3AED" : colors.mutedForeground} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setActiveTab("reels")} style={[styles.gridTab, activeTab === "reels" && { borderBottomColor: "#7C3AED", borderBottomWidth: 2 }]}>
-          <Ionicons name="play-circle-outline" size={22} color={activeTab === "reels" ? "#7C3AED" : colors.mutedForeground} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.gridTab}>
-          <Ionicons name="person-outline" size={22} color={colors.mutedForeground} />
-        </TouchableOpacity>
+        {([
+          { key: "posts" as ProfileTab, icon: "grid-outline" },
+          { key: "reels" as ProfileTab, icon: "play-circle-outline" },
+          { key: "liked" as ProfileTab, icon: "heart-outline" },
+          { key: "saved" as ProfileTab, icon: "bookmark-outline" },
+          { key: "reposts" as ProfileTab, icon: "repeat-outline" },
+        ]).map((tab) => (
+          <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
+            style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#7C3AED", borderBottomWidth: 2 }]}>
+            <Ionicons name={tab.icon as any} size={20} color={activeTab === tab.key ? "#7C3AED" : colors.mutedForeground} />
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
 
-  const gridData = activeTab === "posts" ? MOCK_GRID : MOCK_REELS_GRID;
+  const gridData =
+    activeTab === "posts" ? MOCK_GRID :
+    activeTab === "reels" ? MOCK_REELS_GRID :
+    activeTab === "liked" ? MOCK_LIKED_GRID :
+    activeTab === "saved" ? MOCK_SAVED_GRID :
+    MOCK_REPOSTS_GRID;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -323,6 +311,9 @@ const styles = StyleSheet.create({
   settingLabel: { fontSize: 14, fontFamily: "Poppins_500Medium" },
   logoutRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
   logoutText: { color: "#EF4444", fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  walletChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
+  walletEmoji: { fontSize: 14 },
+  walletChipText: { color: "#7C3AED", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   gridTabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginTop: 4 },
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   gridImage: { width: GRID_ITEM, height: GRID_ITEM },

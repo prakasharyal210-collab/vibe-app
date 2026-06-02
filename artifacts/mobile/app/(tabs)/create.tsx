@@ -1,10 +1,13 @@
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
+  Dimensions,
+  FlatList,
   Image,
   Platform,
   ScrollView,
@@ -15,446 +18,451 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LoginPrompt } from "@/components/LoginPrompt";
 import { GradientButton } from "@/components/GradientButton";
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { supabase } from "@/lib/supabase";
 
-type CreateType = "reel" | "post" | "story" | null;
+const { width: W, height: H } = Dimensions.get("window");
+
+type CreateMode = "post" | "video" | "live";
+
+const TOOLS = [
+  { id: "editor", icon: "color-palette-outline", label: "Photo\nEditor", color: "#EC4899" },
+  { id: "autocut", icon: "cut-outline", label: "AutoCut", color: "#F97316" },
+  { id: "captions", icon: "text-outline", label: "Captions", color: "#3B82F6" },
+  { id: "ai_self", icon: "person-outline", label: "AI Self", color: "#7C3AED" },
+  { id: "ai_video", icon: "sparkles-outline", label: "AI Video", color: "#10B981" },
+  { id: "templates", icon: "grid-outline", label: "Templates", color: "#F59E0B" },
+];
+
+const TEMPLATE_CATEGORIES = ["For You", "Viral Song", "Trendy", "Sports", "Travel", "Fashion"];
+
+const TEMPLATES = Array.from({ length: 12 }, (_, i) => ({
+  id: String(i),
+  image: `https://picsum.photos/seed/tmpl${i + 10}/200/300`,
+  label: ["Sunset Vibe", "City Night", "Dance Trend", "Workout", "Travel Log", "Food Porn", "Art Process", "Music Beat", "Friends", "Nature", "Fashion Look", "Comedy"][i],
+  duration: ["15s", "30s", "60s"][i % 3],
+}));
+
+const DRAFT_ITEMS = [
+  { id: "d1", image: "https://picsum.photos/seed/draft1/200/300", label: "Golden hour...", time: "2h ago" },
+  { id: "d2", image: "https://picsum.photos/seed/draft2/200/300", label: "City vibes reel", time: "1d ago" },
+];
+
+function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+  const [image, setImage] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  const pickImage = async () => {
+    if (!isLoggedIn) { onRequireLogin(); return; }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", allowsEditing: true, quality: 0.85 });
+    if (!result.canceled && result.assets[0]) setImage(result.assets[0].uri);
+  };
+
+  const handlePost = async () => {
+    if (!isLoggedIn) { onRequireLogin(); return; }
+    if (!image) { Alert.alert("No media", "Please select a photo first"); return; }
+    setUploading(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setUploading(false);
+    setImage(null);
+    setCaption("");
+    Alert.alert("Posted! 🎉", "Your post is now live on Vibe");
+  };
+
+  const POST_TYPES = [
+    { icon: "camera-outline", label: "Photo" },
+    { icon: "videocam-outline", label: "Video" },
+    { icon: "radio-outline", label: "Story" },
+    { icon: "images-outline", label: "Album" },
+  ];
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <View style={styles.postTypeRow}>
+        {POST_TYPES.map((t) => (
+          <TouchableOpacity key={t.label} onPress={pickImage} style={[styles.postTypeBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Ionicons name={t.icon as any} size={22} color="#7C3AED" />
+            <Text style={[styles.postTypeLabel, { color: colors.foreground }]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity onPress={pickImage} style={[styles.mediaPicker, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+        {image ? (
+          <>
+            <Image source={{ uri: image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <TouchableOpacity style={styles.removeImg} onPress={() => setImage(null)}>
+              <Ionicons name="close-circle" size={26} color="#fff" />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Ionicons name="images-outline" size={48} color={colors.mutedForeground} />
+            <Text style={[styles.mediaPickerText, { color: colors.mutedForeground }]}>Tap to select from gallery</Text>
+            <Text style={[styles.mediaPickerSub, { color: colors.mutedForeground }]}>Photos & videos up to 60s</Text>
+          </>
+        )}
+      </TouchableOpacity>
+
+      <View style={styles.postForm}>
+        <TextInput
+          value={caption}
+          onChangeText={setCaption}
+          placeholder="Write a caption... #hashtags @mentions"
+          placeholderTextColor={colors.mutedForeground}
+          multiline
+          maxLength={500}
+          style={[styles.captionInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+        />
+        <View style={[styles.postOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          {[
+            { icon: "person-add-outline", label: "Tag people", color: "#7C3AED" },
+            { icon: "location-outline", label: "Add location", color: "#F97316" },
+            { icon: "color-filter-outline", label: "Filters", color: "#EC4899" },
+            { icon: "earth-outline", label: "Audience: Everyone", color: "#3B82F6" },
+          ].map((opt, i, arr) => (
+            <TouchableOpacity key={opt.label} onPress={() => Alert.alert(opt.label, "Coming soon")}
+              style={[styles.optionRow, { borderBottomColor: colors.border }, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
+              <Ionicons name={opt.icon as any} size={18} color={opt.color} />
+              <Text style={[styles.optionText, { color: colors.foreground }]}>{opt.label}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.postActions}>
+          <TouchableOpacity onPress={() => Alert.alert("Saved!", "Draft saved locally")}
+            style={[styles.draftBtn, { borderColor: colors.border, backgroundColor: colors.muted }]}>
+            <Ionicons name="document-outline" size={16} color={colors.foreground} />
+            <Text style={[styles.draftBtnText, { color: colors.foreground }]}>Save Draft</Text>
+          </TouchableOpacity>
+          <GradientButton onPress={handlePost} title="Post Now" loading={uploading} style={{ flex: 1 }} />
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+  const [selectedCategory, setSelectedCategory] = useState("For You");
+  const [recording, setRecording] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState("15s");
+  const TEMPLATE_W = (W - 48) / 3;
+
+  const handleRecord = () => {
+    if (!isLoggedIn) { onRequireLogin(); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    if (!recording) {
+      setRecording(true);
+    } else {
+      setRecording(false);
+      Alert.alert("Reel Recorded! 🎬", "Add music, text, and effects.", [
+        { text: "Discard", style: "destructive" },
+        { text: "Post Reel", onPress: () => Alert.alert("Posted! 🔥", "Your reel is now live") },
+      ]);
+    }
+  };
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <View style={[styles.viewfinder, { backgroundColor: "#111" }]}>
+        <Image source={{ uri: "https://picsum.photos/seed/camera42/450/300" }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient colors={["rgba(0,0,0,0.3)", "transparent", "rgba(0,0,0,0.4)"]} style={StyleSheet.absoluteFill} />
+
+        <View style={styles.toolsOverlay}>
+          {TOOLS.map((tool) => (
+            <TouchableOpacity key={tool.id} onPress={() => Alert.alert(tool.label.replace("\n", " "), "Tool coming soon ✨")} style={styles.toolBtn}>
+              <View style={[styles.toolCircle, { backgroundColor: tool.color + "33", borderColor: tool.color + "66" }]}>
+                <Ionicons name={tool.icon as any} size={20} color={tool.color} />
+              </View>
+              <Text style={styles.toolLabel}>{tool.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.durationRow}>
+          {["15s", "30s", "60s", "3min"].map((d) => (
+            <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)}
+              style={[styles.durationPill, selectedDuration === d && { backgroundColor: "#7C3AED" }]}>
+              <Text style={[styles.durationText, selectedDuration === d && { color: "#fff" }]}>{d}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity onPress={handleRecord} style={[styles.recordBtnWrap, recording && { borderColor: "#EF4444" }]}>
+          {recording ? (
+            <View style={[styles.recordBtn, { backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" }]}>
+              <View style={styles.recordSquare} />
+            </View>
+          ) : (
+            <LinearGradient colors={["#7C3AED", "#EA580C"]} style={styles.recordBtn} />
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.viewfinderSideActions}>
+          {[
+            { icon: "musical-notes", label: "Music" },
+            { icon: "sparkles", label: "Effects" },
+            { icon: "text", label: "Text" },
+          ].map((a) => (
+            <TouchableOpacity key={a.label} style={styles.sideActionBtn} onPress={() => Alert.alert(a.label, `${a.label} tool coming soon`)}>
+              <Ionicons name={a.icon as any} size={22} color="#fff" />
+              <Text style={styles.sideActionLabel}>{a.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowDrafts((s) => !s)}>
+            <Ionicons name="document-text" size={22} color="#fff" />
+            <Text style={styles.sideActionLabel}>Drafts</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {showDrafts && (
+        <View style={styles.draftsSection}>
+          <View style={styles.draftsTitleRow}>
+            <Text style={[styles.draftsTitle, { color: colors.foreground }]}>📝 Drafts ({DRAFT_ITEMS.length})</Text>
+            <TouchableOpacity><Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 13 }}>Manage</Text></TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
+            {DRAFT_ITEMS.map((d) => (
+              <TouchableOpacity key={d.id} style={styles.draftCard} onPress={() => Alert.alert("Resume Draft", `Continue editing "${d.label}"`)}>
+                <Image source={{ uri: d.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFill} />
+                <View style={styles.draftCardInfo}>
+                  <Text style={styles.draftCardLabel} numberOfLines={1}>{d.label}</Text>
+                  <Text style={styles.draftCardTime}>{d.time}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[styles.draftCard, { alignItems: "center", justifyContent: "center", backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border }]}
+              onPress={() => Alert.alert("New Draft", "Start recording to create a draft")}>
+              <Ionicons name="add" size={32} color="#7C3AED" />
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+
+      <View style={styles.templatesSection}>
+        <Text style={[styles.templatesTitle, { color: colors.foreground }]}>✨ Video Templates</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, marginBottom: 12 }}>
+          {TEMPLATE_CATEGORIES.map((cat) => (
+            <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}
+              style={[styles.catPill, selectedCategory === cat && { backgroundColor: "#7C3AED" }]}>
+              <Text style={[styles.catPillText, selectedCategory === cat && { color: "#fff" }]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <FlatList
+          data={TEMPLATES}
+          keyExtractor={(item) => item.id}
+          numColumns={3}
+          scrollEnabled={false}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={[styles.templateCard, { width: TEMPLATE_W, height: TEMPLATE_W * 1.5 }]}
+              onPress={() => Alert.alert("Use Template", `Using "${item.label}" template`)}>
+              <Image source={{ uri: item.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              <LinearGradient colors={["transparent", "rgba(0,0,0,0.75)"]} style={StyleSheet.absoluteFill} />
+              <View style={styles.templateInfo}>
+                <Text style={styles.templateLabel} numberOfLines={1}>{item.label}</Text>
+                <Text style={styles.templateDuration}>{item.duration}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}
+          columnWrapperStyle={{ gap: 6 }}
+        />
+      </View>
+    </ScrollView>
+  );
+}
+
+function LiveMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+  const LIVE_OPTIONS = [
+    { icon: "text-outline", label: "Add Title", sub: "Let viewers know what's happening", color: "#7C3AED" },
+    { icon: "people-outline", label: "Audience", sub: "Everyone", color: "#3B82F6" },
+    { icon: "gift-outline", label: "Gifts", sub: "Allow viewers to send gifts", color: "#F97316" },
+    { icon: "chatbubbles-outline", label: "Comments", sub: "Enabled for everyone", color: "#10B981" },
+  ];
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}>
+      <View style={styles.livePreview}>
+        <Image source={{ uri: "https://picsum.photos/seed/livesetup9/450/250" }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <LinearGradient colors={["rgba(0,0,0,0.5)", "rgba(0,0,0,0.3)"]} style={StyleSheet.absoluteFill} />
+        <View style={styles.liveBadge}>
+          <Text style={styles.liveBadgeText}>LIVE</Text>
+        </View>
+        <View style={{ alignItems: "center", gap: 8 }}>
+          <Ionicons name="videocam" size={40} color="#fff" />
+          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, fontFamily: "Poppins_400Regular" }}>Camera Preview</Text>
+        </View>
+      </View>
+
+      <Text style={[styles.liveSetupTitle, { color: colors.foreground }]}>Go Live Setup</Text>
+
+      <View style={[styles.liveSetupOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        {LIVE_OPTIONS.map((opt, i) => (
+          <TouchableOpacity key={opt.label} onPress={() => Alert.alert(opt.label, opt.sub)}
+            style={[styles.liveOptionRow, { borderBottomColor: colors.border }, i === LIVE_OPTIONS.length - 1 && { borderBottomWidth: 0 }]}>
+            <View style={[styles.liveOptionIcon, { backgroundColor: opt.color + "22" }]}>
+              <Ionicons name={opt.icon as any} size={20} color={opt.color} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.liveOptionLabel, { color: colors.foreground }]}>{opt.label}</Text>
+              <Text style={[styles.liveOptionSub, { color: colors.mutedForeground }]}>{opt.sub}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.liveStats}>
+        {[
+          { emoji: "💜", num: "1,284", label: "Followers" },
+          { emoji: "🪙", num: "246", label: "Avg Coins" },
+          { emoji: "👁", num: "3.2k", label: "Avg Viewers" },
+        ].map((s) => (
+          <View key={s.label} style={[styles.liveStat, { backgroundColor: colors.muted }]}>
+            <Text style={styles.liveStatEmoji}>{s.emoji}</Text>
+            <Text style={[styles.liveStatNum, { color: colors.foreground }]}>{s.num}</Text>
+            <Text style={[styles.liveStatLabel, { color: colors.mutedForeground }]}>{s.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <TouchableOpacity
+        onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } router.push("/live"); }}
+        style={styles.goLiveBtn}>
+        <LinearGradient colors={["#EF4444", "#DC2626"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.goLiveGrad}>
+          <Ionicons name="radio" size={22} color="#fff" />
+          <Text style={styles.goLiveText}>Start Live Stream</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
 
 export default function CreateScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
-
+  const [mode, setMode] = useState<CreateMode>("video");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [createType, setCreateType] = useState<CreateType>(null);
-  const [image, setImage] = useState<string | null>(null);
-  const [caption, setCaption] = useState("");
-  const [uploading, setUploading] = useState(false);
-
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
 
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setShowLoginPrompt(true);
-    }
-  }, [isLoggedIn]);
-
-  const handleChooseType = (type: CreateType) => {
-    if (!isLoggedIn) {
-      setShowLoginPrompt(true);
-      return;
-    }
-    setCreateType(type);
-    setImage(null);
-    setCaption("");
-  };
-
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: createType === "reel" ? [9, 16] : createType === "story" ? [9, 16] : [1, 1],
-      quality: 0.85,
-    });
-    if (!result.canceled) setImage(result.assets[0].uri);
-  };
-
-  const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Camera access is required.");
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: createType === "post" ? [1, 1] : [9, 16],
-      quality: 0.85,
-    });
-    if (!result.canceled) setImage(result.assets[0].uri);
-  };
-
-  const handlePost = async () => {
-    if (!image) {
-      Alert.alert("No image", "Please select or capture a photo.");
-      return;
-    }
-    setUploading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const fileExt = image.split(".").pop() ?? "jpg";
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const response = await fetch(image);
-      const blob = await response.blob();
-      const arrayBuffer = await blob.arrayBuffer();
-
-      const { error: uploadError } = await supabase.storage
-        .from("posts")
-        .upload(fileName, arrayBuffer, { contentType: `image/${fileExt}` });
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from("posts").getPublicUrl(fileName);
-
-      await supabase.from("posts").insert({
-        user_id: user.id,
-        image_url: publicUrl,
-        caption,
-        likes_count: 0,
-        comments_count: 0,
-      });
-
-      setImage(null);
-      setCaption("");
-      setCreateType(null);
-      Alert.alert("Posted!", "Your vibe is live. ✨");
-    } catch (err: any) {
-      Alert.alert(
-        "Post failed",
-        err?.message ?? "Make sure the 'posts' Supabase Storage bucket exists."
-      );
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const typeLabel: Record<NonNullable<CreateType>, string> = {
-    reel: "New Reel",
-    post: "New Post",
-    story: "New Story",
-  };
-
-  if (!isLoggedIn) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={[styles.guestContainer, { paddingTop: topInset + 40 }]}>
-          <LinearGradient
-            colors={["#7C3AED", "#EA580C"]}
-            style={styles.guestIconCircle}
-          >
-            <Ionicons name="add" size={40} color="#fff" />
-          </LinearGradient>
-          <Text style={[styles.guestTitle, { color: colors.foreground }]}>
-            Create & Share
-          </Text>
-          <Text style={[styles.guestSubtitle, { color: colors.mutedForeground }]}>
-            Sign in to post reels, photos, and stories
-          </Text>
-          <GradientButton
-            onPress={() => router.push("/(auth)/login")}
-            title="Sign In"
-            style={{ width: "80%" }}
-          />
-        </View>
-        <LoginPrompt
-          visible={showLoginPrompt}
-          onClose={() => setShowLoginPrompt(false)}
-        />
-      </View>
-    );
-  }
-
-  if (!createType) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView
-          contentContainerStyle={[
-            styles.chooseContainer,
-            { paddingTop: topInset + 20, paddingBottom: bottomInset },
-          ]}
-        >
-          <Text style={[styles.title, { color: colors.foreground }]}>Create</Text>
-          <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            What are you sharing today?
-          </Text>
-
-          {(
-            [
-              {
-                type: "reel" as CreateType,
-                icon: "play-circle-outline",
-                label: "Reel",
-                desc: "Short vertical video or snap",
-                gradient: ["#7C3AED", "#A855F7"],
-              },
-              {
-                type: "post" as CreateType,
-                icon: "image-outline",
-                label: "Post",
-                desc: "Share a photo with your followers",
-                gradient: ["#EA580C", "#F97316"],
-              },
-              {
-                type: "story" as CreateType,
-                icon: "radio-button-on-outline",
-                label: "Story",
-                desc: "Disappears after 24 hours",
-                gradient: ["#DB2777", "#9333EA"],
-              },
-            ] as const
-          ).map((item) => (
-            <TouchableOpacity
-              key={item.type}
-              onPress={() => handleChooseType(item.type)}
-              style={[
-                styles.typeCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              activeOpacity={0.82}
-            >
-              <LinearGradient
-                colors={item.gradient as [string, string]}
-                style={styles.typeIconCircle}
-              >
-                <Ionicons name={item.icon as any} size={28} color="#fff" />
-              </LinearGradient>
-              <View style={styles.typeInfo}>
-                <Text style={[styles.typeLabel, { color: colors.foreground }]}>
-                  {item.label}
-                </Text>
-                <Text style={[styles.typeDesc, { color: colors.mutedForeground }]}>
-                  {item.desc}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    );
-  }
+  const MODES: { key: CreateMode; label: string; icon: string }[] = [
+    { key: "post", label: "Post", icon: "images-outline" },
+    { key: "video", label: "Video", icon: "videocam-outline" },
+    { key: "live", label: "Live", icon: "radio-outline" },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView
-        contentContainerStyle={[
-          styles.editorContainer,
-          { paddingTop: topInset + 8, paddingBottom: bottomInset },
-        ]}
-      >
-        <View style={styles.editorHeader}>
-          <TouchableOpacity onPress={() => setCreateType(null)}>
-            <Ionicons name="chevron-back" size={26} color={colors.foreground} />
-          </TouchableOpacity>
-          <Text style={[styles.editorTitle, { color: colors.foreground }]}>
-            {typeLabel[createType]}
-          </Text>
-          <View style={{ width: 26 }} />
-        </View>
-
-        <TouchableOpacity
-          onPress={pickImage}
-          style={[
-            styles.imagePicker,
-            {
-              backgroundColor: colors.muted,
-              borderColor: image ? "transparent" : colors.border,
-              aspectRatio: createType === "post" ? 1 : 9 / 16,
-            },
-          ]}
-        >
-          {image ? (
-            <>
-              <Image source={{ uri: image }} style={styles.preview} resizeMode="cover" />
-              <TouchableOpacity onPress={() => setImage(null)} style={styles.removeBtn}>
-                <Ionicons name="close-circle" size={28} color="#fff" />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.placeholderCenter}>
-              <LinearGradient colors={["#7C3AED", "#F97316"]} style={styles.iconCircle}>
-                <Ionicons name="image-outline" size={28} color="#fff" />
-              </LinearGradient>
-              <Text style={[styles.placeholderText, { color: colors.foreground }]}>
-                Tap to select
-              </Text>
-            </View>
-          )}
+      <View style={[styles.header, { paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
+        <View style={{ width: 26 }} />
+        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Create</Text>
+        <TouchableOpacity onPress={() => Alert.alert("Help", "Create posts, videos, and live streams on Vibe")}>
+          <Ionicons name="help-circle-outline" size={26} color={colors.mutedForeground} />
         </TouchableOpacity>
+      </View>
 
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            onPress={openCamera}
-            style={[styles.mediaBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-          >
-            <Ionicons name="camera-outline" size={20} color="#7C3AED" />
-            <Text style={[styles.mediaBtnText, { color: colors.foreground }]}>Camera</Text>
+      <View style={[styles.modeTabs, { borderBottomColor: colors.border }]}>
+        {MODES.map((m) => (
+          <TouchableOpacity key={m.key} onPress={() => setMode(m.key)} style={[styles.modeTab, mode === m.key && styles.modeTabActive]}>
+            {mode === m.key && (
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.modeTabUnderline} />
+            )}
+            <Ionicons name={m.icon as any} size={18} color={mode === m.key ? "#7C3AED" : colors.mutedForeground} />
+            <Text style={[styles.modeTabText, { color: mode === m.key ? "#7C3AED" : colors.mutedForeground }, mode === m.key && styles.modeTabTextActive]}>
+              {m.label}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={pickImage}
-            style={[styles.mediaBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
-          >
-            <Ionicons name="images-outline" size={20} color="#F97316" />
-            <Text style={[styles.mediaBtnText, { color: colors.foreground }]}>Gallery</Text>
-          </TouchableOpacity>
-        </View>
+        ))}
+      </View>
 
-        <TextInput
-          value={caption}
-          onChangeText={setCaption}
-          placeholder={`Add a caption${createType === "reel" ? " or lyrics..." : "..."}`}
-          placeholderTextColor={colors.mutedForeground}
-          multiline
-          maxLength={500}
-          style={[
-            styles.captionInput,
-            { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
-          ]}
-        />
+      {mode === "post" && <PostMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} />}
+      {mode === "video" && <VideoMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} />}
+      {mode === "live" && <LiveMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} />}
 
-        <GradientButton
-          onPress={handlePost}
-          title={uploading ? "Sharing..." : `Share ${typeLabel[createType]}`}
-          loading={uploading}
-          disabled={!image}
-        />
-      </ScrollView>
+      <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  guestContainer: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 32,
-    gap: 16,
-  },
-  guestIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  guestTitle: {
-    fontSize: 24,
-    fontFamily: "Poppins_700Bold",
-    textAlign: "center",
-  },
-  guestSubtitle: {
-    fontSize: 14,
-    fontFamily: "Poppins_400Regular",
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  chooseContainer: {
-    paddingHorizontal: 20,
-    gap: 14,
-  },
-  title: {
-    fontSize: 28,
-    fontFamily: "Poppins_700Bold",
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: "Poppins_400Regular",
-    marginBottom: 12,
-  },
-  typeCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 18,
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 14,
-  },
-  typeIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  typeInfo: { flex: 1 },
-  typeLabel: {
-    fontSize: 17,
-    fontFamily: "Poppins_600SemiBold",
-  },
-  typeDesc: {
-    fontSize: 12,
-    fontFamily: "Poppins_400Regular",
-    marginTop: 2,
-  },
-  editorContainer: {
-    paddingHorizontal: 18,
-    gap: 14,
-  },
-  editorHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  editorTitle: {
-    fontSize: 18,
-    fontFamily: "Poppins_700Bold",
-  },
-  imagePicker: {
-    width: "100%",
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderStyle: "dashed",
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  preview: { width: "100%", height: "100%" },
-  removeBtn: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-  },
-  placeholderCenter: {
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 40,
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  placeholderText: {
-    fontSize: 15,
-    fontFamily: "Poppins_600SemiBold",
-  },
-  actionRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  mediaBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  mediaBtnText: {
-    fontSize: 14,
-    fontFamily: "Poppins_500Medium",
-  },
-  captionInput: {
-    minHeight: 80,
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 14,
-    fontFamily: "Poppins_400Regular",
-    borderWidth: 1,
-    textAlignVertical: "top",
-  },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 0.5 },
+  headerTitle: { fontSize: 18, fontFamily: "Poppins_700Bold" },
+  modeTabs: { flexDirection: "row", borderBottomWidth: 0.5 },
+  modeTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, gap: 6, position: "relative" },
+  modeTabActive: {},
+  modeTabUnderline: { position: "absolute", bottom: 0, left: 16, right: 16, height: 2, borderRadius: 1 },
+  modeTabText: { fontSize: 14, fontFamily: "Poppins_500Medium" },
+  modeTabTextActive: { fontFamily: "Poppins_700Bold" },
+  postTypeRow: { flexDirection: "row", paddingHorizontal: 16, paddingTop: 16, gap: 10 },
+  postTypeBtn: { flex: 1, alignItems: "center", paddingVertical: 14, borderRadius: 14, borderWidth: 1, gap: 6 },
+  postTypeLabel: { fontSize: 12, fontFamily: "Poppins_500Medium" },
+  mediaPicker: { margin: 16, height: 220, borderRadius: 18, borderWidth: 1.5, borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 8, overflow: "hidden" },
+  mediaPickerText: { fontSize: 15, fontFamily: "Poppins_600SemiBold" },
+  mediaPickerSub: { fontSize: 12, fontFamily: "Poppins_400Regular" },
+  removeImg: { position: "absolute", top: 10, right: 10 },
+  postForm: { paddingHorizontal: 16, gap: 12 },
+  captionInput: { borderRadius: 14, padding: 14, fontSize: 14, fontFamily: "Poppins_400Regular", minHeight: 90, borderWidth: 1, textAlignVertical: "top" },
+  postOptions: { borderRadius: 14, overflow: "hidden", borderWidth: 1 },
+  optionRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 14, gap: 12, borderBottomWidth: 0.5 },
+  optionText: { flex: 1, fontSize: 14, fontFamily: "Poppins_500Medium" },
+  postActions: { flexDirection: "row", gap: 10, paddingBottom: 16 },
+  draftBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  draftBtnText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  viewfinder: { height: H * 0.34, position: "relative" },
+  toolsOverlay: { position: "absolute", left: 12, top: 12, gap: 10 },
+  toolBtn: { alignItems: "center", gap: 3, width: 52 },
+  toolCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  toolLabel: { color: "#fff", fontSize: 9, fontFamily: "Poppins_500Medium", textAlign: "center" },
+  durationRow: { position: "absolute", top: 12, alignSelf: "center", flexDirection: "row", gap: 6 },
+  durationPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.5)" },
+  durationText: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  recordBtnWrap: { position: "absolute", bottom: 20, alignSelf: "center", width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
+  recordBtn: { width: 58, height: 58, borderRadius: 29 },
+  recordSquare: { width: 22, height: 22, borderRadius: 4, backgroundColor: "#fff" },
+  viewfinderSideActions: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center", gap: 16 },
+  sideActionBtn: { alignItems: "center", gap: 2 },
+  sideActionLabel: { color: "#fff", fontSize: 9, fontFamily: "Poppins_400Regular" },
+  draftsSection: { paddingTop: 16, paddingBottom: 4 },
+  draftsTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 10 },
+  draftsTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },
+  draftCard: { width: 110, height: 160, borderRadius: 14, overflow: "hidden" },
+  draftCardInfo: { position: "absolute", bottom: 8, left: 8, right: 8 },
+  draftCardLabel: { color: "#fff", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
+  draftCardTime: { color: "rgba(255,255,255,0.7)", fontSize: 10 },
+  templatesSection: { paddingTop: 16 },
+  templatesTitle: { fontSize: 17, fontFamily: "Poppins_700Bold", paddingHorizontal: 16, marginBottom: 12 },
+  catPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.08)" },
+  catPillText: { color: "rgba(255,255,255,0.7)", fontSize: 13, fontFamily: "Poppins_500Medium" },
+  templateCard: { borderRadius: 12, overflow: "hidden", position: "relative" },
+  templateInfo: { position: "absolute", bottom: 6, left: 6, right: 6 },
+  templateLabel: { color: "#fff", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
+  templateDuration: { color: "rgba(255,255,255,0.7)", fontSize: 10 },
+  livePreview: { height: 200, position: "relative", alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  liveBadge: { position: "absolute", top: 14, left: 14, backgroundColor: "#EF4444", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  liveBadgeText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold", letterSpacing: 1 },
+  liveSetupTitle: { fontSize: 18, fontFamily: "Poppins_700Bold", marginTop: 18, marginBottom: 14 },
+  liveSetupOptions: { borderRadius: 14, overflow: "hidden", borderWidth: 1, marginBottom: 16 },
+  liveOptionRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 14, gap: 12, borderBottomWidth: 0.5 },
+  liveOptionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  liveOptionLabel: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  liveOptionSub: { fontSize: 12, fontFamily: "Poppins_400Regular" },
+  liveStats: { flexDirection: "row", gap: 10, marginBottom: 20 },
+  liveStat: { flex: 1, borderRadius: 14, padding: 14, alignItems: "center", gap: 4 },
+  liveStatEmoji: { fontSize: 22 },
+  liveStatNum: { fontSize: 18, fontFamily: "Poppins_700Bold" },
+  liveStatLabel: { fontSize: 11, fontFamily: "Poppins_400Regular" },
+  goLiveBtn: { borderRadius: 16, overflow: "hidden" },
+  goLiveGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 16 },
+  goLiveText: { color: "#fff", fontSize: 17, fontFamily: "Poppins_700Bold" },
 });

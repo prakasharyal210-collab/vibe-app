@@ -42,6 +42,18 @@ function RootLayoutNav() {
         name="notifications"
         options={{ animation: "slide_from_right" }}
       />
+      <Stack.Screen
+        name="live"
+        options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }}
+      />
+      <Stack.Screen
+        name="wallet"
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="settings"
+        options={{ animation: "slide_from_right" }}
+      />
     </Stack>
   );
 }

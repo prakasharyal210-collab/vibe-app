@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useRef, useState } from "react";
 import {
+  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -38,6 +39,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
   const [bookmarked, setBookmarked] = useState(false);
+  const [reposted, setReposted] = useState(false);
+  const [favourited, setFavourited] = useState(false);
   const [following, setFollowing] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [activeImg, setActiveImg] = useState(0);
@@ -169,14 +172,26 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
           <TouchableOpacity onPress={() => { if (requireAuth()) return; setShowShare(true); }} style={styles.actionBtn}>
             <Ionicons name="paper-plane-outline" size={24} color={colors.foreground} />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => {
+            if (requireAuth()) return;
+            setReposted((r) => !r);
+            if (!reposted) Alert.alert("Reposted! ↩", "Added to your profile reposts");
+          }}>
+            <Ionicons name={reposted ? "repeat" : "repeat-outline"} size={24} color={reposted ? "#10B981" : colors.foreground} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => { if (requireAuth()) return; setBookmarked((b) => !b); }}>
-          <Ionicons
-            name={bookmarked ? "bookmark" : "bookmark-outline"}
-            size={24}
-            color={bookmarked ? "#7C3AED" : colors.foreground}
-          />
-        </TouchableOpacity>
+        <View style={styles.rightIcons}>
+          <TouchableOpacity onPress={() => { if (requireAuth()) return; setFavourited((f) => !f); }}>
+            <Ionicons name={favourited ? "star" : "star-outline"} size={24} color={favourited ? "#EAB308" : colors.foreground} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => { if (requireAuth()) return; setBookmarked((b) => !b); }}>
+            <Ionicons
+              name={bookmarked ? "bookmark" : "bookmark-outline"}
+              size={24}
+              color={bookmarked ? "#7C3AED" : colors.foreground}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {post.caption ? (
@@ -271,6 +286,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   leftActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  rightIcons: { flexDirection: "row", alignItems: "center", gap: 12 },
   actionBtn: { padding: 2 },
   actionCount: { fontSize: 13, fontFamily: "Poppins_500Medium", marginRight: 8 },
   captionContainer: { paddingHorizontal: 12, paddingBottom: 12, gap: 3 },

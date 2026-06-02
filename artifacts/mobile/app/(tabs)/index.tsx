@@ -10,6 +10,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -84,6 +85,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(reel.likes);
   const [saved, setSaved] = useState(false);
+  const [reposted, setReposted] = useState(false);
+  const [favourited, setFavourited] = useState(false);
   const [following, setFollowing] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -136,6 +139,19 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     if (!isLoggedIn) { onRequireLogin(); return; }
     setSaved((s) => !s);
     saveScale.value = withSequence(withSpring(1.3, { damping: 6 }), withSpring(1));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleRepost = () => {
+    if (!isLoggedIn) { onRequireLogin(); return; }
+    setReposted((r) => !r);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (!reposted) Alert.alert("Reposted! ↩", "Added to your profile reposts");
+  };
+
+  const handleFavourite = () => {
+    if (!isLoggedIn) { onRequireLogin(); return; }
+    setFavourited((f) => !f);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -204,6 +220,15 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           <Animated.View style={saveStyle}>
             <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={26} color={saved ? "#7C3AED" : "#fff"} />
           </Animated.View>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={handleRepost}>
+          <Ionicons name={reposted ? "repeat" : "repeat-outline"} size={26} color={reposted ? "#10B981" : "#fff"} />
+          <Text style={styles.actionCount}>{reposted ? formatCount(reel.shares + 1) : formatCount(reel.shares)}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.actionBtn} onPress={handleFavourite}>
+          <Ionicons name={favourited ? "star" : "star-outline"} size={26} color={favourited ? "#EAB308" : "#fff"} />
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.actionBtn}>
