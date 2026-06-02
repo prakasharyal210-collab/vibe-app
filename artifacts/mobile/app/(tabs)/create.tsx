@@ -201,7 +201,9 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
   const [newTextColor, setNewTextColor] = useState("#ffffff");
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timerScaleAnim = useRef(new Animated.Value(1)).current;
+  const [recordingTimeLeft, setRecordingTimeLeft] = useState<number | null>(null);
 
   const durationSecs: Record<string, number> = { "15s": 15, "30s": 30, "60s": 60, "3min": 180 };
   const hasPermission = camPermission?.granted;
@@ -254,16 +256,31 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
     }
     if (recording) {
       cameraRef.current?.stopRecording();
+      if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+      setRecordingTimeLeft(null);
       return;
     }
     await runTimerCountdown();
     setRecording(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    const maxDuration = durationSecs[selectedDuration] ?? 15;
+    setRecordingTimeLeft(maxDuration);
+    recordTimerRef.current = setInterval(() => {
+      setRecordingTimeLeft((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(recordTimerRef.current!);
+          recordTimerRef.current = null;
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     try {
-      const maxDuration = durationSecs[selectedDuration] ?? 15;
       const result = await cameraRef.current?.recordAsync({ maxDuration });
       if (result?.uri) setRecordedUri(result.uri);
     } catch {}
+    if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+    setRecordingTimeLeft(null);
     setRecording(false);
   };
 
@@ -332,8 +349,7 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
 
   return (
     <>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        <View style={[styles.viewfinder, { backgroundColor: "#000" }]}>
+      <View style={[styles.viewfinder, { backgroundColor: "#000" }]}>
           <View style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}>
             <CameraView
               ref={cameraRef}
@@ -398,6 +414,16 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
               </TouchableOpacity>
             ))}
           </View>
+
+          {recording && recordingTimeLeft !== null && (
+            <View style={styles.recordingTimerBar} pointerEvents="none">
+              <View style={styles.recordingDot} />
+              <Text style={styles.recordingTimeText}>{recordingTimeLeft}s</Text>
+              <View style={styles.recordingProgressTrack}>
+                <View style={[styles.recordingProgressFill, { width: `${(recordingTimeLeft / (durationSecs[selectedDuration] ?? 15)) * 100}%` as any }]} />
+              </View>
+            </View>
+          )}
 
           <View style={styles.captureModeRow}>
             <TouchableOpacity onPress={() => setCaptureMode("video")}
@@ -465,8 +491,9 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
               <Text style={styles.sideActionLabel}>Drafts</Text>
             </TouchableOpacity>
           </View>
-        </View>
+      </View>
 
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 120 }}>
         {showDrafts && (
           <View style={styles.draftsSection}>
             <View style={styles.draftsTitleRow}>
@@ -773,6 +800,11 @@ const styles = StyleSheet.create({
   toolBtn: { alignItems: "center", gap: 3, width: 52 },
   toolCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1 },
   toolLabel: { color: "#fff", fontSize: 9, fontFamily: "Poppins_500Medium", textAlign: "center" },
+  recordingTimerBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: "rgba(0,0,0,0.55)" },
+  recordingDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#EF4444" },
+  recordingTimeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13, minWidth: 28 },
+  recordingProgressTrack: { flex: 1, height: 4, backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 2, overflow: "hidden" },
+  recordingProgressFill: { height: 4, backgroundColor: "#EF4444", borderRadius: 2 },
   durationRow: { position: "absolute", top: 12, alignSelf: "center", flexDirection: "row", gap: 6 },
   durationPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.5)" },
   durationText: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Poppins_600SemiBold" },

@@ -1,0 +1,59 @@
+Please fix all these issues in the app:
+
+CRITICAL FIXES:
+
+1. VIDEO DURATION BUTTONS (15s, 30s, 60s, 3min):
+- They are not clickable/working
+- When user taps 60s it should switch to 60 second recording mode
+- Show a timer countdown while recording based on selected duration
+- The selected duration button should highlight in purple
+
+2. PROFILE - FULL SCREEN PHOTO VIEW:
+- When user taps any photo in the grid it should open full screen
+- Full screen view with pinch to zoom
+- Swipe left/right to see next/previous photos
+- Close button (X) to go back
+- Show caption and likes below the photo
+
+3. SETTINGS - ALL OPTIONS MUST BE TAPPABLE:
+- Username → opens edit screen to change username
+- Email → opens edit screen
+- Phone Number → opens edit screen to add/change phone
+- Password → opens change password screen
+- Switch Accounts → opens account switcher
+- Who can comment → opens options: Everyone/Friends/Nobody
+- Who can duet/remix → opens options: Everyone/Friends/Nobody
+- Who can message me → opens options: Everyone/Friends/Nobody
+- Liked videos → toggle public/private
+- Blocked Accounts → opens list of blocked users
+- Restricted Accounts → opens list
+- Screen Time Management → opens time limit picker
+- Text Size → opens size selector (Small/Medium/Large)
+- Display → opens display options
+- Language → opens language picker
+- Data & Storage → opens data settings
+- Clear Cache → shows confirmation dialog then clears
+- Terms of Service → opens web link
+- Privacy Policy → opens web link
+- Report a Problem → opens form
+- Log Out → shows confirmation dialog
+
+4. ICONS - Fix all broken icons showing as squares/boxes:
+- Replace ALL broken icons throughout the app
+- Use @expo/vector-icons (Ionicons, MaterialIcons, Feather)
+- Bottom tab bar icons: Reels, Feed, Create, Find Vibe, Profile
+- Settings icons all need to be fixed
+- Profile page icons (messages, share, add friend buttons)
+- Create screen tool icons
+- Every icon in the entire app must show properly
+
+5. FIND VIBE:
+- Swipe right animation should work smoothly
+- Swipe left animation should work smoothly
+- Show match animation when both users swipe right
+- Filter button should open filter options (age, distance, interests)
+
+6. GENERAL:
+- All buttons throughout the app must be touchable
+- Every navigation item must open the right screen
+- No dead buttons anywhere in the app

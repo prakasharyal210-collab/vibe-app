@@ -201,7 +201,7 @@ export function EffectsPickerSheet({
                 { icon: "person-circle-outline", label: "Big Head", sub: "Face magnify effect", badge: "📱 Mobile Only" },
                 { icon: "copy-outline", label: "Mirror", sub: "Horizontal mirror split", badge: null },
                 { icon: "flash-outline", label: "Glitch", sub: "Retro digital glitch", badge: null },
-                { icon: "blur", label: "Blur Background", sub: "Depth of field blur", badge: "📱 Mobile Only" },
+                { icon: "aperture-outline", label: "Blur Background", sub: "Depth of field blur", badge: "📱 Mobile Only" },
                 { icon: "color-filter-outline", label: "Green Screen", sub: "Replace background", badge: "📱 Mobile Only" },
               ].map((e) => (
                 <ToggleRow

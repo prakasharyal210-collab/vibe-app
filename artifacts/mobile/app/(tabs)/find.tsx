@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -196,23 +196,95 @@ function FilterModal({ visible, onClose, onApply }: { visible: boolean; onClose:
   );
 }
 
+function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }) {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.6);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, { duration: 350 });
+    scale.value = withSpring(1, { damping: 14, stiffness: 120 });
+    const t = setTimeout(onClose, 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const overlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const contentStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View style={[matchStyles.overlay, overlayStyle]}>
+      <Animated.View style={[matchStyles.content, contentStyle]}>
+        <Text style={matchStyles.heartEmoji}>💜</Text>
+        <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchStyles.badge}>
+          <Text style={matchStyles.badgeText}>It's a Vibe Match! ✨</Text>
+        </LinearGradient>
+        <View style={matchStyles.photos}>
+          <View style={matchStyles.photoWrap}>
+            <View style={matchStyles.photoCircle}>
+              <Image source={{ uri: "https://picsum.photos/seed/me/200/200" }} style={{ width: "100%", height: "100%" }} />
+            </View>
+            <Text style={matchStyles.photoName}>You</Text>
+          </View>
+          <Ionicons name="heart" size={28} color="#7C3AED" style={{ marginBottom: 24 }} />
+          <View style={matchStyles.photoWrap}>
+            <View style={[matchStyles.photoCircle, { borderColor: "#EA580C" }]}>
+              <Image source={{ uri: card.image }} style={{ width: "100%", height: "100%" }} />
+            </View>
+            <Text style={matchStyles.photoName}>{card.name}</Text>
+          </View>
+        </View>
+        {(card.matchInterests?.length ?? 0) > 0 && (
+          <Text style={matchStyles.matchSub}>You both vibe on {card.matchInterests!.slice(0, 2).join(" & ")} 🎯</Text>
+        )}
+        <TouchableOpacity onPress={onClose} style={matchStyles.messageBtn}>
+          <Text style={matchStyles.messageBtnText}>💬 Send Message</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClose} style={matchStyles.keepBtn}>
+          <Text style={matchStyles.keepBtnText}>Keep Swiping →</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+const matchStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center", zIndex: 100 },
+  content: { alignItems: "center", paddingHorizontal: 32 },
+  heartEmoji: { fontSize: 72, marginBottom: 16 },
+  badge: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 30, marginBottom: 28 },
+  badgeText: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold" },
+  photos: { flexDirection: "row", alignItems: "center", gap: 20, marginBottom: 16 },
+  photoWrap: { alignItems: "center", gap: 8 },
+  photoCircle: { width: 88, height: 88, borderRadius: 44, overflow: "hidden", borderWidth: 3, borderColor: "#7C3AED" },
+  photoName: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  matchSub: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", marginBottom: 28 },
+  messageBtn: { backgroundColor: "#7C3AED", paddingHorizontal: 40, paddingVertical: 14, borderRadius: 28, marginBottom: 12 },
+  messageBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
+  keepBtn: { paddingVertical: 8 },
+  keepBtnText: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+});
+
 function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
+  const [matchCard, setMatchCard] = useState<VibeCard | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
   const handleSwipe = (direction: "left" | "right") => {
+    const card = cards[currentIndex];
     const next = currentIndex + 1;
     setCurrentIndex(next);
     translateX.value = 0;
     translateY.value = 0;
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
-    if (direction === "right" && cards[currentIndex]) {
-      const card = cards[currentIndex];
+    if (direction === "right" && card) {
       if (userId) createVibeMatch(userId, card.id).catch(() => {});
-      setTimeout(() => Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${card?.name}`), 400);
+      if (Math.random() < 0.45) {
+        setTimeout(() => setMatchCard(card), 500);
+      } else {
+        setTimeout(() => Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${card.name}`), 400);
+      }
     }
   };
 
@@ -349,6 +421,8 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
           onSkip={() => { setProfileCard(null); setTimeout(() => handleSwipe("left"), 200); }}
         />
       )}
+
+      {matchCard && <MatchOverlay card={matchCard} onClose={() => setMatchCard(null)} />}
     </View>
   );
 }
