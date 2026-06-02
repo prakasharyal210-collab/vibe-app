@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -7,7 +8,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -73,6 +73,10 @@ export default function LiveScreen() {
   const { session } = useAuth();
   const username = session?.user?.email?.split("@")[0] ?? "you";
 
+  const [camPermission, requestCamPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const [facing, setFacing] = useState<"front" | "back">("front");
+
   const [viewers, setViewers] = useState(12);
   const [totalCoins, setTotalCoins] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -85,6 +89,14 @@ export default function LiveScreen() {
   const [streamId, setStreamId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const topInset = Platform.OS === "web" ? 16 : insets.top;
+
+  const hasPermission = camPermission?.granted;
+  const needsPermission = camPermission !== null && !hasPermission;
+
+  useEffect(() => {
+    requestCamPermission();
+    requestMicPermission();
+  }, []);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -141,9 +153,42 @@ export default function LiveScreen() {
     ]);
   };
 
+  if (needsPermission) {
+    return (
+      <View style={[styles.permContainer, { backgroundColor: "#0a0010" }]}>
+        <LinearGradient colors={["#7C3AED22", "#EA580C11"]} style={styles.permIconBg}>
+          <Ionicons name="videocam-outline" size={52} color="#7C3AED" />
+        </LinearGradient>
+        <Text style={styles.permTitle}>Camera Permission</Text>
+        <Text style={styles.permSub}>Allow camera and microphone access to go live</Text>
+        <TouchableOpacity
+          onPress={async () => { await requestCamPermission(); await requestMicPermission(); }}
+          style={styles.permBtn}>
+          <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.permBtnGrad}>
+            <Ionicons name="camera-outline" size={18} color="#fff" />
+            <Text style={styles.permBtnText}>Allow Camera & Mic</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={styles.permBack}>
+          <Text style={styles.permBackText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <Image source={{ uri: "https://picsum.photos/seed/live/450/900" }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      {hasPermission ? (
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+          flash="off"
+          mode="video"
+        />
+      ) : (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0a0010" }]} />
+      )}
+
       <LinearGradient colors={["rgba(0,0,0,0.55)", "transparent"]} style={[styles.topGrad, { height: 160 }]} />
       <LinearGradient colors={["transparent", "rgba(0,0,0,0.85)"]} style={[styles.bottomGrad, { height: 400 }]} />
 
@@ -161,6 +206,9 @@ export default function LiveScreen() {
           <Ionicons name="eye" size={14} color="#fff" />
           <Text style={styles.viewersText}>{viewers.toLocaleString()}</Text>
         </View>
+        <TouchableOpacity style={styles.flipBtn} onPress={() => setFacing((f) => f === "front" ? "back" : "front")}>
+          <Ionicons name="camera-reverse-outline" size={20} color="#fff" />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.shareBtn} onPress={() => Alert.alert("Shared!", "Live shared to your followers")}>
           <Ionicons name="share-social-outline" size={20} color="#fff" />
         </TouchableOpacity>
@@ -257,9 +305,18 @@ export default function LiveScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
+  permContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 16 },
+  permIconBg: { width: 96, height: 96, borderRadius: 48, alignItems: "center", justifyContent: "center" },
+  permTitle: { color: "#fff", fontSize: 22, fontFamily: "Poppins_700Bold", textAlign: "center" },
+  permSub: { color: "rgba(255,255,255,0.6)", fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 22 },
+  permBtn: { borderRadius: 16, overflow: "hidden", marginTop: 8 },
+  permBtnGrad: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 28, paddingVertical: 14 },
+  permBtnText: { color: "#fff", fontSize: 16, fontFamily: "Poppins_700Bold" },
+  permBack: { paddingVertical: 12 },
+  permBackText: { color: "rgba(255,255,255,0.5)", fontSize: 14, fontFamily: "Poppins_500Medium" },
   topGrad: { position: "absolute", top: 0, left: 0, right: 0 },
   bottomGrad: { position: "absolute", bottom: 0, left: 0, right: 0 },
-  topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 10 },
+  topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8 },
   closeBtn: { padding: 4 },
   liveBadgeRow: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
   liveBadge: { backgroundColor: "#EF4444", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
@@ -267,6 +324,7 @@ const styles = StyleSheet.create({
   timerText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_600SemiBold" },
   viewersRow: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   viewersText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  flipBtn: { padding: 6, backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 20 },
   shareBtn: { padding: 6, backgroundColor: "rgba(0,0,0,0.35)", borderRadius: 20 },
   coinsBar: { position: "absolute", right: 14, left: 14 },
   coinsGrad: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },

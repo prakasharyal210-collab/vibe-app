@@ -1,9 +1,10 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -146,30 +147,140 @@ function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
 }
 
 function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
-  const [selectedCategory, setSelectedCategory] = useState("For You");
+  const [camPermission, requestCamPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
+  const [facing, setFacing] = useState<"front" | "back">("back");
+  const [flashMode, setFlashMode] = useState<"off" | "on" | "auto">("off");
   const [recording, setRecording] = useState(false);
+  const [captureMode, setCaptureMode] = useState<"video" | "photo">("video");
+  const [recordedUri, setRecordedUri] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState("For You");
   const [showDrafts, setShowDrafts] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState("15s");
+  const cameraRef = useRef<CameraView>(null);
   const TEMPLATE_W = (W - 48) / 3;
 
-  const handleRecord = () => {
+  const durationSecs: Record<string, number> = { "15s": 15, "30s": 30, "60s": 60, "3min": 180 };
+
+  const hasPermission = camPermission?.granted;
+  const needsPermission = camPermission !== null && !hasPermission;
+
+  const handleRequestPermissions = async () => {
+    await requestCamPermission();
+    await requestMicPermission();
+  };
+
+  const handleRecordToggle = async () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    if (!recording) {
-      setRecording(true);
+    if (captureMode === "photo") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      try {
+        const photo = await cameraRef.current?.takePictureAsync({ quality: 0.85, skipProcessing: false });
+        if (photo?.uri) setRecordedUri(photo.uri);
+      } catch (e) {
+        Alert.alert("Photo failed", "Could not capture photo. Try again.");
+      }
+      return;
+    }
+    if (recording) {
+      cameraRef.current?.stopRecording();
     } else {
+      setRecording(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      try {
+        const maxDuration = durationSecs[selectedDuration] ?? 15;
+        const result = await cameraRef.current?.recordAsync({ maxDuration });
+        if (result?.uri) setRecordedUri(result.uri);
+      } catch (e) {}
       setRecording(false);
-      Alert.alert("Reel Recorded! 🎬", "Add music, text, and effects.", [
-        { text: "Discard", style: "destructive" },
-        { text: "Post Reel", onPress: () => Alert.alert("Posted! 🔥", "Your reel is now live") },
-      ]);
     }
   };
 
+  const cycleFlash = () => {
+    setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
+  };
+
+  const flashIcon = flashMode === "off" ? "flash-off-outline" : flashMode === "on" ? "flash-outline" : "flash-outline";
+  const flashColor = flashMode === "off" ? "rgba(255,255,255,0.6)" : flashMode === "on" ? "#EAB308" : "#60A5FA";
+
+  if (camPermission === null) {
+    return (
+      <View style={[styles.permContainer, { backgroundColor: colors.background }]}>
+        <Ionicons name="camera-outline" size={48} color={colors.mutedForeground} />
+        <Text style={[styles.permTitle, { color: colors.foreground }]}>Loading camera…</Text>
+      </View>
+    );
+  }
+
+  if (needsPermission) {
+    return (
+      <View style={[styles.permContainer, { backgroundColor: colors.background }]}>
+        <LinearGradient colors={["#7C3AED22", "#EA580C11"]} style={styles.permIconBg}>
+          <Ionicons name="camera-outline" size={52} color="#7C3AED" />
+        </LinearGradient>
+        <Text style={[styles.permTitle, { color: colors.foreground }]}>Camera Access</Text>
+        <Text style={[styles.permSub, { color: colors.mutedForeground }]}>
+          Allow camera and microphone to record videos and take photos
+        </Text>
+        <GradientButton onPress={handleRequestPermissions} title="Allow Camera & Mic" style={{ width: 240, marginTop: 8 }} />
+      </View>
+    );
+  }
+
+  if (recordedUri) {
+    const isPhoto = captureMode === "photo";
+    return (
+      <View style={[styles.previewWrap, { backgroundColor: "#000" }]}>
+        <Image source={{ uri: recordedUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+        <View style={styles.previewTop}>
+          <TouchableOpacity onPress={() => setRecordedUri(null)} style={styles.previewBtn}>
+            <Ionicons name="close" size={22} color="#fff" />
+            <Text style={styles.previewBtnText}>Discard</Text>
+          </TouchableOpacity>
+          <Text style={styles.previewTitle}>{isPhoto ? "Photo Preview" : "Video Preview"}</Text>
+          <TouchableOpacity
+            onPress={() => {
+              setRecordedUri(null);
+              Alert.alert("Posted! 🔥", "Your " + (isPhoto ? "photo" : "reel") + " is now live on Vibe");
+            }}
+            style={styles.previewPostBtn}>
+            <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.previewPostGrad}>
+              <Text style={styles.previewPostText}>Post</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.previewActions}>
+          <TouchableOpacity onPress={() => Alert.alert("Music", "Add music coming soon")} style={styles.previewAction}>
+            <Ionicons name="musical-notes" size={22} color="#fff" />
+            <Text style={styles.previewActionLabel}>Music</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Alert.alert("Text", "Add text coming soon")} style={styles.previewAction}>
+            <Ionicons name="text-outline" size={22} color="#fff" />
+            <Text style={styles.previewActionLabel}>Text</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Alert.alert("Filters", "Filters coming soon")} style={styles.previewAction}>
+            <Ionicons name="color-filter-outline" size={22} color="#fff" />
+            <Text style={styles.previewActionLabel}>Filter</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => Alert.alert("Stickers", "Stickers coming soon")} style={styles.previewAction}>
+            <Ionicons name="happy-outline" size={22} color="#fff" />
+            <Text style={styles.previewActionLabel}>Stickers</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-      <View style={[styles.viewfinder, { backgroundColor: "#111" }]}>
-        <Image source={{ uri: "https://picsum.photos/seed/camera42/450/300" }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <View style={[styles.viewfinder, { backgroundColor: "#000" }]}>
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+          flash={flashMode}
+          mode="video"
+        />
         <LinearGradient colors={["rgba(0,0,0,0.3)", "transparent", "rgba(0,0,0,0.4)"]} style={StyleSheet.absoluteFill} />
 
         <View style={styles.toolsOverlay}>
@@ -192,27 +303,51 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
           ))}
         </View>
 
-        <TouchableOpacity onPress={handleRecord} style={[styles.recordBtnWrap, recording && { borderColor: "#EF4444" }]}>
+        <View style={styles.captureModeRow}>
+          <TouchableOpacity onPress={() => setCaptureMode("video")}
+            style={[styles.captureModePill, captureMode === "video" && { backgroundColor: "rgba(124,58,237,0.7)" }]}>
+            <Ionicons name="videocam-outline" size={14} color="#fff" />
+            <Text style={styles.captureModePillText}>Video</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setCaptureMode("photo")}
+            style={[styles.captureModePill, captureMode === "photo" && { backgroundColor: "rgba(124,58,237,0.7)" }]}>
+            <Ionicons name="camera-outline" size={14} color="#fff" />
+            <Text style={styles.captureModePillText}>Photo</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity onPress={handleRecordToggle}
+          style={[styles.recordBtnWrap, recording && { borderColor: "#EF4444" }]}>
           {recording ? (
             <View style={[styles.recordBtn, { backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" }]}>
               <View style={styles.recordSquare} />
             </View>
+          ) : captureMode === "photo" ? (
+            <View style={[styles.recordBtn, { backgroundColor: "#fff" }]} />
           ) : (
             <LinearGradient colors={["#7C3AED", "#EA580C"]} style={styles.recordBtn} />
           )}
         </TouchableOpacity>
 
         <View style={styles.viewfinderSideActions}>
-          {[
-            { icon: "musical-notes", label: "Music" },
-            { icon: "sparkles", label: "Effects" },
-            { icon: "text", label: "Text" },
-          ].map((a) => (
-            <TouchableOpacity key={a.label} style={styles.sideActionBtn} onPress={() => Alert.alert(a.label, `${a.label} tool coming soon`)}>
-              <Ionicons name={a.icon as any} size={22} color="#fff" />
-              <Text style={styles.sideActionLabel}>{a.label}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity style={styles.sideActionBtn} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
+            <Ionicons name="camera-reverse-outline" size={24} color="#fff" />
+            <Text style={styles.sideActionLabel}>Flip</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sideActionBtn} onPress={cycleFlash}>
+            <Ionicons name={flashIcon as any} size={24} color={flashColor} />
+            <Text style={[styles.sideActionLabel, { color: flashColor }]}>
+              {flashMode === "off" ? "Flash" : flashMode === "on" ? "Flash On" : "Auto"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity key="music" style={styles.sideActionBtn} onPress={() => Alert.alert("Music", "Music tool coming soon")}>
+            <Ionicons name="musical-notes" size={22} color="#fff" />
+            <Text style={styles.sideActionLabel}>Music</Text>
+          </TouchableOpacity>
+          <TouchableOpacity key="effects" style={styles.sideActionBtn} onPress={() => Alert.alert("Effects", "Effects tool coming soon")}>
+            <Ionicons name="sparkles-outline" size={22} color="#fff" />
+            <Text style={styles.sideActionLabel}>Effects</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowDrafts((s) => !s)}>
             <Ionicons name="document-text" size={22} color="#fff" />
             <Text style={styles.sideActionLabel}>Drafts</Text>
@@ -281,6 +416,12 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
 }
 
 function LiveMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+  const [camPermission, requestCamPermission] = useCameraPermissions();
+  const [facing, setFacing] = useState<"front" | "back">("front");
+
+  const hasPermission = camPermission?.granted;
+  const needsPermission = camPermission !== null && !hasPermission;
+
   const LIVE_OPTIONS = [
     { icon: "text-outline", label: "Add Title", sub: "Let viewers know what's happening", color: "#7C3AED" },
     { icon: "people-outline", label: "Audience", sub: "Everyone", color: "#3B82F6" },
@@ -291,15 +432,29 @@ function LiveMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 16 }}>
       <View style={styles.livePreview}>
-        <Image source={{ uri: "https://picsum.photos/seed/livesetup9/450/250" }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <LinearGradient colors={["rgba(0,0,0,0.5)", "rgba(0,0,0,0.3)"]} style={StyleSheet.absoluteFill} />
+        {hasPermission ? (
+          <CameraView style={StyleSheet.absoluteFill} facing={facing} flash="off" />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#1a0533", alignItems: "center", justifyContent: "center" }]}>
+            {needsPermission ? (
+              <TouchableOpacity onPress={requestCamPermission} style={styles.liveCamPermBtn}>
+                <Ionicons name="camera-outline" size={28} color="#fff" />
+                <Text style={styles.liveCamPermText}>Allow Camera</Text>
+              </TouchableOpacity>
+            ) : (
+              <Ionicons name="camera-outline" size={36} color="rgba(255,255,255,0.3)" />
+            )}
+          </View>
+        )}
+        <LinearGradient colors={["rgba(0,0,0,0.4)", "transparent"]} style={StyleSheet.absoluteFill} />
         <View style={styles.liveBadge}>
           <Text style={styles.liveBadgeText}>LIVE</Text>
         </View>
-        <View style={{ alignItems: "center", gap: 8 }}>
-          <Ionicons name="videocam" size={40} color="#fff" />
-          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 14, fontFamily: "Poppins_400Regular" }}>Camera Preview</Text>
-        </View>
+        {hasPermission && (
+          <TouchableOpacity onPress={() => setFacing((f) => f === "front" ? "back" : "front")} style={styles.liveFlipBtn}>
+            <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <Text style={[styles.liveSetupTitle, { color: colors.foreground }]}>Go Live Setup</Text>
@@ -419,7 +574,11 @@ const styles = StyleSheet.create({
   postActions: { flexDirection: "row", gap: 10, paddingBottom: 16 },
   draftBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
   draftBtnText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
-  viewfinder: { height: H * 0.34, position: "relative" },
+  permContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 16 },
+  permIconBg: { width: 96, height: 96, borderRadius: 48, alignItems: "center", justifyContent: "center" },
+  permTitle: { fontSize: 20, fontFamily: "Poppins_700Bold", textAlign: "center" },
+  permSub: { fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 22 },
+  viewfinder: { height: H * 0.44, position: "relative", overflow: "hidden" },
   toolsOverlay: { position: "absolute", left: 12, top: 12, gap: 10 },
   toolBtn: { alignItems: "center", gap: 3, width: 52 },
   toolCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", borderWidth: 1 },
@@ -427,12 +586,26 @@ const styles = StyleSheet.create({
   durationRow: { position: "absolute", top: 12, alignSelf: "center", flexDirection: "row", gap: 6 },
   durationPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.5)" },
   durationText: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
-  recordBtnWrap: { position: "absolute", bottom: 20, alignSelf: "center", width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
+  captureModeRow: { position: "absolute", bottom: 26, left: 0, right: 0, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
+  captureModePill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(0,0,0,0.4)" },
+  captureModePillText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  recordBtnWrap: { position: "absolute", bottom: 70, alignSelf: "center", width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
   recordBtn: { width: 58, height: 58, borderRadius: 29 },
   recordSquare: { width: 22, height: 22, borderRadius: 4, backgroundColor: "#fff" },
-  viewfinderSideActions: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center", gap: 16 },
+  viewfinderSideActions: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center", gap: 18 },
   sideActionBtn: { alignItems: "center", gap: 2 },
-  sideActionLabel: { color: "#fff", fontSize: 9, fontFamily: "Poppins_400Regular" },
+  sideActionLabel: { color: "rgba(255,255,255,0.85)", fontSize: 9, fontFamily: "Poppins_400Regular" },
+  previewWrap: { flex: 1, minHeight: H * 0.6 },
+  previewTop: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
+  previewBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16 },
+  previewBtnText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  previewTitle: { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
+  previewPostBtn: { borderRadius: 16, overflow: "hidden" },
+  previewPostGrad: { paddingHorizontal: 18, paddingVertical: 8 },
+  previewPostText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_700Bold" },
+  previewActions: { position: "absolute", bottom: 40, left: 0, right: 0, flexDirection: "row", justifyContent: "space-evenly" },
+  previewAction: { alignItems: "center", gap: 4 },
+  previewActionLabel: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium" },
   draftsSection: { paddingTop: 16, paddingBottom: 4 },
   draftsTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 10 },
   draftsTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },
@@ -448,9 +621,12 @@ const styles = StyleSheet.create({
   templateInfo: { position: "absolute", bottom: 6, left: 6, right: 6 },
   templateLabel: { color: "#fff", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
   templateDuration: { color: "rgba(255,255,255,0.7)", fontSize: 10 },
-  livePreview: { height: 200, position: "relative", alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  livePreview: { height: 220, position: "relative", alignItems: "center", justifyContent: "center", borderRadius: 16, overflow: "hidden", marginBottom: 4 },
+  liveCamPermBtn: { alignItems: "center", gap: 8, backgroundColor: "rgba(124,58,237,0.6)", paddingHorizontal: 24, paddingVertical: 14, borderRadius: 16 },
+  liveCamPermText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_600SemiBold" },
   liveBadge: { position: "absolute", top: 14, left: 14, backgroundColor: "#EF4444", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
   liveBadgeText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold", letterSpacing: 1 },
+  liveFlipBtn: { position: "absolute", top: 14, right: 14, backgroundColor: "rgba(0,0,0,0.4)", padding: 8, borderRadius: 20 },
   liveSetupTitle: { fontSize: 18, fontFamily: "Poppins_700Bold", marginTop: 18, marginBottom: 14 },
   liveSetupOptions: { borderRadius: 14, overflow: "hidden", borderWidth: 1, marginBottom: 16 },
   liveOptionRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 14, gap: 12, borderBottomWidth: 0.5 },
