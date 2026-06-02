@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -17,6 +17,7 @@ import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { fetchUnreadCount } from "@/lib/db";
 import { MOCK_POSTS, MOCK_STORIES, Post, supabase } from "@/lib/supabase";
 
 export default function FeedScreen() {
@@ -28,6 +29,12 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(3);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchUnreadCount(session.user.id).then(setUnreadCount).catch(() => {});
+  }, [session?.user?.id]);
 
   const fetchPosts = useCallback(async () => {
     try {
@@ -56,7 +63,7 @@ export default function FeedScreen() {
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconBtn} onPress={() => router.push("/notifications")}>
             <Ionicons name="notifications-outline" size={24} color={colors.foreground} />
-            <View style={styles.notifDot} />
+            {unreadCount > 0 && <View style={styles.notifDot} />}
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconBtn} onPress={() => !isLoggedIn ? setShowLoginPrompt(true) : router.push("/inbox")}>
             <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />

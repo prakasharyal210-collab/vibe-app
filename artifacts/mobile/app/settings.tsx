@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Platform,
@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
+import { fetchUserSettings, saveUserSettings, UserSettings } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 
 interface SettingRowProps {
@@ -82,6 +83,27 @@ export default function SettingsScreen() {
   const [restrictedMode, setRestrictedMode] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
 
+  const persistSetting = useCallback((patch: Partial<UserSettings>) => {
+    if (!session?.user?.id) return;
+    saveUserSettings(session.user.id, patch);
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchUserSettings(session.user.id).then((s) => {
+      setPrivateAccount(s.private_account);
+      setCommentPermission(s.comment_permission);
+      setMessagePermission(s.message_permission);
+      setDuetPermission(s.duet_permission);
+      setLikedPrivate(s.liked_private);
+      setNotifLikes(s.notif_likes);
+      setNotifComments(s.notif_comments);
+      setNotifFollows(s.notif_follows);
+      setNotifLive(s.notif_live);
+      setNotifMentions(s.notif_mentions);
+    }).catch(() => {});
+  }, [session?.user?.id]);
+
   const cyclePermission = (current: "everyone" | "friends" | "nobody") => {
     if (current === "everyone") return "friends";
     if (current === "friends") return "nobody";
@@ -133,22 +155,22 @@ export default function SettingsScreen() {
 
         <SectionHeader label="PRIVACY" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="lock-closed-outline" label="Private Account" sub={privateAccount ? "Only followers can see your content" : "Anyone can see your content"} value={privateAccount} onToggle={setPrivateAccount} colors={colors} />
-          <SettingRow icon="chatbubble-outline" label="Who can comment" sub={commentPermission.charAt(0).toUpperCase() + commentPermission.slice(1)} onPress={() => setCommentPermission(cyclePermission(commentPermission))} colors={colors} />
-          <SettingRow icon="repeat-outline" label="Who can duet/remix" sub={duetPermission ? "Everyone" : "Nobody"} value={duetPermission} onToggle={setDuetPermission} colors={colors} />
-          <SettingRow icon="paper-plane-outline" label="Who can message me" sub={messagePermission.charAt(0).toUpperCase() + messagePermission.slice(1)} onPress={() => setMessagePermission(cyclePermission(messagePermission))} colors={colors} />
-          <SettingRow icon="heart-outline" label="Liked videos" sub={likedPrivate ? "Only you" : "Public"} value={likedPrivate} onToggle={setLikedPrivate} colors={colors} />
+          <SettingRow icon="lock-closed-outline" label="Private Account" sub={privateAccount ? "Only followers can see your content" : "Anyone can see your content"} value={privateAccount} onToggle={(v) => { setPrivateAccount(v); persistSetting({ private_account: v }); }} colors={colors} />
+          <SettingRow icon="chatbubble-outline" label="Who can comment" sub={commentPermission.charAt(0).toUpperCase() + commentPermission.slice(1)} onPress={() => { const v = cyclePermission(commentPermission); setCommentPermission(v); persistSetting({ comment_permission: v }); }} colors={colors} />
+          <SettingRow icon="repeat-outline" label="Who can duet/remix" sub={duetPermission ? "Everyone" : "Nobody"} value={duetPermission} onToggle={(v) => { setDuetPermission(v); persistSetting({ duet_permission: v }); }} colors={colors} />
+          <SettingRow icon="paper-plane-outline" label="Who can message me" sub={messagePermission.charAt(0).toUpperCase() + messagePermission.slice(1)} onPress={() => { const v = cyclePermission(messagePermission); setMessagePermission(v); persistSetting({ message_permission: v }); }} colors={colors} />
+          <SettingRow icon="heart-outline" label="Liked videos" sub={likedPrivate ? "Only you" : "Public"} value={likedPrivate} onToggle={(v) => { setLikedPrivate(v); persistSetting({ liked_private: v }); }} colors={colors} />
           <SettingRow icon="ban-outline" label="Blocked Accounts" onPress={() => Alert.alert("Blocked Accounts", "No accounts blocked")} colors={colors} />
           <SettingRow icon="eye-off-outline" label="Restricted Accounts" onPress={() => Alert.alert("Restricted Accounts", "No restricted accounts")} colors={colors} />
         </View>
 
         <SectionHeader label="NOTIFICATIONS" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="heart-outline" label="Likes" value={notifLikes} onToggle={setNotifLikes} colors={colors} />
-          <SettingRow icon="chatbubble-outline" label="Comments" value={notifComments} onToggle={setNotifComments} colors={colors} />
-          <SettingRow icon="person-add-outline" label="New Followers" value={notifFollows} onToggle={setNotifFollows} colors={colors} />
-          <SettingRow icon="radio-outline" label="Live Streams" value={notifLive} onToggle={setNotifLive} colors={colors} />
-          <SettingRow icon="at-outline" label="Mentions" value={notifMentions} onToggle={setNotifMentions} colors={colors} />
+          <SettingRow icon="heart-outline" label="Likes" value={notifLikes} onToggle={(v) => { setNotifLikes(v); persistSetting({ notif_likes: v }); }} colors={colors} />
+          <SettingRow icon="chatbubble-outline" label="Comments" value={notifComments} onToggle={(v) => { setNotifComments(v); persistSetting({ notif_comments: v }); }} colors={colors} />
+          <SettingRow icon="person-add-outline" label="New Followers" value={notifFollows} onToggle={(v) => { setNotifFollows(v); persistSetting({ notif_follows: v }); }} colors={colors} />
+          <SettingRow icon="radio-outline" label="Live Streams" value={notifLive} onToggle={(v) => { setNotifLive(v); persistSetting({ notif_live: v }); }} colors={colors} />
+          <SettingRow icon="at-outline" label="Mentions" value={notifMentions} onToggle={(v) => { setNotifMentions(v); persistSetting({ notif_mentions: v }); }} colors={colors} />
         </View>
 
         <SectionHeader label="DIGITAL WELLBEING" colors={colors} />

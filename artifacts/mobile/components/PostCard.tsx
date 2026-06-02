@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -25,6 +25,8 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { useColors } from "@/hooks/useColors";
 import { Post, timeAgo } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
+import { useAuth } from "@/context/AuthContext";
+import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -36,6 +38,15 @@ interface PostCardProps {
 
 export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardProps) {
   const colors = useColors();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+
+  useEffect(() => {
+    if (!userId) return;
+    checkLiked(post.id, userId).then(setLiked).catch(() => {});
+    checkReposted(post.id, userId).then(setReposted).catch(() => {});
+    checkFavourited(post.id, userId).then(setBookmarked).catch(() => {});
+  }, [post.id, userId]);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
   const [bookmarked, setBookmarked] = useState(false);
@@ -62,6 +73,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
     setLikesCount((c) => (nowLiked ? c + 1 : c - 1));
     heartScale.value = withSequence(withSpring(1.4, { damping: 6 }), withSpring(1));
     if (nowLiked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (userId) toggleLike(post.id, userId, nowLiked);
   };
 
   const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
@@ -174,8 +186,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => {
             if (requireAuth()) return;
-            setReposted((r) => !r);
-            if (!reposted) Alert.alert("Reposted! ↩", "Added to your profile reposts");
+            const nowR = !reposted;
+            setReposted(nowR);
+            if (userId) toggleRepost(post.id, userId, nowR);
+            if (nowR) Alert.alert("Reposted! ↩", "Added to your profile reposts");
           }}>
             <Ionicons name={reposted ? "repeat" : "repeat-outline"} size={24} color={reposted ? "#10B981" : colors.foreground} />
           </TouchableOpacity>
@@ -184,7 +198,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
           <TouchableOpacity onPress={() => { if (requireAuth()) return; setFavourited((f) => !f); }}>
             <Ionicons name={favourited ? "star" : "star-outline"} size={24} color={favourited ? "#EAB308" : colors.foreground} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => { if (requireAuth()) return; setBookmarked((b) => !b); }}>
+          <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowB = !bookmarked; setBookmarked(nowB); if (userId) toggleFavourite(post.id, userId, nowB); }}>
             <Ionicons
               name={bookmarked ? "bookmark" : "bookmark-outline"}
               size={24}

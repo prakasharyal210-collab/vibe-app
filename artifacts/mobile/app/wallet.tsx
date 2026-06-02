@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -14,6 +14,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientButton } from "@/components/GradientButton";
+import { fetchWallet, fetchWalletTransactions, WalletTransaction } from "@/lib/db";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W } = Dimensions.get("window");
@@ -49,9 +51,18 @@ const EARNING_SOURCES = [
 export default function WalletScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const [totalCoins] = useState(1846);
+  const [totalCoins, setTotalCoins] = useState(1846);
+  const [dbTransactions, setDbTransactions] = useState<WalletTransaction[]>([]);
   const usdValue = (totalCoins * 0.01).toFixed(2);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const uid = session.user.id;
+    fetchWallet(uid).then((w) => setTotalCoins(w.coins)).catch(() => {});
+    fetchWalletTransactions(uid).then((ts) => { if (ts.length > 0) setDbTransactions(ts); }).catch(() => {});
+  }, [session?.user?.id]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -143,7 +154,7 @@ export default function WalletScreen() {
         <View style={[styles.section, { paddingHorizontal: 16 }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Recent Transactions</Text>
           <View style={[styles.transactionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {TRANSACTIONS.map((t, i) => (
+            {(dbTransactions.length > 0 ? dbTransactions : TRANSACTIONS).map((t, i) => (
               <View key={t.id} style={[styles.txRow, i < TRANSACTIONS.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
                 <View style={[styles.txIcon, { backgroundColor: colors.muted }]}>
                   <Text style={{ fontSize: 18 }}>{t.icon}</Text>

@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
+import { createLiveStream, endLiveStream } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -81,8 +82,14 @@ export default function LiveScreen() {
   ]);
   const [showGifts, setShowGifts] = useState(false);
   const [floatingGifts, setFloatingGifts] = useState<{ id: string; icon: string; y: Animated.Value }[]>([]);
+  const [streamId, setStreamId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const topInset = Platform.OS === "web" ? 16 : insets.top;
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    createLiveStream(session.user.id, "Live Stream").then(setStreamId).catch(() => {});
+  }, []);
 
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -125,7 +132,12 @@ export default function LiveScreen() {
   const endLive = () => {
     Alert.alert("End Live?", `You went live for ${formatTime(elapsed)} and earned ${totalCoins} coins!`, [
       { text: "Keep Going" },
-      { text: "End Live", style: "destructive", onPress: () => router.back() },
+      {
+        text: "End Live", style: "destructive", onPress: () => {
+          if (streamId) endLiveStream(streamId, viewers, totalCoins).catch(() => {});
+          router.back();
+        },
+      },
     ]);
   };
 

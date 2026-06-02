@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Image,
@@ -15,7 +15,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
+import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/db";
 import { MOCK_NOTIFICATIONS, Notification } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 const TYPE_CONFIG = {
   like: { icon: "heart", color: "#F97316", bg: "rgba(249,115,22,0.15)" },
@@ -77,15 +79,23 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
 export default function NotificationsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchNotifications(session.user.id).then(setNotifications).catch(() => {});
+  }, [session?.user?.id]);
+
   const markRead = (id: string) => {
     setNotifications((n) => n.map((item) => (item.id === id ? { ...item, read: true } : item)));
+    markNotificationRead(id);
   };
 
   const markAllRead = () => {
     setNotifications((n) => n.map((item) => ({ ...item, read: true })));
+    if (session?.user?.id) markAllNotificationsRead(session.user.id);
   };
 
   const today = notifications.filter((n) => ["2m", "15m", "1h", "2h", "3h", "5h"].includes(n.time));

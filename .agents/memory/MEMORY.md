@@ -1,2 +1,3 @@
 - [Vibe app architecture](vibe-app.md) — Supabase auth + mock data fallback; always-dark theme forced in useColors.ts
 - [expo-clipboard version](expo-clipboard-version.md) — wrong version (56.x) conflicts; expo-clipboard expected version ~8.0.8 for current SDK
+- [Vibe DB integration pattern](vibe-db-integration.md) — lib/db.ts is the central data layer; all Supabase calls go through it with graceful mock fallbacks on error/empty.

@@ -25,6 +25,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { createVibeMatch } from "@/lib/db";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { useAuth } from "@/context/AuthContext";
@@ -195,7 +196,7 @@ function FilterModal({ visible, onClose, onApply }: { visible: boolean; onClose:
   );
 }
 
-function SwipeCardDeck({ cards, onRequireLogin }: { cards: VibeCard[]; onRequireLogin: () => void }) {
+function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
@@ -209,7 +210,9 @@ function SwipeCardDeck({ cards, onRequireLogin }: { cards: VibeCard[]; onRequire
     translateY.value = 0;
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
     if (direction === "right" && cards[currentIndex]) {
-      setTimeout(() => Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${cards[currentIndex]?.name}`), 400);
+      const card = cards[currentIndex];
+      if (userId) createVibeMatch(userId, card.id).catch(() => {});
+      setTimeout(() => Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${card?.name}`), 400);
     }
   };
 
@@ -402,7 +405,7 @@ export default function FindVibeScreen() {
         ))}
       </View>
 
-      <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} />
+      <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} />
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
       <FilterModal visible={showFilter} onClose={() => setShowFilter(false)} onApply={() => {}} />

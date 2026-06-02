@@ -37,6 +37,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
+import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -82,11 +83,20 @@ interface ReelItemProps {
 }
 
 function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soundOn }: ReelItemProps) {
+  const { session } = useAuth();
+  const userId = session?.user?.id;
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(reel.likes);
   const [saved, setSaved] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [favourited, setFavourited] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    checkLiked(reel.id, userId).then(setLiked).catch(() => {});
+    checkReposted(reel.id, userId).then(setReposted).catch(() => {});
+    checkFavourited(reel.id, userId).then((v) => { setSaved(v); setFavourited(v); }).catch(() => {});
+  }, [reel.id, userId]);
   const [following, setFollowing] = useState(false);
   const [showHeart, setShowHeart] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -133,26 +143,33 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     setLiked(nowLiked);
     setLikes((l) => (nowLiked ? l + 1 : l - 1));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (userId) toggleLike(reel.id, userId, nowLiked);
   };
 
   const handleSave = () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
-    setSaved((s) => !s);
+    const nowSaved = !saved;
+    setSaved(nowSaved);
     saveScale.value = withSequence(withSpring(1.3, { damping: 6 }), withSpring(1));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (userId) toggleFavourite(reel.id, userId, nowSaved);
   };
 
   const handleRepost = () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
-    setReposted((r) => !r);
+    const nowR = !reposted;
+    setReposted(nowR);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (!reposted) Alert.alert("Reposted! ↩", "Added to your profile reposts");
+    if (userId) toggleRepost(reel.id, userId, nowR);
+    if (nowR) Alert.alert("Reposted! ↩", "Added to your profile reposts");
   };
 
   const handleFavourite = () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
-    setFavourited((f) => !f);
+    const nowF = !favourited;
+    setFavourited(nowF);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (userId) toggleFavourite(reel.id, userId, nowF);
   };
 
   const handleFollow = () => {

@@ -19,6 +19,7 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
+import { fetchFavouritedPosts, fetchLikedPosts, fetchRepostedPosts } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 import { MOCK_HIGHLIGHTS, Profile, supabase } from "@/lib/supabase";
 
@@ -109,9 +110,23 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile>(MOCK_PROFILE);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
+  const [likedPosts, setLikedPosts] = useState<Array<{ id: string; image_url: string; isReel?: boolean }>>([]);
+  const [savedPosts, setSavedPosts] = useState<Array<{ id: string; image_url: string; isReel?: boolean }>>([]);
+  const [repostedPosts, setRepostedPosts] = useState<Array<{ id: string; image_url: string; isReel?: boolean }>>([]);
+  const [tabLoaded, setTabLoaded] = useState<Set<string>>(new Set(["posts", "reels"]));
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
+
+  useEffect(() => {
+    if (!session?.user?.id || tabLoaded.has(activeTab)) return;
+    const uid = session.user.id;
+    setTabLoaded((s) => new Set([...s, activeTab]));
+    const mapPost = (p: any) => ({ id: p.id, image_url: p.image_url, isReel: !!p.is_reel });
+    if (activeTab === "liked") fetchLikedPosts(uid).then((ps) => { if (ps.length) setLikedPosts(ps.map(mapPost)); }).catch(() => {});
+    if (activeTab === "saved") fetchFavouritedPosts(uid).then((ps) => { if (ps.length) setSavedPosts(ps.map(mapPost)); }).catch(() => {});
+    if (activeTab === "reposts") fetchRepostedPosts(uid).then((ps) => { if (ps.length) setRepostedPosts(ps.map(mapPost)); }).catch(() => {});
+  }, [activeTab, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -234,12 +249,12 @@ export default function ProfileScreen() {
     </View>
   );
 
-  const gridData =
+  const gridData: Array<{ id: string; image_url: string; isReel?: boolean }> =
     activeTab === "posts" ? MOCK_GRID :
     activeTab === "reels" ? MOCK_REELS_GRID :
-    activeTab === "liked" ? MOCK_LIKED_GRID :
-    activeTab === "saved" ? MOCK_SAVED_GRID :
-    MOCK_REPOSTS_GRID;
+    activeTab === "liked" ? (likedPosts.length > 0 ? likedPosts : MOCK_LIKED_GRID) :
+    activeTab === "saved" ? (savedPosts.length > 0 ? savedPosts : MOCK_SAVED_GRID) :
+    (repostedPosts.length > 0 ? repostedPosts : MOCK_REPOSTS_GRID);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -252,7 +267,7 @@ export default function ProfileScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity activeOpacity={0.85} style={{ position: "relative" }}>
             <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="cover" />
-            {"isReel" in item && item.isReel && (
+            {item.isReel && (
               <View style={styles.reelBadge}>
                 <Ionicons name="play" size={12} color="#fff" />
               </View>
