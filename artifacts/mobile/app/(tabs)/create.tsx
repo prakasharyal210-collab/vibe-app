@@ -4,12 +4,14 @@ import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -21,12 +23,31 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { MusicPickerSheet } from "@/components/MusicPickerSheet";
+import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/components/EffectsPickerSheet";
+import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { Track } from "@/lib/music";
 
 const { width: W, height: H } = Dimensions.get("window");
 
 type CreateMode = "post" | "video" | "live";
+
+interface TextOverlayItem {
+  id: string;
+  text: string;
+  color: string;
+  x: number;
+  y: number;
+}
+
+interface StickerItem {
+  id: string;
+  emoji: string;
+  x: number;
+  y: number;
+}
 
 const TOOLS = [
   { id: "editor", icon: "color-palette-outline", label: "Photo\nEditor", color: "#EC4899" },
@@ -48,62 +69,62 @@ const TEMPLATES = Array.from({ length: 12 }, (_, i) => ({
 
 const DRAFT_ITEMS = [
   { id: "d1", image: "https://picsum.photos/seed/draft1/200/300", label: "Golden hour...", time: "2h ago" },
-  { id: "d2", image: "https://picsum.photos/seed/draft2/200/300", label: "City vibes reel", time: "1d ago" },
+  { id: "d2", image: "https://picsum.photos/seed/draft2/200/300", label: "Dance challenge", time: "Yesterday" },
+  { id: "d3", image: "https://picsum.photos/seed/draft3/200/300", label: "My new look", time: "3d ago" },
 ];
 
+const TEXT_COLORS = ["#ffffff", "#000000", "#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899"];
+const STICKER_EMOJIS = ["🔥","💜","✨","😍","🎶","👑","💯","🌊","🦋","🌸","💫","🎉","😂","🙌","💪","🌈","⚡","🎯","🦄","🤩","😘","🍀","🌺","💎","🏆","🎵","🌟","🎸","🍕","❤️"];
+
+function GridOverlay() {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={{ position: "absolute", left: "33.33%", top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.35)" }} />
+      <View style={{ position: "absolute", left: "66.66%", top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.35)" }} />
+      <View style={{ position: "absolute", top: "33.33%", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.35)" }} />
+      <View style={{ position: "absolute", top: "66.66%", left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.35)" }} />
+    </View>
+  );
+}
+
 function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
-  const [image, setImage] = useState<string | null>(null);
+  const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
-  const [uploading, setUploading] = useState(false);
 
-  const pickImage = async () => {
-    if (!isLoggedIn) { onRequireLogin(); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", allowsEditing: true, quality: 0.85 });
-    if (!result.canceled && result.assets[0]) setImage(result.assets[0].uri);
+  const pickMedia = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.85, allowsEditing: true, aspect: [4, 3] });
+    if (!result.canceled && result.assets[0]) setMediaUri(result.assets[0].uri);
   };
-
-  const handlePost = async () => {
-    if (!isLoggedIn) { onRequireLogin(); return; }
-    if (!image) { Alert.alert("No media", "Please select a photo first"); return; }
-    setUploading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setUploading(false);
-    setImage(null);
-    setCaption("");
-    Alert.alert("Posted! 🎉", "Your post is now live on Vibe");
-  };
-
-  const POST_TYPES = [
-    { icon: "camera-outline", label: "Photo" },
-    { icon: "videocam-outline", label: "Video" },
-    { icon: "radio-outline", label: "Story" },
-    { icon: "images-outline", label: "Album" },
-  ];
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
       <View style={styles.postTypeRow}>
-        {POST_TYPES.map((t) => (
-          <TouchableOpacity key={t.label} onPress={pickImage} style={[styles.postTypeBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <Ionicons name={t.icon as any} size={22} color="#7C3AED" />
+        {[
+          { icon: "images-outline", label: "Photo / Video", color: "#7C3AED" },
+          { icon: "musical-notes-outline", label: "Reel", color: "#F97316" },
+          { icon: "text-outline", label: "Text Post", color: "#3B82F6" },
+        ].map((t) => (
+          <TouchableOpacity key={t.label} style={[styles.postTypeBtn, { borderColor: colors.border }]}>
+            <Ionicons name={t.icon as any} size={22} color={t.color} />
             <Text style={[styles.postTypeLabel, { color: colors.foreground }]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <TouchableOpacity onPress={pickImage} style={[styles.mediaPicker, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-        {image ? (
+      <TouchableOpacity onPress={pickMedia} style={[styles.mediaPicker, { borderColor: colors.border }]}>
+        {mediaUri ? (
           <>
-            <Image source={{ uri: image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            <TouchableOpacity style={styles.removeImg} onPress={() => setImage(null)}>
-              <Ionicons name="close-circle" size={26} color="#fff" />
+            <Image source={{ uri: mediaUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <TouchableOpacity onPress={() => setMediaUri(null)} style={styles.removeImg}>
+              <Ionicons name="close-circle" size={28} color="#fff" />
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <Ionicons name="images-outline" size={48} color={colors.mutedForeground} />
-            <Text style={[styles.mediaPickerText, { color: colors.mutedForeground }]}>Tap to select from gallery</Text>
-            <Text style={[styles.mediaPickerSub, { color: colors.mutedForeground }]}>Photos & videos up to 60s</Text>
+            <LinearGradient colors={["#7C3AED22", "#EA580C11"]} style={StyleSheet.absoluteFill} />
+            <Ionicons name="add-circle-outline" size={44} color="#7C3AED" />
+            <Text style={[styles.mediaPickerText, { color: colors.foreground }]}>Tap to add photo or video</Text>
+            <Text style={[styles.mediaPickerSub, { color: colors.mutedForeground }]}>JPG, PNG, MP4 · Up to 100MB</Text>
           </>
         )}
       </TouchableOpacity>
@@ -112,34 +133,36 @@ function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
         <TextInput
           value={caption}
           onChangeText={setCaption}
-          placeholder="Write a caption... #hashtags @mentions"
+          placeholder="What's your vibe? Add hashtags, mentions..."
           placeholderTextColor={colors.mutedForeground}
           multiline
-          maxLength={500}
+          maxLength={300}
           style={[styles.captionInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
         />
-        <View style={[styles.postOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
+
+        <View style={[styles.postOptions, { borderColor: colors.border }]}>
           {[
-            { icon: "person-add-outline", label: "Tag people", color: "#7C3AED" },
-            { icon: "location-outline", label: "Add location", color: "#F97316" },
-            { icon: "color-filter-outline", label: "Filters", color: "#EC4899" },
-            { icon: "earth-outline", label: "Audience: Everyone", color: "#3B82F6" },
+            { icon: "location-outline", label: "Add Location", color: "#F97316" },
+            { icon: "person-add-outline", label: "Tag People", color: "#7C3AED" },
+            { icon: "people-outline", label: "Audience · Everyone", color: "#3B82F6" },
           ].map((opt, i, arr) => (
             <TouchableOpacity key={opt.label} onPress={() => Alert.alert(opt.label, "Coming soon")}
               style={[styles.optionRow, { borderBottomColor: colors.border }, i === arr.length - 1 && { borderBottomWidth: 0 }]}>
-              <Ionicons name={opt.icon as any} size={18} color={opt.color} />
+              <Ionicons name={opt.icon as any} size={20} color={opt.color} />
               <Text style={[styles.optionText, { color: colors.foreground }]}>{opt.label}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           ))}
         </View>
+
         <View style={styles.postActions}>
-          <TouchableOpacity onPress={() => Alert.alert("Saved!", "Draft saved locally")}
-            style={[styles.draftBtn, { borderColor: colors.border, backgroundColor: colors.muted }]}>
-            <Ionicons name="document-outline" size={16} color={colors.foreground} />
-            <Text style={[styles.draftBtnText, { color: colors.foreground }]}>Save Draft</Text>
+          <TouchableOpacity style={[styles.draftBtn, { borderColor: colors.border }]}>
+            <Ionicons name="save-outline" size={18} color={colors.mutedForeground} />
+            <Text style={[styles.draftBtnText, { color: colors.mutedForeground }]}>Save Draft</Text>
           </TouchableOpacity>
-          <GradientButton onPress={handlePost} title="Post Now" loading={uploading} style={{ flex: 1 }} />
+          <View style={{ flex: 1 }}>
+            <GradientButton onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } Alert.alert("Posted! 🔥", "Your post is now live on Vibe"); }} title="Post Now" />
+          </View>
         </View>
       </View>
     </ScrollView>
@@ -160,48 +183,109 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
   const cameraRef = useRef<CameraView>(null);
   const TEMPLATE_W = (W - 48) / 3;
 
-  const durationSecs: Record<string, number> = { "15s": 15, "30s": 30, "60s": 60, "3min": 180 };
+  const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
+  const [activeFilterConfig, setActiveFilterConfig] = useState<FilterConfig>(FILTERS[0]);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showMirror, setShowMirror] = useState(false);
+  const [timerSecs, setTimerSecs] = useState<TimerValue>(0);
+  const [timerCount, setTimerCount] = useState<number | null>(null);
+  const [speed, setSpeed] = useState("normal");
+  const [showBeauty, setShowBeauty] = useState(false);
+  const [textOverlays, setTextOverlays] = useState<TextOverlayItem[]>([]);
+  const [stickers, setStickers] = useState<StickerItem[]>([]);
+  const [showMusicPicker, setShowMusicPicker] = useState(false);
+  const [showEffectsPicker, setShowEffectsPicker] = useState(false);
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [showStickerModal, setShowStickerModal] = useState(false);
+  const [newText, setNewText] = useState("");
+  const [newTextColor, setNewTextColor] = useState("#ffffff");
 
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerScaleAnim = useRef(new Animated.Value(1)).current;
+
+  const durationSecs: Record<string, number> = { "15s": 15, "30s": 30, "60s": 60, "3min": 180 };
   const hasPermission = camPermission?.granted;
   const needsPermission = camPermission !== null && !hasPermission;
+
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
 
   const handleRequestPermissions = async () => {
     await requestCamPermission();
     await requestMicPermission();
   };
 
+  const runTimerCountdown = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      if (timerSecs === 0) { resolve(); return; }
+      let remaining = timerSecs;
+      setTimerCount(remaining);
+      const tick = () => {
+        remaining--;
+        timerScaleAnim.setValue(1.6);
+        Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: true }).start();
+        if (remaining <= 0) {
+          setTimerCount(null);
+          resolve();
+        } else {
+          setTimerCount(remaining);
+          timerRef.current = setTimeout(tick, 1000);
+        }
+      };
+      timerScaleAnim.setValue(1.6);
+      Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: true }).start();
+      timerRef.current = setTimeout(tick, 1000);
+    });
+  }, [timerSecs]);
+
   const handleRecordToggle = async () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
     if (captureMode === "photo") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await runTimerCountdown();
       try {
         const photo = await cameraRef.current?.takePictureAsync({ quality: 0.85, skipProcessing: false });
         if (photo?.uri) setRecordedUri(photo.uri);
-      } catch (e) {
+      } catch {
         Alert.alert("Photo failed", "Could not capture photo. Try again.");
       }
       return;
     }
     if (recording) {
       cameraRef.current?.stopRecording();
-    } else {
-      setRecording(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      try {
-        const maxDuration = durationSecs[selectedDuration] ?? 15;
-        const result = await cameraRef.current?.recordAsync({ maxDuration });
-        if (result?.uri) setRecordedUri(result.uri);
-      } catch (e) {}
-      setRecording(false);
+      return;
     }
+    await runTimerCountdown();
+    setRecording(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    try {
+      const maxDuration = durationSecs[selectedDuration] ?? 15;
+      const result = await cameraRef.current?.recordAsync({ maxDuration });
+      if (result?.uri) setRecordedUri(result.uri);
+    } catch {}
+    setRecording(false);
   };
 
-  const cycleFlash = () => {
-    setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
-  };
-
-  const flashIcon = flashMode === "off" ? "flash-off-outline" : flashMode === "on" ? "flash-outline" : "flash-outline";
+  const cycleFlash = () => setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
+  const flashIcon = flashMode === "off" ? "flash-off-outline" : "flash-outline";
   const flashColor = flashMode === "off" ? "rgba(255,255,255,0.6)" : flashMode === "on" ? "#EAB308" : "#60A5FA";
+
+  const addTextOverlay = () => {
+    if (!newText.trim()) return;
+    setTextOverlays((prev) => [...prev, { id: Date.now().toString(), text: newText.trim(), color: newTextColor, x: 60, y: 100 + prev.length * 50 }]);
+    setNewText("");
+    setShowTextModal(false);
+  };
+
+  const addSticker = (emoji: string) => {
+    setStickers((prev) => [...prev, { id: Date.now().toString(), emoji, x: 60 + Math.random() * 80, y: 60 + Math.random() * 120 }]);
+    setShowStickerModal(false);
+  };
+
+  const timerIcon = timerSecs === 0 ? "timer-outline" : "timer";
+  const timerLabel = timerSecs === 0 ? "Timer" : `${timerSecs}s`;
+  const cycleTimer = () => { const opts: TimerValue[] = [0, 3, 5, 10]; const idx = opts.indexOf(timerSecs); setTimerSecs(opts[(idx + 1) % opts.length]); };
 
   if (camPermission === null) {
     return (
@@ -219,199 +303,306 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
           <Ionicons name="camera-outline" size={52} color="#7C3AED" />
         </LinearGradient>
         <Text style={[styles.permTitle, { color: colors.foreground }]}>Camera Access</Text>
-        <Text style={[styles.permSub, { color: colors.mutedForeground }]}>
-          Allow camera and microphone to record videos and take photos
-        </Text>
+        <Text style={[styles.permSub, { color: colors.mutedForeground }]}>Allow camera and microphone to record videos and take photos</Text>
         <GradientButton onPress={handleRequestPermissions} title="Allow Camera & Mic" style={{ width: 240, marginTop: 8 }} />
       </View>
     );
   }
 
   if (recordedUri) {
-    const isPhoto = captureMode === "photo";
     return (
-      <View style={[styles.previewWrap, { backgroundColor: "#000" }]}>
-        <Image source={{ uri: recordedUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
-        <View style={styles.previewTop}>
-          <TouchableOpacity onPress={() => setRecordedUri(null)} style={styles.previewBtn}>
-            <Ionicons name="close" size={22} color="#fff" />
-            <Text style={styles.previewBtnText}>Discard</Text>
-          </TouchableOpacity>
-          <Text style={styles.previewTitle}>{isPhoto ? "Photo Preview" : "Video Preview"}</Text>
-          <TouchableOpacity
-            onPress={() => {
-              setRecordedUri(null);
-              Alert.alert("Posted! 🔥", "Your " + (isPhoto ? "photo" : "reel") + " is now live on Vibe");
-            }}
-            style={styles.previewPostBtn}>
-            <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.previewPostGrad}>
-              <Text style={styles.previewPostText}>Post</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.previewActions}>
-          <TouchableOpacity onPress={() => Alert.alert("Music", "Add music coming soon")} style={styles.previewAction}>
-            <Ionicons name="musical-notes" size={22} color="#fff" />
-            <Text style={styles.previewActionLabel}>Music</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert("Text", "Add text coming soon")} style={styles.previewAction}>
-            <Ionicons name="text-outline" size={22} color="#fff" />
-            <Text style={styles.previewActionLabel}>Text</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert("Filters", "Filters coming soon")} style={styles.previewAction}>
-            <Ionicons name="color-filter-outline" size={22} color="#fff" />
-            <Text style={styles.previewActionLabel}>Filter</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert("Stickers", "Stickers coming soon")} style={styles.previewAction}>
-            <Ionicons name="happy-outline" size={22} color="#fff" />
-            <Text style={styles.previewActionLabel}>Stickers</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <VideoEditorSheet
+        uri={recordedUri}
+        isPhoto={captureMode === "photo"}
+        initialMusic={selectedMusic}
+        initialFilter={activeFilterConfig}
+        textOverlays={textOverlays}
+        stickers={stickers}
+        onDiscard={() => { setRecordedUri(null); setTextOverlays([]); setStickers([]); }}
+        onPost={() => {
+          setRecordedUri(null);
+          setTextOverlays([]);
+          setStickers([]);
+          setSelectedMusic(null);
+          Alert.alert("Posted! 🔥", "Your reel is now live on Vibe", [{ text: "Nice!" }]);
+        }}
+      />
     );
   }
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-      <View style={[styles.viewfinder, { backgroundColor: "#000" }]}>
-        <CameraView
-          ref={cameraRef}
-          style={StyleSheet.absoluteFill}
-          facing={facing}
-          flash={flashMode}
-          mode="video"
-        />
-        <LinearGradient colors={["rgba(0,0,0,0.3)", "transparent", "rgba(0,0,0,0.4)"]} style={StyleSheet.absoluteFill} />
-
-        <View style={styles.toolsOverlay}>
-          {TOOLS.map((tool) => (
-            <TouchableOpacity key={tool.id} onPress={() => Alert.alert(tool.label.replace("\n", " "), "Tool coming soon ✨")} style={styles.toolBtn}>
-              <View style={[styles.toolCircle, { backgroundColor: tool.color + "33", borderColor: tool.color + "66" }]}>
-                <Ionicons name={tool.icon as any} size={20} color={tool.color} />
-              </View>
-              <Text style={styles.toolLabel}>{tool.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.durationRow}>
-          {["15s", "30s", "60s", "3min"].map((d) => (
-            <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)}
-              style={[styles.durationPill, selectedDuration === d && { backgroundColor: "#7C3AED" }]}>
-              <Text style={[styles.durationText, selectedDuration === d && { color: "#fff" }]}>{d}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <View style={styles.captureModeRow}>
-          <TouchableOpacity onPress={() => setCaptureMode("video")}
-            style={[styles.captureModePill, captureMode === "video" && { backgroundColor: "rgba(124,58,237,0.7)" }]}>
-            <Ionicons name="videocam-outline" size={14} color="#fff" />
-            <Text style={styles.captureModePillText}>Video</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setCaptureMode("photo")}
-            style={[styles.captureModePill, captureMode === "photo" && { backgroundColor: "rgba(124,58,237,0.7)" }]}>
-            <Ionicons name="camera-outline" size={14} color="#fff" />
-            <Text style={styles.captureModePillText}>Photo</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity onPress={handleRecordToggle}
-          style={[styles.recordBtnWrap, recording && { borderColor: "#EF4444" }]}>
-          {recording ? (
-            <View style={[styles.recordBtn, { backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" }]}>
-              <View style={styles.recordSquare} />
-            </View>
-          ) : captureMode === "photo" ? (
-            <View style={[styles.recordBtn, { backgroundColor: "#fff" }]} />
-          ) : (
-            <LinearGradient colors={["#7C3AED", "#EA580C"]} style={styles.recordBtn} />
-          )}
-        </TouchableOpacity>
-
-        <View style={styles.viewfinderSideActions}>
-          <TouchableOpacity style={styles.sideActionBtn} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
-            <Ionicons name="camera-reverse-outline" size={24} color="#fff" />
-            <Text style={styles.sideActionLabel}>Flip</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.sideActionBtn} onPress={cycleFlash}>
-            <Ionicons name={flashIcon as any} size={24} color={flashColor} />
-            <Text style={[styles.sideActionLabel, { color: flashColor }]}>
-              {flashMode === "off" ? "Flash" : flashMode === "on" ? "Flash On" : "Auto"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity key="music" style={styles.sideActionBtn} onPress={() => Alert.alert("Music", "Music tool coming soon")}>
-            <Ionicons name="musical-notes" size={22} color="#fff" />
-            <Text style={styles.sideActionLabel}>Music</Text>
-          </TouchableOpacity>
-          <TouchableOpacity key="effects" style={styles.sideActionBtn} onPress={() => Alert.alert("Effects", "Effects tool coming soon")}>
-            <Ionicons name="sparkles-outline" size={22} color="#fff" />
-            <Text style={styles.sideActionLabel}>Effects</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowDrafts((s) => !s)}>
-            <Ionicons name="document-text" size={22} color="#fff" />
-            <Text style={styles.sideActionLabel}>Drafts</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {showDrafts && (
-        <View style={styles.draftsSection}>
-          <View style={styles.draftsTitleRow}>
-            <Text style={[styles.draftsTitle, { color: colors.foreground }]}>📝 Drafts ({DRAFT_ITEMS.length})</Text>
-            <TouchableOpacity><Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 13 }}>Manage</Text></TouchableOpacity>
+    <>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <View style={[styles.viewfinder, { backgroundColor: "#000" }]}>
+          <View style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}>
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing={facing}
+              flash={flashMode}
+              mode="video"
+            />
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
-            {DRAFT_ITEMS.map((d) => (
-              <TouchableOpacity key={d.id} style={styles.draftCard} onPress={() => Alert.alert("Resume Draft", `Continue editing "${d.label}"`)}>
-                <Image source={{ uri: d.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFill} />
-                <View style={styles.draftCardInfo}>
-                  <Text style={styles.draftCardLabel} numberOfLines={1}>{d.label}</Text>
-                  <Text style={styles.draftCardTime}>{d.time}</Text>
+
+          <LinearGradient colors={["rgba(0,0,0,0.3)", "transparent", "rgba(0,0,0,0.4)"]} style={StyleSheet.absoluteFill} />
+
+          {activeFilterConfig.id !== "none" && (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: activeFilterConfig.blendHex, opacity: activeFilterConfig.opacity }]} pointerEvents="none" />
+          )}
+
+          {showGrid && <GridOverlay />}
+
+          {timerCount !== null && (
+            <View style={styles.timerOverlay} pointerEvents="none">
+              <Animated.Text style={[styles.timerNumber, { transform: [{ scale: timerScaleAnim }] }]}>
+                {timerCount}
+              </Animated.Text>
+            </View>
+          )}
+
+          {selectedMusic && (
+            <View style={styles.musicIndicator}>
+              <Ionicons name="musical-notes" size={12} color="#fff" />
+              <Text style={styles.musicIndicatorText} numberOfLines={1}>
+                {selectedMusic.title} · {selectedMusic.artist}
+              </Text>
+            </View>
+          )}
+
+          {textOverlays.map((t) => (
+            <View key={t.id} style={[styles.cameraTextOverlay, { top: t.y, left: t.x }]}>
+              <Text style={[styles.cameraOverlayText, { color: t.color }]}>{t.text}</Text>
+            </View>
+          ))}
+
+          {stickers.map((s) => (
+            <Text key={s.id} style={[styles.cameraStickerOverlay, { top: s.y, left: s.x }]}>{s.emoji}</Text>
+          ))}
+
+          <View style={styles.toolsOverlay}>
+            {TOOLS.map((tool) => (
+              <TouchableOpacity key={tool.id} onPress={() => Alert.alert(tool.label.replace("\n", " "), "Coming soon ✨")} style={styles.toolBtn}>
+                <View style={[styles.toolCircle, { backgroundColor: tool.color + "33", borderColor: tool.color + "66" }]}>
+                  <Ionicons name={tool.icon as any} size={20} color={tool.color} />
                 </View>
+                <Text style={styles.toolLabel}>{tool.label}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity
-              style={[styles.draftCard, { alignItems: "center", justifyContent: "center", backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border }]}
-              onPress={() => Alert.alert("New Draft", "Start recording to create a draft")}>
-              <Ionicons name="add" size={32} color="#7C3AED" />
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      )}
+          </View>
 
-      <View style={styles.templatesSection}>
-        <Text style={[styles.templatesTitle, { color: colors.foreground }]}>✨ Video Templates</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, marginBottom: 12 }}>
-          {TEMPLATE_CATEGORIES.map((cat) => (
-            <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}
-              style={[styles.catPill, selectedCategory === cat && { backgroundColor: "#7C3AED" }]}>
-              <Text style={[styles.catPillText, selectedCategory === cat && { color: "#fff" }]}>{cat}</Text>
+          <View style={styles.durationRow}>
+            {["15s", "30s", "60s", "3min"].map((d) => (
+              <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)}
+                style={[styles.durationPill, selectedDuration === d && { backgroundColor: "#7C3AED" }]}>
+                <Text style={[styles.durationText, selectedDuration === d && { color: "#fff" }]}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.captureModeRow}>
+            <TouchableOpacity onPress={() => setCaptureMode("video")}
+              style={[styles.captureModePill, captureMode === "video" && { backgroundColor: "rgba(124,58,237,0.7)" }]}>
+              <Ionicons name="videocam-outline" size={14} color="#fff" />
+              <Text style={styles.captureModePillText}>Video</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <FlatList
-          data={TEMPLATES}
-          keyExtractor={(item) => item.id}
-          numColumns={3}
-          scrollEnabled={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={[styles.templateCard, { width: TEMPLATE_W, height: TEMPLATE_W * 1.5 }]}
-              onPress={() => Alert.alert("Use Template", `Using "${item.label}" template`)}>
-              <Image source={{ uri: item.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              <LinearGradient colors={["transparent", "rgba(0,0,0,0.75)"]} style={StyleSheet.absoluteFill} />
-              <View style={styles.templateInfo}>
-                <Text style={styles.templateLabel} numberOfLines={1}>{item.label}</Text>
-                <Text style={styles.templateDuration}>{item.duration}</Text>
+            <TouchableOpacity onPress={() => setCaptureMode("photo")}
+              style={[styles.captureModePill, captureMode === "photo" && { backgroundColor: "rgba(124,58,237,0.7)" }]}>
+              <Ionicons name="camera-outline" size={14} color="#fff" />
+              <Text style={styles.captureModePillText}>Photo</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleRecordToggle}
+            disabled={timerCount !== null}
+            style={[styles.recordBtnWrap, recording && { borderColor: "#EF4444" }]}>
+            {timerCount !== null ? (
+              <View style={[styles.recordBtn, { backgroundColor: "rgba(255,255,255,0.3)" }]} />
+            ) : recording ? (
+              <View style={[styles.recordBtn, { backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" }]}>
+                <View style={styles.recordSquare} />
               </View>
+            ) : captureMode === "photo" ? (
+              <View style={[styles.recordBtn, { backgroundColor: "#fff" }]} />
+            ) : (
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} style={styles.recordBtn} />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.viewfinderSideActions}>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
+              <Ionicons name="camera-reverse-outline" size={24} color="#fff" />
+              <Text style={styles.sideActionLabel}>Flip</Text>
             </TouchableOpacity>
-          )}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}
-          columnWrapperStyle={{ gap: 6 }}
-        />
-      </View>
-    </ScrollView>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={cycleFlash}>
+              <Ionicons name={flashIcon as any} size={24} color={flashColor} />
+              <Text style={[styles.sideActionLabel, { color: flashColor }]}>
+                {flashMode === "off" ? "Flash" : flashMode === "on" ? "On" : "Auto"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowMusicPicker(true)}>
+              <Ionicons name="musical-notes" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
+              <Text style={[styles.sideActionLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowEffectsPicker(true)}>
+              <Ionicons name="sparkles-outline" size={22} color={activeFilterConfig.id !== "none" || showGrid || showMirror ? "#A78BFA" : "#fff"} />
+              <Text style={styles.sideActionLabel}>Effects</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={cycleTimer}>
+              <Ionicons name={timerIcon as any} size={22} color={timerSecs > 0 ? "#FBBF24" : "#fff"} />
+              <Text style={[styles.sideActionLabel, timerSecs > 0 && { color: "#FBBF24" }]}>{timerLabel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowTextModal(true)}>
+              <Ionicons name="text-outline" size={22} color={textOverlays.length > 0 ? "#A78BFA" : "#fff"} />
+              <Text style={styles.sideActionLabel}>Text</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowStickerModal(true)}>
+              <Ionicons name="happy-outline" size={22} color={stickers.length > 0 ? "#A78BFA" : "#fff"} />
+              <Text style={styles.sideActionLabel}>Stickers</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sideActionBtn} onPress={() => setShowDrafts((s) => !s)}>
+              <Ionicons name="document-text-outline" size={22} color="#fff" />
+              <Text style={styles.sideActionLabel}>Drafts</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {showDrafts && (
+          <View style={styles.draftsSection}>
+            <View style={styles.draftsTitleRow}>
+              <Text style={[styles.draftsTitle, { color: colors.foreground }]}>📝 Drafts ({DRAFT_ITEMS.length})</Text>
+              <TouchableOpacity><Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 13 }}>Manage</Text></TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 16 }}>
+              {DRAFT_ITEMS.map((d) => (
+                <TouchableOpacity key={d.id} style={styles.draftCard} onPress={() => Alert.alert("Resume Draft", `Continue editing "${d.label}"`)}>
+                  <Image source={{ uri: d.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  <LinearGradient colors={["transparent", "rgba(0,0,0,0.8)"]} style={StyleSheet.absoluteFill} />
+                  <View style={styles.draftCardInfo}>
+                    <Text style={styles.draftCardLabel} numberOfLines={1}>{d.label}</Text>
+                    <Text style={styles.draftCardTime}>{d.time}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={[styles.draftCard, { alignItems: "center", justifyContent: "center", backgroundColor: colors.muted, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => Alert.alert("New Draft", "Start recording to create a draft")}>
+                <Ionicons name="add" size={32} color="#7C3AED" />
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={styles.templatesSection}>
+          <Text style={[styles.templatesTitle, { color: colors.foreground }]}>✨ Video Templates</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, marginBottom: 12 }}>
+            {TEMPLATE_CATEGORIES.map((cat) => (
+              <TouchableOpacity key={cat} onPress={() => setSelectedCategory(cat)}
+                style={[styles.catPill, selectedCategory === cat && { backgroundColor: "#7C3AED" }]}>
+                <Text style={[styles.catPillText, selectedCategory === cat && { color: "#fff" }]}>{cat}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <FlatList
+            data={TEMPLATES}
+            keyExtractor={(item) => item.id}
+            numColumns={3}
+            scrollEnabled={false}
+            renderItem={({ item }) => (
+              <TouchableOpacity style={[styles.templateCard, { width: TEMPLATE_W, height: TEMPLATE_W * 1.5 }]}
+                onPress={() => Alert.alert("Use Template", `Using "${item.label}" template`)}>
+                <Image source={{ uri: item.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                <LinearGradient colors={["transparent", "rgba(0,0,0,0.75)"]} style={StyleSheet.absoluteFill} />
+                <View style={styles.templateInfo}>
+                  <Text style={styles.templateLabel} numberOfLines={1}>{item.label}</Text>
+                  <Text style={styles.templateDuration}>{item.duration}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}
+            columnWrapperStyle={{ gap: 6 }}
+          />
+        </View>
+      </ScrollView>
+
+      <MusicPickerSheet
+        visible={showMusicPicker}
+        onClose={() => setShowMusicPicker(false)}
+        onSelect={(t) => setSelectedMusic(t)}
+        selectedTrack={selectedMusic}
+      />
+
+      <EffectsPickerSheet
+        visible={showEffectsPicker}
+        onClose={() => setShowEffectsPicker(false)}
+        activeFilter={activeFilterConfig.id}
+        onFilterChange={(f) => setActiveFilterConfig(f)}
+        showGrid={showGrid}
+        onGridToggle={() => setShowGrid((v) => !v)}
+        showMirror={showMirror}
+        onMirrorToggle={() => setShowMirror((v) => !v)}
+        timer={timerSecs}
+        onTimerChange={(t) => setTimerSecs(t)}
+        speed={speed}
+        onSpeedChange={(s) => setSpeed(s)}
+        showBeauty={showBeauty}
+        onBeautyToggle={() => setShowBeauty((v) => !v)}
+      />
+
+      <Modal visible={showTextModal} transparent animationType="slide" onRequestClose={() => setShowTextModal(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowTextModal(false)} />
+        <View style={[styles.textModalCard, { backgroundColor: colors.background }]}>
+          <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Text to Video</Text>
+          <TextInput
+            value={newText}
+            onChangeText={setNewText}
+            placeholder="Type something cool..."
+            placeholderTextColor={colors.mutedForeground}
+            autoFocus
+            maxLength={60}
+            style={[styles.textInput, { color: newTextColor, backgroundColor: colors.muted, borderColor: colors.border }]}
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+            {TEXT_COLORS.map((c) => (
+              <TouchableOpacity
+                key={c}
+                onPress={() => setNewTextColor(c)}
+                style={[styles.colorDot, { backgroundColor: c }, newTextColor === c && { borderColor: "#7C3AED", borderWidth: 3 }]}
+              />
+            ))}
+          </ScrollView>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <TouchableOpacity onPress={() => { setShowTextModal(false); setNewText(""); }} style={[styles.modalCancelBtn, { backgroundColor: colors.muted }]}>
+              <Text style={[{ fontSize: 15, fontFamily: "Poppins_600SemiBold", color: colors.foreground }]}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={addTextOverlay} style={{ flex: 2, borderRadius: 12, overflow: "hidden" }}>
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, alignItems: "center" }}>
+                <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" }}>Add Text</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showStickerModal} transparent animationType="slide" onRequestClose={() => setShowStickerModal(false)}>
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowStickerModal(false)} />
+        <View style={[styles.textModalCard, { backgroundColor: colors.background }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Sticker</Text>
+            <TouchableOpacity onPress={() => setShowStickerModal(false)}>
+              <Ionicons name="close" size={22} color={colors.foreground} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.stickerGrid}>
+            {STICKER_EMOJIS.map((e) => (
+              <TouchableOpacity key={e} onPress={() => addSticker(e)} style={[styles.stickerItem, { backgroundColor: colors.muted }]}>
+                <Text style={styles.stickerEmoji}>{e}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
 
@@ -458,7 +649,6 @@ function LiveMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
       </View>
 
       <Text style={[styles.liveSetupTitle, { color: colors.foreground }]}>Go Live Setup</Text>
-
       <View style={[styles.liveSetupOptions, { borderColor: colors.border, backgroundColor: colors.card }]}>
         {LIVE_OPTIONS.map((opt, i) => (
           <TouchableOpacity key={opt.label} onPress={() => Alert.alert(opt.label, opt.sub)}
@@ -592,20 +782,20 @@ const styles = StyleSheet.create({
   recordBtnWrap: { position: "absolute", bottom: 70, alignSelf: "center", width: 72, height: 72, borderRadius: 36, borderWidth: 4, borderColor: "#fff", alignItems: "center", justifyContent: "center" },
   recordBtn: { width: 58, height: 58, borderRadius: 29 },
   recordSquare: { width: 22, height: 22, borderRadius: 4, backgroundColor: "#fff" },
-  viewfinderSideActions: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center", gap: 18 },
+  viewfinderSideActions: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center", gap: 14 },
   sideActionBtn: { alignItems: "center", gap: 2 },
   sideActionLabel: { color: "rgba(255,255,255,0.85)", fontSize: 9, fontFamily: "Poppins_400Regular" },
-  previewWrap: { flex: 1, minHeight: H * 0.6 },
-  previewTop: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  previewBtn: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16 },
-  previewBtnText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
-  previewTitle: { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
-  previewPostBtn: { borderRadius: 16, overflow: "hidden" },
-  previewPostGrad: { paddingHorizontal: 18, paddingVertical: 8 },
-  previewPostText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_700Bold" },
-  previewActions: { position: "absolute", bottom: 40, left: 0, right: 0, flexDirection: "row", justifyContent: "space-evenly" },
-  previewAction: { alignItems: "center", gap: 4 },
-  previewActionLabel: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium" },
+  timerOverlay: { position: "absolute", inset: 0, alignItems: "center", justifyContent: "center" },
+  timerNumber: { fontSize: 100, fontFamily: "Poppins_700Bold", color: "#fff", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
+  musicIndicator: {
+    position: "absolute", bottom: 110, left: 16, right: 80,
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "rgba(0,0,0,0.5)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10,
+  },
+  musicIndicatorText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium", flex: 1 },
+  cameraTextOverlay: { position: "absolute" },
+  cameraOverlayText: { fontSize: 22, fontFamily: "Poppins_700Bold", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
+  cameraStickerOverlay: { position: "absolute", fontSize: 32 },
   draftsSection: { paddingTop: 16, paddingBottom: 4 },
   draftsTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 10 },
   draftsTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },
@@ -641,4 +831,13 @@ const styles = StyleSheet.create({
   goLiveBtn: { borderRadius: 16, overflow: "hidden" },
   goLiveGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 16 },
   goLiveText: { color: "#fff", fontSize: 17, fontFamily: "Poppins_700Bold" },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
+  textModalCard: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 36, borderTopLeftRadius: 24, borderTopRightRadius: 24, gap: 14 },
+  textModalTitle: { fontSize: 17, fontFamily: "Poppins_700Bold" },
+  textInput: { borderRadius: 12, padding: 12, fontSize: 18, fontFamily: "Poppins_700Bold", borderWidth: 1, textAlign: "center", minHeight: 56 },
+  colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: "transparent" },
+  modalCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+  stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  stickerItem: { width: 52, height: 52, alignItems: "center", justifyContent: "center", borderRadius: 12 },
+  stickerEmoji: { fontSize: 28 },
 });

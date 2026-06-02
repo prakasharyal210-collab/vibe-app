@@ -1,3 +1,6 @@
 - [Vibe app architecture](vibe-app.md) — Supabase auth + mock data fallback; always-dark theme forced in useColors.ts
 - [expo-clipboard version](expo-clipboard-version.md) — wrong version (56.x) conflicts; expo-clipboard expected version ~8.0.8 for current SDK
 - [Vibe DB integration pattern](vibe-db-integration.md) — lib/db.ts is the central data layer; all Supabase calls go through it with graceful mock fallbacks on error/empty.
+- [Expo Camera version](expo-camera-version.md) — expo-camera@17.0.10 required for expo@54; v56 crashes with wrong createPermissionHook source.
+- [Music + Effects architecture](music-effects-arch.md) — MusicPickerSheet uses expo-av Audio.Sound (deprecated warning in SDK54 but still works); EffectsPickerSheet returns FilterConfig (color overlay); lib/music.ts holds curated SoundHelix tracks; VideoEditorSheet is full post-recording editor.
+- [Metro config](metro-config.md) — Keep metro.config.js as plain getDefaultConfig(__dirname); any blockList overrides break module resolution entirely.

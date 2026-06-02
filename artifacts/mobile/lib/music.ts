@@ -1,0 +1,331 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+export type MusicCategory =
+  | "Trending"
+  | "Hip Hop"
+  | "Pop"
+  | "Chill"
+  | "Energy"
+  | "Sad"
+  | "Happy"
+  | "Love";
+
+export interface Track {
+  id: string;
+  title: string;
+  artist: string;
+  durationSecs: number;
+  previewUrl: string;
+  coverColor: string;
+  category: MusicCategory;
+  usedInReels: number;
+  bpm: number;
+  trimStart: number;
+}
+
+const FAVORITES_KEY = "vibe_music_favorites";
+
+export const MUSIC_CATEGORIES: { key: MusicCategory; icon: string }[] = [
+  { key: "Trending", icon: "trending-up-outline" },
+  { key: "Hip Hop", icon: "headset-outline" },
+  { key: "Pop", icon: "musical-notes-outline" },
+  { key: "Chill", icon: "leaf-outline" },
+  { key: "Energy", icon: "flash-outline" },
+  { key: "Sad", icon: "sad-outline" },
+  { key: "Happy", icon: "happy-outline" },
+  { key: "Love", icon: "heart-outline" },
+];
+
+export const TRACKS: Track[] = [
+  {
+    id: "t1",
+    title: "Golden Hour",
+    artist: "Solar Waves",
+    durationSecs: 180,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    coverColor: "#F97316",
+    category: "Trending",
+    usedInReels: 482900,
+    bpm: 96,
+    trimStart: 0,
+  },
+  {
+    id: "t2",
+    title: "Purple Rain",
+    artist: "Neon Heights",
+    durationSecs: 210,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    coverColor: "#7C3AED",
+    category: "Trending",
+    usedInReels: 391200,
+    bpm: 110,
+    trimStart: 15,
+  },
+  {
+    id: "t3",
+    title: "Midnight Drive",
+    artist: "City Lights",
+    durationSecs: 195,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    coverColor: "#3B82F6",
+    category: "Trending",
+    usedInReels: 284500,
+    bpm: 88,
+    trimStart: 8,
+  },
+  {
+    id: "t4",
+    title: "Bounce",
+    artist: "King Creed",
+    durationSecs: 165,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+    coverColor: "#EF4444",
+    category: "Hip Hop",
+    usedInReels: 177800,
+    bpm: 130,
+    trimStart: 0,
+  },
+  {
+    id: "t5",
+    title: "Street Anthem",
+    artist: "Blaze MC",
+    durationSecs: 200,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+    coverColor: "#1F2937",
+    category: "Hip Hop",
+    usedInReels: 143200,
+    bpm: 95,
+    trimStart: 12,
+  },
+  {
+    id: "t6",
+    title: "Ride or Die",
+    artist: "Double G",
+    durationSecs: 220,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+    coverColor: "#92400E",
+    category: "Hip Hop",
+    usedInReels: 98400,
+    bpm: 105,
+    trimStart: 0,
+  },
+  {
+    id: "t7",
+    title: "Summer Crush",
+    artist: "Lola Sky",
+    durationSecs: 188,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
+    coverColor: "#EC4899",
+    category: "Pop",
+    usedInReels: 310400,
+    bpm: 120,
+    trimStart: 5,
+  },
+  {
+    id: "t8",
+    title: "Shine On",
+    artist: "Mia Bliss",
+    durationSecs: 175,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
+    coverColor: "#FBBF24",
+    category: "Pop",
+    usedInReels: 265700,
+    bpm: 125,
+    trimStart: 10,
+  },
+  {
+    id: "t9",
+    title: "Ocean Eyes",
+    artist: "Nova Bell",
+    durationSecs: 195,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3",
+    coverColor: "#06B6D4",
+    category: "Pop",
+    usedInReels: 198300,
+    bpm: 100,
+    trimStart: 0,
+  },
+  {
+    id: "t10",
+    title: "Lo-fi Sunday",
+    artist: "Mellow Tape",
+    durationSecs: 240,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3",
+    coverColor: "#059669",
+    category: "Chill",
+    usedInReels: 229100,
+    bpm: 75,
+    trimStart: 0,
+  },
+  {
+    id: "t11",
+    title: "Coffee Mornings",
+    artist: "Soft Pillow",
+    durationSecs: 210,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3",
+    coverColor: "#92400E",
+    category: "Chill",
+    usedInReels: 187600,
+    bpm: 70,
+    trimStart: 20,
+  },
+  {
+    id: "t12",
+    title: "Rainy Day",
+    artist: "Blue Dream",
+    durationSecs: 225,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3",
+    coverColor: "#475569",
+    category: "Chill",
+    usedInReels: 142000,
+    bpm: 65,
+    trimStart: 0,
+  },
+  {
+    id: "t13",
+    title: "Rocket Fuel",
+    artist: "Thunder Drop",
+    durationSecs: 170,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3",
+    coverColor: "#DC2626",
+    category: "Energy",
+    usedInReels: 256800,
+    bpm: 145,
+    trimStart: 0,
+  },
+  {
+    id: "t14",
+    title: "Overdrive",
+    artist: "Voltage",
+    durationSecs: 155,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3",
+    coverColor: "#D97706",
+    category: "Energy",
+    usedInReels: 189300,
+    bpm: 155,
+    trimStart: 5,
+  },
+  {
+    id: "t15",
+    title: "Last Night",
+    artist: "Hollow Moon",
+    durationSecs: 235,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3",
+    coverColor: "#4338CA",
+    category: "Sad",
+    usedInReels: 314200,
+    bpm: 72,
+    trimStart: 10,
+  },
+  {
+    id: "t16",
+    title: "Fading Out",
+    artist: "Glass Soul",
+    durationSecs: 215,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-16.mp3",
+    coverColor: "#374151",
+    category: "Sad",
+    usedInReels: 241500,
+    bpm: 68,
+    trimStart: 0,
+  },
+  {
+    id: "t17",
+    title: "Good Vibes Only",
+    artist: "Sunny Side",
+    durationSecs: 180,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-17.mp3",
+    coverColor: "#16A34A",
+    category: "Happy",
+    usedInReels: 278400,
+    bpm: 128,
+    trimStart: 0,
+  },
+  {
+    id: "t18",
+    title: "Dance Floor",
+    artist: "Party Animals",
+    durationSecs: 190,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    coverColor: "#DB2777",
+    category: "Happy",
+    usedInReels: 193700,
+    bpm: 135,
+    trimStart: 30,
+  },
+  {
+    id: "t19",
+    title: "Falling For You",
+    artist: "Rose & Rain",
+    durationSecs: 200,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    coverColor: "#E11D48",
+    category: "Love",
+    usedInReels: 367800,
+    bpm: 85,
+    trimStart: 0,
+  },
+  {
+    id: "t20",
+    title: "You & Me",
+    artist: "Starlight Duo",
+    durationSecs: 222,
+    previewUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    coverColor: "#BE185D",
+    category: "Love",
+    usedInReels: 288600,
+    bpm: 90,
+    trimStart: 15,
+  },
+];
+
+export function formatCount(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(0) + "K";
+  return String(n);
+}
+
+export function formatDuration(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export function searchTracks(query: string): Track[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return TRACKS;
+  return TRACKS.filter(
+    (t) =>
+      t.title.toLowerCase().includes(q) ||
+      t.artist.toLowerCase().includes(q) ||
+      t.category.toLowerCase().includes(q)
+  );
+}
+
+export function getTracksByCategory(cat: MusicCategory): Track[] {
+  if (cat === "Trending") {
+    return [...TRACKS].sort((a, b) => b.usedInReels - a.usedInReels).slice(0, 10);
+  }
+  return TRACKS.filter((t) => t.category === cat);
+}
+
+export async function getFavoriteIds(): Promise<string[]> {
+  try {
+    const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function toggleFavorite(id: string): Promise<string[]> {
+  const favs = await getFavoriteIds();
+  const updated = favs.includes(id) ? favs.filter((f) => f !== id) : [...favs, id];
+  await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(updated));
+  return updated;
+}
+
+export async function getFavoriteTracks(): Promise<Track[]> {
+  const ids = await getFavoriteIds();
+  return TRACKS.filter((t) => ids.includes(t.id));
+}
