@@ -1,0 +1,137 @@
+Add TikTok + Facebook style ALGORITHM and URL system 
+to every piece of content in the app:
+
+UNIVERSAL URL SYSTEM:
+Every single piece of content must have its own URL:
+- Profile: vibe.app/@username
+- Post: vibe.app/@username/post/postID
+- Reel: vibe.app/@username/reel/reelID  
+- Story: vibe.app/@username/story/storyID
+- Live: vibe.app/@username/live
+- Comment: vibe.app/@username/post/postID/comment/commentID
+- Collection: vibe.app/@username/collection/name
+
+Every URL must:
+- Be shareable and openable from outside the app
+- Deep link - opens directly to that content in app
+- If not installed, opens web preview then app store
+- Profile photo and username always shown on content
+- Tapping profile anywhere opens their profile page
+
+TIKTOK ALGORITHM (For You / Reels feed):
+The algorithm ranks content by scoring each post:
+
+ENGAGEMENT SIGNALS (most important):
+- Watch time: did user watch full video? +10 points
+- Rewatch: watched again? +15 points  
+- Like: +8 points
+- Comment: +12 points
+- Share: +20 points (highest signal)
+- Save/Favourite: +15 points
+- Profile visit from content: +10 points
+- Follow from content: +25 points
+
+NEGATIVE SIGNALS:
+- Skip in first 2 seconds: -10 points
+- "Not interested": -20 points
+- Hide user: -30 points
+- Report: -50 points
+
+CONTENT FRESHNESS:
+- Posted 0-1 hours ago: x2.0 multiplier
+- Posted 1-6 hours ago: x1.5 multiplier
+- Posted 6-24 hours ago: x1.0 multiplier
+- Posted 1-7 days ago: x0.5 multiplier
+- Older: x0.2 multiplier
+
+USER INTEREST MATCHING:
+- Track which hashtags user engages with
+- Track which music user likes
+- Track which content categories user watches fully
+- Track which creators user follows/visits
+- Show more similar content = higher score
+- Interest categories: Music, Dance, Comedy, Travel, 
+  Food, Fashion, Sports, Gaming, Education, Art
+
+CREATOR BOOSTING:
+- New creators get extra distribution for first 10 posts
+- Verified creators get 1.3x boost
+- High follower accounts get 1.1x boost
+- Accounts with good history get trust score boost
+
+DIVERSITY RULES:
+- Never show same creator twice in a row
+- Mix local and global content
+- Mix following and non-following content
+- 60% interests-based, 40% explore new content
+- At least 1 in 10 posts from new/small creators
+
+FACEBOOK ALGORITHM (Feed):
+RANKING FACTORS:
+- Meaningful interactions: comments > likes
+- Relationship strength: close friends shown first
+- Content type preference: learn if user prefers 
+  video/photo/text and show more of that type
+- Post age: newer posts ranked higher
+- Predicted interaction: will user likely engage?
+
+FEED COMPOSITION:
+- 40% posts from people you follow
+- 30% suggested content you might like
+- 20% trending content in your area
+- 10% sponsored/promoted content (future)
+
+STORY ALGORITHM:
+- Show stories from closest friends first
+- Stories with most mutual interactions shown first
+- Unviewed stories always before viewed ones
+- Active users (posted recently) shown first
+
+SEARCH ALGORITHM:
+- Trending hashtags in user's country
+- Content with high engagement in last 24 hours
+- Accounts with similar interests to user
+- Location-based trending content
+- Search history personalization
+
+NOTIFICATION ALGORITHM:
+- Don't send too many notifications (max 5 per day)
+- Prioritize: matches, comments on your posts, 
+  new followers, replies to your comments
+- Batch similar notifications together
+- Smart timing: send when user is usually active
+
+CONTENT MODERATION:
+- Flag content with too many reports
+- Reduce distribution of borderline content
+- Age-restricted content not shown to under 18
+- Spam detection: too many posts in short time
+
+ANALYTICS FOR CREATORS:
+In Profile → Insights section show:
+- Total views last 7/28 days (graph)
+- Followers gained/lost per day (graph)
+- Best performing posts
+- Audience demographics (age, location, gender)
+- Peak activity times (when followers are online)
+- Reach vs impressions
+- Profile visits
+- Click through rate on bio link
+- Which content type performs best
+
+REAL-TIME FEATURES:
+- Feed updates in real time (new posts appear)
+- Like counts update in real time
+- Comment counts update in real time  
+- Follower counts update in real time
+- Online status shown (green dot)
+- "Seen" receipts in messages
+- Real-time notifications
+- Live viewer count updates every second
+
+Store all algorithm data in Supabase:
+- user_interactions table (track every interaction)
+- content_scores table (calculated scores)
+- user_interests table (interest tracking)
+- trending_content table (updated every hour)
+- user_activity_log table (for analytics)

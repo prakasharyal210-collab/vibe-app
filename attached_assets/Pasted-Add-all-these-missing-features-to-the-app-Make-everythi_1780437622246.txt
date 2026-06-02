@@ -1,0 +1,221 @@
+Add all these missing features to the app. 
+Make everything fully working and connected to Supabase:
+
+EXPLORE/SEARCH PAGE (replace or add as search icon):
+- Full search screen with search bar at top
+- Search for: People, Hashtags, Sounds, Places, Challenges
+- 5 tabs: Top, Users, Reels, Sounds, Challenges
+- Trending hashtags grid with post counts
+- Trending challenges with participant counts
+- Category browsing: Music, Dance, Comedy, Travel, 
+  Food, Fashion, Sports, Gaming, Education, Art
+- Each category shows top content
+- Search history saved locally
+- Clear search history button
+- Search suggestions as user types
+- No results state with suggestions
+
+DUET & STITCH:
+- On every reel, three dots menu shows:
+  * Duet - record video side by side with original
+  * Stitch - clip first 5 seconds and respond
+- Duet screen: split screen left=original right=camera
+- Stitch screen: original clip plays then yours starts
+- Both save to duets table in Supabase
+- Original creator gets notified
+- Duet/Stitch shows original creator credit
+- "Duet with @username" shown on video
+
+GROUP CHATS:
+- In Messages screen, "New Group" button top right
+- Create group: add name, photo, add members
+- Group chat screen same as DM but with multiple people
+- Group info screen:
+  * Change group name and photo
+  * See all members
+  * Add/remove members (admin only)
+  * Leave group
+  * Admin controls
+- Group message features:
+  * Reply to specific message
+  * React with emoji (long press)
+  * Delete message
+  * Forward message
+- Real time messages using Supabase realtime
+
+VOICE & VIDEO CALLS:
+- Call button in DM screen top right
+- Voice call screen:
+  * Caller photo and name
+  * Call duration timer
+  * Mute button
+  * Speaker button
+  * End call button (red)
+- Video call screen:
+  * Full screen video
+  * Small self preview (draggable)
+  * Mute audio button
+  * Toggle camera button
+  * Flip camera button
+  * End call button
+- Incoming call screen:
+  * Caller photo and name
+  * "Vibe is calling..."
+  * Accept (green) and Reject (red) buttons
+- Missed call notification
+- Call history in messages
+
+STORY INTERACTIONS:
+- When creating story show options:
+  * Add Poll: type question and 2 options
+  * Add Q&A: type question for followers to answer
+  * Add Countdown: pick date/time
+  * Add Quiz: multiple choice question
+- In story viewer:
+  * Polls show vote buttons, tap to vote
+  * After voting show percentage results
+  * Q&A shows text input to answer
+  * Countdown shows live timer
+- Creator sees all responses in story insights
+
+CHALLENGES:
+- Challenges tab in Explore page
+- Each challenge shows:
+  * Challenge name and hashtag
+  * Cover video
+  * Participants count
+  * Top entries
+- Join challenge button
+- Creates reel with challenge hashtag auto-added
+- Leaderboard of top entries by votes
+- Create your own challenge button (verified users)
+- Trending challenges on home feed banner
+
+2FA SECURITY:
+- In Settings → Account → Two Factor Authentication
+- Enable 2FA toggle
+- Show QR code to scan with authenticator app
+- Enter 6 digit code to verify
+- Show backup codes (save these!)
+- When logging in with 2FA enabled:
+  * After password, ask for 6 digit code
+  * Or use backup code option
+- Login activity section:
+  * Show all devices logged in
+  * Device name, location, time
+  * "This device" label on current
+  * Log out other devices button
+  * Suspicious login alert
+
+COINS & MONETIZATION:
+- Coins store screen in Wallet:
+  * Coin packages:
+    - 100 coins = $0.99
+    - 500 coins = $4.99 (most popular)
+    - 1200 coins = $9.99
+    - 2500 coins = $19.99
+    - 6500 coins = $49.99
+  * Payment via Google Pay / Apple Pay
+- Gift animations during live:
+  * Rose = 10 coins
+  * Crown = 50 coins  
+  * Rocket = 100 coins
+  * Diamond = 500 coins
+  * Each gift has unique animation
+- Creator earnings:
+  * 1000 views = 5 coins earned
+  * Gift received = 70% goes to creator
+  * Monthly payout if balance > $10
+- Tipping on posts:
+  * Tip button on posts
+  * Select amount: 10, 50, 100, 500 coins
+- Daily login reward:
+  * Day 1: 10 coins
+  * Day 2: 15 coins
+  * Day 3: 20 coins
+  * Day 7: 100 coins bonus
+  * Streak resets if miss a day
+  * Animated reward popup on login
+
+ACHIEVEMENTS & BADGES:
+- Show badges on profile
+- Achievement types:
+  * First Post 🌟
+  * 100 Followers 🎯
+  * 1K Followers 💫
+  * 10K Followers ⭐
+  * Verified Creator ✅
+  * 1000 Likes received ❤️
+  * 7 Day Streak 🔥
+  * Top Creator of the week 🏆
+  * First Live Stream 📺
+  * Vibe Master (100 matches) 💜
+- Achievement unlocked popup animation
+- Coins reward when achievement unlocked
+- Badges shown on profile below username
+
+LEADERBOARD:
+- In Explore page, Leaderboard tab
+- Categories:
+  * Top Creators (most views)
+  * Most Liked (most likes received)
+  * Rising Stars (fastest growing)
+  * Top Earners (most coins earned)
+- Time filters: Today, This Week, This Month
+- Top 3 shown with gold/silver/bronze
+- Your rank shown at bottom always
+- Tap any creator to view their profile
+
+PINNED POSTS:
+- Long press any post on own profile
+- Option: Pin to profile
+- Max 3 pinned posts
+- Pinned posts shown at top of grid
+- Pin icon shown on pinned posts
+- Unpin option on pinned posts
+
+COLLAB POSTS:
+- When creating post, invite collaborator
+- Search and select another user
+- They get notification to accept/reject
+- If accepted, post shows on both profiles
+- Both usernames shown on post
+- Counts toward both creators stats
+
+MESSAGE FEATURES:
+- Voice messages: hold mic button to record
+- Play voice message in chat
+- GIF button opens GIF picker (Giphy)
+- Emoji reactions on messages (long press)
+- Reply to message (swipe right on message)
+- Forward message to other chats
+- Disappearing messages toggle (24h/7d)
+- Message seen receipts
+- Typing indicator (...)
+- Send posts and reels inside DM
+
+PROFILE ADDITIONS:
+- Pronouns field in edit profile
+- Account category: Personal/Creator/Business
+- QR code button on profile
+  * Shows unique QR code
+  * Others scan to follow instantly
+- Pinned posts at top of grid
+- Collab content tab
+- Creator dashboard button (for creators)
+
+DAILY VIBE NOTIFICATION:
+- Push notification at 8PM every day
+- "Your Daily Vibe match is ready! ✨"
+- Tap notification opens Find Vibe tab
+- Daily Vibe card highlighted in gold
+
+Make sure everything:
+- Is connected to Supabase tables we created
+- All buttons are tappable and working
+- Smooth animations throughout
+- Works on Android properly
+- No broken icons (use Ionicons/Feather icons)
+- Loading states while data fetches
+- Error handling if something fails
+- Empty states when no content

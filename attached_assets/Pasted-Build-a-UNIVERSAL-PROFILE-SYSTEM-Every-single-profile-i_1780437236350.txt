@@ -1,0 +1,122 @@
+Build a UNIVERSAL PROFILE SYSTEM - Every single profile 
+in the entire app must work the same way:
+
+UNIVERSAL PROFILE RULE:
+- Every username, profile photo, or name anywhere in the 
+  app (Feed, Reels, Find Vibe, Comments, Messages, 
+  Search, Notifications, Story viewers) must be tappable
+- Tapping opens that user's profile as a new screen
+- Profile has its own unique URL: vibe.app/@username
+- Back button always returns to where you came from
+- Profile can be opened from anywhere, infinite levels deep
+
+FULL PROFILE SCREEN (Other User):
+TOP SECTION:
+- Cover photo/banner at very top (tappable to view)
+- Profile video/photo (tappable, plays video if they have one)
+- Username with verified badge if verified
+- Full name
+- Bio text (links in bio are tappable)
+- Website link (opens in browser)
+- Location if they added it
+- "Follows you" badge if they follow you back
+- Mutual followers: "Followed by alex.vibes, mia and 3 others"
+
+ACTION BUTTONS:
+- Follow/Unfollow button (updates instantly)
+- Message button (opens DM)
+- Vibe button (send vibe request from Find Vibe)
+- Three dots (...):
+  * Share profile
+  * Copy profile link  
+  * Block user
+  * Report user
+  * Restrict user
+
+STATS ROW:
+- Posts count (tappable - shows posts grid)
+- Followers count (tappable - opens followers list)
+  * Followers list shows each person with follow button
+  * Search bar in followers list
+- Following count (tappable - opens following list)
+  * Following list shows each person with follow button
+  * Search bar in following list
+
+STORY HIGHLIGHTS:
+- Row of highlight circles below stats
+- Each highlight has custom cover photo and name
+- Tapping opens highlight stories full screen
+- Full screen story viewer same as regular stories
+- Only visible if account is public
+
+CONTENT TABS (only visible if public account):
+Tab 1 - POSTS GRID:
+- 3 column photo/video grid
+- Videos show play icon overlay
+- Tapping any photo opens FULL SCREEN viewer
+- Full screen photo/video viewer:
+  * Swipe LEFT to see next post
+  * Swipe RIGHT to see previous post  
+  * Swipe DOWN to close
+  * Show caption, likes, comments below
+  * Like button works in full screen
+  * Comment button opens comments
+  * Share button works
+  * Save button works
+  * Smooth animations
+
+Tab 2 - REELS:
+- Grid of their reels
+- Tapping opens full screen reel player
+- Swipe up/down to go through their reels
+- All reel interactions work (like, comment, share, save)
+
+Tab 3 - TAGGED:
+- Posts where this user was tagged
+
+PRIVATE ACCOUNT:
+- Show lock icon
+- "This account is private"
+- "Follow to see their photos and videos"
+- Still show followers/following COUNT but not the lists
+- Still show highlights count but not content
+
+YOUR OWN PROFILE:
+- Edit Profile button
+- Shows all your own content always
+- Insights/Analytics button
+- Wallet button
+- Archive button (see archived posts)
+- All 3 tabs work
+- Liked videos tab (if set to public)
+- Saved posts tab (private, only you see)
+
+FULL SCREEN MEDIA VIEWER:
+- Works everywhere in the app
+- Smooth open animation (expands from thumbnail)
+- Swipe left/right between posts/reels
+- Swipe down to close (with drag animation)
+- Double tap to like with heart animation
+- Pinch to zoom on photos
+- Videos autoplay in full screen
+- Progress bar on videos
+- All interaction buttons on the right side
+- Caption expands if long (tap "more")
+- Comments slide up from bottom
+- Share sheet works
+- Save to collection works
+
+FOLLOWERS/FOLLOWING LIST SCREEN:
+- Search bar at top
+- Each user shows:
+  * Profile photo
+  * Username
+  * Full name
+  * Mutual followers count
+  * Follow/Following/Pending button
+- Tapping any user in list opens their profile
+- Remove follower option (on your own followers list)
+
+Make sure every single profile link works throughout 
+the entire app. No dead profile taps anywhere.
+All animations smooth. All data loads from Supabase.

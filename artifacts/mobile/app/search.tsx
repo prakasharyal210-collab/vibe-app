@@ -240,8 +240,10 @@ function AccountRow({ account, colors }: { account: any; colors: any }) {
 
   return (
     <View style={styles.accountRow}>
-      <UserAvatar username={account.username} size={46} />
-      <View style={styles.accountInfo}>
+      <TouchableOpacity onPress={() => router.push(`/profile/${account.username}` as any)} activeOpacity={0.8}>
+        <UserAvatar username={account.username} size={46} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.accountInfo} onPress={() => router.push(`/profile/${account.username}` as any)} activeOpacity={0.8}>
         <View style={styles.accountNameRow}>
           <Text style={[styles.accountName, { color: colors.foreground }]}>
             {account.username}
@@ -256,7 +258,7 @@ function AccountRow({ account, colors }: { account: any; colors: any }) {
         <Text style={[styles.accountFollowers, { color: colors.mutedForeground }]}>
           {formatCount(account.followers_count ?? 0)} followers
         </Text>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setFollowing((f) => !f)}
         style={[

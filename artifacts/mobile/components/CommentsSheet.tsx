@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -44,10 +45,12 @@ function CommentItem({ username, text, time, likes }: CommentItemProps) {
 
   return (
     <View style={styles.commentRow}>
-      <UserAvatar username={username} size={34} />
+      <TouchableOpacity onPress={() => router.push(`/profile/${username}` as any)} activeOpacity={0.8}>
+        <UserAvatar username={username} size={34} />
+      </TouchableOpacity>
       <View style={styles.commentBody}>
         <Text style={[styles.commentUser, { color: colors.foreground }]}>
-          {username}{" "}
+          <Text onPress={() => router.push(`/profile/${username}` as any)} style={styles.commentUser}>{username}</Text>{" "}
           <Text style={[styles.commentText, { color: colors.foreground }]}>{text}</Text>
         </Text>
         <View style={styles.commentMeta}>

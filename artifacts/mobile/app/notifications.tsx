@@ -41,16 +41,18 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
       ]}
       activeOpacity={0.78}
     >
-      <View style={styles.avatarGroup}>
-        <UserAvatar username={notif.username} size={46} />
-        <View style={[styles.typeIcon, { backgroundColor: config.bg }]}>
-          <Ionicons name={config.icon as any} size={14} color={config.color} />
+      <TouchableOpacity onPress={() => router.push(`/profile/${notif.username}` as any)} activeOpacity={0.8}>
+        <View style={styles.avatarGroup}>
+          <UserAvatar username={notif.username} size={46} />
+          <View style={[styles.typeIcon, { backgroundColor: config.bg }]}>
+            <Ionicons name={config.icon as any} size={14} color={config.color} />
+          </View>
         </View>
-      </View>
+      </TouchableOpacity>
 
       <View style={styles.notifBody}>
         <Text style={[styles.notifText, { color: colors.foreground }]}>
-          <Text style={styles.notifUser}>{notif.username} </Text>
+          <Text style={styles.notifUser} onPress={() => router.push(`/profile/${notif.username}` as any)}>{notif.username} </Text>
           {notif.text}
         </Text>
         <Text style={[styles.notifTime, { color: colors.mutedForeground }]}>{notif.time} ago</Text>
