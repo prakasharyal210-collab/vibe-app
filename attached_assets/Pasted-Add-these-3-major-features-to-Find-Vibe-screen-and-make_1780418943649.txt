@@ -1,0 +1,71 @@
+Add these 3 major features to Find Vibe screen and make 
+everything work properly:
+
+FEATURE 1 - DAILY VIBE:
+- Every day at 8PM show ONE special matched person
+- Big countdown timer showing time until next Daily Vibe
+- Special gold/animated card design for Daily Vibe match
+- "Today's Vibe" label with sparkle animation
+- 24 hour timer on the match - if not connected they disappear
+- Push notification at 8PM "Your Daily Vibe is here! ✨"
+- After connecting, show "You vibed!" celebration animation
+- Confetti animation when matched
+- Daily Vibe history in profile (all past daily vibes)
+
+FEATURE 2 - VIBE GAMES:
+- When user swipes right, before matching show a quick game
+- Game 1: "This or That" - 5 quick questions with animations
+  (Beach or Mountains, Coffee or Tea, Night or Morning etc)
+  Show compatibility score after each answer
+- Game 2: "Would You Rather" - funny scenarios
+- Game 3: "Vibe Quiz" - 3 questions about personality
+- Animated cards sliding in for each question
+- Progress bar showing game progress
+- Final score animation "You are 85% compatible! 🔥"
+- Option to skip games (but lower match score)
+- Games should be smooth with spring animations
+
+FEATURE 3 - VIDEO PROFILE:
+- In Find Vibe cards, show 15 second auto-playing video
+  instead of just a photo
+- Video plays silently by default, tap for sound
+- Video loops while viewing the card
+- Record video profile button in Edit Profile
+- Camera opens to record 15 sec intro video
+- Preview before saving
+- Add music to your video profile
+- Add text overlay on video profile
+- Video profile shows in:
+  * Find Vibe swipe cards
+  * Profile page (plays at top instead of static photo)
+  * When someone visits your profile
+
+PROFILE VIEWING - Make it work properly:
+- When tapping ANY username or profile photo anywhere 
+  in the app, open their full profile
+- Other user profile shows:
+  * Their video profile playing at top
+  * Follow/Unfollow button
+  * Send Vibe button (from Find Vibe)
+  * Message button
+  * Their posts grid
+  * Their reels tab
+  * Followers and following count (tappable to see list)
+  * Bio and website link
+  * Mutual followers shown "3 mutual friends"
+- Block/Report button (3 dots top right)
+- If private account show "This account is private"
+- Smooth slide-in animation when opening profile
+- Back button to go back
+
+ANIMATIONS & UI:
+- All swipe cards should have smooth spring animations
+- Swipe right shows green VIBE ✨ overlay
+- Swipe left shows grey SKIP overlay  
+- Super Vibe button (like super like) with star animation
+- Match celebration: full screen animation with confetti
+- "It's a Vibe! 💜" text with explosion animation
+- Option to message matched person immediately
+- All buttons must be touchable and working
+- Video must actually play in cards
+- Games must be completable start to finish

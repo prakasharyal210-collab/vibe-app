@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -10,7 +12,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
 import { SkeletonPost } from "@/components/SkeletonLoader";
@@ -19,6 +20,32 @@ import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { fetchUnreadCount } from "@/lib/db";
 import { MOCK_POSTS, MOCK_STORIES, Post, supabase } from "@/lib/supabase";
+
+const FOR_YOU_EXTRA: Post[] = [
+  {
+    id: "fy1",
+    user_id: "u6",
+    image_url: "https://picsum.photos/seed/fy1/400/400",
+    images: ["https://picsum.photos/seed/fy1/400/400", "https://picsum.photos/seed/fy1b/400/400"],
+    caption: "The best sunsets are the ones you didn't plan 🌅 #spontaneous #travel",
+    location: "Amalfi Coast, Italy",
+    likes_count: 4821,
+    comments_count: 203,
+    created_at: new Date(Date.now() - 3600000).toISOString(),
+    profiles: { id: "u6", username: "alex.w", is_verified: true },
+  },
+  {
+    id: "fy2",
+    user_id: "u7",
+    image_url: "https://picsum.photos/seed/fy2/400/400",
+    images: ["https://picsum.photos/seed/fy2/400/400"],
+    caption: "Studio session 🎵 new music coming very soon...",
+    likes_count: 1933,
+    comments_count: 88,
+    created_at: new Date(Date.now() - 21600000).toISOString(),
+    profiles: { id: "u7", username: "maya_art" },
+  },
+];
 
 export default function FeedScreen() {
   const colors = useColors();
@@ -30,6 +57,7 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(3);
+  const [feedTab, setFeedTab] = useState<"following" | "foryou">("foryou");
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -44,7 +72,7 @@ export default function FeedScreen() {
         .order("created_at", { ascending: false })
         .limit(20);
       if (!error && data && data.length > 0) setPosts(data as Post[]);
-    } catch { /* keep mock data */ }
+    } catch { }
   }, []);
 
   const onRefresh = useCallback(async () => {
@@ -53,8 +81,46 @@ export default function FeedScreen() {
     setRefreshing(false);
   }, [fetchPosts]);
 
+  const displayPosts = useMemo(() => {
+    if (feedTab === "following") {
+      return posts.filter((_, i) => i % 2 === 0);
+    }
+    return [...posts, ...FOR_YOU_EXTRA].sort(() => Math.random() - 0.3);
+  }, [feedTab, posts]);
+
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
+
+  const FeedTabs = (
+    <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
+      {([
+        { id: "foryou", label: "For You" },
+        { id: "following", label: "Following" },
+      ] as const).map((tab) => (
+        <TouchableOpacity
+          key={tab.id}
+          onPress={() => setFeedTab(tab.id)}
+          style={styles.tabBtn}
+        >
+          <Text style={[
+            styles.tabText,
+            { color: feedTab === tab.id ? colors.foreground : colors.mutedForeground },
+            feedTab === tab.id && styles.tabTextActive,
+          ]}>
+            {tab.label}
+          </Text>
+          {feedTab === tab.id && (
+            <LinearGradient
+              colors={["#7C3AED", "#F97316"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.tabUnderline}
+            />
+          )}
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   const ListHeader = (
     <>
@@ -75,14 +141,15 @@ export default function FeedScreen() {
       </View>
       <StoryRow stories={MOCK_STORIES} />
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
+      {FeedTabs}
     </>
   );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={loading ? [] : posts}
-        keyExtractor={(item) => item.id}
+        data={loading ? [] : displayPosts}
+        keyExtractor={(item) => item.id + feedTab}
         renderItem={({ item }) => (
           <PostCard
             post={item}
@@ -95,6 +162,14 @@ export default function FeedScreen() {
           loading ? (
             <View>
               {[1, 2].map((i) => <SkeletonPost key={i} />)}
+            </View>
+          ) : feedTab === "following" && displayPosts.length === 0 ? (
+            <View style={styles.emptyFollowing}>
+              <Text style={styles.emptyEmoji}>💜</Text>
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>Follow people to see their posts</Text>
+              <TouchableOpacity onPress={() => router.push("/search")} style={styles.discoverBtn}>
+                <Text style={{ color: "#7C3AED", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Discover People →</Text>
+              </TouchableOpacity>
             </View>
           ) : null
         }
@@ -140,6 +215,40 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#0A0A0F",
   },
-  divider: { height: 0.5, marginBottom: 2 },
+  divider: { height: 0.5 },
   separator: { height: 0.5 },
+  tabRow: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    marginBottom: 2,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    position: "relative",
+  },
+  tabText: {
+    fontSize: 14,
+    fontFamily: "Poppins_500Medium",
+  },
+  tabTextActive: {
+    fontFamily: "Poppins_700Bold",
+  },
+  tabUnderline: {
+    position: "absolute",
+    bottom: 0,
+    left: 24,
+    right: 24,
+    height: 2.5,
+    borderRadius: 2,
+  },
+  emptyFollowing: {
+    alignItems: "center",
+    paddingTop: 60,
+    gap: 12,
+  },
+  emptyEmoji: { fontSize: 48 },
+  emptyTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 15, textAlign: "center", paddingHorizontal: 32 },
+  discoverBtn: { marginTop: 4 },
 });

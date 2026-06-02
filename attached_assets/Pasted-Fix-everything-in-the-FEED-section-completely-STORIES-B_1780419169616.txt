@@ -1,0 +1,85 @@
+Fix everything in the FEED section completely:
+
+STORIES BAR (top of feed):
+- "Your Story" circle must be tappable to ADD a story
+- Tapping "Your Story" opens camera or gallery picker
+- Can take photo or record 15 sec video for story
+- After capturing, add text, stickers, music to story
+- Post story button saves to Supabase stories table
+- Other people's story circles must be tappable
+- Tapping a friend's story opens FULL SCREEN story viewer
+- Story viewer:
+  * Full screen with progress bar at top
+  * Auto advances after 5 seconds
+  * Tap right side = next story
+  * Tap left side = previous story
+  * Swipe down = close story
+  * Show who viewed your story
+  * Reply to story with message
+  * React to story with emoji
+  * Stories disappear after 24 hours
+  * Seen stories show faded ring
+  * Unseen stories show colorful gradient ring
+
+POSTS IN FEED:
+- Profile photo on each post must be tappable
+- Tapping profile photo opens that user's full profile
+- Username on post must be tappable → opens profile
+- Photos/videos in posts must be tappable → full screen
+- Full screen photo viewer:
+  * Pinch to zoom
+  * Double tap to zoom in
+  * Swipe down to close
+  * Show caption below
+  * Like and comment in full screen too
+- Multiple photos in one post:
+  * Swipe left/right to see all photos
+  * Dots indicator showing which photo you're on
+- Like button:
+  * Single tap = like (heart fills red)
+  * Double tap anywhere on photo = like with animation
+  * Floating heart animation on double tap
+  * Like count updates immediately
+  * Unlike by tapping again
+- Comment button:
+  * Opens comments bottom sheet
+  * Show all comments with profile photos
+  * Reply to comments
+  * Like individual comments
+  * Delete own comments
+  * Type comment at bottom with send button
+  * Keyboard pushes comment input up
+- Share button:
+  * Share to story
+  * Share to DM (select friend)
+  * Copy link
+  * Share to other apps
+- Save/Bookmark button:
+  * Saves post to your saved collection
+  * Saved posts viewable in profile
+- Three dots (...) on post:
+  * Report post
+  * Not interested
+  * Hide posts from this user
+  * Copy link
+  * If own post: Edit caption, Delete post
+- Follow button on posts from non-followed users
+- Feed should load real posts from Supabase
+- Pull down to refresh feed
+- Infinite scroll - load more posts as user scrolls
+- Loading skeleton while posts load
+- Empty state if no posts yet
+
+VIDEO POSTS IN FEED:
+- Videos auto play when scrolled into view
+- Videos pause when scrolled out of view
+- Mute/unmute button on video
+- Video progress bar at bottom
+
+FEED TABS:
+- "Following" tab shows posts from people you follow
+- "For You" tab shows suggested posts (most liked)
+- Smooth tab switching animation
+
+Fix ALL of these properly so everything is 
+touchable, working, and connected to Supabase.

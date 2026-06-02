@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -88,8 +89,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
   return (
     <View style={[styles.container, { backgroundColor: colors.card }]}>
       <View style={styles.header}>
-        <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={36} />
+        <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.8}>
+          <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={36} />
+        </TouchableOpacity>
         <View style={styles.headerText}>
+          <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.7}>
           <View style={styles.nameRow}>
             <Text style={[styles.username, { color: colors.foreground }]}>
               {post.profiles?.username ?? "user"}
@@ -98,6 +102,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
               <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />
             )}
           </View>
+          </TouchableOpacity>
           {post.location ? (
             <View style={styles.locationRow}>
               <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />

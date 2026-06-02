@@ -12,6 +12,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -63,11 +64,312 @@ const SAMEVIBE_CARDS: VibeCard[] = [
   { id: "v4", name: "Nina", age: 24, image: "https://picsum.photos/seed/vibe4/400/600", bio: "Startup founder. Morning runs. Strong opinions.", interests: ["Art", "Coffee", "Tech", "Travel"], vibe: "Hustler", matchInterests: ["Art", "Coffee", "Travel"] },
 ];
 
+const DAILY_VIBE_CARD: VibeCard = {
+  id: "daily1",
+  name: "Ariana",
+  age: 24,
+  image: "https://picsum.photos/seed/daily1/400/600",
+  bio: "✨ Today's special connection. Your vibes align perfectly across photography, travel, and music.",
+  interests: ["Photography", "Travel", "Music", "Coffee"],
+  vibe: "Today's Vibe",
+  matchInterests: ["Photography", "Travel", "Music"],
+};
+
+const THIS_OR_THAT = [
+  { a: "🏖️ Beach", b: "⛰️ Mountains" },
+  { a: "☕ Coffee", b: "🍵 Tea" },
+  { a: "🌙 Night Owl", b: "🌅 Early Bird" },
+  { a: "🎵 Music", b: "🎬 Movies" },
+  { a: "🏠 Stay In", b: "🎉 Go Out" },
+];
+
+const THEIR_ANSWERS = [0, 1, 0, 0, 1];
+
+function getDailyCountdown(): string {
+  const now = new Date();
+  const next8 = new Date();
+  next8.setHours(20, 0, 0, 0);
+  if (now >= next8) next8.setDate(next8.getDate() + 1);
+  const diff = next8.getTime() - now.getTime();
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
 function calcMatch(card: VibeCard): number {
   const shared = (card.matchInterests ?? []).length;
   const total = new Set([...MY_INTERESTS, ...card.interests]).size;
   return Math.round((shared / total) * 100);
 }
+
+function VibeGamesModal({ card, visible, onComplete, onSkip }: {
+  card: VibeCard | null;
+  visible: boolean;
+  onComplete: (score: number, card: VibeCard) => void;
+  onSkip: () => void;
+}) {
+  const [qIdx, setQIdx] = useState(0);
+  const [myAnswers, setMyAnswers] = useState<number[]>([]);
+  const [showResult, setShowResult] = useState(false);
+  const [score, setScore] = useState(0);
+  const slideX = useSharedValue(W);
+
+  useEffect(() => {
+    if (visible) {
+      setQIdx(0);
+      setMyAnswers([]);
+      setShowResult(false);
+      slideX.value = W;
+      slideX.value = withSpring(0, { damping: 20, stiffness: 220 });
+    }
+  }, [visible]);
+
+  const qSlideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slideX.value }] }));
+
+  const nextQ = (idx: number) => {
+    slideX.value = W;
+    slideX.value = withSpring(0, { damping: 20, stiffness: 220 });
+    setQIdx(idx);
+  };
+
+  const pick = (choice: number) => {
+    if (!card) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const newAnswers = [...myAnswers, choice];
+    setMyAnswers(newAnswers);
+    if (qIdx < THIS_OR_THAT.length - 1) {
+      slideX.value = withTiming(-W * 0.7, { duration: 200 }, () => {
+        runOnJS(nextQ)(qIdx + 1);
+      });
+    } else {
+      const matches = newAnswers.filter((a, i) => a === THEIR_ANSWERS[i]).length;
+      const pct = Math.round((matches / THIS_OR_THAT.length) * 100) + Math.floor(Math.random() * 20);
+      setScore(Math.min(pct, 99));
+      setShowResult(true);
+    }
+  };
+
+  if (!card || !visible) return null;
+
+  const q = THIS_OR_THAT[qIdx];
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onSkip}>
+      <View style={gameStyles.overlay}>
+        <View style={gameStyles.sheet}>
+          <TouchableOpacity onPress={onSkip} style={gameStyles.skipBtn}>
+            <Text style={gameStyles.skipText}>Skip game →</Text>
+          </TouchableOpacity>
+
+          {!showResult ? (
+            <>
+              <View style={gameStyles.progressRow}>
+                {THIS_OR_THAT.map((_, i) => (
+                  <View key={i} style={[gameStyles.progressSeg, { backgroundColor: i < qIdx ? "#7C3AED" : i === qIdx ? "#A78BFA" : "rgba(255,255,255,0.15)" }]} />
+                ))}
+              </View>
+
+              <View style={gameStyles.photoRow}>
+                <View style={gameStyles.photoWrap}>
+                  <Image source={{ uri: card.image }} style={gameStyles.playerPhoto} />
+                  <Text style={gameStyles.photoLabel}>{card.name}</Text>
+                </View>
+                <Text style={gameStyles.vsText}>⚡</Text>
+                <View style={gameStyles.photoWrap}>
+                  <Image source={{ uri: "https://picsum.photos/seed/myprofile/100/100" }} style={gameStyles.playerPhoto} />
+                  <Text style={gameStyles.photoLabel}>You</Text>
+                </View>
+              </View>
+
+              <Text style={gameStyles.questionLabel}>This or That? ({qIdx + 1}/{THIS_OR_THAT.length})</Text>
+
+              <Animated.View style={[gameStyles.choiceContainer, qSlideStyle]}>
+                <TouchableOpacity onPress={() => pick(0)} style={gameStyles.choiceA} activeOpacity={0.8}>
+                  <Text style={gameStyles.choiceText}>{q.a}</Text>
+                </TouchableOpacity>
+                <View style={gameStyles.orWrap}>
+                  <Text style={gameStyles.orText}>or</Text>
+                </View>
+                <TouchableOpacity onPress={() => pick(1)} style={gameStyles.choiceB} activeOpacity={0.8}>
+                  <Text style={gameStyles.choiceText}>{q.b}</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </>
+          ) : (
+            <View style={gameStyles.resultContainer}>
+              <Text style={gameStyles.resultEmoji}>{score >= 75 ? "🔥" : score >= 55 ? "✨" : "😊"}</Text>
+              <Text style={gameStyles.resultScore}>{score}% Compatible!</Text>
+              <LinearGradient colors={["#7C3AED22", "#EA580C22"]} style={gameStyles.resultBar}>
+                <View style={[gameStyles.resultFill, { width: `${score}%` as any }]} />
+              </LinearGradient>
+              <Text style={gameStyles.resultSub}>
+                {score >= 75 ? "You two are a real vibe! 💜" : score >= 55 ? "Definitely worth connecting!" : "Hey, opposites attract!"}
+              </Text>
+              <TouchableOpacity onPress={() => onComplete(score, card)} activeOpacity={0.9} style={{ width: "100%" }}>
+                <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gameStyles.connectGrad}>
+                  <Text style={gameStyles.connectText}>Connect 💜</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onSkip} style={{ marginTop: 10 }}>
+                <Text style={gameStyles.skipText}>Maybe later</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const gameStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.88)", alignItems: "center", justifyContent: "center" },
+  sheet: { width: W - 32, backgroundColor: "#12122A", borderRadius: 28, padding: 24, alignItems: "center" },
+  skipBtn: { alignSelf: "flex-end", marginBottom: 12 },
+  skipText: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_500Medium", fontSize: 13 },
+  progressRow: { flexDirection: "row", gap: 6, marginBottom: 20, width: "100%" },
+  progressSeg: { flex: 1, height: 4, borderRadius: 2 },
+  photoRow: { flexDirection: "row", alignItems: "center", gap: 20, marginBottom: 20 },
+  photoWrap: { alignItems: "center", gap: 6 },
+  playerPhoto: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: "#7C3AED" },
+  photoLabel: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_500Medium", fontSize: 12 },
+  vsText: { fontSize: 26 },
+  questionLabel: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_600SemiBold", fontSize: 13, marginBottom: 18, letterSpacing: 0.3 },
+  choiceContainer: { width: "100%", gap: 12 },
+  choiceA: { backgroundColor: "rgba(124,58,237,0.25)", borderWidth: 1.5, borderColor: "#7C3AED", borderRadius: 18, paddingVertical: 18, alignItems: "center" },
+  orWrap: { alignItems: "center" },
+  orText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 13 },
+  choiceB: { backgroundColor: "rgba(249,115,22,0.2)", borderWidth: 1.5, borderColor: "#F97316", borderRadius: 18, paddingVertical: 18, alignItems: "center" },
+  choiceText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
+  resultContainer: { alignItems: "center", width: "100%" },
+  resultEmoji: { fontSize: 56, marginBottom: 10 },
+  resultScore: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 26, marginBottom: 12 },
+  resultBar: { width: "100%", height: 8, borderRadius: 4, marginBottom: 14, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.1)" },
+  resultFill: { height: 8, backgroundColor: "#7C3AED", borderRadius: 4 },
+  resultSub: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_400Regular", fontSize: 14, marginBottom: 24, textAlign: "center" },
+  connectGrad: { paddingVertical: 16, borderRadius: 28, alignItems: "center" },
+  connectText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
+});
+
+function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: VibeCard) => void; onConnect: () => void }) {
+  const colors = useColors();
+  const [countdown, setCountdown] = useState(getDailyCountdown());
+  const [connected, setConnected] = useState(false);
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCountdown(getDailyCountdown()), 1000);
+    let running = true;
+    const doPulse = () => {
+      if (!running) return;
+      pulse.value = withSpring(1.03, { damping: 8, stiffness: 100 }, () => {
+        pulse.value = withSpring(1, { damping: 8, stiffness: 100 });
+        setTimeout(doPulse, 2500);
+      });
+    };
+    setTimeout(doPulse, 1000);
+    return () => { running = false; clearInterval(timer); };
+  }, []);
+
+  const cardAnim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
+  const match = calcMatch(DAILY_VIBE_CARD);
+
+  return (
+    <View style={dailyStyles.container}>
+      <View style={dailyStyles.headerRow}>
+        <View>
+          <Text style={dailyStyles.sectionTitle}>🌟 Today's Vibe</Text>
+          <Text style={dailyStyles.sectionSub}>Your special daily connection</Text>
+        </View>
+        <View style={dailyStyles.countdownBox}>
+          <Ionicons name="time-outline" size={12} color="#EAB308" />
+          <Text style={dailyStyles.countdown}>Next: {countdown}</Text>
+        </View>
+      </View>
+
+      <Animated.View style={cardAnim}>
+        <TouchableOpacity onPress={() => onViewProfile(DAILY_VIBE_CARD)} activeOpacity={0.92} style={dailyStyles.card}>
+          <Image source={{ uri: DAILY_VIBE_CARD.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <LinearGradient colors={["rgba(234,179,8,0.3)", "transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
+
+          <View style={dailyStyles.goldBorderOverlay} pointerEvents="none" />
+
+          <View style={dailyStyles.sparkleRow} pointerEvents="none">
+            <LinearGradient colors={["#EAB308", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dailyStyles.sparkleTag}>
+              <Text style={dailyStyles.sparkleText}>✨ Today's Vibe</Text>
+            </LinearGradient>
+            <View style={dailyStyles.matchPill}>
+              <Text style={dailyStyles.matchPillText}>{match}% Match</Text>
+            </View>
+          </View>
+
+          <View style={dailyStyles.cardInfo} pointerEvents="none">
+            <Text style={dailyStyles.cardName}>{DAILY_VIBE_CARD.name}, {DAILY_VIBE_CARD.age}</Text>
+            <Text style={dailyStyles.cardBio} numberOfLines={2}>{DAILY_VIBE_CARD.bio}</Text>
+            <View style={dailyStyles.tagsRow}>
+              {DAILY_VIBE_CARD.interests.slice(0, 3).map((t) => (
+                <View key={t} style={[dailyStyles.tag, (DAILY_VIBE_CARD.matchInterests ?? []).includes(t) && dailyStyles.tagMatch]}>
+                  <Text style={dailyStyles.tagText}>{t}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {connected ? (
+        <View style={dailyStyles.connectedRow}>
+          <Text style={dailyStyles.connectedText}>🎉 You vibed with {DAILY_VIBE_CARD.name}!</Text>
+          <TouchableOpacity style={dailyStyles.msgBtn} onPress={() => Alert.alert("💜 Message", `Start a conversation with ${DAILY_VIBE_CARD.name}`)}>
+            <Text style={dailyStyles.msgBtnText}>💬 Message</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          onPress={() => { setConnected(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onConnect(); }}
+          activeOpacity={0.9}
+          style={dailyStyles.connectBtn}
+        >
+          <LinearGradient colors={["#EAB308", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dailyStyles.connectGrad}>
+            <Text style={dailyStyles.connectText}>Connect ✨</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      <Text style={dailyStyles.expireText}>⏳ Expires in 24 hours</Text>
+    </View>
+  );
+}
+
+const dailyStyles = StyleSheet.create({
+  container: { paddingHorizontal: 16, paddingBottom: 8 },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 },
+  sectionTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 18 },
+  sectionSub: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: -2 },
+  countdownBox: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(234,179,8,0.15)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, borderWidth: 1, borderColor: "rgba(234,179,8,0.3)" },
+  countdown: { color: "#EAB308", fontFamily: "Poppins_700Bold", fontSize: 12 },
+  card: { height: H * 0.32, borderRadius: 22, overflow: "hidden", position: "relative" },
+  goldBorderOverlay: { ...StyleSheet.absoluteFillObject as any, borderRadius: 22, borderWidth: 2, borderColor: "rgba(234,179,8,0.7)" },
+  sparkleRow: { position: "absolute", top: 12, left: 12, right: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  sparkleTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  sparkleText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 12 },
+  matchPill: { backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: "rgba(234,179,8,0.4)" },
+  matchPillText: { color: "#EAB308", fontFamily: "Poppins_700Bold", fontSize: 12 },
+  cardInfo: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 14, gap: 4 },
+  cardName: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 20 },
+  cardBio: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 17 },
+  tagsRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  tag: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
+  tagMatch: { backgroundColor: "rgba(234,179,8,0.5)" },
+  tagText: { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 11 },
+  connectBtn: { marginTop: 12 },
+  connectGrad: { paddingVertical: 14, borderRadius: 24, alignItems: "center" },
+  connectText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
+  connectedRow: { marginTop: 12, alignItems: "center", gap: 10 },
+  connectedText: { color: "#EAB308", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  msgBtn: { backgroundColor: "rgba(124,58,237,0.3)", paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: "#7C3AED" },
+  msgBtnText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  expireText: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center", marginTop: 8 },
+});
 
 function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClose: () => void; onVibe: () => void; onSkip: () => void }) {
   const colors = useColors();
@@ -132,7 +434,6 @@ function FilterModal({ visible, onClose, onApply }: { visible: boolean; onClose:
   const [maxDist, setMaxDist] = useState(10);
   const INTERESTS_ALL = ["Music", "Art", "Travel", "Photography", "Coffee", "Fitness", "Food", "Gaming", "Hiking", "Tech"];
   const [selected, setSelected] = useState<string[]>(["Music", "Art"]);
-
   const toggle = (i: string) => setSelected((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
 
   return (
@@ -145,50 +446,34 @@ function FilterModal({ visible, onClose, onApply }: { visible: boolean; onClose:
               <Ionicons name="close" size={24} color={colors.foreground} />
             </TouchableOpacity>
           </View>
-
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Age Range</Text>
             <View style={filterStyles.ageRow}>
               {[18, 22, 25, 30, 35, 40].map((age) => (
-                <TouchableOpacity
-                  key={age}
-                  onPress={() => setMaxAge(age)}
-                  style={[filterStyles.agePill, maxAge === age && { backgroundColor: "#7C3AED" }]}
-                >
+                <TouchableOpacity key={age} onPress={() => setMaxAge(age)} style={[filterStyles.agePill, maxAge === age && { backgroundColor: "#7C3AED" }]}>
                   <Text style={[filterStyles.agePillText, { color: maxAge === age ? "#fff" : colors.foreground }]}>
                     {age === 18 ? "18+" : `≤ ${age}`}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-
             <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Max Distance</Text>
             <View style={filterStyles.ageRow}>
               {[1, 5, 10, 25, 50].map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  onPress={() => setMaxDist(d)}
-                  style={[filterStyles.agePill, maxDist === d && { backgroundColor: "#7C3AED" }]}
-                >
+                <TouchableOpacity key={d} onPress={() => setMaxDist(d)} style={[filterStyles.agePill, maxDist === d && { backgroundColor: "#7C3AED" }]}>
                   <Text style={[filterStyles.agePillText, { color: maxDist === d ? "#fff" : colors.foreground }]}>{d} km</Text>
                 </TouchableOpacity>
               ))}
             </View>
-
             <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Interests</Text>
             <View style={filterStyles.interestGrid}>
               {INTERESTS_ALL.map((int) => (
-                <TouchableOpacity
-                  key={int}
-                  onPress={() => toggle(int)}
-                  style={[filterStyles.interestChip, selected.includes(int) && { backgroundColor: "#7C3AED" }, { borderColor: colors.border }]}
-                >
+                <TouchableOpacity key={int} onPress={() => toggle(int)} style={[filterStyles.interestChip, selected.includes(int) && { backgroundColor: "#7C3AED" }, { borderColor: colors.border }]}>
                   <Text style={[filterStyles.interestText, { color: selected.includes(int) ? "#fff" : colors.foreground }]}>{int}</Text>
                 </TouchableOpacity>
               ))}
             </View>
           </ScrollView>
-
           <GradientButton onPress={() => { onApply(); onClose(); }} title="Apply Filters" />
         </View>
       </View>
@@ -203,7 +488,7 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 350 });
     scale.value = withSpring(1, { damping: 14, stiffness: 120 });
-    const t = setTimeout(onClose, 5000);
+    const t = setTimeout(onClose, 6000);
     return () => clearTimeout(t);
   }, []);
 
@@ -235,7 +520,7 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
         {(card.matchInterests?.length ?? 0) > 0 && (
           <Text style={matchStyles.matchSub}>You both vibe on {card.matchInterests!.slice(0, 2).join(" & ")} 🎯</Text>
         )}
-        <TouchableOpacity onPress={onClose} style={matchStyles.messageBtn}>
+        <TouchableOpacity onPress={() => Alert.alert("💬 Message", `Chat with ${card.name}`)} style={matchStyles.messageBtn}>
           <Text style={matchStyles.messageBtnText}>💬 Send Message</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} style={matchStyles.keepBtn}>
@@ -268,22 +553,23 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
   const [matchCard, setMatchCard] = useState<VibeCard | null>(null);
+  const [gameCard, setGameCard] = useState<VibeCard | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
-  const handleSwipe = (direction: "left" | "right") => {
+  const handleSwipe = (direction: "left" | "right", isSuper = false) => {
     const card = cards[currentIndex];
-    const next = currentIndex + 1;
-    setCurrentIndex(next);
+    setCurrentIndex((i) => i + 1);
     translateX.value = 0;
     translateY.value = 0;
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
     if (direction === "right" && card) {
       if (userId) createVibeMatch(userId, card.id).catch(() => {});
-      if (Math.random() < 0.45) {
+      if (isSuper) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setTimeout(() => setMatchCard(card), 500);
       } else {
-        setTimeout(() => Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${card.name}`), 400);
+        setTimeout(() => setGameCard(card), 400);
       }
     }
   };
@@ -328,7 +614,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
     );
   }
 
-  const CARD_H = H * 0.54;
+  const CARD_H = H * 0.5;
   const topCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
   const thirdCard = cards[currentIndex + 2];
@@ -357,10 +643,10 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
               <Ionicons name="expand-outline" size={20} color="#fff" />
             </TouchableOpacity>
 
-            <Animated.View style={[styles.overlayVibe, vibeOverlay]}>
+            <Animated.View style={[styles.overlayVibe, vibeOverlay]} pointerEvents="none">
               <Text style={styles.overlayVibeText}>VIBE ✨</Text>
             </Animated.View>
-            <Animated.View style={[styles.overlaySkip, skipOverlay]}>
+            <Animated.View style={[styles.overlaySkip, skipOverlay]} pointerEvents="none">
               <Text style={styles.overlaySkipText}>SKIP</Text>
             </Animated.View>
 
@@ -400,16 +686,27 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
       )}
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity onPress={() => { translateX.value = withTiming(-W * 1.5, { duration: 300 }); setTimeout(() => handleSwipe("left"), 300); }} style={[styles.actionCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={() => { translateX.value = withTiming(-W * 1.5, { duration: 300 }); setTimeout(() => handleSwipe("left"), 300); }}
+          style={[styles.actionCircle, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
           <Ionicons name="close" size={28} color="#EF4444" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { translateX.value = withTiming(W * 1.5, { duration: 300 }); setTimeout(() => handleSwipe("right"), 300); }} style={styles.vibeCircle}>
+
+        <TouchableOpacity
+          onPress={() => { translateX.value = withTiming(W * 1.5, { duration: 300 }); setTimeout(() => handleSwipe("right"), 300); }}
+          style={styles.vibeCircle}
+        >
           <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.vibeGradient}>
             <Ionicons name="heart" size={30} color="#fff" />
           </LinearGradient>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { topCard && setProfileCard(topCard); }} style={[styles.actionCircle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="person-outline" size={22} color="#7C3AED" />
+
+        <TouchableOpacity
+          onPress={() => { translateX.value = withTiming(W * 1.5, { duration: 300 }); setTimeout(() => handleSwipe("right", true), 300); }}
+          style={[styles.actionCircle, { backgroundColor: "rgba(234,179,8,0.12)", borderColor: "#EAB308" }]}
+        >
+          <Ionicons name="star" size={24} color="#EAB308" />
         </TouchableOpacity>
       </View>
 
@@ -423,6 +720,24 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
       )}
 
       {matchCard && <MatchOverlay card={matchCard} onClose={() => setMatchCard(null)} />}
+
+      <VibeGamesModal
+        card={gameCard}
+        visible={!!gameCard}
+        onComplete={(score, card) => {
+          setGameCard(null);
+          if (score >= 50 || Math.random() < 0.55) {
+            setTimeout(() => setMatchCard(card), 500);
+          } else {
+            Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${card.name}`);
+          }
+        }}
+        onSkip={() => {
+          const card = gameCard;
+          setGameCard(null);
+          if (card && Math.random() < 0.3) setTimeout(() => setMatchCard(card), 400);
+        }}
+      />
     </View>
   );
 }
@@ -432,9 +747,10 @@ export default function FindVibeScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
-  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe">("nearby");
+  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily">("nearby");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
+  const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   if (!isLoggedIn) {
@@ -467,19 +783,62 @@ export default function FindVibeScreen() {
       </View>
 
       <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
-        {(["nearby", "samevibe"] as const).map((tab) => (
-          <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}>
-            {activeTab === tab && (
+        {([
+          { id: "nearby", label: "📍 Nearby" },
+          { id: "samevibe", label: "✨ Same Vibe" },
+          { id: "daily", label: "🌟 Daily" },
+        ] as const).map((tab) => (
+          <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tabBtn, activeTab === tab.id && styles.tabBtnActive]}>
+            {activeTab === tab.id && (
               <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 1 }} style={styles.tabUnderline} />
             )}
-            <Text style={[styles.tabText, { color: activeTab === tab ? colors.foreground : colors.mutedForeground }, activeTab === tab && styles.tabTextActive]}>
-              {tab === "nearby" ? "📍 Nearby" : "✨ Same Vibe"}
+            <Text style={[styles.tabText, { color: activeTab === tab.id ? colors.foreground : colors.mutedForeground }, activeTab === tab.id && styles.tabTextActive]}>
+              {tab.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} />
+      {activeTab === "daily" ? (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
+          <DailyVibeSection
+            onViewProfile={(card) => setDailyProfileCard(card)}
+            onConnect={() => {}}
+          />
+          <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+            <Text style={[styles.historyTitle, { color: colors.foreground }]}>📅 Daily Vibe History</Text>
+            {[
+              { name: "Zoey", date: "Yesterday", matched: true, image: "https://picsum.photos/seed/h1/100/100" },
+              { name: "Marcus", date: "2 days ago", matched: false, image: "https://picsum.photos/seed/h2/100/100" },
+              { name: "Sofia", date: "3 days ago", matched: true, image: "https://picsum.photos/seed/h3/100/100" },
+            ].map((h, i) => (
+              <View key={i} style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Image source={{ uri: h.image }} style={styles.historyPhoto} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.historyName, { color: colors.foreground }]}>{h.name}</Text>
+                  <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>{h.date}</Text>
+                </View>
+                <View style={[styles.historyStatus, { backgroundColor: h.matched ? "rgba(124,58,237,0.2)" : "rgba(255,255,255,0.05)" }]}>
+                  <Text style={{ color: h.matched ? "#A78BFA" : colors.mutedForeground, fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>
+                    {h.matched ? "✨ Vibed" : "Missed"}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+      ) : (
+        <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} />
+      )}
+
+      {dailyProfileCard && (
+        <ProfileModal
+          card={dailyProfileCard}
+          onClose={() => setDailyProfileCard(null)}
+          onVibe={() => { setDailyProfileCard(null); Alert.alert("🌟 Daily Match!", `You vibed with ${dailyProfileCard.name}! 🎉`); }}
+          onSkip={() => setDailyProfileCard(null)}
+        />
+      )}
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
       <FilterModal visible={showFilter} onClose={() => setShowFilter(false)} onApply={() => {}} />
@@ -530,10 +889,10 @@ const styles = StyleSheet.create({
   filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   filterText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4 },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 12, position: "relative" },
+  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 10, position: "relative" },
   tabBtnActive: {},
-  tabUnderline: { position: "absolute", bottom: 0, left: 20, right: 20, height: 2, borderRadius: 1 },
-  tabText: { fontSize: 14, fontFamily: "Poppins_500Medium" },
+  tabUnderline: { position: "absolute", bottom: 0, left: 10, right: 10, height: 2, borderRadius: 1 },
+  tabText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
   tabTextActive: { fontFamily: "Poppins_700Bold" },
   deckArea: { flex: 1, alignItems: "center", paddingHorizontal: 16, paddingTop: 8 },
   card: { position: "absolute", width: W - 32, borderRadius: 24, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
@@ -555,8 +914,8 @@ const styles = StyleSheet.create({
   interestTag: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   interestTagMatch: { backgroundColor: "rgba(124,58,237,0.6)" },
   interestText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_500Medium" },
-  actionButtons: { position: "absolute", bottom: Platform.OS === "web" ? 100 : 90, flexDirection: "row", alignItems: "center", gap: 20 },
-  actionCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  actionButtons: { position: "absolute", bottom: Platform.OS === "web" ? 100 : 90, flexDirection: "row", alignItems: "center", gap: 16 },
+  actionCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   vibeCircle: { width: 72, height: 72, borderRadius: 36, overflow: "hidden" },
   vibeGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyDeck: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32, paddingBottom: 100 },
@@ -570,4 +929,10 @@ const styles = StyleSheet.create({
   guestTitle: { fontSize: 26, fontFamily: "Poppins_700Bold", textAlign: "center" },
   guestSub: { fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 21, marginBottom: 8 },
   signupLink: { fontSize: 15, fontFamily: "Poppins_600SemiBold", marginTop: 4 },
+  historyTitle: { fontSize: 17, fontFamily: "Poppins_700Bold", marginBottom: 12 },
+  historyItem: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, borderWidth: 0.5, marginBottom: 10 },
+  historyPhoto: { width: 48, height: 48, borderRadius: 24 },
+  historyName: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  historyDate: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  historyStatus: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
 });
