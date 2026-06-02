@@ -23,12 +23,16 @@ const queryClient = new QueryClient();
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen
         name="chat/[userId]"
-        options={{ headerShown: false, animation: "slide_from_right" }}
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="inbox"
+        options={{ animation: "slide_from_right" }}
       />
     </Stack>
   );

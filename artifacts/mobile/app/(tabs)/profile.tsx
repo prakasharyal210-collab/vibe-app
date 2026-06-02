@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Dimensions,
@@ -12,6 +13,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GradientButton } from "@/components/GradientButton";
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
@@ -48,11 +51,41 @@ function StatBlock({ label, value }: { label: string; value: number | string }) 
   );
 }
 
+function GuestProfile({ onLogin }: { onLogin: () => void }) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const topInset = Platform.OS === "web" ? 67 : insets.top;
+
+  return (
+    <View style={[styles.guestContainer, { paddingTop: topInset + 40 }]}>
+      <View style={[styles.guestAvatar, { backgroundColor: colors.muted }]}>
+        <Ionicons name="person" size={48} color={colors.mutedForeground} />
+      </View>
+      <Text style={[styles.guestTitle, { color: colors.foreground }]}>Your Profile</Text>
+      <Text style={[styles.guestSub, { color: colors.mutedForeground }]}>
+        Sign in to see your posts, followers, and messages
+      </Text>
+      <GradientButton
+        onPress={() => router.push("/(auth)/login")}
+        title="Sign In"
+        style={{ width: "80%" }}
+      />
+      <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
+        <Text style={{ color: "#7C3AED", fontSize: 14, fontFamily: "Poppins_600SemiBold" }}>
+          Create account →
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
+  const isLoggedIn = !!session;
   const [profile, setProfile] = useState<Profile>(MOCK_PROFILE);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
@@ -70,11 +103,21 @@ export default function ProfileScreen() {
     fetchProfile();
   }, [session]);
 
+  if (!isLoggedIn) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <GuestProfile onLogin={() => setShowLoginPrompt(true)} />
+        <LoginPrompt
+          visible={showLoginPrompt}
+          onClose={() => setShowLoginPrompt(false)}
+        />
+      </View>
+    );
+  }
+
   const emailUsername = session?.user?.email?.split("@")[0] ?? "your_vibe";
-  const displayProfile = {
-    ...profile,
-    username: profile.username === "your_vibe" ? emailUsername : profile.username,
-  };
+  const displayUsername =
+    profile.username === "your_vibe" ? emailUsername : profile.username;
 
   const ListHeader = (
     <View>
@@ -82,40 +125,45 @@ export default function ProfileScreen() {
         colors={["rgba(124,58,237,0.4)", "transparent"]}
         style={[styles.headerGradient, { paddingTop: topInset + 8 }]}
       >
-        <View style={styles.topActions}>
-          <TouchableOpacity>
-            <Ionicons name="settings-outline" size={24} color={colors.foreground} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={signOut}>
-            <Ionicons name="log-out-outline" size={24} color={colors.mutedForeground} />
-          </TouchableOpacity>
+        <View style={styles.topRow}>
+          <Text style={[styles.username, { color: colors.foreground }]}>
+            {displayUsername}
+          </Text>
+          <View style={styles.topActions}>
+            <TouchableOpacity
+              onPress={() => router.push("/inbox")}
+              style={styles.iconBtn}
+            >
+              <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconBtn}>
+              <Ionicons name="settings-outline" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.profileHeader}>
           <UserAvatar
-            username={displayProfile.username}
-            url={displayProfile.avatar_url}
+            username={displayUsername}
+            url={profile.avatar_url}
             size={88}
             showBorder
           />
           <View style={styles.profileInfo}>
-            <Text style={[styles.username, { color: colors.foreground }]}>
-              {displayProfile.username}
-            </Text>
-            {displayProfile.bio ? (
+            {profile.bio ? (
               <Text style={[styles.bio, { color: colors.mutedForeground }]}>
-                {displayProfile.bio}
+                {profile.bio}
               </Text>
             ) : null}
           </View>
         </View>
 
         <View style={styles.statsRow}>
-          <StatBlock label="Posts" value={displayProfile.posts_count ?? MOCK_GRID.length} />
+          <StatBlock label="Posts" value={profile.posts_count ?? MOCK_GRID.length} />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatBlock label="Followers" value={displayProfile.followers_count ?? 1284} />
+          <StatBlock label="Followers" value={profile.followers_count ?? 1284} />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatBlock label="Following" value={displayProfile.following_count ?? 342} />
+          <StatBlock label="Following" value={profile.following_count ?? 342} />
         </View>
 
         <View style={styles.actionButtons}>
@@ -128,6 +176,12 @@ export default function ProfileScreen() {
             style={[styles.shareBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           >
             <Ionicons name="share-outline" size={18} color={colors.foreground} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={signOut}
+            style={[styles.shareBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+          >
+            <Ionicons name="log-out-outline" size={18} color="#EF4444" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -169,18 +223,53 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  guestContainer: {
     flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  guestAvatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  guestTitle: {
+    fontSize: 24,
+    fontFamily: "Poppins_700Bold",
+    textAlign: "center",
+  },
+  guestSub: {
+    fontSize: 14,
+    fontFamily: "Poppins_400Regular",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 8,
   },
   headerGradient: {
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  username: {
+    fontSize: 20,
+    fontFamily: "Poppins_700Bold",
+  },
   topActions: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-    paddingBottom: 16,
+    gap: 4,
+  },
+  iconBtn: {
+    padding: 6,
   },
   profileHeader: {
     flexDirection: "row",
@@ -188,14 +277,7 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 18,
   },
-  profileInfo: {
-    flex: 1,
-  },
-  username: {
-    fontSize: 20,
-    fontFamily: "Poppins_700Bold",
-    marginBottom: 4,
-  },
+  profileInfo: { flex: 1 },
   bio: {
     fontSize: 13,
     fontFamily: "Poppins_400Regular",

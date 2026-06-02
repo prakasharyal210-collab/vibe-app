@@ -4,16 +4,13 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 
 export default function Index() {
-  const { session, loading } = useAuth();
+  const { loading } = useAuth();
 
   useEffect(() => {
     if (loading) return;
-    if (session) {
-      router.replace("/(tabs)");
-    } else {
-      router.replace("/(auth)/login");
-    }
-  }, [session, loading]);
+    // Always open Reels tab — no login required to browse
+    router.replace("/(tabs)");
+  }, [loading]);
 
   return (
     <View style={styles.container}>

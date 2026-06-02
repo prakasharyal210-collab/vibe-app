@@ -25,9 +25,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 interface PostCardProps {
   post: Post;
   onComment?: () => void;
+  isLoggedIn?: boolean;
+  onRequireLogin?: () => void;
 }
 
-export function PostCard({ post, onComment }: PostCardProps) {
+export function PostCard({ post, onComment, isLoggedIn = false, onRequireLogin }: PostCardProps) {
   const colors = useColors();
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
@@ -35,7 +37,16 @@ export function PostCard({ post, onComment }: PostCardProps) {
   const heartScale = useSharedValue(1);
   const heartOpacity = useSharedValue(0);
 
+  const requireAuth = () => {
+    if (!isLoggedIn) {
+      onRequireLogin?.();
+      return true;
+    }
+    return false;
+  };
+
   const handleLike = () => {
+    if (requireAuth()) return;
     const nowLiked = !liked;
     setLiked(nowLiked);
     setLikesCount((c) => (nowLiked ? c + 1 : c - 1));
@@ -48,6 +59,16 @@ export function PostCard({ post, onComment }: PostCardProps) {
         withTiming(0, { duration: 300 })
       );
     }
+  };
+
+  const handleComment = () => {
+    if (requireAuth()) return;
+    onComment?.();
+  };
+
+  const handleBookmark = () => {
+    if (requireAuth()) return;
+    setBookmarked((b) => !b);
   };
 
   const heartStyle = useAnimatedStyle(() => ({
@@ -105,17 +126,20 @@ export function PostCard({ post, onComment }: PostCardProps) {
           <Text style={[styles.actionCount, { color: colors.foreground }]}>
             {likesCount >= 1000 ? `${(likesCount / 1000).toFixed(1)}k` : likesCount}
           </Text>
-          <TouchableOpacity onPress={onComment} style={styles.actionBtn}>
+          <TouchableOpacity onPress={handleComment} style={styles.actionBtn}>
             <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.actionCount, { color: colors.foreground }]}>
             {post.comments_count}
           </Text>
-          <TouchableOpacity style={styles.actionBtn}>
+          <TouchableOpacity
+            onPress={() => requireAuth()}
+            style={styles.actionBtn}
+          >
             <Ionicons name="paper-plane-outline" size={24} color={colors.foreground} />
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={() => setBookmarked((b) => !b)}>
+        <TouchableOpacity onPress={handleBookmark}>
           <Ionicons
             name={bookmarked ? "bookmark" : "bookmark-outline"}
             size={24}
