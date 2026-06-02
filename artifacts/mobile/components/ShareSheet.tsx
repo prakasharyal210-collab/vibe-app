@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef } from "react";
@@ -65,7 +64,11 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
       label: "Copy link",
       color: "#7C3AED",
       onPress: async () => {
-        await Clipboard.setStringAsync(shareUrl);
+        try {
+          if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+            await navigator.clipboard.writeText(shareUrl);
+          }
+        } catch {}
         Alert.alert("Copied!", "Link copied to clipboard");
         onClose();
       },
