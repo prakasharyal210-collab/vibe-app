@@ -1,0 +1,269 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, { useState } from "react";
+import {
+  FlatList,
+  Image,
+  Platform,
+  SectionList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { UserAvatar } from "@/components/UserAvatar";
+import { useColors } from "@/hooks/useColors";
+import { MOCK_NOTIFICATIONS, Notification } from "@/lib/supabase";
+
+const TYPE_CONFIG = {
+  like: { icon: "heart", color: "#F97316", bg: "rgba(249,115,22,0.15)" },
+  comment: { icon: "chatbubble", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
+  follow: { icon: "person-add", color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
+  vibe: { icon: "heart-circle", color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
+  mention: { icon: "at-circle", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+} as const;
+
+function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string) => void }) {
+  const colors = useColors();
+  const config = TYPE_CONFIG[notif.type];
+
+  return (
+    <TouchableOpacity
+      onPress={() => onRead(notif.id)}
+      style={[
+        styles.notifRow,
+        { borderBottomColor: colors.border },
+        !notif.read && { backgroundColor: "rgba(124,58,237,0.06)" },
+      ]}
+      activeOpacity={0.78}
+    >
+      <View style={styles.avatarGroup}>
+        <UserAvatar username={notif.username} size={46} />
+        <View style={[styles.typeIcon, { backgroundColor: config.bg }]}>
+          <Ionicons name={config.icon as any} size={14} color={config.color} />
+        </View>
+      </View>
+
+      <View style={styles.notifBody}>
+        <Text style={[styles.notifText, { color: colors.foreground }]}>
+          <Text style={styles.notifUser}>{notif.username} </Text>
+          {notif.text}
+        </Text>
+        <Text style={[styles.notifTime, { color: colors.mutedForeground }]}>{notif.time} ago</Text>
+      </View>
+
+      {notif.post_image ? (
+        <Image source={{ uri: notif.post_image }} style={styles.postThumb} />
+      ) : notif.type === "follow" ? (
+        <TouchableOpacity style={styles.followBtn}>
+          <LinearGradient
+            colors={["#7C3AED", "#EA580C"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.followBtnGrad}
+          >
+            <Text style={styles.followBtnText}>Follow</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : null}
+
+      {!notif.read && <View style={styles.unreadDot} />}
+    </TouchableOpacity>
+  );
+}
+
+export default function NotificationsScreen() {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const topInset = Platform.OS === "web" ? 67 : insets.top;
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+
+  const markRead = (id: string) => {
+    setNotifications((n) => n.map((item) => (item.id === id ? { ...item, read: true } : item)));
+  };
+
+  const markAllRead = () => {
+    setNotifications((n) => n.map((item) => ({ ...item, read: true })));
+  };
+
+  const today = notifications.filter((n) => ["2m", "15m", "1h", "2h", "3h", "5h"].includes(n.time));
+  const thisWeek = notifications.filter((n) => ["1d", "2d"].includes(n.time));
+  const earlier = notifications.filter((n) => !["2m", "15m", "1h", "2h", "3h", "5h", "1d", "2d"].includes(n.time));
+
+  const sections = [
+    ...(today.length > 0 ? [{ title: "Today", data: today }] : []),
+    ...(thisWeek.length > 0 ? [{ title: "This Week", data: thisWeek }] : []),
+    ...(earlier.length > 0 ? [{ title: "Earlier", data: earlier }] : []),
+  ];
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={26} color={colors.foreground} />
+        </TouchableOpacity>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.foreground }]}>Notifications</Text>
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount}</Text>
+            </View>
+          )}
+        </View>
+        {unreadCount > 0 && (
+          <TouchableOpacity onPress={markAllRead}>
+            <Text style={[styles.markAll, { color: "#7C3AED" }]}>Mark all read</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        renderSectionHeader={({ section: { title } }) => (
+          <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>{title}</Text>
+          </View>
+        )}
+        renderItem={({ item }) => (
+          <NotifItem notif={item} onRead={markRead} />
+        )}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Ionicons name="notifications-off-outline" size={52} color={colors.mutedForeground} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+              No notifications yet
+            </Text>
+          </View>
+        }
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 0.5,
+    gap: 10,
+  },
+  titleRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: "Poppins_700Bold",
+  },
+  badge: {
+    backgroundColor: "#7C3AED",
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontFamily: "Poppins_700Bold",
+  },
+  markAll: {
+    fontSize: 13,
+    fontFamily: "Poppins_500Medium",
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontFamily: "Poppins_600SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  notifRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    gap: 12,
+  },
+  avatarGroup: {
+    position: "relative",
+  },
+  typeIcon: {
+    position: "absolute",
+    bottom: -3,
+    right: -3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0A0A0F",
+  },
+  notifBody: {
+    flex: 1,
+    gap: 3,
+  },
+  notifText: {
+    fontSize: 13,
+    fontFamily: "Poppins_400Regular",
+    lineHeight: 18,
+  },
+  notifUser: {
+    fontFamily: "Poppins_700Bold",
+  },
+  notifTime: {
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+  },
+  postThumb: {
+    width: 46,
+    height: 46,
+    borderRadius: 8,
+  },
+  followBtn: {
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  followBtnGrad: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  followBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#7C3AED",
+  },
+  empty: {
+    alignItems: "center",
+    paddingTop: 80,
+    gap: 12,
+  },
+  emptyText: {
+    fontSize: 15,
+    fontFamily: "Poppins_500Medium",
+  },
+});

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,6 +16,8 @@ interface Story {
   id: string;
   username: string;
   isOwn?: boolean;
+  image?: string;
+  hasNew?: boolean;
 }
 
 interface StoryRowProps {
