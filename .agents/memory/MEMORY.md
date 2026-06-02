@@ -1,0 +1,1 @@
+- [Vibe app architecture](vibe-app.md) — Supabase auth + mock data fallback; always-dark theme forced in useColors.ts
