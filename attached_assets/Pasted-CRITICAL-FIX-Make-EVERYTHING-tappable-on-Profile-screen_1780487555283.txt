@@ -1,0 +1,129 @@
+CRITICAL FIX - Make EVERYTHING tappable on Profile screen
+and throughout the entire app. Every element must have
+its own screen/link just like TikTok and Instagram:
+
+PROFILE SCREEN - Fix all tappable elements:
+
+1. FOLLOWERS COUNT (tappable):
+- Tap "1.3k Followers" → opens FollowersScreen
+- FollowersScreen shows:
+  * Search bar at top
+  * List of all followers
+  * Each row: profile photo + username + 
+    full name + Follow/Following button
+  * Tapping any user → opens their profile
+  * Pull to refresh
+  * Remove follower option (3 dots)
+
+2. FOLLOWING COUNT (tappable):
+- Tap "342 Following" → opens FollowingScreen
+- FollowingScreen shows:
+  * Search bar at top
+  * List of all following
+  * Each row: profile photo + username + 
+    full name + Following button
+  * Tapping any user → opens their profile
+  * Unfollow option
+
+3. POSTS COUNT (tappable):
+- Tap "27 Posts" → scrolls to posts grid
+
+4. EDIT PROFILE BUTTON (tappable):
+- Opens EditProfileScreen with:
+  * Change profile photo (tap photo)
+  * Change cover photo
+  * Full name field
+  * Username field (check availability)
+  * Bio field (max 150 chars)
+  * Website link field
+  * Location field
+  * Pronouns dropdown
+  * Account category selector
+  * Birthday field (private)
+  * Interests/tags selector
+  * Save button → updates profiles table
+  * Cancel button
+
+5. SHARE PROFILE BUTTON (tappable):
+- Opens share sheet with:
+  * Copy profile link button
+  * Share QR code
+  * Share to other apps
+  * Share link: vibe.app/@username
+
+6. ADD FRIENDS BUTTON (tappable):
+- Opens SuggestedUsersScreen
+- Shows people you might know
+- Based on mutual followers and interests
+
+7. WALLET BUTTON (tappable):
+- Opens WalletScreen with:
+  * Coin balance (big number)
+  * Earnings this month
+  * Transaction history list
+  * Buy coins button
+  * Withdraw button
+  * Daily reward status
+
+8. STORY HIGHLIGHTS (tappable):
+- Each highlight circle opens full screen story viewer
+- Long press highlight → edit or delete option
+
+9. POSTS GRID PHOTOS (tappable):
+- Tap any photo → opens full screen viewer
+- Swipe left/right between posts
+- Swipe down to close
+
+10. PROFILE PHOTO (tappable):
+- Tap profile photo → view full size
+- Own profile → option to change photo
+
+11. VERIFIED BADGE (tappable):
+- Tap verified badge → shows "Verified Account" info popup
+
+12. WEBSITE LINK (tappable):
+- Tap website → opens in browser
+
+13. TOP RIGHT ICONS (all tappable):
+- 🔔 Bell → opens NotificationsScreen
+- 💬 Message → opens InboxScreen  
+- ⚙️ Settings → opens SettingsScreen
+
+OTHER USER PROFILE (when viewing someone else):
+1. FOLLOW BUTTON → follow/unfollow instantly
+2. MESSAGE BUTTON → opens DM with that user
+3. VIBE BUTTON → sends vibe request
+4. THREE DOTS → report/block/share options
+5. FOLLOWERS → opens their followers list
+6. FOLLOWING → opens their following list
+7. POSTS GRID → tappable full screen viewer
+8. REELS TAB → tappable full screen reel player
+9. TAGGED TAB → tappable photos
+
+THROUGHOUT ENTIRE APP:
+- Every username anywhere → opens profile
+- Every profile photo anywhere → opens profile
+- Every hashtag → opens hashtag page showing
+  all posts with that hashtag
+- Every location tag → opens location page
+- Every music credit → opens music page with
+  all posts using that sound
+- Every notification → opens relevant content
+- Every comment username → opens their profile
+- Every like notification → opens that post
+- Every follower notification → opens their profile
+
+NAVIGATION:
+- All screens use stack navigation
+- Back button always works
+- Swipe back gesture works on iOS
+- Smooth slide animations between screens
+- Deep linking works for all screens
+
+Make absolutely sure:
+- NO dead taps anywhere in the app
+- Every single element that should be tappable IS tappable
+- Correct screen opens for each tap
+- Data loads correctly in each screen
+- Loading states shown while fetching
+- Error states handled gracefully
