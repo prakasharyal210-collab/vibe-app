@@ -27,7 +27,8 @@ import { useColors } from "@/hooks/useColors";
 import { Post, timeAgo } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
+import { Achievement, checkAchievements, checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost, trackUserInterest, updateCreatorAnalytics } from "@/lib/db";
+import { AchievementModal } from "@/components/AchievementModal";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -50,6 +51,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
   }, [post.id, userId]);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
+  const [achievement, setAchievement] = useState<Achievement | null>(null);
   const [bookmarked, setBookmarked] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [favourited, setFavourited] = useState(false);
@@ -67,6 +69,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
     return false;
   };
 
+  const extractHashtags = (text: string) => (text?.match(/#(\w+)/g) ?? []).map((t) => t.slice(1));
+
   const handleLike = () => {
     if (requireAuth()) return;
     const nowLiked = !liked;
@@ -74,7 +78,17 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
     setLikesCount((c) => (nowLiked ? c + 1 : c - 1));
     heartScale.value = withSequence(withSpring(1.4, { damping: 6 }), withSpring(1));
     if (nowLiked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (userId) toggleLike(post.id, userId, nowLiked);
+    if (userId) {
+      toggleLike(post.id, userId, nowLiked);
+      if (nowLiked) {
+        const hashtags = extractHashtags(post.caption ?? "");
+        hashtags.forEach((tag) => trackUserInterest(userId, tag, "like").catch(() => {}));
+        if (post.user_id) updateCreatorAnalytics(post.user_id).catch(() => {});
+        checkAchievements(userId)
+          .then((unlocked) => { if (unlocked.length > 0) setAchievement(unlocked[0]); })
+          .catch(() => {});
+      }
+    }
   };
 
   const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
@@ -240,6 +254,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
         onClose={() => setShowShare(false)}
         contentType="post"
         username={post.profiles?.username}
+      />
+      <AchievementModal
+        visible={!!achievement}
+        achievement={achievement}
+        onClose={() => setAchievement(null)}
       />
     </View>
   );

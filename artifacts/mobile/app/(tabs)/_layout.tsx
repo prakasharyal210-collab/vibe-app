@@ -5,10 +5,13 @@ import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
+import { DailyRewardModal } from "@/components/DailyRewardModal";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { claimDailyReward } from "@/lib/db";
 
 function NativeTabLayout() {
   return (
@@ -160,10 +163,35 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  if (isLiquidGlassAvailable()) {
-    return <NativeTabLayout />;
-  }
-  return <ClassicTabLayout />;
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+  const [rewardCoins, setRewardCoins] = useState(0);
+  const [showReward, setShowReward] = useState(false);
+  const claimedRef = useRef(false);
+
+  useEffect(() => {
+    if (!userId || claimedRef.current) return;
+    claimedRef.current = true;
+    claimDailyReward(userId).then((coins) => {
+      if (coins > 0) {
+        setTimeout(() => {
+          setRewardCoins(coins);
+          setShowReward(true);
+        }, 1200);
+      }
+    });
+  }, [userId]);
+
+  return (
+    <>
+      {isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}
+      <DailyRewardModal
+        visible={showReward}
+        coins={rewardCoins}
+        onClose={() => setShowReward(false)}
+      />
+    </>
+  );
 }
 
 const styles = StyleSheet.create({

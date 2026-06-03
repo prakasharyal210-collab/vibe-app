@@ -608,3 +608,106 @@ export function subscribeToNotifications(
     )
     .subscribe();
 }
+
+// ─── Supabase RPC Functions ────────────────────────────────────────────────────
+
+export async function getPersonalizedFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_personalized_feed', {
+      p_user_id: userId,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    if (!error && data && data.length > 0) return data as Post[];
+  } catch {}
+  const { data: fallback } = await supabase
+    .from('posts')
+    .select('*, profiles(*)')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  return (fallback as Post[]) ?? [];
+}
+
+export async function trackUserInterest(
+  userId: string,
+  hashtag: string,
+  interactionType: 'like' | 'comment' | 'share' | 'view'
+): Promise<void> {
+  try {
+    await supabase.rpc('track_user_interest', {
+      p_user_id: userId,
+      p_hashtag: hashtag,
+      p_interaction_type: interactionType,
+    });
+  } catch {}
+}
+
+export async function claimDailyReward(userId: string): Promise<number> {
+  try {
+    const { data, error } = await supabase.rpc('claim_daily_reward', { p_user_id: userId });
+    if (!error && data > 0) return data as number;
+  } catch {}
+  return 0;
+}
+
+export async function updateVibeScore(userId: string, points: number, reason: string): Promise<void> {
+  try {
+    await supabase.rpc('update_vibe_score', {
+      p_user_id: userId,
+      p_points: points,
+      p_reason: reason,
+    });
+  } catch {}
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  coins: number;
+}
+
+export async function checkAchievements(userId: string): Promise<Achievement[]> {
+  try {
+    const { data, error } = await supabase.rpc('check_achievements', { p_user_id: userId });
+    if (!error && Array.isArray(data) && data.length > 0) return data as Achievement[];
+  } catch {}
+  return [];
+}
+
+export async function detectSpam(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('detect_spam', { p_user_id: userId });
+    if (!error) return !!data;
+  } catch {}
+  return false;
+}
+
+export async function updateCreatorAnalytics(userId: string): Promise<void> {
+  try {
+    await supabase.rpc('update_creator_analytics', { p_user_id: userId });
+  } catch {}
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  user_id: string;
+  period: string;
+  rank: number;
+  score: number;
+  profiles?: { username: string; avatar_url?: string };
+}
+
+export async function fetchLeaderboard(period = 'weekly'): Promise<LeaderboardEntry[]> {
+  try {
+    const { data, error } = await supabase
+      .from('leaderboard')
+      .select('*, profiles(username, avatar_url)')
+      .eq('period', period)
+      .order('rank', { ascending: true })
+      .limit(10);
+    if (!error && data && data.length > 0) return data as LeaderboardEntry[];
+  } catch {}
+  return [];
+}

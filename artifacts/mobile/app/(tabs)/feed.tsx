@@ -18,7 +18,7 @@ import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchActiveStories, fetchUnreadCount } from "@/lib/db";
+import { fetchActiveStories, fetchUnreadCount, getPersonalizedFeed } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 
 const FOR_YOU_EXTRA: Post[] = [
@@ -62,17 +62,14 @@ export default function FeedScreen() {
 
   const fetchPosts = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from("posts")
-        .select("*, profiles(*)")
-        .order("created_at", { ascending: false })
-        .limit(30);
-      if (!error && data && data.length > 0) {
-        setPosts(data as Post[]);
-      }
+      const userId = session?.user?.id;
+      const data = userId
+        ? await getPersonalizedFeed(userId, 30, 0)
+        : await getPersonalizedFeed("", 30, 0);
+      if (data && data.length > 0) setPosts(data);
     } catch { }
     setLoading(false);
-  }, []);
+  }, [session?.user?.id]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

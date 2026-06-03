@@ -26,7 +26,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createVibeMatch } from "@/lib/db";
+import { Achievement, checkAchievements, createVibeMatch, updateVibeScore } from "@/lib/db";
+import { AchievementModal } from "@/components/AchievementModal";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { SpeedVibeModal } from "@/components/SpeedVibeModal";
@@ -618,6 +619,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
   const [matchCard, setMatchCard] = useState<VibeCard | null>(null);
   const [gameCard, setGameCard] = useState<VibeCard | null>(null);
   const [iceBreakerCard, setIceBreakerCard] = useState<VibeCard | null>(null);
+  const [achievement, setAchievement] = useState<Achievement | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
@@ -633,7 +635,13 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
     translateY.value = 0;
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
     if (direction === "right" && card) {
-      if (userId) createVibeMatch(userId, card.id).catch(() => {});
+      if (userId) {
+        createVibeMatch(userId, card.id).catch(() => {});
+        updateVibeScore(userId, 10, "New match").catch(() => {});
+        checkAchievements(userId)
+          .then((unlocked) => { if (unlocked.length > 0) setAchievement(unlocked[0]); })
+          .catch(() => {});
+      }
       if (isSuper) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setTimeout(() => setMatchCard(card), 500);
@@ -795,6 +803,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
       )}
 
       {matchCard && <MatchOverlay card={matchCard} onClose={() => setMatchCard(null)} />}
+      <AchievementModal visible={!!achievement} achievement={achievement} onClose={() => setAchievement(null)} />
 
       <IceBreakerSheet
         card={iceBreakerCard}

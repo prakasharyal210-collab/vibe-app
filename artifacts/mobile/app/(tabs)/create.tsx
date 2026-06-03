@@ -27,6 +27,7 @@ import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/components/EffectsPickerSheet";
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { useAuth } from "@/context/AuthContext";
+import { detectSpam } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 import { Track } from "@/lib/music";
 
@@ -88,8 +89,10 @@ function GridOverlay() {
 }
 
 function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+  const { session } = useAuth();
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [posting, setPosting] = useState(false);
 
   const pickMedia = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.85, allowsEditing: true, aspect: [4, 3] });
@@ -161,7 +164,25 @@ function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
             <Text style={[styles.draftBtnText, { color: colors.mutedForeground }]}>Save Draft</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <GradientButton onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } Alert.alert("Posted! 🔥", "Your post is now live on Vibe"); }} title="Post Now" />
+            <GradientButton
+              title={posting ? "Checking..." : "Post Now"}
+              onPress={async () => {
+                if (!isLoggedIn) { onRequireLogin(); return; }
+                const userId = session?.user?.id;
+                if (!userId) return;
+                setPosting(true);
+                try {
+                  const isSpam = await detectSpam(userId);
+                  if (isSpam) {
+                    Alert.alert("⚠️ Slow down!", "You're posting too fast. Wait a bit before posting again.");
+                    return;
+                  }
+                  Alert.alert("Posted! 🔥", "Your post is now live on Vibe");
+                } finally {
+                  setPosting(false);
+                }
+              }}
+            />
           </View>
         </View>
       </View>
