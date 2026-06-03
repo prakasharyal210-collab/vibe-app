@@ -26,47 +26,34 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Achievement, checkAchievements, createVibeMatch, updateVibeScore } from "@/lib/db";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  Achievement,
+  checkAchievements,
+  getMyVibeMatches,
+  getVibeMatches,
+  getVibePreferences,
+  sendVibeRequest,
+  updateVibePreferences,
+  updateVibeScore,
+  VibeMatchProfile,
+  VibePrefsRow,
+} from "@/lib/db";
 import { AchievementModal } from "@/components/AchievementModal";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { SpeedVibeModal } from "@/components/SpeedVibeModal";
 import { VibeRoomsTab } from "@/components/VibeRoomsTab";
+import { VibeSetupWizard, VibePreferences } from "@/components/VibeSetupWizard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SWIPE_THRESHOLD = W * 0.3;
 
-interface VibeCard {
-  id: string;
-  name: string;
-  age: number;
-  image: string;
-  bio: string;
-  interests: string[];
-  distance?: string;
-  vibe?: string;
-  matchInterests?: string[];
-  vibeScore?: number;
-}
+type VibeCard = VibeMatchProfile;
 
 const MY_INTERESTS = ["Photography", "Travel", "Music", "Art", "Coffee"];
-
-const NEARBY_CARDS: VibeCard[] = [
-  { id: "p1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/find1/400/600", bio: "Photographer & world traveler. Always chasing golden hour.", interests: ["Photography", "Travel", "Coffee", "Yoga"], distance: "0.3 km", matchInterests: ["Photography", "Travel", "Coffee"], vibeScore: 847 },
-  { id: "p2", name: "Marcus", age: 27, image: "https://picsum.photos/seed/find2/400/600", bio: "Music producer & dog dad. Studio sessions > everything.", interests: ["Music", "Dogs", "Running", "Gaming"], distance: "0.8 km", matchInterests: ["Music"], vibeScore: 612 },
-  { id: "p3", name: "Zoey", age: 23, image: "https://picsum.photos/seed/find3/400/600", bio: "Artist. Into indie music, vintage fashion, and late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], distance: "1.2 km", matchInterests: ["Art", "Music", "Coffee"], vibeScore: 931 },
-  { id: "p4", name: "Jay", age: 26, image: "https://picsum.photos/seed/find4/400/600", bio: "Foodie and fitness nerd. Weekend hiker. ENFJ.", interests: ["Fitness", "Food", "Hiking", "Travel"], distance: "2.1 km", matchInterests: ["Travel"], vibeScore: 488 },
-  { id: "p5", name: "Sofia", age: 25, image: "https://picsum.photos/seed/find5/400/600", bio: "Actress & content creator. Big INTJ energy.", interests: ["Acting", "Photography", "Art", "Travel"], distance: "3.4 km", matchInterests: ["Photography", "Art", "Travel"], vibeScore: 773 },
-];
-
-const SAMEVIBE_CARDS: VibeCard[] = [
-  { id: "v1", name: "Kai", age: 28, image: "https://picsum.photos/seed/vibe1/400/600", bio: "Adventure is my love language. Mountains > malls.", interests: ["Travel", "Photography", "Camping", "Music"], vibe: "Adventurer", matchInterests: ["Travel", "Photography", "Music"], vibeScore: 894 },
-  { id: "v2", name: "Mia", age: 22, image: "https://picsum.photos/seed/vibe2/400/600", bio: "Digital artist. Drawing fandoms by day, gaming by night.", interests: ["Art", "Gaming", "Coffee", "Music"], vibe: "Creator", matchInterests: ["Art", "Coffee", "Music"], vibeScore: 756 },
-  { id: "v3", name: "Leo", age: 29, image: "https://picsum.photos/seed/vibe3/400/600", bio: "Chef & food blogger. Your taste buds will thank me.", interests: ["Cooking", "Food", "Travel", "Photography"], vibe: "Foodie", matchInterests: ["Travel", "Photography"], vibeScore: 543 },
-  { id: "v4", name: "Nina", age: 24, image: "https://picsum.photos/seed/vibe4/400/600", bio: "Startup founder. Morning runs. Strong opinions.", interests: ["Art", "Coffee", "Tech", "Travel"], vibe: "Hustler", matchInterests: ["Art", "Coffee", "Travel"], vibeScore: 1002 },
-];
 
 const DAILY_VIBE_CARD: VibeCard = {
   id: "daily1",
@@ -435,18 +422,54 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
   );
 }
 
-function FilterModal({ visible, onClose, onApply }: { visible: boolean; onClose: () => void; onApply: () => void }) {
+function FilterModal({
+  visible,
+  onClose,
+  onApply,
+  initialPrefs,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onApply: (f: FilterState) => void;
+  initialPrefs?: VibePrefsRow | null;
+}) {
   const colors = useColors();
-  const [maxAge, setMaxAge] = useState(35);
-  const [maxDist, setMaxDist] = useState(10);
-  const INTERESTS_ALL = ["Music", "Art", "Travel", "Photography", "Coffee", "Fitness", "Food", "Gaming", "Hiking", "Tech"];
-  const [selected, setSelected] = useState<string[]>(["Music", "Art"]);
-  const toggle = (i: string) => setSelected((s) => s.includes(i) ? s.filter((x) => x !== i) : [...s, i]);
+  const [showGender, setShowGender] = useState<string[]>(initialPrefs?.interested_in ?? ["everyone"]);
+  const [goal, setGoal] = useState(initialPrefs?.looking_for ?? "all");
+  const [ageMin, setAgeMin] = useState(initialPrefs?.age_min ?? 18);
+  const [ageMax, setAgeMax] = useState(initialPrefs?.age_max ?? 35);
+  const [maxDist, setMaxDist] = useState(initialPrefs?.max_distance_km ?? 25);
+  const [onlineOnly, setOnlineOnly] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const GENDER_OPTS = [
+    { value: "women", label: "Women", emoji: "👩" },
+    { value: "men", label: "Men", emoji: "👨" },
+    { value: "nonbinary", label: "Non-binary", emoji: "🏳️" },
+    { value: "everyone", label: "Everyone", emoji: "💜" },
+  ];
+
+  const GOAL_OPTS = [
+    { value: "all", label: "All", emoji: "💜" },
+    { value: "friendship", label: "Friendship", emoji: "🤝" },
+    { value: "dating", label: "Dating", emoji: "💕" },
+    { value: "networking", label: "Networking", emoji: "💼" },
+    { value: "vibing", label: "Just Vibing", emoji: "✨" },
+  ];
+
+  const toggleGender = (v: string) => {
+    if (v === "everyone") { setShowGender(["everyone"]); return; }
+    setShowGender((prev) => {
+      const without = prev.filter((x) => x !== "everyone");
+      return without.includes(v) ? without.filter((x) => x !== v) : [...without, v];
+    });
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={filterStyles.overlay}>
         <View style={[filterStyles.sheet, { backgroundColor: colors.card }]}>
+          <View style={filterStyles.handle} />
           <View style={filterStyles.header}>
             <Text style={[filterStyles.title, { color: colors.foreground }]}>Filters</Text>
             <TouchableOpacity onPress={onClose}>
@@ -454,38 +477,104 @@ function FilterModal({ visible, onClose, onApply }: { visible: boolean; onClose:
             </TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
+            <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Show Me</Text>
+            <View style={filterStyles.ageRow}>
+              {GENDER_OPTS.map((g) => (
+                <TouchableOpacity
+                  key={g.value}
+                  onPress={() => toggleGender(g.value)}
+                  style={[filterStyles.agePill, showGender.includes(g.value) && { backgroundColor: "#7C3AED" }]}
+                >
+                  <Text style={{ fontSize: 13 }}>{g.emoji}</Text>
+                  <Text style={[filterStyles.agePillText, { color: showGender.includes(g.value) ? "#fff" : colors.foreground }]}>{g.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Looking For</Text>
+            <View style={filterStyles.ageRow}>
+              {GOAL_OPTS.map((g) => (
+                <TouchableOpacity
+                  key={g.value}
+                  onPress={() => setGoal(g.value)}
+                  style={[filterStyles.agePill, goal === g.value && { backgroundColor: "#7C3AED" }]}
+                >
+                  <Text style={{ fontSize: 13 }}>{g.emoji}</Text>
+                  <Text style={[filterStyles.agePillText, { color: goal === g.value ? "#fff" : colors.foreground }]}>{g.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Age Range</Text>
             <View style={filterStyles.ageRow}>
               {[18, 22, 25, 30, 35, 40].map((age) => (
-                <TouchableOpacity key={age} onPress={() => setMaxAge(age)} style={[filterStyles.agePill, maxAge === age && { backgroundColor: "#7C3AED" }]}>
-                  <Text style={[filterStyles.agePillText, { color: maxAge === age ? "#fff" : colors.foreground }]}>
-                    {age === 18 ? "18+" : `≤ ${age}`}
+                <TouchableOpacity key={age} onPress={() => setAgeMin(age)} style={[filterStyles.agePill, ageMin === age && { backgroundColor: "#7C3AED22", borderColor: "#7C3AED" }]}>
+                  <Text style={[filterStyles.agePillText, { color: ageMin === age ? "#A78BFA" : colors.foreground }]}>
+                    {age}+
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
+            <View style={filterStyles.ageRow}>
+              {[22, 25, 30, 35, 40, 50].map((age) => (
+                <TouchableOpacity key={age} onPress={() => setAgeMax(age)} style={[filterStyles.agePill, ageMax === age && { backgroundColor: "#EA580C22", borderColor: "#EA580C" }]}>
+                  <Text style={[filterStyles.agePillText, { color: ageMax === age ? "#FB923C" : colors.foreground }]}>≤{age}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Max Distance</Text>
             <View style={filterStyles.ageRow}>
-              {[1, 5, 10, 25, 50].map((d) => (
+              {[1, 5, 10, 25, 50, 101].map((d) => (
                 <TouchableOpacity key={d} onPress={() => setMaxDist(d)} style={[filterStyles.agePill, maxDist === d && { backgroundColor: "#7C3AED" }]}>
-                  <Text style={[filterStyles.agePillText, { color: maxDist === d ? "#fff" : colors.foreground }]}>{d} km</Text>
+                  <Text style={[filterStyles.agePillText, { color: maxDist === d ? "#fff" : colors.foreground }]}>
+                    {d > 100 ? "Anywhere" : `${d} km`}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>Interests</Text>
-            <View style={filterStyles.interestGrid}>
-              {INTERESTS_ALL.map((int) => (
-                <TouchableOpacity key={int} onPress={() => toggle(int)} style={[filterStyles.interestChip, selected.includes(int) && { backgroundColor: "#7C3AED" }, { borderColor: colors.border }]}>
-                  <Text style={[filterStyles.interestText, { color: selected.includes(int) ? "#fff" : colors.foreground }]}>{int}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+
+            <Text style={[filterStyles.sectionLabel, { color: colors.mutedForeground }]}>More Options</Text>
+            <TouchableOpacity onPress={() => setOnlineOnly((v) => !v)} style={[filterStyles.toggleRow, { borderColor: colors.border }]}>
+              <View>
+                <Text style={[filterStyles.toggleLabel, { color: colors.foreground }]}>🟢 Online only</Text>
+                <Text style={[filterStyles.toggleSub, { color: colors.mutedForeground }]}>Only show people online right now</Text>
+              </View>
+              <View style={[filterStyles.toggleKnob, onlineOnly && { backgroundColor: "#7C3AED" }]}>
+                <View style={[filterStyles.toggleThumb, onlineOnly && { transform: [{ translateX: 18 }] }]} />
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setVerifiedOnly((v) => !v)} style={[filterStyles.toggleRow, { borderColor: colors.border, marginBottom: 20 }]}>
+              <View>
+                <Text style={[filterStyles.toggleLabel, { color: colors.foreground }]}>✅ Verified only</Text>
+                <Text style={[filterStyles.toggleSub, { color: colors.mutedForeground }]}>Only show verified profiles</Text>
+              </View>
+              <View style={[filterStyles.toggleKnob, verifiedOnly && { backgroundColor: "#7C3AED" }]}>
+                <View style={[filterStyles.toggleThumb, verifiedOnly && { transform: [{ translateX: 18 }] }]} />
+              </View>
+            </TouchableOpacity>
           </ScrollView>
-          <GradientButton onPress={() => { onApply(); onClose(); }} title="Apply Filters" />
+          <GradientButton
+            onPress={() => {
+              onApply({ showGender, goal, ageMin, ageMax, maxDist, onlineOnly, verifiedOnly });
+              onClose();
+            }}
+            title="Apply Filters"
+          />
         </View>
       </View>
     </Modal>
   );
+}
+
+interface FilterState {
+  showGender: string[];
+  goal: string;
+  ageMin: number;
+  ageMax: number;
+  maxDist: number;
+  onlineOnly: boolean;
+  verifiedOnly: boolean;
 }
 
 function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }) {
@@ -642,17 +731,27 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
     if (direction === "right" && card) {
       if (userId) {
-        createVibeMatch(userId, card.id).catch(() => {});
-        updateVibeScore(userId, 10, "New match").catch(() => {});
+        sendVibeRequest(userId, card.id)
+          .then((result) => {
+            if (result === "matched") {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              setTimeout(() => setMatchCard(card), 400);
+            } else if (!isSuper) {
+              setTimeout(() => setIceBreakerCard(card), 400);
+            }
+          })
+          .catch(() => { if (!isSuper) setTimeout(() => setIceBreakerCard(card), 400); });
+        updateVibeScore(userId, 10, "Sent vibe").catch(() => {});
         checkAchievements(userId)
           .then((unlocked) => { if (unlocked.length > 0) setAchievement(unlocked[0]); })
           .catch(() => {});
-      }
-      if (isSuper) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        setTimeout(() => setMatchCard(card), 500);
       } else {
-        setTimeout(() => setIceBreakerCard(card), 400);
+        if (isSuper) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          setTimeout(() => setMatchCard(card), 500);
+        } else {
+          setTimeout(() => setIceBreakerCard(card), 400);
+        }
       }
     }
   };
@@ -841,18 +940,210 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
   );
 }
 
+function MatchesTab({ userId }: { userId: string }) {
+  const colors = useColors();
+  const [matches, setMatches] = useState<VibeMatchProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getMyVibeMatches(userId);
+        setMatches(data);
+      } catch {
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#7C3AED", fontSize: 28 }}>💜</Text>
+        <Text style={[styles.emptySub, { color: colors.mutedForeground, marginTop: 8 }]}>Loading your matches…</Text>
+      </View>
+    );
+  }
+
+  if (matches.length === 0) {
+    return (
+      <View style={styles.emptyDeck}>
+        <Text style={styles.emptyEmoji}>💜</Text>
+        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No matches yet!</Text>
+        <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
+          Swipe right on people you vibe with — when they vibe back, you match! 🎉
+        </Text>
+        <Text style={[styles.emptySub, { color: "#7C3AED", marginTop: 4 }]}>
+          Start swiping on 📍 Near or ✨ Vibe tabs
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+      <Text style={[styles.historyTitle, { color: colors.foreground, marginBottom: 4 }]}>
+        💜 {matches.length} Match{matches.length !== 1 ? "es" : ""}
+      </Text>
+      <Text style={[styles.emptySub, { color: colors.mutedForeground, marginBottom: 16, marginTop: 0 }]}>
+        These people vibed back with you ✨
+      </Text>
+      <View style={matchTabStyles.grid}>
+        {matches.map((m) => (
+          <TouchableOpacity
+            key={m.id}
+            activeOpacity={0.88}
+            onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, isVibeMatch: "true" } })}
+            style={[matchTabStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <View>
+              <Image source={{ uri: m.image }} style={matchTabStyles.photo} />
+              {m.isOnline && <View style={matchTabStyles.onlineDot} />}
+            </View>
+            <Text style={[matchTabStyles.name, { color: colors.foreground }]} numberOfLines={1}>
+              {m.name}, {m.age}
+            </Text>
+            <Text style={[matchTabStyles.bio, { color: colors.mutedForeground }]} numberOfLines={1}>
+              {m.bio}
+            </Text>
+            {m.goal && m.goal !== "all" && (
+              <View style={matchTabStyles.goalBadge}>
+                <Text style={matchTabStyles.goalText}>
+                  {m.goal === "friendship" ? "🤝" : m.goal === "dating" ? "💕" : m.goal === "networking" ? "💼" : "✨"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+const matchTabStyles = StyleSheet.create({
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  card: { width: (W - 44) / 2, borderRadius: 20, overflow: "hidden", padding: 0, borderWidth: 0.5, paddingBottom: 12 },
+  photo: { width: "100%", height: 160, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  onlineDot: { position: "absolute", top: 10, right: 10, width: 12, height: 12, borderRadius: 6, backgroundColor: "#22C55E", borderWidth: 2, borderColor: "#fff" },
+  name: { fontFamily: "Poppins_700Bold", fontSize: 14, paddingHorizontal: 10, marginTop: 8 },
+  bio: { fontFamily: "Poppins_400Regular", fontSize: 11, paddingHorizontal: 10, marginTop: 2 },
+  goalBadge: { position: "absolute", top: 10, left: 10, backgroundColor: "rgba(0,0,0,0.55)", width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  goalText: { fontSize: 14 },
+});
+
 export default function FindVibeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
-  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms">("nearby");
+  const userId = session?.user?.id;
+
+  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "matches">("nearby");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showSpeedVibe, setShowSpeedVibe] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
+  const [vibePrefs, setVibePrefs] = useState<VibePrefsRow | null>(null);
+  const [nearbyCards, setNearbyCards] = useState<VibeCard[]>([]);
+  const [sameVibeCards, setSameVibeCards] = useState<VibeCard[]>([]);
+  const [cardsLoading, setCardsLoading] = useState(true);
+  const [activeFilters, setActiveFilters] = useState<FilterState>({
+    showGender: ["everyone"],
+    goal: "all",
+    ageMin: 18,
+    ageMax: 50,
+    maxDist: 50,
+    onlineOnly: false,
+    verifiedOnly: false,
+  });
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+
+  useEffect(() => {
+    if (!userId) return;
+    (async () => {
+      const setupDone = await AsyncStorage.getItem(`vibeSetupDone:${userId}`).catch(() => null);
+      if (!setupDone) {
+        const prefs = await getVibePreferences(userId).catch(() => null);
+        if (!prefs?.gender) {
+          setShowSetup(true);
+          return;
+        }
+        setVibePrefs(prefs);
+        await AsyncStorage.setItem(`vibeSetupDone:${userId}`, "1").catch(() => {});
+        loadCards(userId, prefs);
+      } else {
+        const prefs = await getVibePreferences(userId).catch(() => null);
+        setVibePrefs(prefs);
+        loadCards(userId, prefs);
+      }
+    })();
+  }, [userId]);
+
+  const loadCards = async (uid: string, prefs: VibePrefsRow | null) => {
+    setCardsLoading(true);
+    try {
+      const filters = prefs
+        ? {
+            interestedIn: prefs.interested_in,
+            lookingFor: prefs.looking_for,
+            ageMin: prefs.age_min,
+            ageMax: prefs.age_max,
+            maxDistanceKm: prefs.max_distance_km,
+          }
+        : undefined;
+      const all = await getVibeMatches(uid, filters);
+      setNearbyCards(all.filter((c) => c.distance !== undefined));
+      setSameVibeCards(all.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
+    } catch {
+    } finally {
+      setCardsLoading(false);
+    }
+  };
+
+  const handleSetupComplete = async (prefs: VibePreferences) => {
+    setShowSetup(false);
+    if (userId) {
+      await updateVibePreferences(userId, prefs).catch(() => {});
+      await AsyncStorage.setItem(`vibeSetupDone:${userId}`, "1").catch(() => {});
+      const row: VibePrefsRow = {
+        gender: prefs.gender,
+        interested_in: prefs.interestedIn,
+        looking_for: prefs.lookingFor,
+        age: prefs.age,
+        age_min: prefs.ageMin,
+        age_max: prefs.ageMax,
+        max_distance_km: prefs.maxDistance,
+      };
+      setVibePrefs(row);
+      loadCards(userId, row);
+    }
+  };
+
+  const handleApplyFilters = async (f: FilterState) => {
+    setActiveFilters(f);
+    if (!userId) return;
+    const filters = {
+      interestedIn: f.showGender,
+      lookingFor: f.goal !== "all" ? f.goal : undefined,
+      ageMin: f.ageMin,
+      ageMax: f.ageMax,
+      maxDistanceKm: f.maxDist > 100 ? undefined : f.maxDist,
+    };
+    setCardsLoading(true);
+    try {
+      let all = await getVibeMatches(userId, filters);
+      if (f.onlineOnly) all = all.filter((c) => c.isOnline);
+      if (f.verifiedOnly) all = all.filter((c) => c.isVerified);
+      setNearbyCards(all.filter((c) => c.distance !== undefined));
+      setSameVibeCards(all.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
+    } catch {
+    } finally {
+      setCardsLoading(false);
+    }
+  };
 
   if (!isLoggedIn) {
     return (
@@ -871,7 +1162,15 @@ export default function FindVibeScreen() {
     );
   }
 
-  const cards = activeTab === "nearby" ? NEARBY_CARDS : SAMEVIBE_CARDS;
+  const cards: VibeCard[] = activeTab === "nearby" ? nearbyCards : sameVibeCards;
+
+  const TABS = [
+    { id: "nearby" as const, label: "📍 Near" },
+    { id: "samevibe" as const, label: "✨ Vibe" },
+    { id: "daily" as const, label: "🌟 Daily" },
+    { id: "rooms" as const, label: "🏠 Rooms" },
+    { id: "matches" as const, label: "💜 Matches" },
+  ];
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -903,26 +1202,25 @@ export default function FindVibeScreen() {
         </View>
       )}
 
-      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
-        {([
-          { id: "nearby", label: "📍 Near" },
-          { id: "samevibe", label: "✨ Vibe" },
-          { id: "daily", label: "🌟 Daily" },
-          { id: "rooms", label: "🏠 Rooms" },
-        ] as const).map((tab) => (
-          <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tabBtn, activeTab === tab.id && styles.tabBtnActive]}>
-            {activeTab === tab.id && (
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 1 }} style={styles.tabUnderline} />
-            )}
-            <Text style={[styles.tabText, { color: activeTab === tab.id ? colors.foreground : colors.mutedForeground }, activeTab === tab.id && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
+        <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
+          {TABS.map((tab) => (
+            <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tabBtn, activeTab === tab.id && styles.tabBtnActive]}>
+              {activeTab === tab.id && (
+                <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 1 }} style={styles.tabUnderline} />
+              )}
+              <Text style={[styles.tabText, { color: activeTab === tab.id ? colors.foreground : colors.mutedForeground }, activeTab === tab.id && styles.tabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
 
       {activeTab === "rooms" ? (
         <VibeRoomsTab />
+      ) : activeTab === "matches" ? (
+        userId ? <MatchesTab userId={userId} /> : null
       ) : activeTab === "daily" ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
           <DailyVibeSection
@@ -965,8 +1263,14 @@ export default function FindVibeScreen() {
       )}
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
-      <FilterModal visible={showFilter} onClose={() => setShowFilter(false)} onApply={() => {}} />
+      <FilterModal
+        visible={showFilter}
+        onClose={() => setShowFilter(false)}
+        onApply={handleApplyFilters}
+        initialPrefs={vibePrefs}
+      />
       <SpeedVibeModal visible={showSpeedVibe} onClose={() => setShowSpeedVibe(false)} />
+      <VibeSetupWizard visible={showSetup} onComplete={handleSetupComplete} />
     </View>
   );
 }
@@ -995,16 +1299,22 @@ const profileStyles = StyleSheet.create({
 
 const filterStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, maxHeight: H * 0.8 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 28, maxHeight: H * 0.88 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "center", marginBottom: 16 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   title: { fontSize: 18, fontFamily: "Poppins_700Bold" },
-  sectionLabel: { fontSize: 13, fontFamily: "Poppins_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, marginTop: 16 },
+  sectionLabel: { fontSize: 12, fontFamily: "Poppins_600SemiBold", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10, marginTop: 16 },
   ageRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  agePill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.08)" },
+  agePill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.08)" },
   agePillText: { fontSize: 13, fontFamily: "Poppins_500Medium" },
   interestGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 },
   interestChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 1, backgroundColor: "rgba(255,255,255,0.06)" },
   interestText: { fontSize: 13, fontFamily: "Poppins_500Medium" },
+  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderRadius: 14, borderWidth: 0.5, marginBottom: 8 },
+  toggleLabel: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  toggleSub: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 2 },
+  toggleKnob: { width: 44, height: 26, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.12)", padding: 3, justifyContent: "center" },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff" },
 });
 
 const styles = StyleSheet.create({
@@ -1020,8 +1330,8 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   scoreBadge: { position: "absolute", top: 16, right: 16, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   scoreText: { color: "#FBBF24", fontFamily: "Poppins_700Bold", fontSize: 12 },
-  tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4 },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 10, position: "relative" },
+  tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4, paddingHorizontal: 4 },
+  tabBtn: { alignItems: "center", paddingVertical: 10, paddingHorizontal: 14, position: "relative", minWidth: 72 },
   tabBtnActive: {},
   tabUnderline: { position: "absolute", bottom: 0, left: 10, right: 10, height: 2, borderRadius: 1 },
   tabText: { fontSize: 12, fontFamily: "Poppins_500Medium" },

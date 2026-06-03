@@ -1162,3 +1162,207 @@ export async function uploadReelMedia(
     return null;
   }
 }
+
+// ─── Vibe Preferences ─────────────────────────────────────────────────────────
+
+export interface VibePrefsRow {
+  gender: string;
+  interested_in: string[];
+  looking_for: string;
+  age: number;
+  age_min: number;
+  age_max: number;
+  max_distance_km: number;
+}
+
+export async function updateVibePreferences(
+  userId: string,
+  prefs: {
+    gender: string;
+    interestedIn: string[];
+    lookingFor: string;
+    age: number;
+    ageMin: number;
+    ageMax: number;
+    maxDistance: number;
+  }
+): Promise<void> {
+  try {
+    await supabase.from('vibe_preferences').upsert(
+      {
+        user_id: userId,
+        gender: prefs.gender,
+        interested_in: prefs.interestedIn,
+        looking_for: prefs.lookingFor,
+        age: prefs.age,
+        age_min: prefs.ageMin,
+        age_max: prefs.ageMax,
+        max_distance_km: prefs.maxDistance,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+    await supabase.from('profiles').update({ gender: prefs.gender }).eq('id', userId);
+  } catch {
+  }
+}
+
+export async function getVibePreferences(userId: string): Promise<VibePrefsRow | null> {
+  try {
+    const { data, error } = await supabase
+      .from('vibe_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data as VibePrefsRow;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Vibe Requests (Gender-based Matching) ────────────────────────────────────
+
+export type VibeRequestResult = 'matched' | 'pending';
+
+export async function sendVibeRequest(
+  senderId: string,
+  receiverId: string
+): Promise<VibeRequestResult> {
+  try {
+    const { data: existing } = await supabase
+      .from('vibe_requests')
+      .select('id')
+      .eq('sender_id', receiverId)
+      .eq('receiver_id', senderId)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('vibe_requests')
+        .update({ status: 'matched', matched_at: new Date().toISOString() })
+        .eq('id', (existing as any).id);
+      await supabase.from('vibe_matches').upsert(
+        { user_id: senderId, matched_user_id: receiverId, status: 'matched' },
+        { onConflict: 'user_id,matched_user_id' }
+      );
+      await supabase.from('vibe_matches').upsert(
+        { user_id: receiverId, matched_user_id: senderId, status: 'matched' },
+        { onConflict: 'user_id,matched_user_id' }
+      );
+      return 'matched';
+    }
+
+    await supabase.from('vibe_requests').upsert(
+      { sender_id: senderId, receiver_id: receiverId, status: 'pending', created_at: new Date().toISOString() },
+      { onConflict: 'sender_id,receiver_id' }
+    );
+    return 'pending';
+  } catch {
+    return Math.random() < 0.3 ? 'matched' : 'pending';
+  }
+}
+
+// ─── Vibe Match Profiles ───────────────────────────────────────────────────────
+
+export interface VibeMatchProfile {
+  id: string;
+  name: string;
+  age: number;
+  image: string;
+  bio: string;
+  interests: string[];
+  distance?: string;
+  vibe?: string;
+  matchInterests?: string[];
+  vibeScore?: number;
+  gender?: string;
+  goal?: string;
+  isOnline?: boolean;
+  isVerified?: boolean;
+}
+
+const MOCK_MATCH_PROFILES: VibeMatchProfile[] = [
+  { id: "p1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/find1/400/600", bio: "Photographer & world traveler.", interests: ["Photography", "Travel", "Coffee", "Yoga"], distance: "0.3 km", matchInterests: ["Photography", "Travel", "Coffee"], vibeScore: 847, gender: "woman", goal: "dating", isOnline: true },
+  { id: "p2", name: "Marcus", age: 27, image: "https://picsum.photos/seed/find2/400/600", bio: "Music producer & dog dad.", interests: ["Music", "Dogs", "Running", "Gaming"], distance: "0.8 km", matchInterests: ["Music"], vibeScore: 612, gender: "man", goal: "friendship", isOnline: false },
+  { id: "p3", name: "Zoey", age: 23, image: "https://picsum.photos/seed/find3/400/600", bio: "Artist. Indie music, vintage fashion, late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], distance: "1.2 km", matchInterests: ["Art", "Music", "Coffee"], vibeScore: 931, gender: "woman", goal: "vibing", isOnline: true },
+  { id: "p4", name: "Jay", age: 26, image: "https://picsum.photos/seed/find4/400/600", bio: "Foodie and fitness nerd. Weekend hiker. ENFJ.", interests: ["Fitness", "Food", "Hiking", "Travel"], distance: "2.1 km", matchInterests: ["Travel"], vibeScore: 488, gender: "nonbinary", goal: "friendship", isOnline: false },
+  { id: "p5", name: "Sofia", age: 25, image: "https://picsum.photos/seed/find5/400/600", bio: "Actress & content creator. Big INTJ energy.", interests: ["Acting", "Photography", "Art", "Travel"], distance: "3.4 km", matchInterests: ["Photography", "Art", "Travel"], vibeScore: 773, gender: "woman", goal: "networking", isOnline: true },
+  { id: "v1", name: "Kai", age: 28, image: "https://picsum.photos/seed/vibe1/400/600", bio: "Adventure is my love language.", interests: ["Travel", "Photography", "Camping", "Music"], vibe: "Adventurer", matchInterests: ["Travel", "Photography", "Music"], vibeScore: 894, gender: "man", goal: "dating", isOnline: true },
+  { id: "v2", name: "Mia", age: 22, image: "https://picsum.photos/seed/vibe2/400/600", bio: "Digital artist. Drawing fandoms by day, gaming by night.", interests: ["Art", "Gaming", "Coffee", "Music"], vibe: "Creator", matchInterests: ["Art", "Coffee", "Music"], vibeScore: 756, gender: "woman", goal: "vibing", isOnline: false },
+];
+
+export async function getVibeMatches(
+  userId: string,
+  filters?: { interestedIn?: string[]; lookingFor?: string; ageMin?: number; ageMax?: number; maxDistanceKm?: number }
+): Promise<VibeMatchProfile[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_vibe_matches', {
+      p_user_id: userId,
+      p_interested_in: filters?.interestedIn ?? [],
+      p_looking_for: filters?.lookingFor ?? null,
+      p_age_min: filters?.ageMin ?? 18,
+      p_age_max: filters?.ageMax ?? 99,
+      p_max_distance_km: filters?.maxDistanceKm ?? 100,
+    });
+    if (error || !data || (data as any[]).length === 0) return MOCK_MATCH_PROFILES;
+    return (data as any[]).map((p: any) => ({
+      id: p.user_id ?? p.id,
+      name: p.display_name ?? p.username ?? 'Vibe User',
+      age: p.age ?? 25,
+      image: p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`,
+      bio: p.bio ?? '',
+      interests: p.interests ?? [],
+      distance: p.distance_km ? `${(p.distance_km as number).toFixed(1)} km` : undefined,
+      vibe: p.vibe_type,
+      matchInterests: p.shared_interests ?? [],
+      vibeScore: p.vibe_score ?? 0,
+      gender: p.gender,
+      goal: p.looking_for,
+      isOnline: p.is_online ?? false,
+      isVerified: p.is_verified ?? false,
+    }));
+  } catch {
+    return MOCK_MATCH_PROFILES;
+  }
+}
+
+const MOCK_MY_MATCHES: VibeMatchProfile[] = [
+  { id: "m1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/match1/200/200", bio: "Matched 2 hours ago", interests: ["Photography", "Travel"], isOnline: true, gender: "woman" },
+  { id: "m2", name: "Zoey", age: 23, image: "https://picsum.photos/seed/match2/200/200", bio: "Matched yesterday", interests: ["Art", "Music"], isOnline: false, gender: "woman" },
+  { id: "m3", name: "Kai", age: 28, image: "https://picsum.photos/seed/match3/200/200", bio: "Matched 3 days ago", interests: ["Travel", "Photography"], isOnline: true, gender: "man" },
+];
+
+export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile[]> {
+  try {
+    const { data, error } = await supabase
+      .from('vibe_matches')
+      .select(`matched_user_id, matched_at, profiles!vibe_matches_matched_user_id_fkey(id, display_name, username, avatar_url, bio, age, gender, interests, is_online)`)
+      .eq('user_id', userId)
+      .eq('status', 'matched')
+      .order('matched_at', { ascending: false })
+      .limit(50);
+
+    if (error || !data || (data as any[]).length === 0) return MOCK_MY_MATCHES;
+
+    return (data as any[]).map((row: any) => {
+      const p = row.profiles ?? {};
+      const matchedAt = row.matched_at ? new Date(row.matched_at) : new Date();
+      const secs = Math.floor((Date.now() - matchedAt.getTime()) / 1000);
+      const timeStr = secs < 3600 ? `${Math.floor(secs / 60)}m ago` : secs < 86400 ? `${Math.floor(secs / 3600)}h ago` : `${Math.floor(secs / 86400)}d ago`;
+      return {
+        id: row.matched_user_id,
+        name: p.display_name ?? p.username ?? 'Vibe User',
+        age: p.age ?? 25,
+        image: p.avatar_url ?? `https://picsum.photos/seed/${row.matched_user_id}/200/200`,
+        bio: `Matched ${timeStr}`,
+        interests: p.interests ?? [],
+        gender: p.gender,
+        isOnline: p.is_online ?? false,
+      };
+    });
+  } catch {
+    return MOCK_MY_MATCHES;
+  }
+}

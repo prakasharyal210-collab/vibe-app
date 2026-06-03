@@ -4,3 +4,5 @@
 - [Expo Camera version](expo-camera-version.md) — expo-camera@17.0.10 required for expo@54; v56 crashes with wrong createPermissionHook source.
 - [Music + Effects architecture](music-effects-arch.md) — MusicPickerSheet uses expo-av Audio.Sound (deprecated warning in SDK54 but still works); EffectsPickerSheet returns FilterConfig (color overlay); lib/music.ts holds curated SoundHelix tracks; VideoEditorSheet is full post-recording editor.
 - [Metro config](metro-config.md) — Keep metro.config.js as plain getDefaultConfig(__dirname); any blockList overrides break module resolution entirely.
+- [Pre-existing TS errors](pre-existing-ts-errors.md) — Never fix: SkeletonLoader.tsx, useColors.ts, _layout.tsx (SFSymbols), sounds/[title].tsx, edit-profile.tsx.
+- [Gender-based matching system](gender-matching.md) — VibeSetupWizard (6-step) + sendVibeRequest checks for mutual match; getVibeMatches/getMyVibeMatches call RPCs with mock fallback; AsyncStorage key vibeSetupDone:{userId} gates wizard.

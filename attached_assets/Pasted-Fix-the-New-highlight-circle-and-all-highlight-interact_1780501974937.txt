@@ -1,0 +1,86 @@
+Fix the "New" highlight circle and all highlight 
+interactions on Profile screen:
+
+NEW HIGHLIGHT BUTTON:
+- The "New +" circle must be tappable
+- Tapping "New" opens a bottom sheet with:
+  * "Create Highlight" title
+  * Shows your recent stories (last 30 days)
+  * Grid of your story thumbnails
+  * Select multiple stories (checkmark on selected)
+  * "Next" button after selecting
+  * Then ask for highlight name (text input)
+  * Option to choose cover photo from selected stories
+  * "Create" button saves highlight
+  * Calls create_highlight(userId, title, storyIds)
+  * New highlight appears immediately in row
+
+EXISTING HIGHLIGHTS (Travel, Art etc):
+- Each highlight circle must be tappable
+- Tapping opens full screen story viewer
+- Calls get_highlight_stories(highlightId, viewerId)
+- Shows all stories in that highlight
+- Progress bars at top for each story
+- Auto advances every 5 seconds
+- Tap right = next story
+- Tap left = previous story
+- Swipe down = close
+- Shows highlight title at top
+
+LONG PRESS ON HIGHLIGHT:
+- Long press any highlight shows options:
+  * Edit highlight (rename, change cover)
+  * Delete highlight
+  * Add more stories
+
+HIGHLIGHT ROW:
+- Horizontal scroll
+- "New +" always first
+- Then highlights in order of created_at
+- Each circle 70px with title below
+- Unseen highlights have gradient ring
+- Seen highlights have grey ring
+
+FIX ALL TAPPABLE ELEMENTS ON PROFILE:
+
+STATS ROW:
+- "27 Posts" → tappable → scrolls to posts grid
+- "1.3k Followers" → tappable → opens FollowersScreen
+  calls get_followers(profileId, viewerId)
+- "342 Following" → tappable → opens FollowingScreen
+  calls get_following(profileId, viewerId)
+- Add proper spacing between each stat
+  so they don't merge together
+
+BUTTONS ROW:
+- "Edit Profile" → opens EditProfileScreen
+- Share icon → opens share sheet with profile link
+- Add friend icon → opens SuggestedUsersScreen
+- "Wallet" → opens WalletScreen
+
+PROFILE PHOTO:
+- Tapping profile photo → view full size
+- Own profile → option to change photo appears
+
+PROFILE GRID TABS:
+- ▦ Grid tab → shows all posts + reels
+- ▶️ Reels tab → shows only reels  
+- 🏷️ Tagged tab → shows tagged posts
+- ❤️ Liked tab → shows liked content
+- 🔖 Saved tab → shows saved content
+- All tabs tappable and load correct content
+
+POSTS IN GRID:
+- Every photo/video tappable
+- Opens full screen viewer
+- Swipe left/right between posts
+- Swipe down to close
+- Video posts show play icon ▶️
+- Video posts show duration
+
+Make absolutely sure:
+- New + button works
+- All highlights open
+- All stats are tappable
+- No dead taps on profile screen
+- Smooth animations throughout

@@ -1,0 +1,150 @@
+Add gender-based matching to Find Vibe completely:
+
+FIRST TIME SETUP SCREEN:
+When user opens Find Vibe for first time
+(check if gender is null in profiles table):
+Show full screen setup wizard with steps:
+
+STEP 1 - "I am a..."
+- Large cards to select:
+  * 👨 Man
+  * 👩 Woman  
+  * 🏳️ Non-binary
+  * 🌈 Other
+- One must be selected to continue
+- Purple gradient highlight on selected
+
+STEP 2 - "Interested in..."
+- Can select MULTIPLE:
+  * 👨 Men
+  * 👩 Women
+  * 💜 Everyone
+- Purple gradient highlight on selected
+- "Select all that apply" subtitle
+
+STEP 3 - "Looking for..."
+- Select one:
+  * 🤝 Friendship
+  * 💕 Dating
+  * 💼 Networking  
+  * ✨ Just vibing
+  * 💜 All of the above
+
+STEP 4 - "Your age"
+- Number input or scroll picker
+- Min age 18
+- "Your age is kept private" note below
+
+STEP 5 - Age preference
+- Range slider: 18 to 60+
+- "Show me people aged X to Y"
+- Handles drag smoothly
+
+STEP 6 - Distance
+- Slider: 1km to 100km+
+- "Show me people within X km"
+- "Anywhere" option at max
+
+On each step:
+- Progress dots at top showing which step
+- Back button to go to previous step
+- Continue button (gradient)
+- Skip option on optional steps
+
+On completion:
+- Call update_vibe_preferences() with all values
+- Save to Supabase
+- Navigate to Find Vibe main screen
+
+FIND VIBE MAIN SCREEN:
+- Call get_vibe_matches(userId, tab, lat, lng)
+- Cards show gender-matched profiles ONLY:
+  * Man interested in women → sees only women
+  * Woman interested in men → sees only men
+  * Both/Everyone → sees all genders
+  * MUST be mutual interest match
+- Show on card:
+  * Profile photo or video
+  * Name, age: "Sofia, 23"
+  * Gender icon subtle indicator
+  * Distance: "2.3 km away"
+  * Compatibility %
+  * Interests tags
+  * Relationship goal badge:
+    - 💕 Dating
+    - 🤝 Friendship
+    - 💼 Networking
+    - ✨ Vibing
+  * Online green dot if online
+
+SWIPE ACTIONS:
+- Swipe RIGHT or tap ❤️ button:
+  * Call send_vibe_request(myId, theirId)
+  * If returns 'matched' → MATCH ANIMATION!
+  * If returns 'pending' → next card
+
+- Swipe LEFT or tap ✕ button:
+  * Skip this person
+  * Add to seen list
+  * Never show again today
+
+- Tap ⭐ Super Vibe:
+  * Costs 5 coins
+  * They see you liked them immediately
+  * Higher chance of matching
+
+MATCH ANIMATION:
+- Full screen dark overlay
+- Both profile photos slide in from sides
+- Photos have glowing purple rings
+- "It's a Vibe! 💜" zooms in
+- Confetti explosion
+- Subtitle: "You and Sofia matched!"
+- Two buttons:
+  * "💬 Send Message" purple gradient button
+  * "Keep Swiping" grey button
+- Auto dismiss after 10 seconds
+
+MATCHES TAB:
+- Add "Matches 💜" tab in Find Vibe
+- Tabs: Near | Vibe | Daily | Rooms | Matches
+- Call get_my_vibe_matches(userId)
+- Shows grid of matched profiles:
+  * Profile photo
+  * Name
+  * Online green dot
+  * Unread message badge
+  * Tap → opens chat
+
+FILTER BUTTON:
+- Top right filter icon
+- Opens bottom sheet:
+  * Gender preference (checkboxes)
+  * Age range (dual slider)
+  * Distance (slider)
+  * Goal (chips: Dating/Friends/All)
+  * Online only (toggle)
+  * Verified only (toggle)
+- Apply → calls get_vibe_matches() with filters
+- Reset → restores defaults
+
+EDIT PREFERENCES:
+- In filter sheet add "Edit my profile" link
+- Opens same setup wizard
+- Pre-filled with current values
+- Save updates Supabase
+
+PRIVACY:
+- "Hide me from Find Vibe" toggle in settings
+- Sets hide_from_strangers = true
+- User becomes invisible to others
+- Can still browse
+
+Make sure:
+- Setup wizard shows only once
+- Save with AsyncStorage after completion
+- Gender matching works correctly
+- Both ways must match
+- Smooth swipe animations
+- Match celebration works
+- All connected to Supabase
