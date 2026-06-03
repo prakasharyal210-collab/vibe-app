@@ -1,0 +1,119 @@
+Connect all the new Find Vibe features and Story fixes 
+to the new Supabase tables we just created:
+
+STORIES - Connect to Supabase:
+- Upload story media to 'stories' bucket in Supabase
+- Save story to stories table with user_id, media_url, 
+  expires_at (24 hours from now)
+- Load stories from Supabase ordered by created_at
+- Delete expired stories automatically
+- Story views saved to story table views_count
+- Poll votes saved to story_polls and story_poll_votes
+- Q&A answers saved to story_questions and story_answers
+
+VIBE ROOMS - Connect to Supabase:
+- Load rooms from vibe_rooms table
+- Show members_count from vibe_room_members
+- Join room saves to vibe_room_members
+- Room messages load from vibe_room_messages realtime
+- Send message saves to vibe_room_messages
+- Show default rooms (Music, Travel, Food, Gaming etc)
+
+SPEED VIBE - Connect to Supabase:
+- Check daily count from speed_vibe_daily_count
+- Max 10 per day
+- Save session to speed_vibe_sessions
+- Update choices (connect/pass) in session
+- If both connect → create vibe_match
+
+VIBE MAP - Connect to Supabase:
+- Save user location to user_locations table
+- Load nearby users from user_locations
+- Respect ghost_mode and is_visible settings
+- Update location every 5 minutes
+
+TRIBES - Connect to Supabase:
+- Load tribes from tribes table
+- Join tribe saves to tribe_members
+- Show members_count
+- Load default tribes (Music, Travel, Food etc)
+
+VIBE EVENTS - Connect to Supabase:
+- Load events from vibe_events table
+- RSVP saves to event_attendees
+- Event chat loads from event_messages realtime
+- Show attendees_count
+
+VIBE SCORE - Connect to Supabase:
+- Load score from vibe_scores table
+- Update score when:
+  * User gets a match +10
+  * User completes profile +50
+  * User gets reported -50
+  * Daily login +5
+- Save history to vibe_score_history
+- Show level based on score:
+  * 0-100: Newbie
+  * 101-300: Vibe Starter
+  * 301-600: Vibe Pro
+  * 601-900: Vibe Elite
+  * 901+: Vibe Legend
+
+ICE BREAKERS - Connect to Supabase:
+- Check daily count from daily_icebreaker_count
+- Max 5 free per day
+- Save to vibe_icebreakers table
+- Receiver gets notification
+- Show in their Find Vibe inbox
+
+COMPATIBILITY REPORTS - Connect to Supabase:
+- Generate report after match
+- Save to compatibility_reports table
+- Load shared interests from both profiles
+- Calculate scores based on interests array
+
+VIBE STORIES - Connect to Supabase:
+- Upload to stories bucket
+- Save to vibe_stories table with radius_km
+- Load stories within user's radius using location
+- Track views in vibe_story_views
+- Auto expire after 6 hours
+
+ANONYMOUS VIBE - Connect to Supabase:
+- Save anonymous mode to anonymous_vibes table
+- When reveal requested save reveal_requested_by
+- When both revealed update both_revealed to true
+- Show celebration animation
+
+ACHIEVEMENTS - Connect to Supabase:
+- Check achievements from achievements table
+- Award achievement when requirement met
+- Save to user_achievements table
+- Give coins reward from coin_packages
+- Show achievement popup animation
+
+DAILY REWARDS - Connect to Supabase:
+- Check daily_rewards table on app open
+- If not claimed today show reward popup
+- Update login_streak in profiles
+- Award coins based on streak day
+- Update wallet coins balance
+
+LEADERBOARD - Connect to Supabase:
+- Load from leaderboard table
+- Update scores daily
+- Show top 3 with animations
+- Show user's own rank at bottom
+
+USER RATINGS - Connect to Supabase:
+- After Speed Vibe show rating screen
+- Save rating to user_ratings table
+- Update vibe_scores based on ratings
+
+Make sure:
+- All realtime features use Supabase realtime subscriptions
+- All data loads with proper loading states
+- Error handling for failed requests
+- Offline graceful degradation
+- All animations smooth
+- No broken features

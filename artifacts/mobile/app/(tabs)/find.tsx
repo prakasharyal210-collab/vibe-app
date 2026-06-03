@@ -29,6 +29,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createVibeMatch } from "@/lib/db";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { SpeedVibeModal } from "@/components/SpeedVibeModal";
+import { VibeRoomsTab } from "@/components/VibeRoomsTab";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -45,23 +47,24 @@ interface VibeCard {
   distance?: string;
   vibe?: string;
   matchInterests?: string[];
+  vibeScore?: number;
 }
 
 const MY_INTERESTS = ["Photography", "Travel", "Music", "Art", "Coffee"];
 
 const NEARBY_CARDS: VibeCard[] = [
-  { id: "p1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/find1/400/600", bio: "Photographer & world traveler. Always chasing golden hour.", interests: ["Photography", "Travel", "Coffee", "Yoga"], distance: "0.3 km", matchInterests: ["Photography", "Travel", "Coffee"] },
-  { id: "p2", name: "Marcus", age: 27, image: "https://picsum.photos/seed/find2/400/600", bio: "Music producer & dog dad. Studio sessions > everything.", interests: ["Music", "Dogs", "Running", "Gaming"], distance: "0.8 km", matchInterests: ["Music"] },
-  { id: "p3", name: "Zoey", age: 23, image: "https://picsum.photos/seed/find3/400/600", bio: "Artist. Into indie music, vintage fashion, and late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], distance: "1.2 km", matchInterests: ["Art", "Music", "Coffee"] },
-  { id: "p4", name: "Jay", age: 26, image: "https://picsum.photos/seed/find4/400/600", bio: "Foodie and fitness nerd. Weekend hiker. ENFJ.", interests: ["Fitness", "Food", "Hiking", "Travel"], distance: "2.1 km", matchInterests: ["Travel"] },
-  { id: "p5", name: "Sofia", age: 25, image: "https://picsum.photos/seed/find5/400/600", bio: "Actress & content creator. Big INTJ energy.", interests: ["Acting", "Photography", "Art", "Travel"], distance: "3.4 km", matchInterests: ["Photography", "Art", "Travel"] },
+  { id: "p1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/find1/400/600", bio: "Photographer & world traveler. Always chasing golden hour.", interests: ["Photography", "Travel", "Coffee", "Yoga"], distance: "0.3 km", matchInterests: ["Photography", "Travel", "Coffee"], vibeScore: 847 },
+  { id: "p2", name: "Marcus", age: 27, image: "https://picsum.photos/seed/find2/400/600", bio: "Music producer & dog dad. Studio sessions > everything.", interests: ["Music", "Dogs", "Running", "Gaming"], distance: "0.8 km", matchInterests: ["Music"], vibeScore: 612 },
+  { id: "p3", name: "Zoey", age: 23, image: "https://picsum.photos/seed/find3/400/600", bio: "Artist. Into indie music, vintage fashion, and late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], distance: "1.2 km", matchInterests: ["Art", "Music", "Coffee"], vibeScore: 931 },
+  { id: "p4", name: "Jay", age: 26, image: "https://picsum.photos/seed/find4/400/600", bio: "Foodie and fitness nerd. Weekend hiker. ENFJ.", interests: ["Fitness", "Food", "Hiking", "Travel"], distance: "2.1 km", matchInterests: ["Travel"], vibeScore: 488 },
+  { id: "p5", name: "Sofia", age: 25, image: "https://picsum.photos/seed/find5/400/600", bio: "Actress & content creator. Big INTJ energy.", interests: ["Acting", "Photography", "Art", "Travel"], distance: "3.4 km", matchInterests: ["Photography", "Art", "Travel"], vibeScore: 773 },
 ];
 
 const SAMEVIBE_CARDS: VibeCard[] = [
-  { id: "v1", name: "Kai", age: 28, image: "https://picsum.photos/seed/vibe1/400/600", bio: "Adventure is my love language. Mountains > malls.", interests: ["Travel", "Photography", "Camping", "Music"], vibe: "Adventurer", matchInterests: ["Travel", "Photography", "Music"] },
-  { id: "v2", name: "Mia", age: 22, image: "https://picsum.photos/seed/vibe2/400/600", bio: "Digital artist. Drawing fandoms by day, gaming by night.", interests: ["Art", "Gaming", "Coffee", "Music"], vibe: "Creator", matchInterests: ["Art", "Coffee", "Music"] },
-  { id: "v3", name: "Leo", age: 29, image: "https://picsum.photos/seed/vibe3/400/600", bio: "Chef & food blogger. Your taste buds will thank me.", interests: ["Cooking", "Food", "Travel", "Photography"], vibe: "Foodie", matchInterests: ["Travel", "Photography"] },
-  { id: "v4", name: "Nina", age: 24, image: "https://picsum.photos/seed/vibe4/400/600", bio: "Startup founder. Morning runs. Strong opinions.", interests: ["Art", "Coffee", "Tech", "Travel"], vibe: "Hustler", matchInterests: ["Art", "Coffee", "Travel"] },
+  { id: "v1", name: "Kai", age: 28, image: "https://picsum.photos/seed/vibe1/400/600", bio: "Adventure is my love language. Mountains > malls.", interests: ["Travel", "Photography", "Camping", "Music"], vibe: "Adventurer", matchInterests: ["Travel", "Photography", "Music"], vibeScore: 894 },
+  { id: "v2", name: "Mia", age: 22, image: "https://picsum.photos/seed/vibe2/400/600", bio: "Digital artist. Drawing fandoms by day, gaming by night.", interests: ["Art", "Gaming", "Coffee", "Music"], vibe: "Creator", matchInterests: ["Art", "Coffee", "Music"], vibeScore: 756 },
+  { id: "v3", name: "Leo", age: 29, image: "https://picsum.photos/seed/vibe3/400/600", bio: "Chef & food blogger. Your taste buds will thank me.", interests: ["Cooking", "Food", "Travel", "Photography"], vibe: "Foodie", matchInterests: ["Travel", "Photography"], vibeScore: 543 },
+  { id: "v4", name: "Nina", age: 24, image: "https://picsum.photos/seed/vibe4/400/600", bio: "Startup founder. Morning runs. Strong opinions.", interests: ["Art", "Coffee", "Tech", "Travel"], vibe: "Hustler", matchInterests: ["Art", "Coffee", "Travel"], vibeScore: 1002 },
 ];
 
 const DAILY_VIBE_CARD: VibeCard = {
@@ -548,14 +551,80 @@ const matchStyles = StyleSheet.create({
   keepBtnText: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
 
-function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string }) {
+const ICE_BREAKERS = [
+  { emoji: "🎵", text: "Your music taste is 🔥" },
+  { emoji: "✈️", text: "Let's travel together!" },
+  { emoji: "☕", text: "Coffee vibe?" },
+  { emoji: "🎮", text: "Game on?" },
+  { emoji: "🌅", text: "Sunset or sunrise person?" },
+];
+
+function IceBreakerSheet({ card, visible, onSend, onSkip }: {
+  card: VibeCard | null;
+  visible: boolean;
+  onSend: (card: VibeCard, msg: string) => void;
+  onSkip: (card: VibeCard) => void;
+}) {
+  const colors = useColors();
+  if (!card || !visible) return null;
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={() => onSkip(card)}>
+      <View style={ibStyles.overlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => onSkip(card)} />
+        <View style={[ibStyles.sheet, { backgroundColor: colors.card }]}>
+          <View style={[ibStyles.handle, { backgroundColor: colors.border }]} />
+          <Text style={[ibStyles.title, { color: colors.foreground }]}>Send a Vibe 💜</Text>
+          <Text style={[ibStyles.sub, { color: colors.mutedForeground }]}>
+            Break the ice with {card.name} before connecting
+          </Text>
+          {ICE_BREAKERS.map((ib) => (
+            <TouchableOpacity
+              key={ib.text}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onSend(card, `${ib.emoji} ${ib.text}`); }}
+              style={[ibStyles.option, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              activeOpacity={0.8}
+            >
+              <Text style={ibStyles.optionEmoji}>{ib.emoji}</Text>
+              <Text style={[ibStyles.optionText, { color: colors.foreground }]}>{ib.text}</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => onSkip(card)} style={ibStyles.skipBtn}>
+            <Text style={[ibStyles.skipText, { color: colors.mutedForeground }]}>Skip ice breaker →</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const ibStyles = StyleSheet.create({
+  overlay: { flex: 1, justifyContent: "flex-end" },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 36 },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 20, textAlign: "center" },
+  sub: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginBottom: 16, lineHeight: 19 },
+  option: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, borderWidth: 0.5, marginBottom: 8 },
+  optionEmoji: { fontSize: 22 },
+  optionText: { fontFamily: "Poppins_500Medium", fontSize: 15, flex: 1 },
+  skipBtn: { paddingVertical: 14, alignItems: "center" },
+  skipText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
+});
+
+function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
   const [matchCard, setMatchCard] = useState<VibeCard | null>(null);
   const [gameCard, setGameCard] = useState<VibeCard | null>(null);
+  const [iceBreakerCard, setIceBreakerCard] = useState<VibeCard | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+
+  const proceedAfterIceBreaker = (card: VibeCard) => {
+    setIceBreakerCard(null);
+    setTimeout(() => setGameCard(card), 300);
+  };
 
   const handleSwipe = (direction: "left" | "right", isSuper = false) => {
     const card = cards[currentIndex];
@@ -569,7 +638,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setTimeout(() => setMatchCard(card), 500);
       } else {
-        setTimeout(() => setGameCard(card), 400);
+        setTimeout(() => setIceBreakerCard(card), 400);
       }
     }
   };
@@ -650,6 +719,12 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
               <Text style={styles.overlaySkipText}>SKIP</Text>
             </Animated.View>
 
+            {topCard.vibeScore !== undefined && (
+              <View style={styles.scoreBadge}>
+                <Text style={styles.scoreText}>⚡ {topCard.vibeScore}</Text>
+              </View>
+            )}
+
             <View style={styles.matchBadge}>
               <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.matchGrad}>
                 <Text style={styles.matchText}>{match}% Match</Text>
@@ -721,6 +796,16 @@ function SwipeCardDeck({ cards, onRequireLogin, userId }: { cards: VibeCard[]; o
 
       {matchCard && <MatchOverlay card={matchCard} onClose={() => setMatchCard(null)} />}
 
+      <IceBreakerSheet
+        card={iceBreakerCard}
+        visible={!!iceBreakerCard}
+        onSend={(card, msg) => {
+          Alert.alert("💜 Vibe Sent!", `You sent "${msg}" to ${card.name}`);
+          proceedAfterIceBreaker(card);
+        }}
+        onSkip={(card) => proceedAfterIceBreaker(card)}
+      />
+
       <VibeGamesModal
         card={gameCard}
         visible={!!gameCard}
@@ -747,10 +832,12 @@ export default function FindVibeScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
-  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily">("nearby");
+  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms">("nearby");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [showSpeedVibe, setShowSpeedVibe] = useState(false);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   if (!isLoggedIn) {
@@ -776,17 +863,38 @@ export default function FindVibeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
-        <TouchableOpacity onPress={() => setShowFilter(true)} style={[styles.filterBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-          <Ionicons name="options-outline" size={20} color="#7C3AED" />
-          <Text style={[styles.filterText, { color: colors.foreground }]}>Filter</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => { setIsAnonymous((a) => !a); Alert.alert(isAnonymous ? "👤 Visible" : "👻 Anonymous", isAnonymous ? "You are now visible to others" : "You are now hidden — shown as a silhouette"); }}
+            style={[styles.iconBtn, { backgroundColor: isAnonymous ? "rgba(124,58,237,0.3)" : colors.muted, borderColor: isAnonymous ? "#7C3AED" : colors.border }]}
+          >
+            <Text style={{ fontSize: 16 }}>{isAnonymous ? "👻" : "👤"}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowSpeedVibe(true)}
+            style={[styles.iconBtn, { backgroundColor: "rgba(249,115,22,0.12)", borderColor: "#F97316" }]}
+          >
+            <Text style={{ fontSize: 14 }}>⚡</Text>
+            <Text style={[styles.speedText, { color: "#F97316" }]}>Speed</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowFilter(true)} style={[styles.filterBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Ionicons name="options-outline" size={20} color="#7C3AED" />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {isAnonymous && (
+        <View style={styles.anonBanner}>
+          <Text style={styles.anonText}>👻 Anonymous mode — you appear as a silhouette</Text>
+        </View>
+      )}
 
       <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
         {([
-          { id: "nearby", label: "📍 Nearby" },
-          { id: "samevibe", label: "✨ Same Vibe" },
+          { id: "nearby", label: "📍 Near" },
+          { id: "samevibe", label: "✨ Vibe" },
           { id: "daily", label: "🌟 Daily" },
+          { id: "rooms", label: "🏠 Rooms" },
         ] as const).map((tab) => (
           <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tabBtn, activeTab === tab.id && styles.tabBtnActive]}>
             {activeTab === tab.id && (
@@ -799,7 +907,9 @@ export default function FindVibeScreen() {
         ))}
       </View>
 
-      {activeTab === "daily" ? (
+      {activeTab === "rooms" ? (
+        <VibeRoomsTab />
+      ) : activeTab === "daily" ? (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
           <DailyVibeSection
             onViewProfile={(card) => setDailyProfileCard(card)}
@@ -828,7 +938,7 @@ export default function FindVibeScreen() {
           </View>
         </ScrollView>
       ) : (
-        <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} />
+        <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} />
       )}
 
       {dailyProfileCard && (
@@ -842,6 +952,7 @@ export default function FindVibeScreen() {
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
       <FilterModal visible={showFilter} onClose={() => setShowFilter(false)} onApply={() => {}} />
+      <SpeedVibeModal visible={showSpeedVibe} onClose={() => setShowSpeedVibe(false)} />
     </View>
   );
 }
@@ -886,8 +997,15 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingBottom: 12 },
   headerTitle: { fontSize: 24, fontFamily: "Poppins_700Bold" },
-  filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  iconBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  speedText: { fontFamily: "Poppins_700Bold", fontSize: 12 },
+  anonBanner: { backgroundColor: "rgba(124,58,237,0.2)", marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  anonText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12, textAlign: "center" },
+  filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   filterText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  scoreBadge: { position: "absolute", top: 16, right: 16, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  scoreText: { color: "#FBBF24", fontFamily: "Poppins_700Bold", fontSize: 12 },
   tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4 },
   tabBtn: { flex: 1, alignItems: "center", paddingVertical: 10, position: "relative" },
   tabBtnActive: {},

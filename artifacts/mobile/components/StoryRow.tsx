@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
+import { CreateStorySheet } from "./CreateStorySheet";
 import {
   Dimensions,
   Image,
@@ -288,10 +289,12 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
 export function StoryRow({ stories }: { stories: Story[] }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerStart, setViewerStart] = useState(0);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const openViewer = (index: number) => {
     const story = stories[index];
     if (story.isOwn) {
+      setCreateOpen(true);
       return;
     }
     setViewerStart(index);
@@ -320,6 +323,12 @@ export function StoryRow({ stories }: { stories: Story[] }) {
           />
         </Modal>
       )}
+
+      <CreateStorySheet
+        visible={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onPost={() => setCreateOpen(false)}
+      />
     </>
   );
 }

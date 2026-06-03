@@ -1,0 +1,147 @@
+Add these NEW features to Find Vibe to make it 
+completely unique:
+
+FEATURE 1 - VIBE ROOMS:
+- Virtual rooms where people with same interests meet
+- Room categories:
+  * 🎵 Music Lovers
+  * 🎮 Gamers
+  * ✈️ Travel Buddies
+  * 🍕 Foodies
+  * 💪 Fitness
+  * 📚 Bookworms
+  * 🎨 Artists
+  * 💼 Entrepreneurs
+- Each room shows:
+  * Room name and emoji
+  * How many people inside (live count)
+  * Preview of top 6 member photos
+- Inside a room:
+  * See all members in grid
+  * Live chat at bottom
+  * Voice chat option (everyone can talk)
+  * Tap anyone to view profile or vibe with them
+  * Room host can mute/kick members
+
+FEATURE 2 - SPEED VIBE:
+- Like speed dating but for friendships
+- Match with random person for 60 seconds video chat
+- Timer counts down 60 seconds
+- At end both choose: Connect or Pass
+- If both choose Connect → matched!
+- If Pass → next random person
+- Can only do 10 Speed Vibes per day
+- Special Speed Vibe events (Friday nights etc)
+- Earn coins for completing Speed Vibes
+
+FEATURE 3 - VIBE MAP:
+- Map showing anonymous dots of people nearby
+- Your location shown as pulsing purple dot
+- Other users shown as colored dots
+- Tap a dot to see:
+  * Anonymous profile (username hidden)
+  * Interests tags only
+  * "Send Vibe" button
+  * Distance from you
+- Privacy controls:
+  * Precise location / Approximate / Hidden
+  * Appear on map toggle
+  * Ghost mode (see others but hidden yourself)
+
+FEATURE 4 - INTEREST TRIBES:
+- Groups based on shared interests
+- Join up to 5 tribes
+- Tribe feed shows content from tribe members only
+- Tribe challenges (compete within tribe)
+- Tribe leaderboard
+- Tribe chat (group messaging)
+- Tribe events (meetups, online events)
+- Examples: #MusicTribe #TravelTribe #FoodTribe
+
+FEATURE 5 - VIBE EVENTS:
+- Local and online events
+- Create an event:
+  * Name, date, time, location
+  * Online or in-person
+  * Public or invite only
+  * Max attendees
+- Discover events:
+  * Near me
+  * Online events
+  * By interest category
+- RSVP to events
+- Chat with other attendees
+- Event reminder notifications
+- After event: rate and review
+
+FEATURE 6 - ANONYMOUS VIBE:
+- Toggle "Go Anonymous" in Find Vibe
+- Your photo hidden, shown as silhouette
+- Name shown as "Vibe #1234"
+- Chat first, reveal later
+- Both must agree to reveal
+- Reveal animation when both agree
+- Can un-anonymize anytime
+
+FEATURE 7 - VIBE SCORE:
+- Each user has a public Vibe Score (0-1000)
+- Score increases by:
+  * Completing profile +50
+  * Getting matches +10 each
+  * Positive ratings from matches +20
+  * Active daily +5
+  * Verified +100
+  * Good conversation length +15
+- Score decreases by:
+  * Reports against you -50
+  * Low response rate -10
+  * Blocking others too much -5
+- Score shown on profile and Find Vibe cards
+- Higher score = shown to more people
+- Levels: Newbie → Vibe Starter → Vibe Pro → 
+  Vibe Elite → Vibe Legend
+
+FEATURE 8 - SEND A VIBE (Ice Breakers):
+- Instead of just swiping right
+- Send a pre-made ice breaker:
+  * 🎵 "Your music taste is 🔥"
+  * ✈️ "Let's travel together!"
+  * ☕ "Coffee vibe?"
+  * 🎮 "Game on?"
+  * 🌅 "Sunset or sunrise person?"
+- Or create custom vibe message (max 50 chars)
+- Receiver sees your vibe before deciding to match
+- Increases match rate
+- Limited to 5 free vibes per day
+- More vibes with coins
+
+FEATURE 9 - COMPATIBILITY REPORT:
+- After matching, generate detailed report:
+  * Overall compatibility %
+  * Breakdown by category:
+    - Music taste
+    - Lifestyle
+    - Interests  
+    - Energy level
+    - Goals
+  * "You both love..." shared interests
+  * "You complement each other in..." differences
+  * Conversation starters based on compatibility
+  * "Your vibe animal" (fun personality result)
+
+FEATURE 10 - VIBE STORIES:
+- Special stories only visible in Find Vibe
+- Show to potential matches only
+- Separate from regular stories
+- Expires after 6 hours
+- Shows to people in your match radius
+- Great for: "Looking for hiking buddy today"
+  "Anyone want to grab coffee in Sydney?"
+
+Make all features:
+- Smooth animations
+- Connected to Supabase
+- Working buttons
+- Beautiful dark UI with purple/orange gradients
+- Proper loading states
+- Privacy controls working

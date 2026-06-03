@@ -1,0 +1,76 @@
+Fix STORIES completely - everything must work:
+
+CREATING A STORY:
+- Tapping "Your Story" circle opens a bottom sheet with:
+  * Camera (take photo or video)
+  * Gallery (pick from phone)
+  * Text Story (colored background with text)
+  * Boomerang
+- Camera screen for story:
+  * Full screen camera preview
+  * Flip camera button
+  * Flash button
+  * Hold record button for video (max 15 sec)
+  * Tap capture button for photo
+  * Progress bar while recording
+- After capturing:
+  * Full screen preview
+  * Tools on right side:
+    - Text (add text overlay)
+    - Stickers (emoji stickers)
+    - Draw (doodle on story)
+    - Music (add song)
+    - Poll (add poll)
+    - Q&A (add question)
+    - Countdown
+    - GIF
+  * "Your Story" button to post
+  * "Close Friends" button
+  * Discard button (X)
+- Story uploads to Supabase stories bucket
+- Shows immediately in your story circle
+- Story circle gets colorful gradient ring
+- Story expires after 24 hours automatically
+
+VIEWING STORIES:
+- Tapping any story circle opens full screen viewer
+- Full screen story viewer:
+  * Progress bars at top for each story segment
+  * Each segment auto advances after 5 seconds
+  * Tap right half = next story/person
+  * Tap left half = previous story/person
+  * Hold finger = pause story
+  * Swipe down = close story viewer
+  * Swipe up = reply or react
+- Story shows:
+  * Username and profile photo top left
+  * Time posted top right
+  * Close X button
+- Bottom of story:
+  * Reply text input
+  * Quick emoji reactions: ❤️ 😂 😮 😢 😡 🔥
+  * Send reaction
+- After viewing all stories auto closes
+- Viewed stories show faded ring
+- Own story shows:
+  * Viewers list (swipe up)
+  * Each viewer with profile photo
+  * View count
+  * Delete story option
+
+STORY FEED:
+- Stories bar scrolls horizontally
+- Your story always first
+- Friends with unseen stories next
+- Seen stories at end
+- Story circles show latest story frame as preview
+- Online dot on active users stories
+- Multiple stories from same person stacked
+
+POSTING TO STORY FROM FEED:
+- Share button on any post shows:
+  * "Add to Story" option
+  * Post becomes sticker on story
+  * Can move and resize post sticker
+  * Add text around it
+  * Post to story
