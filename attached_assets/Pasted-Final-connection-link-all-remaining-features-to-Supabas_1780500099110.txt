@@ -1,0 +1,74 @@
+Final connection - link all remaining features 
+to Supabase:
+
+STORIES:
+- Load stories: get_friends_stories(userId)
+- Mark viewed: mark_story_viewed(storyId, userId)
+- Get viewers: get_story_viewers(storyId)
+- Create highlight: create_highlight(userId, title, storyIds)
+- Load highlights: get_highlights(userId, viewerId)
+- Load highlight stories: get_highlight_stories(highlightId, viewerId)
+
+COMMENTS:
+- Post comments: add_post_comment(userId, postId, content)
+- Load post comments: get_post_comments(postId, userId)
+- Reel comments: add_reel_comment(userId, reelId, content)
+- Load reel comments: get_reel_comments(reelId, userId)
+
+SEARCH:
+- Search: search_content(query, type, userId)
+- Save search: save_search(userId, query)
+- Load history from search_history table
+- Clear history deletes from search_history
+
+PROFILE:
+- Load stats: get_profile_stats(userId)
+- Load posts: get_profile_posts(userId, viewerId, type)
+- Load saved: get_saved_content(userId)
+- Load liked: get_liked_content(userId, viewerId)
+
+DEEP LINKS:
+- Generate links: generate_content_link(contentId, type, username)
+- Share uses native share sheet with generated URL
+- Deep link navigation uses React Navigation linking config
+
+NOTIFICATIONS:
+- Register push token to push_tokens table
+- Load notifications from notifications table
+- Mark read updates is_read = true
+- Real time subscription to notifications table
+
+CREATOR FEATURES:
+- Analytics: get from creator_analytics table
+- Creator fund: calculate_creator_fund(userId, period)
+- Withdrawal: insert into withdrawal_requests
+- Verification: insert into verification_requests
+
+LIVE STREAMING:
+- Start live: insert into live_streams
+- Comments: load from live_comments real time
+- Viewers: track in live_viewers table
+- Gifts: insert into gifts table
+- End live: update live_streams set is_active = false
+
+WALLET:
+- Load balance from wallet table
+- Transactions from coin_transactions table
+- Daily reward: claim_daily_reward(userId)
+- Show coins animation when reward claimed
+
+ACHIEVEMENTS:
+- Load from user_achievements join achievements
+- Check on every major action: check_achievements(userId)
+- Show popup when new achievement unlocked
+- Show coins reward amount
+
+LEADERBOARD:
+- Load from leaderboard table
+- Filter by category and period
+- Show user's own rank at bottom
+- Refresh every hour
+
+Make sure everything is connected and working!
+No more mock data anywhere in the app.
+All data comes from Supabase.

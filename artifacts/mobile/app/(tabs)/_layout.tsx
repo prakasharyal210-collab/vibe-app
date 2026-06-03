@@ -172,7 +172,8 @@ export default function TabLayout() {
   useEffect(() => {
     if (!userId || claimedRef.current) return;
     claimedRef.current = true;
-    claimDailyReward(userId).then((coins) => {
+    claimDailyReward(userId).then((result) => {
+      const coins = result.claimed ? result.coins_awarded : 0;
       if (coins > 0) {
         setTimeout(() => {
           setRewardCoins(coins);

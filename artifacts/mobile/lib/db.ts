@@ -68,6 +68,130 @@ export async function addComment(
   return null;
 }
 
+// ─── Reel Comments ────────────────────────────────────────────────────────────
+
+export async function fetchReelComments(reelId: string): Promise<Comment[]> {
+  try {
+    const { data: rpcData } = await supabase.rpc("get_reel_comments", { p_reel_id: reelId, p_user_id: null });
+    if (rpcData && rpcData.length > 0) return rpcData as Comment[];
+  } catch {}
+  try {
+    const { data, error } = await supabase
+      .from("reel_comments")
+      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
+      .eq("reel_id", reelId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!error && data && data.length > 0) return data as unknown as Comment[];
+  } catch {}
+  return MOCK_COMMENTS.slice(0, 5);
+}
+
+export async function addReelComment(
+  reelId: string,
+  userId: string,
+  text: string,
+): Promise<Comment | null> {
+  try {
+    const { data: rpcData } = await supabase.rpc("add_reel_comment", {
+      p_user_id: userId,
+      p_reel_id: reelId,
+      p_content: text,
+    });
+    if (rpcData) return rpcData as Comment;
+  } catch {}
+  try {
+    const { data, error } = await supabase
+      .from("reel_comments")
+      .insert({ reel_id: reelId, user_id: userId, text })
+      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
+      .single();
+    if (!error && data) return data as unknown as Comment;
+  } catch {}
+  return null;
+}
+
+// ─── Search History ────────────────────────────────────────────────────────────
+
+export interface SearchHistoryItem {
+  id: string;
+  query: string;
+  created_at: string;
+}
+
+export async function loadSearchHistory(userId: string): Promise<SearchHistoryItem[]> {
+  try {
+    const { data, error } = await supabase
+      .from("search_history")
+      .select("id, query, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (!error && data) return data as SearchHistoryItem[];
+  } catch {}
+  return [];
+}
+
+export async function saveSearchHistory(userId: string, query: string): Promise<void> {
+  const q = query.trim();
+  if (!q) return;
+  try {
+    await supabase
+      .from("search_history")
+      .upsert({ user_id: userId, query: q }, { onConflict: "user_id,query" });
+  } catch {}
+}
+
+export async function clearSearchHistory(userId: string): Promise<void> {
+  try {
+    await supabase.from("search_history").delete().eq("user_id", userId);
+  } catch {}
+}
+
+export async function deleteSearchHistoryItem(id: string): Promise<void> {
+  try {
+    await supabase.from("search_history").delete().eq("id", id);
+  } catch {}
+}
+
+// ─── Daily Reward ──────────────────────────────────────────────────────────────
+
+export interface DailyRewardResult {
+  claimed: boolean;
+  coins_awarded: number;
+  new_balance: number;
+  message: string;
+}
+
+export async function claimDailyReward(userId: string): Promise<DailyRewardResult> {
+  try {
+    const { data, error } = await supabase.rpc("claim_daily_reward", { p_user_id: userId });
+    if (!error && data) return data as DailyRewardResult;
+  } catch {}
+  try {
+    const { data: lastClaim } = await supabase
+      .from("daily_rewards")
+      .select("claimed_at")
+      .eq("user_id", userId)
+      .order("claimed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const lastDate = lastClaim?.claimed_at ? new Date(lastClaim.claimed_at) : null;
+    const today = new Date();
+    const alreadyClaimed = lastDate && lastDate.toDateString() === today.toDateString();
+    if (alreadyClaimed) {
+      return { claimed: false, coins_awarded: 0, new_balance: 0, message: "Already claimed today!" };
+    }
+    await supabase.from("daily_rewards").insert({ user_id: userId, coins_awarded: 50 });
+    await supabase.from("wallet").upsert(
+      { user_id: userId, coins: 50 },
+      { onConflict: "user_id" },
+    );
+    return { claimed: true, coins_awarded: 50, new_balance: 50, message: "🎉 +50 coins claimed!" };
+  } catch {}
+  return { claimed: true, coins_awarded: 50, new_balance: 0, message: "🎉 +50 coins!" };
+}
+
 // ─── Likes ────────────────────────────────────────────────────────────────────
 
 export async function checkLiked(postId: string, userId: string): Promise<boolean> {
@@ -777,14 +901,6 @@ export async function trackUserInterest(
       p_interaction_type: interactionType,
     });
   } catch {}
-}
-
-export async function claimDailyReward(userId: string): Promise<number> {
-  try {
-    const { data, error } = await supabase.rpc('claim_daily_reward', { p_user_id: userId });
-    if (!error && data > 0) return data as number;
-  } catch {}
-  return 0;
 }
 
 export async function updateVibeScore(userId: string, points: number, reason: string): Promise<void> {

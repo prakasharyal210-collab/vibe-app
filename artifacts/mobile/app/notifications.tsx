@@ -16,8 +16,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/db";
-import { MOCK_NOTIFICATIONS, Notification } from "@/lib/supabase";
+import { MOCK_NOTIFICATIONS, Notification, supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+
+function notifTypeText(type: string): string {
+  switch (type) {
+    case "like": return "liked your post";
+    case "comment": return "commented on your post";
+    case "follow": return "started following you";
+    case "vibe": return "sent you a vibe ✨";
+    case "mention": return "mentioned you in a comment";
+    default: return "interacted with you";
+  }
+}
 
 const TYPE_CONFIG = {
   like: { icon: "heart", color: "#F97316", bg: "rgba(249,115,22,0.15)" },
@@ -87,7 +98,31 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    fetchNotifications(session.user.id).then(setNotifications).catch(() => {});
+    const uid = session.user.id;
+    fetchNotifications(uid).then(setNotifications).catch(() => {});
+
+    const channel = supabase
+      .channel(`notifications-${uid}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
+        (payload) => {
+          const n = payload.new as any;
+          const newNotif: Notification = {
+            id: n.id,
+            type: n.type ?? "like",
+            username: n.actor_username ?? "someone",
+            text: n.message ?? notifTypeText(n.type),
+            time: "just now",
+            read: false,
+            post_image: n.post_image ?? undefined,
+          };
+          setNotifications((prev) => [newNotif, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
   const markRead = (id: string) => {

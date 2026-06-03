@@ -17,8 +17,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
-import { searchHashtags, searchProfiles } from "@/lib/db";
+import { clearSearchHistory, deleteSearchHistoryItem, loadSearchHistory, saveSearchHistory, searchHashtags, searchProfiles, SearchHistoryItem } from "@/lib/db";
 import { MOCK_HASHTAGS, MOCK_SEARCH_ACCOUNTS, Profile, Hashtag, formatCount } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 
 const { width: W } = Dimensions.get("window");
 const GRID_W = (W - 48) / 2;
@@ -28,6 +29,7 @@ type Tab = "top" | "accounts" | "hashtags" | "reels";
 export default function SearchScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const inputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState("");
@@ -36,11 +38,15 @@ export default function SearchScreen() {
   const [filteredHashtags, setFilteredHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
   const [trendingHashtags, setTrendingHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
   const [suggestedAccounts, setSuggestedAccounts] = useState<Profile[]>(MOCK_SEARCH_ACCOUNTS);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
 
   useEffect(() => {
     searchProfiles("").then(setSuggestedAccounts).catch(() => {});
     searchHashtags("").then(setTrendingHashtags).catch(() => {});
-  }, []);
+    if (session?.user?.id) {
+      loadSearchHistory(session.user.id).then(setSearchHistory).catch(() => {});
+    }
+  }, [session?.user?.id]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -49,6 +55,25 @@ export default function SearchScreen() {
     }, 300);
     return () => clearTimeout(timer);
   }, [query]);
+
+  const handleSearchSubmit = () => {
+    const q = query.trim();
+    if (!q || !session?.user?.id) return;
+    saveSearchHistory(session.user.id, q).then(() => {
+      const newItem: SearchHistoryItem = { id: Date.now().toString(), query: q, created_at: new Date().toISOString() };
+      setSearchHistory((prev) => [newItem, ...prev.filter((h) => h.query !== q)].slice(0, 20));
+    }).catch(() => {});
+  };
+
+  const handleClearHistory = () => {
+    setSearchHistory([]);
+    if (session?.user?.id) clearSearchHistory(session.user.id).catch(() => {});
+  };
+
+  const handleDeleteHistoryItem = (item: SearchHistoryItem) => {
+    setSearchHistory((prev) => prev.filter((h) => h.id !== item.id));
+    deleteSearchHistoryItem(item.id).catch(() => {});
+  };
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "top", label: "Top" },
@@ -80,6 +105,7 @@ export default function SearchScreen() {
             style={[styles.searchInput, { color: colors.foreground }]}
             autoCapitalize="none"
             returnKeyType="search"
+          onSubmitEditing={handleSearchSubmit}
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery("")}>
@@ -117,6 +143,30 @@ export default function SearchScreen() {
       <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {query.length === 0 ? (
           <>
+            {searchHistory.length > 0 && (
+              <View style={styles.section}>
+                <View style={styles.sectionRow}>
+                  <Text style={[styles.sectionTitle, { color: colors.foreground }]}>🕐 Recent</Text>
+                  <TouchableOpacity onPress={handleClearHistory}>
+                    <Text style={{ color: "#7C3AED", fontSize: 13, fontFamily: "Poppins_500Medium" }}>Clear all</Text>
+                  </TouchableOpacity>
+                </View>
+                {searchHistory.slice(0, 8).map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.historyRow, { borderBottomColor: colors.border }]}
+                    onPress={() => setQuery(item.query)}
+                  >
+                    <Ionicons name="time-outline" size={16} color={colors.mutedForeground} />
+                    <Text style={[styles.historyText, { color: colors.foreground }]}>{item.query}</Text>
+                    <TouchableOpacity onPress={() => handleDeleteHistoryItem(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Ionicons name="close" size={14} color={colors.mutedForeground} />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
                 🔥 Trending
@@ -457,6 +507,24 @@ const styles = StyleSheet.create({
   },
   noResultsSub: {
     fontSize: 13,
+    fontFamily: "Poppins_400Regular",
+  },
+  sectionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 11,
+    borderBottomWidth: 0.5,
+    gap: 10,
+  },
+  historyText: {
+    flex: 1,
+    fontSize: 14,
     fontFamily: "Poppins_400Regular",
   },
 });

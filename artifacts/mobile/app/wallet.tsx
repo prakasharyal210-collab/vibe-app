@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Dimensions,
   Platform,
   ScrollView,
@@ -14,7 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientButton } from "@/components/GradientButton";
-import { fetchWallet, fetchWalletTransactions, WalletTransaction } from "@/lib/db";
+import { claimDailyReward, fetchWallet, fetchWalletTransactions, WalletTransaction } from "@/lib/db";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -55,6 +56,11 @@ export default function WalletScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const [totalCoins, setTotalCoins] = useState(1846);
   const [dbTransactions, setDbTransactions] = useState<WalletTransaction[]>([]);
+  const [dailyClaiming, setDailyClaiming] = useState(false);
+  const [dailyClaimed, setDailyClaimed] = useState(false);
+  const [rewardMsg, setRewardMsg] = useState("");
+  const coinAnim = useRef(new Animated.Value(0)).current;
+  const coinOpacity = useRef(new Animated.Value(0)).current;
   const usdValue = (totalCoins * 0.01).toFixed(2);
 
   useEffect(() => {
@@ -63,6 +69,31 @@ export default function WalletScreen() {
     fetchWallet(uid).then((w) => setTotalCoins(w.coins)).catch(() => {});
     fetchWalletTransactions(uid).then((ts) => { if (ts.length > 0) setDbTransactions(ts); }).catch(() => {});
   }, [session?.user?.id]);
+
+  const handleDailyReward = async () => {
+    if (!session?.user?.id || dailyClaiming || dailyClaimed) return;
+    setDailyClaiming(true);
+    try {
+      const result = await claimDailyReward(session.user.id);
+      setRewardMsg(result.claimed ? `🎉 +${result.coins_awarded} coins!` : result.message ?? "Already claimed today!");
+      if (result.claimed && result.coins_awarded > 0) {
+        setTotalCoins((prev) => prev + result.coins_awarded);
+        setDailyClaimed(true);
+        coinAnim.setValue(0);
+        coinOpacity.setValue(1);
+        Animated.parallel([
+          Animated.timing(coinAnim, { toValue: -80, duration: 900, useNativeDriver: true }),
+          Animated.timing(coinOpacity, { toValue: 0, duration: 900, useNativeDriver: true }),
+        ]).start();
+      } else {
+        setDailyClaimed(true);
+      }
+    } catch {
+      setRewardMsg("Couldn't claim reward. Try again!");
+    } finally {
+      setDailyClaiming(false);
+    }
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -172,6 +203,29 @@ export default function WalletScreen() {
           </View>
         </View>
 
+        <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+          <View style={[styles.dailyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.dailyTitle, { color: colors.foreground }]}>🎁 Daily Reward</Text>
+              <Text style={[styles.dailySub, { color: colors.mutedForeground }]}>
+                {dailyClaimed ? (rewardMsg || "Come back tomorrow!") : "Claim 50 free coins every day"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleDailyReward}
+              disabled={dailyClaiming || dailyClaimed}
+              style={[styles.dailyBtn, { opacity: dailyClaiming || dailyClaimed ? 0.55 : 1 }]}
+            >
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.dailyBtnGrad}>
+                <Text style={styles.dailyBtnText}>{dailyClaimed ? "✓ Claimed" : dailyClaiming ? "..." : "Claim"}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <Animated.Text style={[styles.coinFly, { transform: [{ translateY: coinAnim }], opacity: coinOpacity }]}>
+              🪙 +50
+            </Animated.Text>
+          </View>
+        </View>
+
         <View style={{ paddingHorizontal: 16 }}>
           <GradientButton
             onPress={() => Alert.alert("Withdraw", "You need 10,000 coins to withdraw. Keep creating!")}
@@ -231,4 +285,11 @@ const styles = StyleSheet.create({
   txCoinEmoji: { fontSize: 13 },
   txAmount: { fontSize: 14, fontFamily: "Poppins_700Bold" },
   withdrawNote: { fontSize: 12, fontFamily: "Poppins_400Regular", textAlign: "center", marginTop: 10, lineHeight: 18 },
+  dailyCard: { flexDirection: "row", alignItems: "center", borderRadius: 16, padding: 16, borderWidth: 0.5, gap: 12, overflow: "visible" },
+  dailyTitle: { fontSize: 15, fontFamily: "Poppins_700Bold", marginBottom: 2 },
+  dailySub: { fontSize: 12, fontFamily: "Poppins_400Regular" },
+  dailyBtn: { },
+  dailyBtnGrad: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  dailyBtnText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold" },
+  coinFly: { position: "absolute", right: 16, bottom: 16, fontSize: 18, fontFamily: "Poppins_700Bold", color: "#F59E0B" },
 });

@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { addComment, fetchComments } from "@/lib/db";
+import { addComment, addReelComment, fetchComments, fetchReelComments } from "@/lib/db";
 import { Comment, timeAgo } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
 
@@ -30,6 +30,7 @@ interface CommentsSheetProps {
   postId: string;
   isLoggedIn: boolean;
   onRequireLogin: () => void;
+  contentType?: "post" | "reel";
 }
 
 interface CommentItemProps {
@@ -80,6 +81,7 @@ export function CommentsSheet({
   postId,
   isLoggedIn,
   onRequireLogin,
+  contentType = "post",
 }: CommentsSheetProps) {
   const colors = useColors();
   const { session } = useAuth();
@@ -111,7 +113,9 @@ export function CommentsSheet({
   const loadComments = async () => {
     setLoading(true);
     try {
-      const data = await fetchComments(postId);
+      const data = contentType === "reel"
+        ? await fetchReelComments(postId)
+        : await fetchComments(postId);
       setComments(data);
     } finally {
       setLoading(false);
@@ -140,7 +144,9 @@ export function CommentsSheet({
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
 
     if (userId) {
-      const saved = await addComment(postId, userId, text);
+      const saved = contentType === "reel"
+        ? await addReelComment(postId, userId, text)
+        : await addComment(postId, userId, text);
       if (saved) {
         setComments((c) => c.map((item) => (item.id === optimistic.id ? saved : item)));
       }

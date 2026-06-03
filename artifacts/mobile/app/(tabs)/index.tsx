@@ -453,6 +453,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         postId={reel.id}
         isLoggedIn={isLoggedIn}
         onRequireLogin={() => { setShowComments(false); onRequireLogin(); }}
+        contentType="reel"
       />
       <ShareSheet
         visible={showShare}
