@@ -437,9 +437,27 @@ export async function createVibeMatch(
 
 // ─── Stories ──────────────────────────────────────────────────────────────────
 
-export async function fetchActiveStories(myUserId?: string): Promise<
-  Array<{ id: string; username: string; image: string; hasNew: boolean; isOwn?: boolean }>
-> {
+export type StoryEntry = {
+  id: string;
+  username: string;
+  image: string;
+  hasNew: boolean;
+  isOwn?: boolean;
+  isOnline?: boolean;
+  userId?: string;
+  hasExistingStory?: boolean;
+};
+
+const MOCK_FRIEND_STORIES: StoryEntry[] = [
+  { id: "fs1", username: "luna_sky",     image: "https://picsum.photos/seed/fs1/200/200", hasNew: true,  isOnline: true,  userId: "u1" },
+  { id: "fs2", username: "marcus_vibe",  image: "https://picsum.photos/seed/fs2/200/200", hasNew: true,  isOnline: false, userId: "u2" },
+  { id: "fs3", username: "zoe.creates",  image: "https://picsum.photos/seed/fs3/200/200", hasNew: false, isOnline: true,  userId: "u3" },
+  { id: "fs4", username: "kai_fit",      image: "https://picsum.photos/seed/fs4/200/200", hasNew: true,  isOnline: false, userId: "u4" },
+  { id: "fs5", username: "nadia_off",    image: "https://picsum.photos/seed/fs5/200/200", hasNew: false, isOnline: true,  userId: "u5" },
+  { id: "fs6", username: "alex.w",       image: "https://picsum.photos/seed/fs6/200/200", hasNew: true,  isOnline: true,  userId: "u6" },
+];
+
+export async function fetchActiveStories(myUserId?: string): Promise<StoryEntry[]> {
   try {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
@@ -455,10 +473,98 @@ export async function fetchActiveStories(myUserId?: string): Promise<
         image: s.media_url ?? `https://picsum.photos/seed/${s.id}/200/200`,
         hasNew: !s.viewed,
         isOwn: s.user_id === myUserId,
+        userId: s.user_id,
       }));
     }
   } catch {}
   return [];
+}
+
+export async function fetchFriendStories(myUserId: string): Promise<StoryEntry[]> {
+  try {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Get my own story (if any)
+    const { data: myStoryData } = await supabase
+      .from("stories")
+      .select("id, media_url, profiles:user_id(username)")
+      .eq("user_id", myUserId)
+      .gt("created_at", cutoff)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const myStory = myStoryData?.[0];
+    const ownEntry: StoryEntry = {
+      id: myStory?.id ?? "own_placeholder",
+      username: (myStory as any)?.profiles?.username ?? "you",
+      image: (myStory as any)?.media_url ?? "",
+      hasNew: false,
+      isOwn: true,
+      userId: myUserId,
+      hasExistingStory: !!myStory,
+    };
+
+    // Find mutual followers (people I follow AND who follow me back)
+    const [{ data: followingData }, { data: followersData }] = await Promise.all([
+      supabase.from("follows").select("followed_id").eq("follower_id", myUserId),
+      supabase.from("follows").select("follower_id").eq("followed_id", myUserId),
+    ]);
+
+    const followingSet = new Set((followingData ?? []).map((f: any) => f.followed_id));
+    const mutualIds = (followersData ?? [])
+      .map((f: any) => f.follower_id)
+      .filter((id: string) => followingSet.has(id));
+
+    if (mutualIds.length === 0) return [ownEntry, ...MOCK_FRIEND_STORIES];
+
+    // Fetch stories from mutual friends
+    const { data: storiesData, error } = await supabase
+      .from("stories")
+      .select("*, profiles:user_id(id, username, avatar_url)")
+      .in("user_id", mutualIds)
+      .gt("created_at", cutoff)
+      .order("created_at", { ascending: false });
+
+    if (error || !storiesData || storiesData.length === 0) return [ownEntry, ...MOCK_FRIEND_STORIES];
+
+    // Deduplicate: one entry per user (most recent story)
+    const seenUsers = new Set<string>();
+    const uniqueStories = storiesData.filter((s: any) => {
+      if (seenUsers.has(s.user_id)) return false;
+      seenUsers.add(s.user_id);
+      return true;
+    });
+
+    // Sort: unseen first, then newest
+    uniqueStories.sort((a: any, b: any) => {
+      if (!a.viewed && b.viewed) return -1;
+      if (a.viewed && !b.viewed) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    const friendEntries: StoryEntry[] = uniqueStories.map((s: any) => ({
+      id: s.id,
+      username: s.profiles?.username ?? "user",
+      image: s.media_url ?? `https://picsum.photos/seed/${s.id}/200/200`,
+      hasNew: !s.viewed,
+      isOwn: false,
+      userId: s.user_id,
+      isOnline: false,
+    }));
+
+    return [ownEntry, ...friendEntries];
+  } catch {
+    const ownEntry: StoryEntry = {
+      id: "own_placeholder",
+      username: "you",
+      image: "",
+      hasNew: false,
+      isOwn: true,
+      userId: myUserId,
+      hasExistingStory: false,
+    };
+    return [ownEntry, ...MOCK_FRIEND_STORIES];
+  }
 }
 
 // ─── Conversations / Messages ─────────────────────────────────────────────────

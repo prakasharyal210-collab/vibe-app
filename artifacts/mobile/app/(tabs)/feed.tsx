@@ -31,12 +31,13 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import {
-  fetchActiveStories,
+  fetchFriendStories,
   fetchUnreadCount,
   getForYouFeed,
   getFriendsFeed,
   markPostSeen,
 } from "@/lib/db";
+import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
@@ -272,6 +273,34 @@ function TrendingGrid({ posts, colors, title = "Trending on Vibe" }: { posts: { 
   );
 }
 
+function FriendsStoriesBar({ stories, colors }: { stories: StoryEntry[]; colors: any }) {
+  return (
+    <View style={{ backgroundColor: colors.background }}>
+      <View style={storiesBarStyles.header}>
+        <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={storiesBarStyles.accentBar} />
+        <Text style={[storiesBarStyles.title, { color: colors.foreground }]}>Stories</Text>
+        <View style={storiesBarStyles.liveRow}>
+          <View style={storiesBarStyles.liveDot} />
+          <Text style={[storiesBarStyles.liveText, { color: colors.mutedForeground }]}>
+            {stories.filter((s) => s.isOnline && !s.isOwn).length} online
+          </Text>
+        </View>
+      </View>
+      <StoryRow stories={stories} />
+      <View style={[storiesBarStyles.divider, { backgroundColor: colors.border }]} />
+    </View>
+  );
+}
+const storiesBarStyles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
+  accentBar: { width: 3, height: 16, borderRadius: 2 },
+  title: { fontSize: 15, fontFamily: "Poppins_700Bold", flex: 1 },
+  liveRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  liveDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#22C55E" },
+  liveText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
+  divider: { height: 0.5, marginTop: 8 },
+});
+
 function SuggestedCTA({ colors }: { colors: any }) {
   return (
     <View style={{ alignItems: "center", paddingTop: 20, paddingHorizontal: 32, gap: 12 }}>
@@ -304,7 +333,7 @@ export default function FeedScreen() {
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
 
-  const [stories, setStories] = useState<{ id: string; username: string; image: string; hasNew: boolean; isOwn?: boolean }[]>([]);
+  const [friendStories, setFriendStories] = useState<StoryEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -356,7 +385,23 @@ export default function FeedScreen() {
 
   useEffect(() => {
     loadTabData("foryou", true);
-    fetchActiveStories(session?.user?.id).then(setStories).catch(() => {});
+  }, [userId]);
+
+  // Load friend stories (for Friends tab) + realtime subscription
+  useEffect(() => {
+    if (!userId) return;
+    fetchFriendStories(userId).then(setFriendStories).catch(() => {});
+
+    const channel = supabase
+      .channel("friend-stories")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "stories" },
+        () => { fetchFriendStories(userId).then(setFriendStories).catch(() => {}); }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [userId]);
 
   useEffect(() => {
@@ -494,9 +539,6 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        <StoryRow stories={stories} />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
         {/* Tab Bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
           {TABS.map((tab, i) => {
@@ -572,13 +614,26 @@ export default function FeedScreen() {
                 data={state.loading ? [] : (isTrending ? [] : filteredPosts)}
                 keyExtractor={(item) => item.id + tab.id}
                 renderItem={renderTabPost(tab.id)}
-                ListHeaderComponent={isTrending ? (
-                  <TrendingGrid
-                    posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
-                    colors={colors}
-                    title={`🔥 Trending — ${TABS[tabIndex].label}`}
-                  />
-                ) : null}
+                ListHeaderComponent={() => {
+                  if (isTrending) {
+                    return (
+                      <>
+                        {tab.id === "friends" && friendStories.length > 0 && (
+                          <FriendsStoriesBar stories={friendStories} colors={colors} />
+                        )}
+                        <TrendingGrid
+                          posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
+                          colors={colors}
+                          title={`🔥 Trending — ${TABS[tabIndex].label}`}
+                        />
+                      </>
+                    );
+                  }
+                  if (tab.id === "friends") {
+                    return <FriendsStoriesBar stories={friendStories} colors={colors} />;
+                  }
+                  return null;
+                }}
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {
                   if (state.loadingMore) {

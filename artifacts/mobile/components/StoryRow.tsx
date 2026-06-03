@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
@@ -51,37 +52,39 @@ const STORY_CAPTIONS = [
 
 const REACTIONS = ["❤️", "🔥", "😍", "😂", "😮", "👏"];
 
-interface Story {
+export interface Story {
   id: string;
   username: string;
   isOwn?: boolean;
   image?: string;
   hasNew?: boolean;
+  isOnline?: boolean;
+  userId?: string;
+  hasExistingStory?: boolean;
 }
 
-interface StoryViewerProps {
-  stories: Story[];
-  startIndex: number;
-  onClose: () => void;
-}
-
+// ─── Progress bar ────────────────────────────────────────────────────────────
 function StoryProgressBar({ total, current, progress }: { total: number; current: number; progress: SharedValue<number> }) {
   const progressStyle = useAnimatedStyle(() => ({
     width: `${progress.value * 100}%` as any,
   }));
-
   return (
     <View style={viewerStyles.progressContainer}>
       {Array.from({ length: total }).map((_, i) => (
         <View key={i} style={viewerStyles.progressSegWrap}>
           <View style={[viewerStyles.progressSeg, { backgroundColor: i < current ? "#fff" : "rgba(255,255,255,0.3)" }]} />
-          {i === current && (
-            <Animated.View style={[viewerStyles.progressFill, progressStyle]} />
-          )}
+          {i === current && <Animated.View style={[viewerStyles.progressFill, progressStyle]} />}
         </View>
       ))}
     </View>
   );
+}
+
+// ─── Story Viewer ─────────────────────────────────────────────────────────────
+interface StoryViewerProps {
+  stories: Story[];
+  startIndex: number;
+  onClose: () => void;
 }
 
 function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
@@ -95,7 +98,7 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const translateY = useSharedValue(0);
 
-  const storyImage = STORY_IMAGES[current % STORY_IMAGES.length];
+  const storyImage = viewable[current]?.image || STORY_IMAGES[current % STORY_IMAGES.length];
   const caption = STORY_CAPTIONS[current % STORY_CAPTIONS.length];
   const story = viewable[current];
 
@@ -150,6 +153,7 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const react = (emoji: string) => {
     setReacted(emoji);
     setShowReactions(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTimeout(() => setReacted(null), 2000);
   };
 
@@ -159,13 +163,19 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
     <GestureDetector gesture={panGesture}>
       <Animated.View style={[viewerStyles.container, sheetStyle]}>
         <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <LinearGradient colors={["rgba(0,0,0,0.6)", "transparent", "transparent", "rgba(0,0,0,0.7)"]} style={StyleSheet.absoluteFill} />
+        <LinearGradient
+          colors={["rgba(0,0,0,0.65)", "transparent", "transparent", "rgba(0,0,0,0.75)"]}
+          style={StyleSheet.absoluteFill}
+        />
 
         <StoryProgressBar total={viewable.length} current={current} progress={progress} />
 
         <View style={[viewerStyles.topBar, { paddingTop: Platform.OS === "web" ? 20 : insets.top + 8 }]}>
           <View style={viewerStyles.userRow}>
-            <UserAvatar username={story.username} size={36} />
+            <View style={viewerStyles.viewerAvatarWrap}>
+              <UserAvatar username={story.username} size={36} />
+              {story.isOnline && <View style={viewerStyles.onlineDot} />}
+            </View>
             <View>
               <Text style={viewerStyles.username}>{story.username}</Text>
               <Text style={viewerStyles.timeAgo}>2h ago</Text>
@@ -176,6 +186,7 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
           </TouchableOpacity>
         </View>
 
+        {/* Tap zones */}
         <View style={viewerStyles.tapZones}>
           <TouchableOpacity style={viewerStyles.tapLeft} onPress={goBack} activeOpacity={1} />
           <TouchableOpacity style={viewerStyles.tapRight} onPress={advance} activeOpacity={1} />
@@ -193,15 +204,23 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
           </View>
         )}
 
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={viewerStyles.bottomArea}>
-          <View style={viewerStyles.reactionRow}>
-            {REACTIONS.map((emoji) => (
-              <TouchableOpacity key={emoji} onPress={() => react(emoji)} style={viewerStyles.reactionBtn}>
-                <Text style={viewerStyles.reactionEmoji}>{emoji}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={viewerStyles.bottomArea}
+        >
+          {showReactions && (
+            <View style={viewerStyles.reactionRow}>
+              {REACTIONS.map((emoji) => (
+                <TouchableOpacity key={emoji} onPress={() => react(emoji)} style={viewerStyles.reactionBtn}>
+                  <Text style={viewerStyles.reactionEmoji}>{emoji}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
           <View style={viewerStyles.replyRow}>
+            <TouchableOpacity onPress={() => setShowReactions((s) => !s)} style={viewerStyles.emojiToggle}>
+              <Text style={{ fontSize: 22 }}>😊</Text>
+            </TouchableOpacity>
             <TextInput
               value={reply}
               onChangeText={setReply}
@@ -224,74 +243,143 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
 
 const viewerStyles = StyleSheet.create({
   container: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#000", zIndex: 200 },
-  progressContainer: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, flexDirection: "row", paddingHorizontal: 8, paddingTop: Platform.OS === "web" ? 12 : 52, gap: 4 },
-  progressSegWrap: { flex: 1, height: 2.5, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden", position: "relative" },
+  progressContainer: {
+    position: "absolute", top: 0, left: 0, right: 0, zIndex: 10,
+    flexDirection: "row", paddingHorizontal: 8,
+    paddingTop: Platform.OS === "web" ? 12 : 52, gap: 4,
+  },
+  progressSegWrap: {
+    flex: 1, height: 2.5, borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.3)", overflow: "hidden", position: "relative",
+  },
   progressSeg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   progressFill: { position: "absolute", top: 0, left: 0, bottom: 0, backgroundColor: "#fff" },
-  topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 10 },
+  topBar: {
+    position: "absolute", top: 0, left: 0, right: 0,
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, zIndex: 10,
+  },
   userRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  viewerAvatarWrap: { position: "relative" },
+  onlineDot: {
+    position: "absolute", bottom: 1, right: 1,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: "#22C55E", borderWidth: 1.5, borderColor: "#000",
+  },
   username: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   timeAgo: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_400Regular", fontSize: 11 },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(0,0,0,0.3)", alignItems: "center", justifyContent: "center" },
+  closeBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.3)", alignItems: "center", justifyContent: "center",
+  },
   tapZones: { ...StyleSheet.absoluteFillObject as any, flexDirection: "row" },
   tapLeft: { flex: 1 },
   tapRight: { flex: 2 },
   captionBox: { position: "absolute", bottom: 160, left: 0, right: 0, paddingHorizontal: 20 },
-  captionText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 16, textShadowColor: "rgba(0,0,0,0.8)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4, textAlign: "center" },
-  reactedBubble: { position: "absolute", top: "40%", alignSelf: "center", backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 40, padding: 16 },
+  captionText: {
+    color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 16,
+    textShadowColor: "rgba(0,0,0,0.8)", textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4, textAlign: "center",
+  },
+  reactedBubble: {
+    position: "absolute", top: "40%", alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 40, padding: 16,
+  },
   reactedEmoji: { fontSize: 48 },
   bottomArea: { position: "absolute", bottom: 0, left: 0, right: 0, paddingBottom: Platform.OS === "web" ? 20 : 32 },
-  reactionRow: { flexDirection: "row", justifyContent: "center", gap: 12, marginBottom: 12 },
-  reactionBtn: { backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 22, padding: 8 },
+  reactionRow: { flexDirection: "row", justifyContent: "center", gap: 10, marginBottom: 10, paddingHorizontal: 14 },
+  reactionBtn: { backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 22, padding: 9 },
   reactionEmoji: { fontSize: 22 },
-  replyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 10 },
-  replyInput: { flex: 1, height: 42, backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 21, paddingHorizontal: 16, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.25)" },
-  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  replyRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8 },
+  emojiToggle: { padding: 4 },
+  replyInput: {
+    flex: 1, height: 42, backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 21, paddingHorizontal: 16, color: "#fff",
+    fontFamily: "Poppins_400Regular", fontSize: 14,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.25)",
+  },
+  sendBtn: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center",
+  },
 });
 
+// ─── Story circle item ────────────────────────────────────────────────────────
 function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
   const colors = useColors();
+  const label = story.isOwn
+    ? "Your Story"
+    : story.username.length > 8
+    ? story.username.slice(0, 8) + "…"
+    : story.username;
 
   return (
-    <TouchableOpacity style={styles.storyItem} activeOpacity={0.8} onPress={onPress}>
+    <TouchableOpacity style={S.storyItem} activeOpacity={0.8} onPress={onPress}>
       {story.isOwn ? (
-        <View style={styles.ownStoryWrapper}>
-          <UserAvatar username={story.username} size={56} />
-          <View style={[styles.addBadge, { backgroundColor: "#7C3AED" }]}>
-            <Ionicons name="add" size={12} color="#fff" />
+        /* ── Own story circle ── */
+        <View style={S.ownWrap}>
+          {story.hasExistingStory ? (
+            <LinearGradient
+              colors={["#7C3AED", "#F97316"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={S.ring}
+            >
+              <View style={[S.inner, { backgroundColor: colors.background }]}>
+                <UserAvatar username={story.username} size={52} />
+              </View>
+            </LinearGradient>
+          ) : (
+            <View style={[S.ring, S.ringGrey]}>
+              <View style={[S.inner, { backgroundColor: colors.background }]}>
+                <UserAvatar username={story.username} size={52} />
+              </View>
+            </View>
+          )}
+          <View style={S.addBadge}>
+            <Ionicons name={story.hasExistingStory ? "eye-outline" : "add"} size={12} color="#fff" />
           </View>
         </View>
       ) : story.hasNew !== false ? (
-        <LinearGradient
-          colors={["#7C3AED", "#F97316"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.storyRing}
-        >
-          <View style={[styles.storyInner, { backgroundColor: colors.background }]}>
-            <UserAvatar username={story.username} size={52} />
-          </View>
-        </LinearGradient>
+        /* ── Unseen story: gradient ring ── */
+        <View style={S.ownWrap}>
+          <LinearGradient
+            colors={["#7C3AED", "#F97316"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={S.ring}
+          >
+            <View style={[S.inner, { backgroundColor: colors.background }]}>
+              <UserAvatar username={story.username} size={52} />
+            </View>
+          </LinearGradient>
+          {story.isOnline && <View style={S.onlineDot} />}
+        </View>
       ) : (
-        <View style={[styles.storyRing, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-          <View style={[styles.storyInner, { backgroundColor: colors.background }]}>
-            <UserAvatar username={story.username} size={52} />
+        /* ── Seen story: grey ring ── */
+        <View style={S.ownWrap}>
+          <View style={[S.ring, S.ringGrey]}>
+            <View style={[S.inner, { backgroundColor: colors.background }]}>
+              <UserAvatar username={story.username} size={52} />
+            </View>
           </View>
+          {story.isOnline && <View style={S.onlineDot} />}
         </View>
       )}
-      <Text style={[styles.storyName, { color: colors.foreground }]} numberOfLines={1}>
-        {story.isOwn ? "Your Story" : story.username.split("_")[0]}
+      <Text style={[S.label, { color: colors.foreground }]} numberOfLines={1}>
+        {label}
       </Text>
     </TouchableOpacity>
   );
 }
 
+// ─── Public StoryRow ─────────────────────────────────────────────────────────
 export function StoryRow({ stories }: { stories: Story[] }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerStart, setViewerStart] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
 
-  const openViewer = (index: number) => {
+  const openStory = (index: number) => {
     const story = stories[index];
     if (story.isOwn) {
       setCreateOpen(true);
@@ -306,11 +394,11 @@ export function StoryRow({ stories }: { stories: Story[] }) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
+        style={S.scroll}
+        contentContainerStyle={S.content}
       >
         {stories.map((story, index) => (
-          <StoryItem key={story.id} story={story} onPress={() => openViewer(index)} />
+          <StoryItem key={story.id} story={story} onPress={() => openStory(index)} />
         ))}
       </ScrollView>
 
@@ -333,13 +421,37 @@ export function StoryRow({ stories }: { stories: Story[] }) {
   );
 }
 
-const styles = StyleSheet.create({
-  scroll: { paddingVertical: 8 },
-  content: { paddingHorizontal: 12, gap: 14 },
-  storyItem: { alignItems: "center", gap: 5, width: 68 },
-  ownStoryWrapper: { position: "relative" },
-  storyRing: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
-  storyInner: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center" },
-  addBadge: { position: "absolute", bottom: 0, right: 0, width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#0A0A0F" },
-  storyName: { fontSize: 11, fontFamily: "Poppins_400Regular", textAlign: "center" },
+const S = StyleSheet.create({
+  scroll: { paddingVertical: 6 },
+  content: { paddingHorizontal: 12, gap: 12, flexDirection: "row", alignItems: "flex-start" },
+
+  storyItem: { alignItems: "center", gap: 5, width: 70 },
+  ownWrap: { position: "relative" },
+
+  ring: {
+    width: 66, height: 66, borderRadius: 33,
+    alignItems: "center", justifyContent: "center",
+  },
+  ringGrey: { backgroundColor: "rgba(255,255,255,0.18)" },
+  inner: {
+    width: 58, height: 58, borderRadius: 29,
+    alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  addBadge: {
+    position: "absolute", bottom: 0, right: 0,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: "#7C3AED",
+    alignItems: "center", justifyContent: "center",
+    borderWidth: 2, borderColor: "#0A0A0F",
+  },
+  onlineDot: {
+    position: "absolute", bottom: 2, right: 2,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: "#22C55E",
+    borderWidth: 2, borderColor: "#0A0A0F",
+  },
+
+  label: { fontSize: 11, fontFamily: "Poppins_400Regular", textAlign: "center", width: 68 },
 });
