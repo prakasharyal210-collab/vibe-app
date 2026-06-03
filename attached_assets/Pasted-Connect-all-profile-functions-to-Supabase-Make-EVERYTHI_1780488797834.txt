@@ -1,0 +1,110 @@
+Connect all profile functions to Supabase.
+Make EVERYTHING tappable and working:
+
+PROFILE LOADING:
+- Load profile using get_full_profile(username, viewer_id)
+- Track visit using track_profile_visit() on every open
+- Show cover photo at top (tappable full screen)
+- Show all profile fields from function result
+
+FOLLOWERS/FOLLOWING:
+- Tap followers count → call get_followers() function
+- Tap following count → call get_following() function
+- Both screens have search bar
+- Search calls function with p_search parameter
+- Each user row tappable → opens their profile
+- Follow button calls toggle_follow() function
+- Follow button updates instantly without refresh
+- Pull to refresh calls function again
+
+EDIT PROFILE:
+- Load current data from profiles table
+- Username field checks availability in real time:
+  SELECT count(*) FROM profiles WHERE username = ?
+  Show green tick if available, red X if taken
+- Save calls update_profile() Supabase function
+- Avatar upload → supabase.storage.from('avatars').upload()
+- Cover upload → supabase.storage.from('avatars').upload()
+- Show success toast on save
+
+SUGGESTED USERS:
+- Load from get_suggested_users() function
+- Show reason text under each user
+- Follow button calls toggle_follow()
+- Updates instantly
+
+HASHTAG PAGES:
+- Every #hashtag in captions/comments is tappable
+- Opens HashtagScreen showing:
+  * Hashtag name and total posts count
+  * Top posts grid from get_hashtag_posts()
+  * Follow hashtag button
+  * Saves to hashtag_follows table
+  * Trending indicator if is_trending
+
+MUSIC PAGES:
+- Every music credit on posts is tappable
+- Opens MusicScreen showing:
+  * Track name and artist
+  * Cover photo
+  * Play/pause preview button
+  * Total posts using this sound
+  * Grid of posts using get_music_posts()
+  * "Use this sound" button
+  * Save sound button
+
+LOCATION PAGES:
+- Every location tag on posts is tappable
+- Opens LocationScreen showing:
+  * Location name
+  * Map preview
+  * Posts from that location
+  * Number of posts
+
+NOTIFICATIONS SCREEN:
+- Load from notifications table
+- Group similar notifications:
+  * "alex and 5 others liked your post"
+- Each notification tappable:
+  * Follow → opens their profile
+  * Like → opens that post
+  * Comment → opens post with comments
+  * Vibe match → opens Find Vibe
+  * Live → opens live stream
+- Mark all as read button
+- Delete notification option
+- Real time updates using Supabase realtime
+
+TOGGLE FOLLOW EVERYWHERE:
+- Use toggle_follow() function everywhere
+- Follow button on:
+  * Profile screen
+  * Followers/Following lists
+  * Suggested users
+  * Search results
+  * Post headers in feed
+  * Reel headers
+- All update instantly without page refresh
+
+SEARCH SCREEN:
+- Search users: profiles table username/full_name
+- Uses pg_trgm indexes for fast fuzzy search
+- Recent searches saved locally
+- Clear history button
+
+UNIVERSAL PROFILE NAVIGATION:
+- Every username tap anywhere calls:
+  navigation.navigate('Profile', {username})
+- Loads get_full_profile(username, viewerId)
+- Works from: Feed, Reels, Comments, 
+  Messages, Notifications, Search,
+  Followers list, Following list,
+  Find Vibe, Vibe Rooms, Events
+
+Make sure:
+- All functions called correctly with right params
+- Loading states on all screens
+- Error handling for failed calls
+- Empty states for all lists
+- Smooth animations throughout
+- No dead taps anywhere

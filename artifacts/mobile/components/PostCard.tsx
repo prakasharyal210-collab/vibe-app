@@ -183,7 +183,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
         <TouchableOpacity
           style={musicCreditStyles.bar}
           activeOpacity={0.7}
-          onPress={() => router.push(`/profile/${post.profiles?.username ?? ""}` as any)}
+          onPress={() => router.push(`/sounds/${encodeURIComponent(post.music_title!)}` as any)}
         >
           <Ionicons name="musical-note" size={12} color="#A78BFA" />
           <Text style={musicCreditStyles.text} numberOfLines={1}>
@@ -245,14 +245,30 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
       {post.caption ? (
         <View style={styles.captionContainer}>
           {post.location && (
-            <View style={styles.locationInline}>
-              <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
-              <Text style={[styles.location, { color: colors.mutedForeground }]}>{post.location} · {timeAgo(post.created_at)}</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.locationInline}
+              onPress={() => router.push(`/location/${encodeURIComponent(post.location!)}` as any)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="location-outline" size={11} color="#7C3AED" />
+              <Text style={[styles.location, { color: "#7C3AED" }]}>{post.location} · {timeAgo(post.created_at)}</Text>
+            </TouchableOpacity>
           )}
           <Text style={[styles.caption, { color: colors.foreground }]}>
             <Text style={styles.captionUsername}>{post.profiles?.username ?? "user"} </Text>
-            {post.caption}
+            {post.caption.split(/(#\w+)/g).map((part, i) =>
+              part.startsWith("#") ? (
+                <Text
+                  key={i}
+                  style={styles.hashTag}
+                  onPress={() => router.push(`/hashtag/${encodeURIComponent(part.slice(1))}` as any)}
+                >
+                  {part}
+                </Text>
+              ) : (
+                <Text key={i}>{part}</Text>
+              )
+            )}
           </Text>
         </View>
       ) : null}
@@ -357,4 +373,5 @@ const styles = StyleSheet.create({
   locationInline: { flexDirection: "row", alignItems: "center", gap: 3 },
   caption: { fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 19 },
   captionUsername: { fontFamily: "Poppins_600SemiBold" },
+  hashTag: { color: "#7C3AED", fontFamily: "Poppins_500Medium" },
 });

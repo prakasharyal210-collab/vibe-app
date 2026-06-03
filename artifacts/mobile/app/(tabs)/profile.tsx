@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import * as Sharing from "expo-sharing";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -237,9 +238,9 @@ const pvStyles = StyleSheet.create({
   dotActive: { backgroundColor: "#7C3AED", width: 16 },
 });
 
-function StatBlock({ label, value }: { label: string; value: number | string }) {
+function StatBlock({ label, value, onPress }: { label: string; value: number | string; onPress?: () => void }) {
   const colors = useColors();
-  return (
+  const inner = (
     <View style={styles.stat}>
       <Text style={[styles.statValue, { color: colors.foreground }]}>
         {typeof value === "number" && value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
@@ -247,6 +248,10 @@ function StatBlock({ label, value }: { label: string; value: number | string }) 
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
     </View>
   );
+  if (onPress) {
+    return <TouchableOpacity onPress={onPress} activeOpacity={0.7}>{inner}</TouchableOpacity>;
+  }
+  return inner;
 }
 
 function GuestProfile() {
@@ -368,19 +373,41 @@ export default function ProfileScreen() {
         <View style={[styles.statsRow, { backgroundColor: "rgba(255,255,255,0.04)" }]}>
           <StatBlock label="Posts" value={profile.posts_count ?? MOCK_GRID.length} />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatBlock label="Followers" value={profile.followers_count ?? 1284} />
+          <StatBlock
+            label="Followers"
+            value={profile.followers_count ?? 1284}
+            onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
+          />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatBlock label="Following" value={profile.following_count ?? 342} />
+          <StatBlock
+            label="Following"
+            value={profile.following_count ?? 342}
+            onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
+          />
         </View>
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity onPress={() => Alert.alert("Edit Profile", "Profile editing coming soon")} style={[styles.editBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <TouchableOpacity onPress={() => router.push("/edit-profile" as any)} style={[styles.editBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
             <Text style={[styles.editBtnText, { color: colors.foreground }]}>Edit Profile</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert("Copied!", `vibe.app/${displayUsername}`)} style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                const canShare = await Sharing.isAvailableAsync();
+                if (canShare) {
+                  await Sharing.shareAsync(`https://vibe.app/${displayUsername}`);
+                } else {
+                  Alert.alert("Share", `vibe.app/${displayUsername}`);
+                }
+              } catch {
+                Alert.alert("Share", `vibe.app/${displayUsername}`);
+              }
+            }}
+            style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+          >
             <Ionicons name="share-outline" size={18} color={colors.foreground} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => Alert.alert("Add Friend", "Share your profile link to grow your network")}>
+          <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => router.push("/suggested-users" as any)}>
             <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(124,58,237,0.15)", borderColor: "#7C3AED" }]}>
