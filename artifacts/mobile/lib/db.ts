@@ -161,6 +161,14 @@ export interface DailyRewardResult {
   coins_awarded: number;
   new_balance: number;
   message: string;
+  streak: number;
+}
+
+export interface StreakInfo {
+  streak: number;
+  claimed_today: boolean;
+  coins_today: number;
+  next_reward: number;
 }
 
 export async function claimDailyReward(userId: string): Promise<DailyRewardResult> {
@@ -169,27 +177,67 @@ export async function claimDailyReward(userId: string): Promise<DailyRewardResul
     if (!error && data) return data as DailyRewardResult;
   } catch {}
   try {
-    const { data: lastClaim } = await supabase
+    const { data: rows } = await supabase
       .from("daily_rewards")
       .select("claimed_at")
       .eq("user_id", userId)
       .order("claimed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const lastDate = lastClaim?.claimed_at ? new Date(lastClaim.claimed_at) : null;
+      .limit(30);
     const today = new Date();
-    const alreadyClaimed = lastDate && lastDate.toDateString() === today.toDateString();
+    const alreadyClaimed = rows && rows.length > 0 &&
+      new Date(rows[0].claimed_at).toDateString() === today.toDateString();
     if (alreadyClaimed) {
-      return { claimed: false, coins_awarded: 0, new_balance: 0, message: "Already claimed today!" };
+      const streak = _calcStreak(rows ?? []);
+      return { claimed: false, coins_awarded: 0, new_balance: 0, message: "Already claimed today!", streak };
     }
     await supabase.from("daily_rewards").insert({ user_id: userId, coins_awarded: 50 });
     await supabase.from("wallet").upsert(
       { user_id: userId, coins: 50 },
       { onConflict: "user_id" },
     );
-    return { claimed: true, coins_awarded: 50, new_balance: 50, message: "🎉 +50 coins claimed!" };
+    const streak = _calcStreak([{ claimed_at: today.toISOString() }, ...(rows ?? [])]);
+    return { claimed: true, coins_awarded: 50, new_balance: 50, message: "🎉 +50 coins claimed!", streak };
   } catch {}
-  return { claimed: true, coins_awarded: 50, new_balance: 0, message: "🎉 +50 coins!" };
+  return { claimed: true, coins_awarded: 50, new_balance: 0, message: "🎉 +50 coins!", streak: 1 };
+}
+
+function _calcStreak(rows: { claimed_at: string }[]): number {
+  if (!rows.length) return 0;
+  let streak = 0;
+  let expected = new Date();
+  expected.setHours(0, 0, 0, 0);
+  for (const row of rows) {
+    const d = new Date(row.claimed_at);
+    d.setHours(0, 0, 0, 0);
+    if (d.getTime() === expected.getTime()) {
+      streak++;
+      expected.setDate(expected.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+export async function getStreakInfo(userId: string): Promise<StreakInfo> {
+  try {
+    const { data: rows } = await supabase
+      .from("daily_rewards")
+      .select("claimed_at, coins_awarded")
+      .eq("user_id", userId)
+      .order("claimed_at", { ascending: false })
+      .limit(30);
+    if (!rows) return { streak: 0, claimed_today: false, coins_today: 0, next_reward: 50 };
+    const today = new Date();
+    const claimed_today = rows.length > 0 &&
+      new Date(rows[0].claimed_at).toDateString() === today.toDateString();
+    const coins_today = claimed_today ? (rows[0] as any).coins_awarded ?? 50 : 0;
+    const streak = _calcStreak(rows);
+    const next_reward = streak >= 6 ? 100 : streak >= 2 ? 75 : 50;
+    return { streak, claimed_today, coins_today, next_reward };
+  } catch {
+    return { streak: 0, claimed_today: false, coins_today: 0, next_reward: 50 };
+  }
 }
 
 // ─── Likes ────────────────────────────────────────────────────────────────────

@@ -1,0 +1,129 @@
+Fix profile navigation from Stories and everywhere:
+
+STORY VIEWER - Fix all tappable elements:
+
+1. PROFILE PHOTO in story viewer (top left):
+- Profile photo must be tappable
+- Username must be tappable
+- Tapping either one:
+  * Closes story viewer
+  * Opens that user's profile screen
+  * Smooth transition animation
+
+2. STORY VIEWER LAYOUT (top bar):
+Left side:
+  * Profile photo (60px circle) - TAPPABLE
+  * Username (bold white text) - TAPPABLE
+  * Time ago ("2m ago")
+  * All three navigate to profile on tap
+
+Right side:
+  * ··· More options button:
+    - Report story
+    - Block user
+    - Copy link
+  * X close button
+
+3. REPLY TO STORY:
+- Reply input at bottom
+- Tapping sends message to that user
+- Creates conversation if not exists
+- Opens chat after sending
+
+4. UNIVERSAL PROFILE NAVIGATION RULE:
+Every single place in the app where a 
+username or profile photo appears:
+→ MUST navigate to that user's profile
+
+Fix ALL these locations:
+
+STORY VIEWER:
+✅ Profile photo top left → opens profile
+✅ Username top left → opens profile
+
+REELS SCREEN:
+✅ Profile photo right side → opens profile
+✅ Username bottom left → opens profile
+✅ @ mention in caption → opens profile
+
+FEED POSTS:
+✅ Profile photo on post → opens profile
+✅ Username on post → opens profile
+✅ "Liked by username" → opens profile
+✅ Comments → username opens profile
+
+COMMENTS SECTION:
+✅ Every commenter photo → opens profile
+✅ Every commenter username → opens profile
+✅ Reply username → opens profile
+
+MESSAGES/INBOX:
+✅ Conversation profile photo → opens profile
+✅ Conversation username → opens profile
+
+CHAT SCREEN:
+✅ Header profile photo → opens profile
+✅ Header username → opens profile
+✅ Message sender photo → opens profile
+
+NOTIFICATIONS:
+✅ Every notification photo → opens profile
+✅ Every notification username → opens profile
+
+FIND VIBE:
+✅ Match card photo → opens profile preview
+✅ Match card username → opens profile preview
+✅ Matches list photo → opens profile
+✅ Room member photo → opens profile
+
+SEARCH RESULTS:
+✅ Every user result → opens profile
+✅ Every user photo → opens profile
+
+FOLLOWERS/FOLLOWING LISTS:
+✅ Every user photo → opens profile
+✅ Every username → opens profile
+
+LEADERBOARD:
+✅ Every creator photo → opens profile
+✅ Every creator name → opens profile
+
+PROFILE NAVIGATION FUNCTION:
+Create one universal function used everywhere:
+
+const navigateToProfile = (username: string) => {
+  // Close any open modals first
+  // (story viewer, comments, etc)
+  dismissCurrentModal()
+  
+  // Navigate to profile
+  navigation.navigate('Profile', { 
+    username: username 
+  })
+}
+
+Use this function everywhere in the app.
+Never have a username or profile photo
+that does NOT navigate to profile.
+
+STORY VIEWER SPECIFIC FIX:
+- Story is full screen so profile tap must:
+  1. Pause the story
+  2. Close story viewer with animation
+  3. Navigate to profile screen
+  4. Back button returns to feed (not story)
+
+- OR show profile as overlay:
+  1. Story pauses
+  2. Profile slides up from bottom (70% screen)
+  3. Shows profile info, follow button, posts
+  4. Swipe down → closes overlay, story resumes
+
+Make sure:
+- Every username tap navigates to profile
+- Every profile photo tap navigates to profile
+- Works from story viewer
+- Works from everywhere in app
+- Consistent behavior throughout
+- Smooth animations
+- Back navigation always works correctly

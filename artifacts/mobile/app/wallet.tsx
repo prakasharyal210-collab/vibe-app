@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
-  Animated,
   Dimensions,
   Platform,
   ScrollView,
@@ -15,7 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientButton } from "@/components/GradientButton";
-import { claimDailyReward, fetchWallet, fetchWalletTransactions, WalletTransaction } from "@/lib/db";
+import { fetchWallet, fetchWalletTransactions, getStreakInfo, StreakInfo, WalletTransaction } from "@/lib/db";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -56,11 +55,7 @@ export default function WalletScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const [totalCoins, setTotalCoins] = useState(1846);
   const [dbTransactions, setDbTransactions] = useState<WalletTransaction[]>([]);
-  const [dailyClaiming, setDailyClaiming] = useState(false);
-  const [dailyClaimed, setDailyClaimed] = useState(false);
-  const [rewardMsg, setRewardMsg] = useState("");
-  const coinAnim = useRef(new Animated.Value(0)).current;
-  const coinOpacity = useRef(new Animated.Value(0)).current;
+  const [streakInfo, setStreakInfo] = useState<StreakInfo>({ streak: 0, claimed_today: false, coins_today: 0, next_reward: 50 });
   const usdValue = (totalCoins * 0.01).toFixed(2);
 
   useEffect(() => {
@@ -68,32 +63,8 @@ export default function WalletScreen() {
     const uid = session.user.id;
     fetchWallet(uid).then((w) => setTotalCoins(w.coins)).catch(() => {});
     fetchWalletTransactions(uid).then((ts) => { if (ts.length > 0) setDbTransactions(ts); }).catch(() => {});
+    getStreakInfo(uid).then((info) => setStreakInfo(info)).catch(() => {});
   }, [session?.user?.id]);
-
-  const handleDailyReward = async () => {
-    if (!session?.user?.id || dailyClaiming || dailyClaimed) return;
-    setDailyClaiming(true);
-    try {
-      const result = await claimDailyReward(session.user.id);
-      setRewardMsg(result.claimed ? `🎉 +${result.coins_awarded} coins!` : result.message ?? "Already claimed today!");
-      if (result.claimed && result.coins_awarded > 0) {
-        setTotalCoins((prev) => prev + result.coins_awarded);
-        setDailyClaimed(true);
-        coinAnim.setValue(0);
-        coinOpacity.setValue(1);
-        Animated.parallel([
-          Animated.timing(coinAnim, { toValue: -80, duration: 900, useNativeDriver: true }),
-          Animated.timing(coinOpacity, { toValue: 0, duration: 900, useNativeDriver: true }),
-        ]).start();
-      } else {
-        setDailyClaimed(true);
-      }
-    } catch {
-      setRewardMsg("Couldn't claim reward. Try again!");
-    } finally {
-      setDailyClaiming(false);
-    }
-  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -204,26 +175,54 @@ export default function WalletScreen() {
         </View>
 
         <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-          <View style={[styles.dailyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.dailyTitle, { color: colors.foreground }]}>🎁 Daily Reward</Text>
-              <Text style={[styles.dailySub, { color: colors.mutedForeground }]}>
-                {dailyClaimed ? (rewardMsg || "Come back tomorrow!") : "Claim 50 free coins every day"}
-              </Text>
+          <LinearGradient
+            colors={["rgba(124,58,237,0.18)", "rgba(249,115,22,0.10)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[styles.streakCard, { borderColor: "rgba(124,58,237,0.3)" }]}
+          >
+            <View style={styles.streakTopRow}>
+              <View style={styles.streakBadge}>
+                <Text style={styles.streakFire}>🔥</Text>
+                <Text style={styles.streakDay}>
+                  {streakInfo.streak > 0 ? `Day ${streakInfo.streak} Streak` : "Start your streak!"}
+                </Text>
+              </View>
+              {streakInfo.claimed_today && (
+                <View style={styles.claimedBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                  <Text style={styles.claimedText}>Claimed today</Text>
+                </View>
+              )}
             </View>
-            <TouchableOpacity
-              onPress={handleDailyReward}
-              disabled={dailyClaiming || dailyClaimed}
-              style={[styles.dailyBtn, { opacity: dailyClaiming || dailyClaimed ? 0.55 : 1 }]}
-            >
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.dailyBtnGrad}>
-                <Text style={styles.dailyBtnText}>{dailyClaimed ? "✓ Claimed" : dailyClaiming ? "..." : "Claim"}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <Animated.Text style={[styles.coinFly, { transform: [{ translateY: coinAnim }], opacity: coinOpacity }]}>
-              🪙 +50
-            </Animated.Text>
-          </View>
+
+            <View style={styles.streakStatsRow}>
+              <View style={styles.streakStat}>
+                <Text style={styles.streakStatVal}>🪙 {streakInfo.coins_today > 0 ? `+${streakInfo.coins_today}` : "—"}</Text>
+                <Text style={styles.streakStatLabel}>Earned today</Text>
+              </View>
+              <View style={[styles.streakDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.streakStat}>
+                <Text style={styles.streakStatVal}>🎁 {streakInfo.next_reward}</Text>
+                <Text style={styles.streakStatLabel}>Tomorrow's reward</Text>
+              </View>
+              <View style={[styles.streakDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.streakStat}>
+                <Text style={styles.streakStatVal}>
+                  {streakInfo.streak >= 7 ? "🌟" : streakInfo.streak >= 3 ? "⚡" : "🎯"} {streakInfo.streak >= 7 ? "Max!" : streakInfo.streak >= 3 ? "Bonus!" : `${7 - streakInfo.streak}d`}
+                </Text>
+                <Text style={styles.streakStatLabel}>{streakInfo.streak >= 7 ? "Max streak" : "To bonus"}</Text>
+              </View>
+            </View>
+
+            {streakInfo.streak >= 3 && (
+              <View style={styles.bonusBanner}>
+                <Text style={styles.bonusText}>
+                  {streakInfo.streak >= 7 ? "🌟 7-day bonus active — earning 2× coins!" : "⚡ 3-day streak bonus — earning +50% coins!"}
+                </Text>
+              </View>
+            )}
+          </LinearGradient>
         </View>
 
         <View style={{ paddingHorizontal: 16 }}>
@@ -285,11 +284,18 @@ const styles = StyleSheet.create({
   txCoinEmoji: { fontSize: 13 },
   txAmount: { fontSize: 14, fontFamily: "Poppins_700Bold" },
   withdrawNote: { fontSize: 12, fontFamily: "Poppins_400Regular", textAlign: "center", marginTop: 10, lineHeight: 18 },
-  dailyCard: { flexDirection: "row", alignItems: "center", borderRadius: 16, padding: 16, borderWidth: 0.5, gap: 12, overflow: "visible" },
-  dailyTitle: { fontSize: 15, fontFamily: "Poppins_700Bold", marginBottom: 2 },
-  dailySub: { fontSize: 12, fontFamily: "Poppins_400Regular" },
-  dailyBtn: { },
-  dailyBtnGrad: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
-  dailyBtnText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold" },
-  coinFly: { position: "absolute", right: 16, bottom: 16, fontSize: 18, fontFamily: "Poppins_700Bold", color: "#F59E0B" },
+  streakCard: { borderRadius: 20, padding: 18, borderWidth: 1, gap: 16 },
+  streakTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  streakBadge: { flexDirection: "row", alignItems: "center", gap: 6 },
+  streakFire: { fontSize: 22 },
+  streakDay: { fontSize: 16, fontFamily: "Poppins_700Bold", color: "#fff" },
+  claimedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(16,185,129,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  claimedText: { fontSize: 12, fontFamily: "Poppins_600SemiBold", color: "#10B981" },
+  streakStatsRow: { flexDirection: "row", alignItems: "center" },
+  streakStat: { flex: 1, alignItems: "center", gap: 4 },
+  streakStatVal: { fontSize: 15, fontFamily: "Poppins_700Bold", color: "#fff" },
+  streakStatLabel: { fontSize: 11, fontFamily: "Poppins_400Regular", color: "rgba(255,255,255,0.55)", textAlign: "center" },
+  streakDivider: { width: 1, height: 36, opacity: 0.3 },
+  bonusBanner: { backgroundColor: "rgba(249,115,22,0.15)", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
+  bonusText: { fontSize: 12, fontFamily: "Poppins_500Medium", color: "#F97316", textAlign: "center" },
 });

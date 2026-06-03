@@ -7,13 +7,81 @@ import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Animated, Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { DailyRewardModal } from "@/components/DailyRewardModal";
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { claimDailyReward, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
+
+function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
+  const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(80)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const bottomPad = Platform.OS === "web" ? 96 : insets.bottom + 84;
+
+  useEffect(() => {
+    if (!visible || coins <= 0) return;
+    translateY.setValue(80);
+    opacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 200, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start(() => {
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(translateY, { toValue: 80, duration: 280, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+        ]).start();
+      }, 3000);
+    });
+  }, [visible, coins]);
+
+  if (!visible || coins <= 0) return null;
+
+  return (
+    <Animated.View
+      style={[
+        toastStyles.wrap,
+        { bottom: bottomPad, opacity, transform: [{ translateY }] },
+      ]}
+      pointerEvents="none"
+    >
+      <View style={toastStyles.pill}>
+        <Text style={toastStyles.text}>🎁 +{coins} coins daily reward claimed!</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
+const toastStyles = StyleSheet.create({
+  wrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  pill: {
+    backgroundColor: "rgba(30,14,52,0.96)",
+    borderRadius: 30,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderColor: "rgba(124,58,237,0.45)",
+    shadowColor: "#7C3AED",
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 8,
+  },
+  text: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: "Poppins_600SemiBold",
+  },
+});
 
 function NativeTabLayout() {
   return (
@@ -60,22 +128,6 @@ function ClassicTabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
-
-  const sfIcon = (
-    def: string,
-    sel: string,
-    fallback: string,
-    color: string,
-    focused: boolean,
-    size = 24
-  ) => {
-    if (isIOS) {
-      return (
-        <SymbolView name={focused ? sel : def} tintColor={color} size={size} />
-      );
-    }
-    return <Ionicons name={fallback as any} size={size} color={color} />;
-  };
 
   return (
     <Tabs
@@ -164,7 +216,7 @@ export default function TabLayout() {
   const { session } = useAuth();
   const userId = session?.user?.id;
   const [rewardCoins, setRewardCoins] = useState(0);
-  const [showReward, setShowReward] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const claimedRef = useRef(false);
   const onboardingRef = useRef(false);
@@ -173,14 +225,17 @@ export default function TabLayout() {
     if (!userId || claimedRef.current) return;
     claimedRef.current = true;
     claimDailyReward(userId).then((result) => {
-      const coins = result.claimed ? result.coins_awarded : 0;
-      if (coins > 0) {
+      if (result.claimed && result.coins_awarded > 0) {
+        AsyncStorage.setItem(
+          `dailyReward:${userId}`,
+          JSON.stringify({ coins: result.coins_awarded, streak: result.streak, ts: Date.now() }),
+        ).catch(() => {});
         setTimeout(() => {
-          setRewardCoins(coins);
-          setShowReward(true);
-        }, 1200);
+          setRewardCoins(result.coins_awarded);
+          setShowToast(true);
+        }, 1400);
       }
-    });
+    }).catch(() => {});
   }, [userId]);
 
   useEffect(() => {
@@ -189,29 +244,23 @@ export default function TabLayout() {
 
     (async () => {
       try {
-        // ── 1. AsyncStorage check — instant, no network ────────────────
         const localDone = await AsyncStorage.getItem("onboarding_done");
-        if (localDone === "true") return; // already completed, never show again
+        if (localDone === "true") return;
 
-        // ── 2. Supabase as backup source-of-truth ──────────────────────
         const required = await needsOnboarding(userId).catch(() => false);
         if (!required) {
-          // Already done in DB — persist locally so future checks are instant
           await AsyncStorage.setItem("onboarding_done", "true").catch(() => {});
           return;
         }
 
-        // ── 3. First time: show the picker ────────────────────────────
         setTimeout(() => setShowOnboarding(true), 600);
       } catch {
-        // Silently skip on any error — never block the user
       }
     })();
   }, [userId]);
 
   const handleOnboardingComplete = async (interests: string[]) => {
     setShowOnboarding(false);
-    // Persist locally first — survives logout, instant on next open
     await AsyncStorage.setItem("onboarding_done", "true").catch(() => {});
     if (userId) {
       saveOnboardingInterests(userId, interests).catch(() => {});
@@ -221,11 +270,7 @@ export default function TabLayout() {
   return (
     <>
       {isLiquidGlassAvailable() && Platform.OS === "ios" ? <NativeTabLayout /> : <ClassicTabLayout />}
-      <DailyRewardModal
-        visible={showReward}
-        coins={rewardCoins}
-        onClose={() => setShowReward(false)}
-      />
+      <RewardToast coins={rewardCoins} visible={showToast} />
       <OnboardingInterestPicker
         visible={showOnboarding}
         onComplete={handleOnboardingComplete}
