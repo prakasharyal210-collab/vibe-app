@@ -1,0 +1,72 @@
+Make these changes to the Feed screen:
+
+TAB ORDER AND DEFAULT:
+- "For You" must be the FIRST and DEFAULT tab
+- Tab order: For You → Following → Friends → 
+  Nearby → Vibes → Sounds → Top
+- App always opens Feed on "For You" tab
+- "For You" tab is bold and highlighted on launch
+- Remember last tab position if user switches
+
+FOR YOU TAB BEHAVIOR (like TikTok):
+- First time user opens app → show popular posts
+- After 3+ interactions → show personalized content
+- Uses get_personalized_feed() Supabase function
+- Infinite scroll - never runs out of content
+- Mixes: 60% interest-based, 40% discovery
+- Never show same post twice in same session
+- Refresh gives completely new set of posts
+- Pull down to refresh with animation
+- "You're all caught up!" message at end
+- Then shows older content
+
+FOR YOU ALGORITHM DISPLAY:
+- Show tiny "Why you're seeing this" button
+- Tapping shows: "Based on your interest in #travel"
+- Or: "Popular in your area"
+- Or: "Trending right now"
+- This builds trust with users
+
+FOR YOU EMPTY STATE (new users):
+- Show onboarding interest picker
+- "What are you into?" 
+- Grid of interest bubbles to tap:
+  Music 🎵, Travel ✈️, Food 🍕, Fashion 👗,
+  Gaming 🎮, Fitness 💪, Art 🎨, Comedy 😂,
+  Dance 💃, Sports ⚽, Tech 💻, Pets 🐾
+- User picks at least 3
+- Feed immediately shows relevant content
+- Saves choices to user_interests table
+
+FOLLOWING TAB:
+- Shows ONLY posts from people you follow
+- Chronological order (newest first)
+- Empty state: "Follow people to see their posts"
+- Show suggested people to follow
+
+FRIENDS TAB:
+- Shows posts from mutual followers only
+- People who follow you AND you follow back
+- Feel more personal and intimate
+- Empty state: "No mutual friends yet"
+
+NEARBY TAB:
+- Posts from people within 50km
+- Shows distance on each post
+- "2.3 km away" label
+- Requires location permission
+- Empty state: "No posts near you yet"
+- Privacy: uses approximate location only
+
+VIBES TAB:
+- Posts matching your interest tags
+- Shows which interest matched: "#travel"
+- Feels super personalized
+- Empty state: "Add interests in your profile"
+
+SMOOTH TRANSITIONS:
+- Swipe left/right to switch between tabs
+- Tab content stays loaded when switching back
+- Smooth fade animation between tabs
+- Loading skeleton while content loads
+- Each tab remembers scroll position

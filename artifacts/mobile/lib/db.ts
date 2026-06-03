@@ -711,3 +711,90 @@ export async function fetchLeaderboard(period = 'weekly'): Promise<LeaderboardEn
   } catch {}
   return [];
 }
+
+// ─── Onboarding & Feed Tab RPCs ───────────────────────────────────────────────
+
+export async function needsOnboarding(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.rpc('needs_onboarding', { p_user_id: userId });
+    if (!error) return !!data;
+  } catch {}
+  return false;
+}
+
+export async function saveOnboardingInterests(userId: string, interests: string[]): Promise<void> {
+  try {
+    await supabase.rpc('save_onboarding_interests', {
+      p_user_id: userId,
+      p_interests: interests,
+    });
+  } catch {}
+}
+
+export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_for_you_feed', {
+      p_user_id: userId, p_limit: limit, p_offset: offset,
+    });
+    if (!error && data && data.length > 0) return data as Post[];
+  } catch {}
+  const { data } = await supabase.from('posts').select('*, profiles(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  return (data as Post[]) ?? [];
+}
+
+export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_following_feed', {
+      p_user_id: userId, p_limit: limit, p_offset: offset,
+    });
+    if (!error && data && data.length > 0) return data as Post[];
+  } catch {}
+  return [];
+}
+
+export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_friends_feed', {
+      p_user_id: userId, p_limit: limit, p_offset: offset,
+    });
+    if (!error && data && data.length > 0) return data as Post[];
+  } catch {}
+  return [];
+}
+
+export async function getNearbyFeed(lat: number, lng: number, userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_nearby_feed', {
+      p_lat: lat, p_lng: lng, p_user_id: userId, p_limit: limit, p_offset: offset,
+    });
+    if (!error && data && data.length > 0) return data as Post[];
+  } catch {}
+  const { data } = await supabase.from('posts').select('*, profiles(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  return (data as Post[]) ?? [];
+}
+
+export async function getVibesFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  try {
+    const { data, error } = await supabase.rpc('get_vibes_feed', {
+      p_user_id: userId, p_limit: limit, p_offset: offset,
+    });
+    if (!error && data && data.length > 0) return data as Post[];
+  } catch {}
+  const { data } = await supabase.from('posts').select('*, profiles(*)').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
+  return (data as Post[]) ?? [];
+}
+
+export async function markPostSeen(userId: string, postId: string): Promise<void> {
+  try {
+    await supabase.rpc('mark_post_seen', { p_user_id: userId, p_post_id: postId });
+  } catch {}
+}
+
+export async function saveTabPreference(userId: string, tab: string): Promise<void> {
+  try {
+    await supabase.from('user_tab_preferences').upsert(
+      { user_id: userId, last_tab: tab, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+  } catch {}
+}

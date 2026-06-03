@@ -9,9 +9,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import { DailyRewardModal } from "@/components/DailyRewardModal";
+import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { claimDailyReward } from "@/lib/db";
+import { claimDailyReward, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
 
 function NativeTabLayout() {
   return (
@@ -167,7 +168,9 @@ export default function TabLayout() {
   const userId = session?.user?.id;
   const [rewardCoins, setRewardCoins] = useState(0);
   const [showReward, setShowReward] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const claimedRef = useRef(false);
+  const onboardingRef = useRef(false);
 
   useEffect(() => {
     if (!userId || claimedRef.current) return;
@@ -182,6 +185,23 @@ export default function TabLayout() {
     });
   }, [userId]);
 
+  useEffect(() => {
+    if (!userId || onboardingRef.current) return;
+    onboardingRef.current = true;
+    needsOnboarding(userId).then((required) => {
+      if (required) {
+        setTimeout(() => setShowOnboarding(true), 600);
+      }
+    }).catch(() => {});
+  }, [userId]);
+
+  const handleOnboardingComplete = async (interests: string[]) => {
+    setShowOnboarding(false);
+    if (userId) {
+      saveOnboardingInterests(userId, interests).catch(() => {});
+    }
+  };
+
   return (
     <>
       {isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}
@@ -189,6 +209,10 @@ export default function TabLayout() {
         visible={showReward}
         coins={rewardCoins}
         onClose={() => setShowReward(false)}
+      />
+      <OnboardingInterestPicker
+        visible={showOnboarding}
+        onComplete={handleOnboardingComplete}
       />
     </>
   );
