@@ -5,6 +5,7 @@ import { Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
@@ -188,15 +189,33 @@ export default function TabLayout() {
   useEffect(() => {
     if (!userId || onboardingRef.current) return;
     onboardingRef.current = true;
-    needsOnboarding(userId).then((required) => {
-      if (required) {
+
+    (async () => {
+      try {
+        // ── 1. AsyncStorage check — instant, no network ────────────────
+        const localDone = await AsyncStorage.getItem("onboarding_done");
+        if (localDone === "true") return; // already completed, never show again
+
+        // ── 2. Supabase as backup source-of-truth ──────────────────────
+        const required = await needsOnboarding(userId).catch(() => false);
+        if (!required) {
+          // Already done in DB — persist locally so future checks are instant
+          await AsyncStorage.setItem("onboarding_done", "true").catch(() => {});
+          return;
+        }
+
+        // ── 3. First time: show the picker ────────────────────────────
         setTimeout(() => setShowOnboarding(true), 600);
+      } catch {
+        // Silently skip on any error — never block the user
       }
-    }).catch(() => {});
+    })();
   }, [userId]);
 
   const handleOnboardingComplete = async (interests: string[]) => {
     setShowOnboarding(false);
+    // Persist locally first — survives logout, instant on next open
+    await AsyncStorage.setItem("onboarding_done", "true").catch(() => {});
     if (userId) {
       saveOnboardingInterests(userId, interests).catch(() => {});
     }
