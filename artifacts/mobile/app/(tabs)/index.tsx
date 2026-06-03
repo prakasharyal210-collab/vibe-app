@@ -40,6 +40,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
@@ -475,8 +476,52 @@ export default function ReelsScreen() {
   const [soundOn, setSoundOn] = useState(true);
   const [showSounds, setShowSounds] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const [forYouReels, setForYouReels] = useState(MOCK_REELS);
+  const [followingReels, setFollowingReels] = useState(MOCK_FOLLOWING_REELS);
+  const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  const reels = feedTab === "foryou" ? MOCK_REELS : MOCK_FOLLOWING_REELS;
+  const reels = feedTab === "foryou" ? forYouReels : followingReels;
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const uid = session.user.id;
+    (async () => {
+      try {
+        const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
+        if (fyData && fyData.length > 0) {
+          setForYouReels(fyData.map((r: any) => ({
+            id: r.id,
+            image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+            username: r.username ?? r.profiles?.username ?? "user",
+            caption: r.caption ?? "",
+            likes: r.likes_count ?? 0,
+            comments: r.comments_count ?? 0,
+            shares: r.shares_count ?? 0,
+            views: r.views_count ?? 0,
+            sound: r.sound_name ?? "Original Sound",
+            isVerified: r.is_verified ?? false,
+          })));
+        }
+      } catch {}
+      try {
+        const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
+        if (flData && flData.length > 0) {
+          setFollowingReels(flData.map((r: any) => ({
+            id: r.id,
+            image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+            username: r.username ?? r.profiles?.username ?? "user",
+            caption: r.caption ?? "",
+            likes: r.likes_count ?? 0,
+            comments: r.comments_count ?? 0,
+            shares: r.shares_count ?? 0,
+            views: r.views_count ?? 0,
+            sound: r.sound_name ?? "Original Sound",
+            isVerified: r.is_verified ?? false,
+          })));
+        }
+      } catch {}
+    })();
+  }, [session?.user?.id]);
 
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
     if (viewableItems[0]) setActiveIndex(viewableItems[0].index ?? 0);

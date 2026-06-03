@@ -1,0 +1,166 @@
+Fix these critical issues:
+
+1. CREATE BUTTON NOT WORKING:
+- The + button in bottom tab must open Create screen
+- Create screen must have 3 tabs: Post, Video, Live
+- Post tab: opens camera OR gallery picker
+- Video tab: opens camera for recording reels
+- Live tab: starts live stream setup
+- Fix all broken icons in Create screen using Ionicons
+- Photo Editor, AutoCut, Captions etc must show icons
+
+2. STORY HIGHLIGHTS NOT OPENING:
+- Each highlight circle must be tappable
+- Has its own unique ID and URL: 
+  vibe.app/@username/highlight/highlightId
+- Tapping opens full screen story viewer
+- Shows all stories in that highlight
+- Progress bar at top
+- Swipe to navigate between stories
+- Close button works
+
+3. UNIVERSAL URL/LINK SYSTEM:
+Every single piece of content needs its own link:
+
+PROFILES:
+vibe.app/@username
+- Opens from anywhere in app
+- Every username tap → navigates here
+
+POSTS:
+vibe.app/@username/post/postId
+- Opens full screen post viewer
+- Shows post + comments
+- Like, comment, share work
+
+REELS:
+vibe.app/@username/reel/reelId  
+- Opens full screen reel player
+- All interactions work
+
+STORIES:
+vibe.app/@username/story/storyId
+- Opens story viewer
+- Auto plays
+
+HIGHLIGHTS:
+vibe.app/@username/highlight/highlightId
+- Opens highlight viewer
+- Shows all stories in highlight
+
+HASHTAGS:
+vibe.app/hashtag/tagname
+- Opens hashtag page
+- Shows all posts with that tag
+
+SOUNDS:
+vibe.app/sound/soundId
+- Opens sound page
+- Shows all posts using that sound
+
+LOCATIONS:
+vibe.app/location/locationId
+- Opens location page
+- Shows posts from that location
+
+LIVE:
+vibe.app/@username/live
+- Opens live stream viewer
+
+4. REELS ALGORITHM:
+Connect reels to real Supabase functions:
+
+FOR YOU REELS:
+- Call get_for_you_reels(userId) function
+- Load 10 reels at a time
+- Preload next 3 while watching
+- Track view: call track_reel_view() when:
+  * Reel is visible for more than 2 seconds
+  * Pass watch_duration in seconds
+  * Pass watched_full = true if watched 80%+
+- Never show same reel twice per day
+- Update user interests based on watched reels
+
+FOLLOWING REELS:
+- Call get_following_reels(userId) function
+- Shows only reels from followed users
+- Chronological order
+
+REEL INTERACTIONS:
+- Like: call toggle_reel_like(userId, reelId)
+- Save: call toggle_reel_save(userId, reelId)
+- Comment: call add_reel_comment(userId, reelId, text)
+- Load comments: call get_reel_comments(reelId, userId)
+- Share: track in reel_shares table
+- Follow from reel: call toggle_follow(myId, creatorId)
+
+REAL TIME REEL COUNTS:
+supabase.channel('reel-' + reelId)
+  .on('postgres_changes', {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'reels',
+    filter: `id=eq.${reelId}`
+  }, (payload) => {
+    updateReelCounts(payload.new)
+  })
+  .subscribe()
+
+5. FEED ALGORITHM:
+FOR YOU FEED:
+- Call get_for_you_feed(userId) 
+- Track post view: call mark_post_seen()
+- Track interactions: call track_user_interest()
+- Load 20 posts at a time
+- Infinite scroll loads more
+
+FRIENDS FEED:
+- Call get_friends_feed(userId)
+- Chronological order
+- Stories at top from friends
+
+6. DEEP LINKING:
+Set up React Navigation deep links:
+const linking = {
+  prefixes: ['vibe.app', 'https://vibe.app'],
+  config: {
+    screens: {
+      Profile: '@:username',
+      Post: '@:username/post/:postId',
+      Reel: '@:username/reel/:reelId',
+      Story: '@:username/story/:storyId',
+      Highlight: '@:username/highlight/:highlightId',
+      Hashtag: 'hashtag/:tag',
+      Sound: 'sound/:soundId',
+      Location: 'location/:locationId',
+      Live: '@:username/live',
+    }
+  }
+}
+
+7. SHARE FUNCTIONALITY:
+When user taps share on any content:
+- Generate the content URL
+- Open native share sheet with:
+  * The URL
+  * Preview image
+  * Title text
+- Options: Copy link, Share to other apps,
+  Share to DM (select friend), Add to Story
+
+8. FIX PROFILE TABS:
+- Grid tab ▦ → shows all posts + reels
+- Reels tab ▶️ → shows only reels
+- Tagged tab 🏷️ → shows tagged posts
+- All tabs load from get_profile_posts()
+- Each tab tappable and shows correct content
+- Active tab highlighted with gradient underline
+
+Make sure:
+- Create button ALWAYS works
+- Every highlight opens correctly
+- Every link is unique and shareable
+- All algorithms connect to Supabase
+- Deep links work to open any content
+- Share generates correct URLs
+- No dead taps anywhere

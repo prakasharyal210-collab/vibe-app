@@ -56,6 +56,18 @@ function RootLayoutNav() {
         name="settings"
         options={{ animation: "slide_from_right" }}
       />
+      <Stack.Screen
+        name="post/[id]"
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="reel/[id]"
+        options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }}
+      />
+      <Stack.Screen
+        name="highlight/[id]"
+        options={{ animation: "fade", presentation: "fullScreenModal" }}
+      />
     </Stack>
   );
 }

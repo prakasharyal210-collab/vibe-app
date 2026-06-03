@@ -22,10 +22,12 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { fetchFavouritedPosts, fetchLikedPosts, fetchProfilePosts, fetchRepostedPosts, ProfileGridItem } from "@/lib/db";
+import { fetchProfilePosts, ProfileGridItem } from "@/lib/db";
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { MOCK_HIGHLIGHTS, Profile, supabase } from "@/lib/supabase";
+import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
+import { shareContent } from "@/lib/share";
 
 const { width: W, height: H } = Dimensions.get("window");
 const GRID_ITEM = (W - 3) / 3;
@@ -48,32 +50,6 @@ const MOCK_REELS_GRID = Array.from({ length: 6 }, (_, i) => ({
   caption: ["Dance challenge 🔥", "POV: golden hour", "Aesthetic travel ✈️", "Gym motivation 💪", "Sunset drive 🚗", "Vibes only 💜"][i],
 }));
 
-const MOCK_LIKED_GRID = Array.from({ length: 12 }, (_, i) => ({
-  id: String(i),
-  image_url: `https://picsum.photos/seed/liked${i + 5}/300/300`,
-  isReel: i % 4 === 0,
-  likes: Math.floor(Math.random() * 50000 + 500),
-  comments: Math.floor(Math.random() * 1000 + 20),
-  caption: `Liked post ${i + 1}`,
-}));
-
-const MOCK_SAVED_GRID = Array.from({ length: 9 }, (_, i) => ({
-  id: String(i),
-  image_url: `https://picsum.photos/seed/saved${i + 30}/300/300`,
-  isReel: i % 5 === 1,
-  likes: Math.floor(Math.random() * 30000 + 200),
-  comments: Math.floor(Math.random() * 500 + 10),
-  caption: `Saved post ${i + 1}`,
-}));
-
-const MOCK_REPOSTS_GRID = Array.from({ length: 6 }, (_, i) => ({
-  id: String(i),
-  image_url: `https://picsum.photos/seed/repost${i + 50}/300/300`,
-  isReel: i % 3 === 0,
-  likes: Math.floor(Math.random() * 20000 + 100),
-  comments: Math.floor(Math.random() * 300 + 5),
-  caption: `Reposted ${i + 1}`,
-}));
 
 const MOCK_PROFILE: Profile = {
   id: "me",
@@ -331,7 +307,7 @@ function GuestProfile() {
   );
 }
 
-type ProfileTab = "posts" | "reels" | "liked" | "saved" | "reposts";
+type ProfileTab = "posts" | "reels" | "tagged";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -348,28 +324,45 @@ export default function ProfileScreen() {
     posts_count: profile.posts_count,
   });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
-  const [likedPosts, setLikedPosts] = useState<GridItem[]>([]);
-  const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
-  const [repostedPosts, setRepostedPosts] = useState<GridItem[]>([]);
   const [myPosts, setMyPosts] = useState<GridItem[]>([]);
+  const [taggedPosts, setTaggedPosts] = useState<GridItem[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [tabLoaded, setTabLoaded] = useState<Set<string>>(new Set(["posts", "reels"]));
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerPhotos, setViewerPhotos] = useState<GridItem[]>([]);
+  const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
 
   useEffect(() => {
-    if (!session?.user?.id || tabLoaded.has(activeTab)) return;
+    if (!session?.user?.id || activeTab !== "tagged") return;
     const uid = session.user.id;
-    setTabLoaded((s) => new Set([...s, activeTab]));
-    const mapPost = (p: any) => ({ id: p.id, image_url: p.image_url, isReel: !!p.is_reel, likes: 0, comments: 0, caption: p.caption ?? "" });
-    if (activeTab === "liked") fetchLikedPosts(uid).then((ps) => { if (ps.length) setLikedPosts(ps.map(mapPost)); }).catch(() => {});
-    if (activeTab === "saved") fetchFavouritedPosts(uid).then((ps) => { if (ps.length) setSavedPosts(ps.map(mapPost)); }).catch(() => {});
-    if (activeTab === "reposts") fetchRepostedPosts(uid).then((ps) => { if (ps.length) setRepostedPosts(ps.map(mapPost)); }).catch(() => {});
+    (async () => {
+      try {
+        const { data } = await supabase
+          .from("post_tags")
+          .select("posts(id, image_url, caption, likes_count, comments_count)")
+          .eq("tagged_user_id", uid)
+          .limit(30);
+        if (data && data.length > 0) {
+          setTaggedPosts(
+            data
+              .map((r: any) => r.posts)
+              .filter(Boolean)
+              .map((p: any) => ({
+                id: p.id,
+                image_url: p.image_url,
+                isReel: false,
+                likes: p.likes_count ?? 0,
+                comments: p.comments_count ?? 0,
+                caption: p.caption ?? "",
+              }))
+          );
+        }
+      } catch {}
+    })();
   }, [activeTab, session?.user?.id]);
 
   useEffect(() => {
@@ -438,9 +431,7 @@ export default function ProfileScreen() {
   const gridData: GridItem[] =
     activeTab === "posts" ? myPosts :
     activeTab === "reels" ? reelsOnly :
-    activeTab === "liked" ? (likedPosts.length > 0 ? likedPosts : MOCK_LIKED_GRID) :
-    activeTab === "saved" ? (savedPosts.length > 0 ? savedPosts : MOCK_SAVED_GRID) :
-    (repostedPosts.length > 0 ? repostedPosts : MOCK_REPOSTS_GRID);
+    taggedPosts;
 
   const ListHeader = (
     <View>
@@ -499,7 +490,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
-              Share.share({ message: `Check out @${displayUsername} on Vibe! https://vibe.app/${displayUsername}` }).catch(() => {});
+              shareContent("profile", { username: displayUsername }, `Check out @${displayUsername} on Vibe!`);
             }}
             style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           >
@@ -524,7 +515,11 @@ export default function ProfileScreen() {
             <Text style={[styles.highlightLabel, { color: colors.mutedForeground }]}>New</Text>
           </TouchableOpacity>
           {MOCK_HIGHLIGHTS.map((h) => (
-            <TouchableOpacity key={h.id} style={styles.highlightItem} onPress={() => Alert.alert(h.label, "Story highlights coming soon")}>
+            <TouchableOpacity
+              key={h.id}
+              style={styles.highlightItem}
+              onPress={() => setActiveHighlight({ ...h, username: displayUsername })}
+            >
               <LinearGradient colors={["#7C3AED", "#EA580C"]} style={styles.highlightRing}>
                 <View style={[styles.highlightInner, { backgroundColor: colors.background }]}>
                   <Image source={{ uri: h.image }} style={styles.highlightImg} />
@@ -538,15 +533,13 @@ export default function ProfileScreen() {
 
       <View style={[styles.gridTabRow, { borderBottomColor: colors.border }]}>
         {([
-          { key: "posts" as ProfileTab, icon: "grid-outline" },
-          { key: "reels" as ProfileTab, icon: "play-circle-outline" },
-          { key: "liked" as ProfileTab, icon: "heart-outline" },
-          { key: "saved" as ProfileTab, icon: "bookmark-outline" },
-          { key: "reposts" as ProfileTab, icon: "repeat-outline" },
+          { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
+          { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
+          { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
         ]).map((tab) => (
           <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
-            style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#7C3AED", borderBottomWidth: 2 }]}>
-            <Ionicons name={tab.icon as any} size={20} color={activeTab === tab.key ? "#7C3AED" : colors.mutedForeground} />
+            style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#7C3AED", borderBottomWidth: 2.5 }]}>
+            <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#7C3AED" : colors.mutedForeground} />
           </TouchableOpacity>
         ))}
       </View>
@@ -598,6 +591,12 @@ export default function ProfileScreen() {
         ItemSeparatorComponent={() => <View style={{ height: 1.5 }} />}
         columnWrapperStyle={{ gap: 1.5 }}
         showsVerticalScrollIndicator={false}
+      />
+
+      <HighlightViewer
+        highlight={activeHighlight}
+        visible={!!activeHighlight}
+        onClose={() => setActiveHighlight(null)}
       />
 
       {viewerOpen && (
