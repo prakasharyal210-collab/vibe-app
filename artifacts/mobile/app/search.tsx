@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -17,11 +17,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
-import {
-  MOCK_HASHTAGS,
-  MOCK_SEARCH_ACCOUNTS,
-  formatCount,
-} from "@/lib/supabase";
+import { searchHashtags, searchProfiles } from "@/lib/db";
+import { MOCK_HASHTAGS, MOCK_SEARCH_ACCOUNTS, Profile, Hashtag, formatCount } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 const GRID_W = (W - 48) / 2;
@@ -35,20 +32,23 @@ export default function SearchScreen() {
   const inputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("top");
+  const [filteredAccounts, setFilteredAccounts] = useState<Profile[]>(MOCK_SEARCH_ACCOUNTS);
+  const [filteredHashtags, setFilteredHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
+  const [trendingHashtags, setTrendingHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
+  const [suggestedAccounts, setSuggestedAccounts] = useState<Profile[]>(MOCK_SEARCH_ACCOUNTS);
 
-  const filteredAccounts = query
-    ? MOCK_SEARCH_ACCOUNTS.filter(
-        (a) =>
-          a.username.toLowerCase().includes(query.toLowerCase()) ||
-          a.bio?.toLowerCase().includes(query.toLowerCase())
-      )
-    : MOCK_SEARCH_ACCOUNTS;
+  useEffect(() => {
+    searchProfiles("").then(setSuggestedAccounts).catch(() => {});
+    searchHashtags("").then(setTrendingHashtags).catch(() => {});
+  }, []);
 
-  const filteredHashtags = query
-    ? MOCK_HASHTAGS.filter((h) =>
-        h.tag.toLowerCase().includes(query.toLowerCase())
-      )
-    : MOCK_HASHTAGS;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchProfiles(query).then(setFilteredAccounts).catch(() => {});
+      searchHashtags(query).then(setFilteredHashtags).catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "top", label: "Top" },
@@ -122,7 +122,7 @@ export default function SearchScreen() {
                 🔥 Trending
               </Text>
               <View style={styles.hashtagGrid}>
-                {MOCK_HASHTAGS.map((h, i) => (
+                {trendingHashtags.map((h, i) => (
                   <TouchableOpacity
                     key={h.tag}
                     style={[styles.hashtagCard, { width: GRID_W }]}
@@ -146,7 +146,7 @@ export default function SearchScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
                 👥 Suggested Accounts
               </Text>
-              {MOCK_SEARCH_ACCOUNTS.slice(0, 4).map((account) => (
+              {suggestedAccounts.slice(0, 4).map((account) => (
                 <AccountRow key={account.id} account={account} colors={colors} />
               ))}
             </View>

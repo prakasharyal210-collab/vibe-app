@@ -1,0 +1,132 @@
+The mock data structure already matches our Supabase 
+tables perfectly. Now replace ALL mock data with real 
+Supabase connections:
+
+Supabase URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Supabase Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Replace every mock/dummy data with real Supabase queries:
+
+1. AUTH:
+- Sign up → supabase.auth.signUp()
+- Login → supabase.auth.signInWithPassword()
+- Logout → supabase.auth.signOut()
+- Session → supabase.auth.getSession()
+- Auto create profile row on signup using trigger
+
+2. PROFILES:
+- Load profile → select from profiles where id = user_id
+- Update profile → update profiles set ... where id = user_id
+- Upload avatar → supabase.storage.from('avatars').upload()
+- Vibe score → select from vibe_scores where user_id = id
+
+3. POSTS & REELS:
+- Load feed → select from posts order by created_at desc
+- Create post → insert into posts
+- Upload media → supabase.storage.from('posts').upload()
+- Like post → insert into likes
+- Unlike → delete from likes
+- Save post → insert into favourites
+- Repost → insert into reposts
+- Comments → select from comments where post_id = id
+
+4. STORIES:
+- Load stories → select from stories where expires_at > now()
+- Create story → insert into stories
+- Upload story media → supabase.storage.from('stories').upload()
+- Mark viewed → update stories set views_count = views_count + 1
+- Delete expired → delete from stories where expires_at < now()
+
+5. MESSAGES:
+- Load conversations → select from messages
+- Send message → insert into messages
+- Real time → supabase.channel().on('postgres_changes')
+- Group chats → select from group_chats
+- Group messages → select from group_messages
+
+6. FIND VIBE:
+- Load profiles → select from profiles with vibe_scores
+- Send match → insert into vibe_matches
+- Load matches → select from vibe_matches where status = accepted
+- Ice breakers → select/insert daily_icebreaker_count
+- Vibe rooms → select from vibe_rooms
+- Join room → insert into vibe_room_members
+- Room messages → realtime from vibe_room_messages
+- Vibe events → select from vibe_events
+- RSVP → insert into event_attendees
+- Tribes → select from tribes
+- Join tribe → insert into tribe_members
+- Speed vibe → insert into speed_vibe_sessions
+- User location → upsert into user_locations
+- Compatibility → select from compatibility_reports
+- Anonymous mode → upsert into anonymous_vibes
+
+7. NOTIFICATIONS:
+- Load → select from notifications where recipient_id = user_id
+- Mark read → update notifications set is_read = true
+- Real time → supabase.channel().on('postgres_changes')
+
+8. SEARCH:
+- Search users → select from profiles where username ilike '%query%'
+- Search hashtags → select from hashtags where name ilike '%query%'
+- Search posts → select from posts where caption ilike '%query%'
+- Trending → select from trending_content order by trending_score desc
+- Save search → insert into saved_searches
+
+9. WALLET & COINS:
+- Load wallet → select from wallet where user_id = id
+- Coin transactions → select from coin_transactions
+- Daily reward → select/insert daily_rewards
+- Achievements → select from user_achievements
+- Leaderboard → select from leaderboard order by score desc
+
+10. SETTINGS:
+- Load settings → select from user_settings where user_id = id
+- Save settings → upsert into user_settings
+- Login activity → select from login_activity
+- Block user → insert into blocked_users
+- 2FA status → select from two_factor_auth
+
+11. ALGORITHM:
+- Track interaction → insert into user_interactions
+- Update content score → upsert into content_scores
+- Load for you feed → select from posts 
+  join content_scores ordered by total_score desc
+- User interests → upsert into user_interests
+- Creator analytics → upsert into creator_analytics
+
+12. REALTIME SUBSCRIPTIONS (use Supabase realtime):
+- New messages in DM
+- New group messages
+- New room messages
+- New notifications
+- Like counts updating
+- Follower counts updating
+- Live viewer counts
+- Online status
+
+Also add this database trigger in Supabase to 
+auto-create profile on signup:
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username, full_name, avatar_url)
+  VALUES (
+    new.id,
+    split_part(new.email, '@', 1),
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  INSERT INTO public.wallet (user_id, coins)
+  VALUES (new.id, 100);
+  INSERT INTO public.vibe_scores (user_id, total_score)
+  VALUES (new.id, 0);
+  INSERT INTO public.user_settings (user_id)
+  VALUES (new.id);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

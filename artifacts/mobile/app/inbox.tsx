@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -12,7 +12,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { fetchConversations } from "@/lib/db";
 import { Conversation, MOCK_CONVERSATIONS, timeAgo } from "@/lib/supabase";
 
 function ConversationItem({ convo }: { convo: Conversation }) {
@@ -79,11 +81,18 @@ function ConversationItem({ convo }: { convo: Conversation }) {
 export default function InboxScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const [search, setSearch] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
-  const filtered = MOCK_CONVERSATIONS.filter((c) =>
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchConversations(session.user.id).then(setConversations).catch(() => {});
+  }, [session?.user?.id]);
+
+  const filtered = conversations.filter((c) =>
     c.other_user.username.toLowerCase().includes(search.toLowerCase())
   );
 

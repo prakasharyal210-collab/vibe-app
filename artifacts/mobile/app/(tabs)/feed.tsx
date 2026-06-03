@@ -18,8 +18,8 @@ import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchUnreadCount } from "@/lib/db";
-import { MOCK_POSTS, MOCK_STORIES, Post, supabase } from "@/lib/supabase";
+import { fetchActiveStories, fetchUnreadCount } from "@/lib/db";
+import { Post, supabase } from "@/lib/supabase";
 
 const FOR_YOU_EXTRA: Post[] = [
   {
@@ -52,17 +52,13 @@ export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
-  const [posts, setPosts] = useState<Post[]>(MOCK_POSTS);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [stories, setStories] = useState<{ id: string; username: string; image: string; hasNew: boolean; isOwn?: boolean }[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [feedTab, setFeedTab] = useState<"following" | "foryou">("foryou");
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    fetchUnreadCount(session.user.id).then(setUnreadCount).catch(() => {});
-  }, [session?.user?.id]);
 
   const fetchPosts = useCallback(async () => {
     try {
@@ -70,15 +66,28 @@ export default function FeedScreen() {
         .from("posts")
         .select("*, profiles(*)")
         .order("created_at", { ascending: false })
-        .limit(20);
-      if (!error && data && data.length > 0) setPosts(data as Post[]);
+        .limit(30);
+      if (!error && data && data.length > 0) {
+        setPosts(data as Post[]);
+      }
     } catch { }
+    setLoading(false);
   }, []);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchPosts();
     setRefreshing(false);
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    fetchUnreadCount(session.user.id).then(setUnreadCount).catch(() => {});
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    fetchPosts();
+    fetchActiveStories(session?.user?.id).then(setStories).catch(() => {});
   }, [fetchPosts]);
 
   const displayPosts = useMemo(() => {
@@ -139,7 +148,7 @@ export default function FeedScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      <StoryRow stories={MOCK_STORIES} />
+      <StoryRow stories={stories} />
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
       {FeedTabs}
     </>

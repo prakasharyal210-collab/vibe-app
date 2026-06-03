@@ -1,4 +1,18 @@
-import { MOCK_COMMENTS, MOCK_NOTIFICATIONS, Post, Comment, Notification, supabase } from "./supabase";
+import {
+  MOCK_COMMENTS,
+  MOCK_CONVERSATIONS,
+  MOCK_HASHTAGS,
+  MOCK_NOTIFICATIONS,
+  MOCK_SEARCH_ACCOUNTS,
+  Comment,
+  Conversation,
+  Hashtag,
+  Notification,
+  Post,
+  Profile,
+  formatCount,
+  supabase,
+} from "./supabase";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -445,4 +459,152 @@ export async function fetchActiveStories(myUserId?: string): Promise<
     }
   } catch {}
   return [];
+}
+
+// ─── Conversations / Messages ─────────────────────────────────────────────────
+
+export async function fetchConversations(userId: string): Promise<Conversation[]> {
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .select(
+        "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
+      )
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!error && data && data.length > 0) {
+      const seen = new Set<string>();
+      const convos: Conversation[] = [];
+      for (const msg of data as any[]) {
+        const otherId = msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
+        const otherUser = msg.sender_id === userId ? msg.receiver : msg.sender;
+        if (!seen.has(otherId) && otherUser) {
+          seen.add(otherId);
+          convos.push({
+            id: `conv_${otherId}`,
+            other_user: {
+              id: otherId,
+              username: otherUser.username,
+              avatar_url: otherUser.avatar_url,
+            },
+            last_message: msg.text,
+            last_message_at: msg.created_at,
+            unread_count: 0,
+          });
+        }
+      }
+      if (convos.length > 0) return convos;
+    }
+  } catch {}
+  return MOCK_CONVERSATIONS;
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+
+export async function searchProfiles(query: string): Promise<Profile[]> {
+  if (!query.trim()) return MOCK_SEARCH_ACCOUNTS;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, bio, avatar_url, followers_count, is_verified")
+      .or(`username.ilike.%${query}%,bio.ilike.%${query}%`)
+      .order("followers_count", { ascending: false })
+      .limit(20);
+    if (!error && data && data.length > 0) return data as Profile[];
+  } catch {}
+  return MOCK_SEARCH_ACCOUNTS.filter(
+    (a) =>
+      a.username.toLowerCase().includes(query.toLowerCase()) ||
+      a.bio?.toLowerCase().includes(query.toLowerCase())
+  );
+}
+
+export async function searchHashtags(query: string): Promise<Hashtag[]> {
+  if (!query.trim()) return MOCK_HASHTAGS;
+  try {
+    const { data, error } = await supabase
+      .from("hashtags")
+      .select("name, posts_count")
+      .ilike("name", `%${query}%`)
+      .order("posts_count", { ascending: false })
+      .limit(20);
+    if (!error && data && data.length > 0) {
+      return data.map((h: any) => ({
+        tag: h.name,
+        count: formatCount(h.posts_count ?? 0) + " posts",
+        image: `https://picsum.photos/seed/${h.name}/300/200`,
+      }));
+    }
+  } catch {}
+  return MOCK_HASHTAGS.filter((h) =>
+    h.tag.toLowerCase().includes(query.toLowerCase())
+  );
+}
+
+// ─── Profile ──────────────────────────────────────────────────────────────────
+
+export async function fetchUserProfile(userId: string): Promise<Profile | null> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+    if (!error && data) return data as Profile;
+  } catch {}
+  return null;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  patch: Partial<Profile>
+): Promise<void> {
+  try {
+    await supabase
+      .from("profiles")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+  } catch {}
+}
+
+// ─── Realtime helpers ─────────────────────────────────────────────────────────
+
+export function subscribeToMessages(
+  userId: string,
+  onNew: (msg: any) => void
+) {
+  return supabase
+    .channel(`messages:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${userId}`,
+      },
+      (payload) => onNew(payload.new)
+    )
+    .subscribe();
+}
+
+export function subscribeToNotifications(
+  userId: string,
+  onNew: (notif: any) => void
+) {
+  return supabase
+    .channel(`notifications:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${userId}`,
+      },
+      (payload) => onNew(payload.new)
+    )
+    .subscribe();
 }
