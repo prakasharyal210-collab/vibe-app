@@ -22,6 +22,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { fetchFavouritedPosts, fetchLikedPosts, fetchRepostedPosts } from "@/lib/db";
+import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { MOCK_HIGHLIGHTS, Profile, supabase } from "@/lib/supabase";
 
@@ -282,6 +283,13 @@ export default function ProfileScreen() {
   const isLoggedIn = !!session;
   const [profile, setProfile] = useState<Profile>(MOCK_PROFILE);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // ── Realtime profile counts ──────────────────────────────────────────────
+  const rtProfile = useProfileRealtime(session?.user?.id ?? null, {
+    followers_count: profile.followers_count,
+    following_count: profile.following_count,
+    posts_count: profile.posts_count,
+  });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [likedPosts, setLikedPosts] = useState<GridItem[]>([]);
   const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
@@ -371,17 +379,17 @@ export default function ProfileScreen() {
         </View>
 
         <View style={[styles.statsRow, { backgroundColor: "rgba(255,255,255,0.04)" }]}>
-          <StatBlock label="Posts" value={profile.posts_count ?? MOCK_GRID.length} />
+          <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? MOCK_GRID.length} />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <StatBlock
             label="Followers"
-            value={profile.followers_count ?? 1284}
+            value={rtProfile.followers_count ?? profile.followers_count ?? 1284}
             onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
           />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <StatBlock
             label="Following"
-            value={profile.following_count ?? 342}
+            value={rtProfile.following_count ?? profile.following_count ?? 342}
             onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
           />
         </View>

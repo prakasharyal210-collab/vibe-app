@@ -14,7 +14,9 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ToastOverlay } from "@/components/ToastNotification";
 import { AuthProvider } from "@/context/AuthContext";
+import { RealtimeProvider } from "@/context/RealtimeContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -81,7 +83,10 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <AuthProvider>
-                <RootLayoutNav />
+                <RealtimeProvider>
+                  <RootLayoutNav />
+                  <ToastOverlay />
+                </RealtimeProvider>
               </AuthProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

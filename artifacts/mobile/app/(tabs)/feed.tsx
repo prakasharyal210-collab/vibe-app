@@ -25,6 +25,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
+import { useRealtime } from "@/context/RealtimeContext";
 import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -233,6 +234,7 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { notifCount: rtNotifCount, messageCount: rtMsgCount, clearNotifBadge, clearMessageBadge } = useRealtime();
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locationAsked, setLocationAsked] = useState(false);
   const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url: string; likes_count: number }[]>([]);
@@ -498,12 +500,31 @@ export default function FeedScreen() {
         <View style={styles.headerTop}>
           <Text style={[styles.brand, { color: colors.foreground }]}>VIBE</Text>
           <View style={styles.headerRight}>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => router.push("/notifications")}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => { clearNotifBadge(); setUnreadCount(0); router.push("/notifications"); }}
+            >
               <Ionicons name="notifications-outline" size={24} color={colors.foreground} />
-              {unreadCount > 0 && <View style={styles.notifDot} />}
+              {(unreadCount + rtNotifCount) > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {unreadCount + rtNotifCount > 99 ? "99+" : String(unreadCount + rtNotifCount)}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => !isLoggedIn ? setShowLoginPrompt(true) : router.push("/inbox")}>
+            <TouchableOpacity
+              style={styles.iconBtn}
+              onPress={() => { if (!isLoggedIn) { setShowLoginPrompt(true); return; } clearMessageBadge(); router.push("/inbox"); }}
+            >
               <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />
+              {rtMsgCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>
+                    {rtMsgCount > 99 ? "99+" : String(rtMsgCount)}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconBtn} onPress={() => router.push("/search")}>
               <Ionicons name="search-outline" size={24} color={colors.foreground} />
@@ -649,6 +670,15 @@ const styles = StyleSheet.create({
     position: "absolute", top: 6, right: 6,
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: "#7C3AED", borderWidth: 1.5, borderColor: "#0A0A0F",
+  },
+  notifBadge: {
+    position: "absolute", top: 2, right: 2,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: "#F43F5E", borderWidth: 1.5, borderColor: "#0A0A0F",
+    alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+  },
+  notifBadgeText: {
+    fontSize: 9, fontFamily: "Poppins_700Bold", color: "#fff", lineHeight: 13,
   },
   divider: { height: 0.5 },
   separator: { height: 0.5 },

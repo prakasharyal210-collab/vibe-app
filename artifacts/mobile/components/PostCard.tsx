@@ -29,6 +29,7 @@ import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { Achievement, checkAchievements, checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost, trackUserInterest, updateCreatorAnalytics } from "@/lib/db";
 import { AchievementModal } from "@/components/AchievementModal";
+import { usePostRealtime } from "@/context/RealtimeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -51,6 +52,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
   }, [post.id, userId]);
   const [liked, setLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
+  const [commentsDisplay, setCommentsDisplay] = useState(post.comments_count);
   const [achievement, setAchievement] = useState<Achievement | null>(null);
   const [bookmarked, setBookmarked] = useState(false);
   const [reposted, setReposted] = useState(false);
@@ -61,6 +63,19 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const heartScale = useSharedValue(1);
+
+  // ── Realtime live count updates ────────────────────────────────────────────
+  const { counts: rtCounts, bumped } = usePostRealtime(post.id, {
+    likes_count: post.likes_count,
+    comments_count: post.comments_count,
+  });
+  useEffect(() => { setLikesCount(rtCounts.likes_count); }, [rtCounts.likes_count]);
+  useEffect(() => { setCommentsDisplay(rtCounts.comments_count); }, [rtCounts.comments_count]);
+  useEffect(() => {
+    if (bumped === "likes_count") {
+      heartScale.value = withSequence(withSpring(1.3, { damping: 7 }), withSpring(1));
+    }
+  }, [bumped]);
 
   const images = post.images && post.images.length > 0 ? post.images : [post.image_url];
 
@@ -214,7 +229,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
           >
             <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <Text style={[styles.actionCount, { color: colors.foreground }]}>{post.comments_count}</Text>
+          <Text style={[styles.actionCount, { color: colors.foreground }]}>{commentsDisplay}</Text>
           <TouchableOpacity onPress={() => { if (requireAuth()) return; setShowShare(true); }} style={styles.actionBtn}>
             <Ionicons name="paper-plane-outline" size={24} color={colors.foreground} />
           </TouchableOpacity>

@@ -1,0 +1,129 @@
+Connect all real time counts to the UI using 
+Supabase Realtime subscriptions:
+
+REAL TIME COUNTS ON POSTS:
+- Subscribe to posts table changes
+- When likes_count changes → update UI instantly
+- When comments_count changes → update UI instantly
+- When reposts_count changes → update UI instantly
+- When views_count changes → update UI instantly
+- No need to refresh - updates automatically
+- Show count animation when number increases:
+  * Number bounces up slightly
+  * Brief color flash on the icon
+
+REAL TIME PROFILE COUNTS:
+- Subscribe to profiles table changes
+- When followers_count changes → update instantly
+- When following_count changes → update instantly
+- When posts_count changes → update instantly
+- Show on profile screen without refresh
+
+REAL TIME NOTIFICATIONS:
+- Subscribe to notifications table
+- When new notification arrives:
+  * Bell icon shows red badge with count
+  * If app is open → show toast notification
+  * Toast slides in from top with:
+    - Profile photo of who did the action
+    - Message: "alex liked your post"
+    - Tap toast → opens relevant content
+  * Toast disappears after 3 seconds
+
+REAL TIME MESSAGES:
+- Subscribe to messages table
+- New message arrives → shows immediately
+- Message icon shows unread count badge
+- If chat is open → message appears instantly
+- Typing indicator shows when other person types
+
+REAL TIME LIVE:
+- Subscribe to live_streams table
+- Viewer count updates every second
+- New gifts show immediately with animation
+- Comments appear instantly
+
+SUPABASE REALTIME CODE:
+Use these subscriptions:
+
+// Posts realtime
+const postsChannel = supabase
+  .channel('posts-changes')
+  .on('postgres_changes', {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'posts',
+    filter: `id=eq.${postId}`
+  }, (payload) => {
+    updatePostCounts(payload.new)
+  })
+  .subscribe()
+
+// Notifications realtime
+const notifChannel = supabase
+  .channel('notifications')
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'notifications',
+    filter: `recipient_id=eq.${userId}`
+  }, (payload) => {
+    showToastNotification(payload.new)
+    updateBadgeCount()
+  })
+  .subscribe()
+
+// Messages realtime
+const msgChannel = supabase
+  .channel('messages')
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'messages',
+    filter: `receiver_id=eq.${userId}`
+  }, (payload) => {
+    addMessageToChat(payload.new)
+    updateUnreadCount()
+  })
+  .subscribe()
+
+// Profile counts realtime
+const profileChannel = supabase
+  .channel('profile-counts')
+  .on('postgres_changes', {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'profiles',
+    filter: `id=eq.${userId}`
+  }, (payload) => {
+    updateProfileCounts(payload.new)
+  })
+  .subscribe()
+
+// Cleanup subscriptions on unmount
+return () => {
+  supabase.removeChannel(postsChannel)
+  supabase.removeChannel(notifChannel)
+  supabase.removeChannel(msgChannel)
+  supabase.removeChannel(profileChannel)
+}
+
+TOAST NOTIFICATIONS:
+- Slide in from top when any notification arrives
+- Shows: profile photo + message + time
+- Tap to open relevant screen
+- Swipe up to dismiss
+- Stack multiple toasts if several arrive
+- Different colors:
+  * Like → red/pink
+  * Comment → blue
+  * Follow → purple
+  * Match → gold
+  * Message → green
+
+Make sure:
+- All realtime subscriptions start on app login
+- Subscriptions cleaned up on logout
+- No duplicate subscriptions
+- Counts never go below 0
+- UI updates smoothly without flicker
