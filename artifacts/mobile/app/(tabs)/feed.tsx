@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, {
   useCallback,
@@ -35,22 +34,18 @@ import {
   fetchActiveStories,
   fetchUnreadCount,
   getForYouFeed,
-  getFollowingFeed,
   getFriendsFeed,
-  getNearbyFeed,
-  getVibesFeed,
   markPostSeen,
-  saveTabPreference,
 } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 const PAGE_SIZE = 20;
-const NUM_TABS = 5;
+const NUM_TABS = 2;
 const TAB_W = W / NUM_TABS;
-const INDICATOR_W = 28;
+const INDICATOR_W = 40;
 
-type FeedTabId = "foryou" | "friends" | "following" | "nearby" | "vibes";
+type FeedTabId = "foryou" | "friends";
 
 // ─── Category pills ────────────────────────────────────────────────────────────
 interface Category { id: string; label: string; keywords: string[] }
@@ -170,9 +165,6 @@ const INIT_TAB: TabState = {
 const TABS: { id: FeedTabId; label: string }[] = [
   { id: "foryou", label: "For You" },
   { id: "friends", label: "Friends" },
-  { id: "following", label: "Following" },
-  { id: "nearby", label: "Nearby" },
-  { id: "vibes", label: "Vibes" },
 ];
 
 const WHY_REASONS = [
@@ -185,8 +177,6 @@ const WHY_REASONS = [
   "Based on your interest in #music",
 ];
 
-const MOCK_DISTANCES = [0.3, 0.8, 1.2, 2.1, 3.4, 4.7, 6.2, 8.5, 11.0, 14.3];
-const MOCK_INTERESTS = ["travel", "music", "photography", "art", "food", "fitness", "gaming", "comedy"];
 
 const MOCK_FOR_YOU: Post[] = [
   {
@@ -242,31 +232,6 @@ const whyStyles = StyleSheet.create({
   text: { fontSize: 11, fontFamily: "Poppins_400Regular", color: "rgba(255,255,255,0.35)" },
 });
 
-function DistanceBadge({ distance }: { distance: number }) {
-  return (
-    <View style={badgeStyles.wrap}>
-      <Ionicons name="location" size={11} color="#F97316" />
-      <Text style={badgeStyles.text}>{distance.toFixed(1)} km away</Text>
-    </View>
-  );
-}
-const badgeStyles = StyleSheet.create({
-  wrap: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
-  text: { fontSize: 11, fontFamily: "Poppins_500Medium", color: "#F97316" },
-});
-
-function VibeBadge({ interest }: { interest: string }) {
-  return (
-    <View style={vibeBadge.wrap}>
-      <LinearGradient colors={["#7C3AED33", "#F9731633"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
-      <Text style={vibeBadge.text}>✨ #{interest} matched your interests</Text>
-    </View>
-  );
-}
-const vibeBadge = StyleSheet.create({
-  wrap: { marginHorizontal: 12, marginTop: 8, marginBottom: 2, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, overflow: "hidden", borderWidth: 1, borderColor: "rgba(124,58,237,0.25)" },
-  text: { fontSize: 11, fontFamily: "Poppins_500Medium", color: "rgba(255,255,255,0.7)" },
-});
 
 function TrendingGrid({ posts, colors, title = "Trending on Vibe" }: { posts: { id: string; image_url: string; likes_count: number }[]; colors: any; title?: string }) {
   const ITEM = (W - 4) / 3;
@@ -335,9 +300,6 @@ export default function FeedScreen() {
   const [tabStates, setTabStates] = useState<Record<FeedTabId, TabState>>({
     foryou: { ...INIT_TAB },
     friends: { ...INIT_TAB, loading: false },
-    following: { ...INIT_TAB, loading: false },
-    nearby: { ...INIT_TAB, loading: false },
-    vibes: { ...INIT_TAB, loading: false },
   });
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
@@ -347,13 +309,11 @@ export default function FeedScreen() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { notifCount: rtNotifCount, messageCount: rtMsgCount, clearNotifBadge, clearMessageBadge } = useRealtime();
-  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationAsked, setLocationAsked] = useState(false);
   const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url: string; likes_count: number }[]>([]);
 
   const pagerRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
-  const flatListRefs = useRef<(FlatList | null)[]>([null, null, null, null, null]);
+  const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
 
@@ -373,20 +333,11 @@ export default function FeedScreen() {
 
     try {
       let data: Post[] = [];
-
       if (tab === "foryou") {
         data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset) : MOCK_FOR_YOU;
         if (!userId) { updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
-      } else if (tab === "following") {
-        data = userId ? await getFollowingFeed(userId, PAGE_SIZE, offset) : [];
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
-      } else if (tab === "nearby") {
-        const coords = locationCoords;
-        if (!coords) { updateTab("nearby", { loading: false, loadingMore: false }); return; }
-        data = await getNearbyFeed(coords.lat, coords.lng, userId, PAGE_SIZE, offset);
-      } else if (tab === "vibes") {
-        data = userId ? await getVibesFeed(userId, PAGE_SIZE, offset) : [];
       }
 
       const prev = reset ? [] : tabStatesRef.current[tab].posts;
@@ -401,18 +352,7 @@ export default function FeedScreen() {
     } catch {
       updateTab(tab, { loading: false, loadingMore: false });
     }
-  }, [userId, locationCoords, updateTab]);
-
-  const requestLocation = useCallback(async () => {
-    if (locationAsked) return;
-    setLocationAsked(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setLocationCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-    } catch {}
-  }, [locationAsked]);
+  }, [userId, updateTab]);
 
   useEffect(() => {
     loadTabData("foryou", true);
@@ -423,12 +363,6 @@ export default function FeedScreen() {
     if (!userId) return;
     fetchUnreadCount(userId).then(setUnreadCount).catch(() => {});
   }, [userId]);
-
-  useEffect(() => {
-    if (locationCoords && activeTab === "nearby" && !loadedTabs.current.has("nearby")) {
-      loadTabData("nearby", true);
-    }
-  }, [locationCoords, activeTab]);
 
   // Load trending posts when for you tab is empty
   useEffect(() => {
@@ -452,38 +386,16 @@ export default function FeedScreen() {
     const tab = TABS[index].id;
     setActiveTabIndex(index);
     pagerRef.current?.scrollTo({ x: index * W, animated: true });
-
-    if (userId) saveTabPreference(userId, tab).catch(() => {});
-
-    if (tab === "nearby" && !locationAsked) {
-      requestLocation();
-    } else if (tab === "nearby" && locationCoords && !loadedTabs.current.has("nearby")) {
-      loadTabData("nearby", true);
-    }
-
-    if (!loadedTabs.current.has(tab) && tab !== "nearby") {
-      loadTabData(tab, true);
-    }
-  }, [userId, locationAsked, locationCoords, loadTabData, requestLocation]);
+    if (!loadedTabs.current.has(tab)) loadTabData(tab, true);
+  }, [loadTabData]);
 
   const onPagerMomentumEnd = useCallback((e: any) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / W);
     const tab = TABS[index].id;
     setActiveTabIndex(index);
     isScrollingPager.current = false;
-
-    if (userId) saveTabPreference(userId, tab).catch(() => {});
-
-    if (tab === "nearby" && !locationAsked) {
-      requestLocation();
-    } else if (tab === "nearby" && locationCoords && !loadedTabs.current.has("nearby")) {
-      loadTabData("nearby", true);
-    }
-
-    if (!loadedTabs.current.has(tab) && tab !== "nearby") {
-      loadTabData(tab, true);
-    }
-  }, [userId, locationAsked, locationCoords, loadTabData, requestLocation]);
+    if (!loadedTabs.current.has(tab)) loadTabData(tab, true);
+  }, [loadTabData]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -494,25 +406,17 @@ export default function FeedScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
 
-  // Animated indicator position
+  // Animated indicator — spans half-width, centered under each tab
   const indicatorLeft = scrollX.interpolate({
-    inputRange: TABS.map((_, i) => i * W),
-    outputRange: TABS.map((_, i) => i * TAB_W + (TAB_W - INDICATOR_W) / 2),
+    inputRange: [0, W],
+    outputRange: [(TAB_W - INDICATOR_W) / 2, TAB_W + (TAB_W - INDICATOR_W) / 2],
     extrapolate: "clamp",
   });
 
   const renderTabPost = useCallback((tabId: FeedTabId) => ({ item, index }: { item: Post; index: number }) => {
-    const distance = MOCK_DISTANCES[index % MOCK_DISTANCES.length];
-    const interest = item.caption
-      ? MOCK_INTERESTS.find((t) => item.caption?.toLowerCase().includes(t)) ?? MOCK_INTERESTS[index % MOCK_INTERESTS.length]
-      : MOCK_INTERESTS[index % MOCK_INTERESTS.length];
-
     if (userId) markPostSeen(userId, item.id).catch(() => {});
-
     return (
       <View>
-        {tabId === "nearby" && <DistanceBadge distance={distance} />}
-        {tabId === "vibes" && <VibeBadge interest={interest} />}
         <PostCard post={item} onRequireLogin={() => setShowLoginPrompt(true)} isLoggedIn={isLoggedIn} />
         {tabId === "foryou" && <WhyThisButton index={index} />}
       </View>
@@ -524,32 +428,6 @@ export default function FeedScreen() {
     if (state.loading) {
       return <View>{[1, 2].map((i) => <SkeletonPost key={i} />)}</View>;
     }
-
-    if (tabId === "nearby" && !locationCoords && locationAsked) {
-      return (
-        <View style={emptyStyles.wrap}>
-          <Text style={emptyStyles.emoji}>📍</Text>
-          <Text style={[emptyStyles.title, { color: colors.foreground }]}>Location access needed</Text>
-          <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Enable location permissions to see posts near you</Text>
-        </View>
-      );
-    }
-    if (tabId === "nearby" && !locationAsked) {
-      return (
-        <View style={emptyStyles.wrap}>
-          <Text style={emptyStyles.emoji}>📍</Text>
-          <Text style={[emptyStyles.title, { color: colors.foreground }]}>Posts near you</Text>
-          <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Allow location access to discover local content</Text>
-          <TouchableOpacity
-            onPress={requestLocation}
-            style={{ backgroundColor: "#7C3AED", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, marginTop: 12 }}
-          >
-            <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Allow Location →</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     if (tabId === "foryou") {
       return (
         <View>
@@ -562,7 +440,6 @@ export default function FeedScreen() {
         </View>
       );
     }
-
     if (tabId === "friends") {
       return (
         <View>
@@ -575,35 +452,8 @@ export default function FeedScreen() {
         </View>
       );
     }
-
-    if (tabId === "following") {
-      return (
-        <View>
-          <View style={emptyStyles.wrap}>
-            <Text style={emptyStyles.emoji}>💜</Text>
-            <Text style={[emptyStyles.title, { color: colors.foreground }]}>Follow people to see their posts</Text>
-            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Discover creators and follow them to fill this tab</Text>
-          </View>
-          <SuggestedCTA colors={colors} />
-        </View>
-      );
-    }
-
-    if (tabId === "vibes") {
-      return (
-        <View style={emptyStyles.wrap}>
-          <Text style={emptyStyles.emoji}>🔥</Text>
-          <Text style={[emptyStyles.title, { color: colors.foreground }]}>Add interests in your profile</Text>
-          <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Tell us what you're into and we'll find posts that match your vibe</Text>
-          <TouchableOpacity onPress={() => router.push("/edit-profile" as any)} style={emptyStyles.actionBtn}>
-            <Text style={emptyStyles.actionBtnText}>Edit Interests →</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
     return null;
-  }, [tabStates, colors, locationCoords, locationAsked, trendingPosts, requestLocation]);
+  }, [tabStates, colors, trendingPosts]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
