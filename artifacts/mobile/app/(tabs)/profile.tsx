@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -242,6 +243,59 @@ const pvStyles = StyleSheet.create({
   dotActive: { backgroundColor: "#7C3AED", width: 16 },
 });
 
+function SkeletonGrid() {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.75, duration: 850, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.35, duration: 850, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+  return (
+    <View>
+      {[0, 3, 6].map((row) => (
+        <View key={row} style={{ flexDirection: "row", gap: 1.5, marginBottom: 1.5 }}>
+          {[0, 1, 2].map((col) => (
+            <Animated.View
+              key={col}
+              style={{ width: GRID_ITEM, height: GRID_ITEM, backgroundColor: "#2D1B69", opacity: pulse }}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function EmptyGrid({ onCreatePost }: { onCreatePost: () => void }) {
+  const colors = useColors();
+  return (
+    <View style={{ alignItems: "center", paddingTop: 56, paddingHorizontal: 40, gap: 14 }}>
+      <LinearGradient
+        colors={["rgba(124,58,237,0.18)", "rgba(249,115,22,0.08)"]}
+        style={{ width: 84, height: 84, borderRadius: 42, alignItems: "center", justifyContent: "center" }}
+      >
+        <Ionicons name="camera-outline" size={38} color="#7C3AED" />
+      </LinearGradient>
+      <Text style={{ color: colors.foreground, fontSize: 18, fontFamily: "Poppins_700Bold", textAlign: "center" }}>
+        Share your first moment
+      </Text>
+      <Text style={{ color: colors.mutedForeground, fontSize: 13, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 20 }}>
+        Your photos and videos will appear here
+      </Text>
+      <TouchableOpacity onPress={onCreatePost} style={{ borderRadius: 14, overflow: "hidden", marginTop: 4 }}>
+        <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: 30, paddingVertical: 14 }}>
+          <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" }}>Create Post</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function StatBlock({ label, value, onPress }: { label: string; value: number | string; onPress?: () => void }) {
   const colors = useColors();
   const inner = (
@@ -382,8 +436,8 @@ export default function ProfileScreen() {
   const reelsOnly = myPosts.filter((p) => p.isReel);
 
   const gridData: GridItem[] =
-    activeTab === "posts" ? (myPosts.length > 0 ? myPosts : MOCK_GRID) :
-    activeTab === "reels" ? (reelsOnly.length > 0 ? reelsOnly : MOCK_REELS_GRID) :
+    activeTab === "posts" ? myPosts :
+    activeTab === "reels" ? reelsOnly :
     activeTab === "liked" ? (likedPosts.length > 0 ? likedPosts : MOCK_LIKED_GRID) :
     activeTab === "saved" ? (savedPosts.length > 0 ? savedPosts : MOCK_SAVED_GRID) :
     (repostedPosts.length > 0 ? repostedPosts : MOCK_REPOSTS_GRID);
@@ -509,6 +563,13 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: bottomInset }}
         refreshing={refreshing}
         onRefresh={handleRefresh}
+        ListEmptyComponent={
+          (activeTab === "posts" || activeTab === "reels")
+            ? postsLoading
+              ? <SkeletonGrid />
+              : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
+            : null
+        }
         renderItem={({ item, index }) => (
           <TouchableOpacity
             activeOpacity={0.85}

@@ -1,0 +1,133 @@
+Connect profile posts to Supabase completely.
+Fix posts not showing after posting:
+
+PROFILE SCREEN - Load all content:
+
+1. PROFILE STATS:
+- Call get_profile_stats(userId) on load
+- Shows correct counts:
+  * Posts count (posts + reels combined)
+  * Followers count
+  * Following count
+- Refresh stats after every new post
+
+2. PROFILE GRID TABS:
+Tab 1 - Grid (all content):
+- Call get_profile_posts(userId, viewerId, 'all')
+- Shows photos AND videos mixed
+- 3 column grid
+- Videos show play icon overlay ▶️
+- Videos show duration bottom right
+- Photos show likes count bottom left
+
+Tab 2 - Reels only:
+- Call get_profile_posts(userId, viewerId, 'reels')
+- Shows only reels/videos
+- Same 3 column grid
+
+Tab 3 - Tagged:
+- Call get_tagged_posts(userId, viewerId)
+- Shows posts where user is tagged
+
+Tab 4 - Saved (only on own profile):
+- Call get_saved_content(userId)
+- Private - only visible to owner
+
+Tab 5 - Liked (only on own profile):
+- Call get_liked_content(userId, userId)
+- Can be set to public/private in settings
+
+3. AFTER POSTING FIX:
+When user posts successfully:
+- Call get_profile_posts() again immediately
+- Add new post to TOP of grid
+- Update posts count +1 instantly
+- Navigate to profile to see it
+
+Replace basic "Posted! 🔥" popup with:
+- Dark overlay full screen
+- Big checkmark animation ✅
+- "Your reel is live! 🔥"
+- View count starts at 0
+- Two buttons:
+  * "👁️ View Post" → opens post full screen
+  * "👤 Go to Profile" → navigates to profile
+- Confetti animation
+- Share button
+
+4. REAL TIME PROFILE UPDATES:
+Subscribe to posts AND reels tables:
+
+// New post by this user
+supabase.channel('profile-posts')
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'posts',
+    filter: `user_id=eq.${userId}`
+  }, (payload) => {
+    addPostToGrid(payload.new)
+    incrementPostsCount()
+  })
+  .subscribe()
+
+// New reel by this user  
+supabase.channel('profile-reels')
+  .on('postgres_changes', {
+    event: 'INSERT',
+    schema: 'public',
+    table: 'reels',
+    filter: `user_id=eq.${userId}`
+  }, (payload) => {
+    addReelToGrid(payload.new)
+    incrementPostsCount()
+  })
+  .subscribe()
+
+5. FULL SCREEN VIEWER:
+When user taps any post in grid:
+- Call get_content_detail(contentId, type, viewerId)
+- Opens full screen viewer
+- Photos: show full screen with zoom
+- Videos: play full screen
+- Show all details: caption, likes, comments
+- Swipe left/right to see other posts
+- Swipe down to close
+
+6. VIDEO THUMBNAILS:
+For reels in profile grid:
+- Show thumbnail_url if available
+- If no thumbnail generate from video_url
+- Show play icon ▶️ overlay
+- Show duration in bottom right corner
+- Tap to open full screen player
+
+7. PULL TO REFRESH:
+- Pull down on profile to refresh
+- Calls get_profile_posts() again
+- Updates all counts
+- Smooth refresh animation
+
+8. LOADING STATES:
+- Show skeleton grid while loading
+- 9 grey placeholder squares
+- Fade in when content loads
+- No blank white screen
+
+9. EMPTY STATE:
+Own profile with no posts:
+- Camera icon in center
+- "Share your first moment"
+- "Create Post" button → opens Create tab
+
+Other user with no posts:
+- "No posts yet" message
+- Clean minimal design
+
+Make sure:
+- Posts show IMMEDIATELY after posting
+- Both posts and reels show in grid
+- Correct thumbnail for videos
+- All tabs work and load from Supabase
+- Real time updates work
+- No more empty profile

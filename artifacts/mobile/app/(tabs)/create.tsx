@@ -91,37 +91,79 @@ function GridOverlay() {
   );
 }
 
+const CONFETTI_COLORS = ["#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899", "#A78BFA"];
+const CONFETTI_COUNT = 28;
+
 function CelebrationModal({ visible, onGoToProfile, onClose }: {
   visible: boolean;
   onGoToProfile: () => void;
   onClose: () => void;
 }) {
-  const fireScale = useRef(new Animated.Value(1)).current;
   const cardScale = useRef(new Animated.Value(0.5)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
+  const fireScale = useRef(new Animated.Value(1)).current;
   const [countdown, setCountdown] = useState(5);
+  const confettiAnims = useRef(
+    Array.from({ length: CONFETTI_COUNT }, () => ({
+      y: new Animated.Value(-40),
+      x: new Animated.Value(0),
+      rotate: new Animated.Value(0),
+      opacity: new Animated.Value(1),
+    }))
+  ).current;
 
   useEffect(() => {
     if (!visible) {
-      fireScale.setValue(1);
       cardScale.setValue(0.5);
       fadeIn.setValue(0);
+      checkScale.setValue(0);
+      fireScale.setValue(1);
       setCountdown(5);
+      confettiAnims.forEach((c) => { c.y.setValue(-40); c.opacity.setValue(1); });
       return;
     }
+
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(fadeIn, { toValue: 1, duration: 260, useNativeDriver: true }),
       Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: true }),
     ]).start();
+
+    setTimeout(() => {
+      Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
+    }, 180);
+
     let loopRunning = true;
     const pulse = () => {
       if (!loopRunning) return;
       Animated.sequence([
-        Animated.timing(fireScale, { toValue: 1.25, duration: 480, useNativeDriver: true }),
-        Animated.timing(fireScale, { toValue: 1, duration: 480, useNativeDriver: true }),
+        Animated.timing(fireScale, { toValue: 1.3, duration: 500, useNativeDriver: true }),
+        Animated.timing(fireScale, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]).start(() => pulse());
     };
     pulse();
+
+    confettiAnims.forEach((c, i) => {
+      const delay = Math.random() * 400;
+      const xTarget = (Math.random() - 0.5) * W * 1.4;
+      const duration = 1400 + Math.random() * 800;
+      c.y.setValue(-40);
+      c.x.setValue(0);
+      c.rotate.setValue(0);
+      c.opacity.setValue(1);
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(c.y, { toValue: H * 0.85, duration, useNativeDriver: true }),
+          Animated.timing(c.x, { toValue: xTarget, duration, useNativeDriver: true }),
+          Animated.timing(c.rotate, { toValue: 6, duration, useNativeDriver: true }),
+          Animated.sequence([
+            Animated.delay(duration * 0.6),
+            Animated.timing(c.opacity, { toValue: 0, duration: duration * 0.4, useNativeDriver: true }),
+          ]),
+        ]).start();
+      }, delay);
+    });
+
     setCountdown(5);
     let n = 5;
     const tick = setInterval(() => {
@@ -137,21 +179,62 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
   return (
     <Modal visible transparent animationType="none">
       <Animated.View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center", opacity: fadeIn }}>
+
+        {/* Confetti particles */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {confettiAnims.map((c, i) => {
+            const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+            const size = 6 + (i % 3) * 4;
+            const startX = (W / CONFETTI_COUNT) * i;
+            const spin = c.rotate.interpolate({ inputRange: [0, 6], outputRange: ["0deg", `${360 * 3 * (i % 2 === 0 ? 1 : -1)}deg`] });
+            return (
+              <Animated.View
+                key={i}
+                style={{
+                  position: "absolute",
+                  left: startX,
+                  top: H * 0.22,
+                  width: size,
+                  height: size * (i % 3 === 1 ? 2.2 : 1),
+                  borderRadius: i % 3 === 2 ? size / 2 : 2,
+                  backgroundColor: color,
+                  opacity: c.opacity,
+                  transform: [{ translateY: c.y }, { translateX: c.x }, { rotate: spin }],
+                }}
+              />
+            );
+          })}
+        </View>
+
         <Animated.View style={{ alignItems: "center", paddingHorizontal: 32, transform: [{ scale: cardScale }] }}>
-          <Animated.Text style={{ fontSize: 88, transform: [{ scale: fireScale }] }}>🔥</Animated.Text>
-          <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 18, textAlign: "center", lineHeight: 34 }}>
-            Your reel is live{"\n"}on Vibe!
+          {/* Checkmark circle */}
+          <Animated.View style={{
+            width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(16,185,129,0.18)",
+            borderWidth: 2.5, borderColor: "#10B981",
+            alignItems: "center", justifyContent: "center", marginBottom: 14,
+            transform: [{ scale: checkScale }],
+          }}>
+            <Ionicons name="checkmark" size={42} color="#10B981" />
+          </Animated.View>
+
+          <Animated.Text style={{ fontSize: 52, transform: [{ scale: fireScale }] }}>🔥</Animated.Text>
+
+          <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 12, textAlign: "center", lineHeight: 34 }}>
+            Posted!{"\n"}You're live on Vibe!
           </Text>
-          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: 8 }}>
+          <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: 8 }}>
             Auto-closing in {countdown}s
           </Text>
-          <View style={{ gap: 12, marginTop: 32, width: 270 }}>
+
+          <View style={{ gap: 12, marginTop: 28, width: 270 }}>
             <TouchableOpacity onPress={onGoToProfile} style={{ borderRadius: 16, overflow: "hidden" }}>
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: "center" }}>
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}>
+                <Ionicons name="person-outline" size={18} color="#fff" />
                 <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Go to Profile</Text>
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onClose} style={{ paddingVertical: 14, alignItems: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)" }}>
+            <TouchableOpacity onPress={onClose} style={{ paddingVertical: 14, alignItems: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)", flexDirection: "row", justifyContent: "center", gap: 8 }}>
+              <Ionicons name="add-circle-outline" size={18} color="rgba(255,255,255,0.85)" />
               <Text style={{ color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Post Another</Text>
             </TouchableOpacity>
           </View>
