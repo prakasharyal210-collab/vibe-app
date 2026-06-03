@@ -179,6 +179,21 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
         )}
       </View>
 
+      {post.music_title && (
+        <TouchableOpacity
+          style={musicCreditStyles.bar}
+          activeOpacity={0.7}
+          onPress={() => router.push(`/profile/${post.profiles?.username ?? ""}` as any)}
+        >
+          <Ionicons name="musical-note" size={12} color="#A78BFA" />
+          <Text style={musicCreditStyles.text} numberOfLines={1}>
+            {post.music_title}
+            {post.music_artist ? ` · ${post.music_artist}` : ""}
+          </Text>
+          <Ionicons name="chevron-forward" size={12} color="rgba(167,139,250,0.4)" />
+        </TouchableOpacity>
+      )}
+
       <View style={styles.actions}>
         <View style={styles.leftActions}>
           <TouchableOpacity onPress={handleLike} style={styles.actionBtn}>
@@ -263,6 +278,17 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
     </View>
   );
 }
+
+const musicCreditStyles = StyleSheet.create({
+  bar: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderTopWidth: 0.5, borderBottomWidth: 0.5,
+    borderColor: "rgba(124,58,237,0.18)",
+    backgroundColor: "rgba(124,58,237,0.06)",
+  },
+  text: { flex: 1, fontSize: 12, fontFamily: "Poppins_500Medium", color: "#A78BFA" },
+});
 
 const styles = StyleSheet.create({
   container: { marginBottom: 8 },

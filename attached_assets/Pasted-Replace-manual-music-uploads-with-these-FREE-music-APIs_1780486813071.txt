@@ -1,0 +1,111 @@
+Replace manual music uploads with these FREE music APIs.
+No API keys needed for most:
+
+1. PIXABAY MUSIC API (free, no key needed):
+Base URL: https://pixabay.com/api/
+Use this to fetch free music tracks:
+
+const fetchMusic = async (category) => {
+  const response = await fetch(
+    `https://pixabay.com/api/?key=YOUR_KEY&music=true&category=${category}`
+  )
+}
+
+2. FREESOUND API (free):
+Base URL: https://freesound.org/apiv2/
+
+3. JAMENDO API (free music):
+Base URL: https://api.jamendo.com/v3.0/tracks/
+Client ID: b6747d04
+
+Fetch trending music like this:
+const response = await fetch(
+  'https://api.jamendo.com/v3.0/tracks/?client_id=b6747d04&format=json&limit=20&order=popularity_total&include=musicinfo&groupby=artist_id'
+)
+
+Fetch by genre:
+const response = await fetch(
+  `https://api.jamendo.com/v3.0/tracks/?client_id=b6747d04&format=json&limit=20&tags=${genre}&order=popularity_total`
+)
+
+USE JAMENDO API for all music in the app:
+
+MUSIC PICKER SCREEN:
+- Fetch from Jamendo API on open
+- Categories map to Jamendo tags:
+  * Trending → order=popularity_total
+  * Chill → tags=chillout
+  * Hip Hop → tags=hiphop
+  * Pop → tags=pop
+  * Energy → tags=energetic
+  * Sad → tags=sad
+  * Love → tags=love
+  * Dance → tags=dance
+
+- Each track from Jamendo shows:
+  * track.name (title)
+  * track.artist_name (artist)
+  * track.album_image (cover photo)
+  * track.audio (full MP3 URL)
+  * track.audiodownload (download URL)
+  * track.duration (in seconds)
+
+- Tap track → play preview using track.audio URL
+- "Use this sound" button adds to video
+- Search: use Jamendo search endpoint:
+  https://api.jamendo.com/v3.0/tracks/?client_id=b6747d04&namesearch={query}
+
+SAVE TO SUPABASE:
+When user selects a track, save to music_tracks table:
+- title: track.name
+- artist: track.artist_name  
+- cover_url: track.album_image
+- audio_url: track.audio
+- duration: track.duration
+- category: selected category
+- is_free: true
+
+POST MUSIC:
+When posting reel/video with music:
+- Save to post_music table
+- Show music credit on post: "🎵 {title} - {artist}"
+- Tapping music credit shows all posts using that song
+
+TRENDING SOUNDS PAGE in Explore:
+- Show top 20 from Jamendo popularity
+- Show how many Vibe posts used each sound
+- Tap sound to see all posts using it
+- Play preview on tap
+
+Also add these free sound effect APIs:
+- Mixkit free SFX: https://mixkit.co/free-sound-effects/
+- ZapSplat: https://www.zapsplat.com/api/
+
+For STICKERS use Giphy API (free):
+API Key: dc6zaTOxFJmzC (public beta key)
+Base URL: https://api.giphy.com/v1/stickers/
+
+Fetch trending stickers:
+https://api.giphy.com/v1/stickers/trending?api_key=dc6zaTOxFJmzC&limit=20
+
+Search stickers:
+https://api.giphy.com/v1/stickers/search?api_key=dc6zaTOxFJmzC&q={query}&limit=20
+
+Each sticker from Giphy:
+- sticker.images.fixed_height.url (GIF URL)
+- sticker.title (name)
+- sticker.id (unique ID)
+
+For GIFs in messages use same Giphy API:
+https://api.giphy.com/v1/gifs/trending?api_key=dc6zaTOxFJmzC&limit=20
+https://api.giphy.com/v1/gifs/search?api_key=dc6zaTOxFJmzC&q={query}
+
+Make sure:
+- Music plays in background while recording
+- Volume control for music vs voice
+- Music preview plays 30 seconds then stops
+- Smooth loading with skeleton placeholders
+- Error handling if API fails
+- Cache results locally so not refetching every time
+- All stickers load as animated GIFs
+- GIFs work in messages and stories

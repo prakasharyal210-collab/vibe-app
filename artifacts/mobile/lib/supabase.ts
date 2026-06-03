@@ -37,6 +37,8 @@ export interface Post {
   comments_count: number;
   created_at: string;
   profiles?: Profile;
+  music_title?: string;
+  music_artist?: string;
 }
 
 export interface Comment {

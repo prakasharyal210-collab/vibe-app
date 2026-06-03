@@ -40,7 +40,8 @@ interface TextOverlay {
 
 interface StickerItem {
   id: string;
-  emoji: string;
+  emoji?: string;
+  gifUrl?: string;
   x: number;
   y: number;
 }
@@ -173,9 +174,13 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             <Text style={[styles.overlayText, { color: t.color }]}>{t.text}</Text>
           </View>
         ))}
-        {stickers.map((s) => (
-          <Text key={s.id} style={[styles.stickerOverlay, { top: s.y, left: s.x }]}>{s.emoji}</Text>
-        ))}
+        {stickers.map((s) =>
+          s.gifUrl ? (
+            <Image key={s.id} source={{ uri: s.gifUrl }} style={[styles.stickerGifOverlay, { top: s.y, left: s.x }]} resizeMode="contain" />
+          ) : (
+            <Text key={s.id} style={[styles.stickerOverlay, { top: s.y, left: s.x }]}>{s.emoji}</Text>
+          )
+        )}
 
         <View style={[styles.previewTopBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onDiscard} style={styles.topBtn}>
@@ -443,6 +448,7 @@ const styles = StyleSheet.create({
   textOverlay: { position: "absolute" },
   overlayText: { fontSize: 22, fontFamily: "Poppins_700Bold", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
   stickerOverlay: { position: "absolute", fontSize: 36 },
+  stickerGifOverlay: { position: "absolute", width: 80, height: 80 },
   editorPanel: { flex: 1 },
   tabRow: { flexDirection: "row", gap: 8, padding: 12 },
   tabPill: { flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)" },

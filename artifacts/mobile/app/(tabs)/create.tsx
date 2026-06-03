@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
+import { StickerPickerModal } from "@/components/StickerPickerModal";
 import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/components/EffectsPickerSheet";
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { useAuth } from "@/context/AuthContext";
@@ -45,7 +46,8 @@ interface TextOverlayItem {
 
 interface StickerItem {
   id: string;
-  emoji: string;
+  emoji?: string;
+  gifUrl?: string;
   x: number;
   y: number;
 }
@@ -316,8 +318,8 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
     setShowTextModal(false);
   };
 
-  const addSticker = (emoji: string) => {
-    setStickers((prev) => [...prev, { id: Date.now().toString(), emoji, x: 60 + Math.random() * 80, y: 60 + Math.random() * 120 }]);
+  const addSticker = (emoji?: string, gifUrl?: string) => {
+    setStickers((prev) => [...prev, { id: Date.now().toString(), emoji, gifUrl, x: 60 + Math.random() * 80, y: 60 + Math.random() * 120 }]);
     setShowStickerModal(false);
   };
 
@@ -412,9 +414,13 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
             </View>
           ))}
 
-          {stickers.map((s) => (
-            <Text key={s.id} style={[styles.cameraStickerOverlay, { top: s.y, left: s.x }]}>{s.emoji}</Text>
-          ))}
+          {stickers.map((s) =>
+            s.gifUrl ? (
+              <Image key={s.id} source={{ uri: s.gifUrl }} style={[styles.cameraStickerImage, { top: s.y, left: s.x }]} resizeMode="contain" />
+            ) : (
+              <Text key={s.id} style={[styles.cameraStickerOverlay, { top: s.y, left: s.x }]}>{s.emoji}</Text>
+            )
+          )}
 
           <View style={styles.toolsOverlay}>
             {TOOLS.map((tool) => (
@@ -632,24 +638,11 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
         </View>
       </Modal>
 
-      <Modal visible={showStickerModal} transparent animationType="slide" onRequestClose={() => setShowStickerModal(false)}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowStickerModal(false)} />
-        <View style={[styles.textModalCard, { backgroundColor: colors.background }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-            <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Sticker</Text>
-            <TouchableOpacity onPress={() => setShowStickerModal(false)}>
-              <Ionicons name="close" size={22} color={colors.foreground} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.stickerGrid}>
-            {STICKER_EMOJIS.map((e) => (
-              <TouchableOpacity key={e} onPress={() => addSticker(e)} style={[styles.stickerItem, { backgroundColor: colors.muted }]}>
-                <Text style={styles.stickerEmoji}>{e}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      </Modal>
+      <StickerPickerModal
+        visible={showStickerModal}
+        onClose={() => setShowStickerModal(false)}
+        onSelect={(gifUrl) => addSticker(undefined, gifUrl)}
+      />
     </>
   );
 }
@@ -849,6 +842,7 @@ const styles = StyleSheet.create({
   cameraTextOverlay: { position: "absolute" },
   cameraOverlayText: { fontSize: 22, fontFamily: "Poppins_700Bold", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
   cameraStickerOverlay: { position: "absolute", fontSize: 32 },
+  cameraStickerImage: { position: "absolute", width: 80, height: 80 },
   draftsSection: { paddingTop: 16, paddingBottom: 4 },
   draftsTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 10 },
   draftsTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },

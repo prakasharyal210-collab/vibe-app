@@ -3,9 +3,11 @@ import { Audio } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   Dimensions,
   FlatList,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -19,6 +21,9 @@ import {
   MusicCategory,
   Track,
   TRACKS,
+  fetchTracksFromJamendo,
+  searchTracksOnJamendo,
+  saveTrackToSupabase,
   formatCount,
   formatDuration,
   getFavoriteIds,
@@ -80,6 +85,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   const [search, setSearch] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playProgress, setPlayProgress] = useState(0);
   const [trimValue, setTrimValue] = useState(0);
@@ -113,7 +119,10 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
 
   const loadTracks = useCallback(async () => {
     if (search.trim()) {
-      setTracks(searchTracks(search));
+      setLoading(true);
+      const results = await searchTracksOnJamendo(search);
+      setTracks(results);
+      setLoading(false);
       return;
     }
     if (category === "Favorites") {
@@ -122,7 +131,10 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
       setTracks(TRACKS.filter((t) => ids.includes(t.id)));
       return;
     }
-    setTracks(getTracksByCategory(category as MusicCategory));
+    setLoading(true);
+    const results = await fetchTracksFromJamendo(category as MusicCategory);
+    setTracks(results);
+    setLoading(false);
   }, [category, search]);
 
   const stopSound = async () => {
@@ -185,6 +197,9 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   };
 
   const handleSelect = () => {
+    if (localSelected) {
+      saveTrackToSupabase(localSelected, category).catch(() => {});
+    }
     onSelect(localSelected);
     stopSound();
     onClose();
@@ -206,8 +221,17 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
         onPress={() => setLocalSelected(isSelected ? null : track)}
         activeOpacity={0.75}
       >
-        <View style={[styles.trackCover, { backgroundColor: track.coverColor + "33", borderColor: track.coverColor + "55" }]}>
-          {isPlaying ? (
+        <View style={[styles.trackCover, { backgroundColor: track.coverColor + "33", borderColor: track.coverColor + "55", overflow: "hidden" }]}>
+          {track.coverUrl ? (
+            <>
+              <Image source={{ uri: track.coverUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              {isPlaying && (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }]}>
+                  <WaveAnimation playing={true} />
+                </View>
+              )}
+            </>
+          ) : isPlaying ? (
             <WaveAnimation playing={true} />
           ) : (
             <Ionicons name="musical-notes" size={18} color={track.coverColor} />
@@ -347,7 +371,12 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
           </View>
         )}
 
-        {tracks.length === 0 ? (
+        {loading ? (
+          <View style={[styles.emptyState, { gap: 16 }]}>
+            <ActivityIndicator size="large" color="#7C3AED" />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Finding tracks on Jamendo…</Text>
+          </View>
+        ) : tracks.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="musical-notes-outline" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
