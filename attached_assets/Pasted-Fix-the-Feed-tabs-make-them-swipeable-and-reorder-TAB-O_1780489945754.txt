@@ -1,0 +1,74 @@
+Fix the Feed tabs - make them swipeable and reorder:
+
+TAB ORDER (change to this exact order):
+1. For You (default, first)
+2. Friends
+3. Following
+4. Nearby
+5. Vibes
+
+SWIPE BETWEEN TABS:
+- User can SWIPE LEFT/RIGHT to switch tabs
+- Swiping left → goes to next tab
+- Swiping right → goes to previous tab
+- Tab indicator slides smoothly following finger
+- Same as TikTok and Instagram behavior
+- Tab underline animates smoothly between tabs
+- Content slides in from correct direction:
+  * Swipe left → new content slides in from right
+  * Swipe right → new content slides in from left
+
+TAB INDICATOR:
+- Active tab: white bold text
+- Inactive tabs: grey dimmed text
+- Purple to orange gradient underline on active tab
+- Underline smoothly slides when switching
+- Tabs are horizontally scrollable if needed
+
+FOR YOU TAB (empty state fix):
+- When feed is empty show BOTH:
+  * "Your feed is warming up ✨" message
+  * AND below it show trending posts grid
+  * "Trending on Vibe" section header
+  * Show top 10 posts by likes_count
+  * So feed is NEVER completely empty
+- New users always see content immediately
+
+FRIENDS TAB (2nd position):
+- Shows posts from mutual followers
+- Empty state: 
+  * "No friends posts yet"
+  * "Follow people back to see their posts here"
+  * Show suggested users below
+
+FOLLOWING TAB (3rd position):
+- Shows posts from people you follow
+- Chronological order newest first
+- Empty state:
+  * "Follow people to see their posts"
+  * Show suggested users to follow
+
+NEARBY TAB (4th position):
+- Shows posts from people near you
+- Ask location permission with nice UI
+- Empty state: "No posts near you yet"
+
+VIBES TAB (5th position):
+- Shows posts matching your interests
+- Empty state: "Add interests to see vibes"
+- Link to edit interests in profile
+
+GESTURE HANDLING:
+- Use PagerView or ScrollView with paging
+- Horizontal swipe switches tabs
+- Vertical scroll within each tab still works
+- No conflict between horizontal and vertical swipe
+- Each tab remembers its own scroll position
+- Smooth spring animation on tab switch
+
+Make sure:
+- Swiping feels natural and smooth
+- No lag between tabs
+- Content loads immediately when switching
+- Active tab always highlighted correctly
+- Works properly on Android

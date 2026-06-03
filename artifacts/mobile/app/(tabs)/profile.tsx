@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import * as Sharing from "expo-sharing";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -11,6 +10,7 @@ import {
   Modal,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -391,17 +391,8 @@ export default function ProfileScreen() {
             <Text style={[styles.editBtnText, { color: colors.foreground }]}>Edit Profile</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={async () => {
-              try {
-                const canShare = await Sharing.isAvailableAsync();
-                if (canShare) {
-                  await Sharing.shareAsync(`https://vibe.app/${displayUsername}`);
-                } else {
-                  Alert.alert("Share", `vibe.app/${displayUsername}`);
-                }
-              } catch {
-                Alert.alert("Share", `vibe.app/${displayUsername}`);
-              }
+            onPress={() => {
+              Share.share({ message: `Check out @${displayUsername} on Vibe! https://vibe.app/${displayUsername}` }).catch(() => {});
             }}
             style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           >
