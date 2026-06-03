@@ -1,0 +1,115 @@
+Fix the REELS screen completely - make it look 
+exactly like TikTok:
+
+REELS SCREEN LAYOUT (top to bottom):
+
+TOP BAR:
+- Remove the big orange profile circle (AL) 
+  from top right - it doesn't belong here
+- "Reels" text on LEFT side (not center)
+- Two tabs next to title:
+  * "Following" - reels from people you follow
+  * "For You" - default, algorithm based
+- Right side icons:
+  * 🔍 Search icon
+  * 🎵 Sounds icon (opens trending sounds)
+- All icons must be VISIBLE (use Ionicons)
+- Transparent background so video shows through
+
+FULL SCREEN VIDEO:
+- Video takes up ENTIRE screen edge to edge
+- No margins, no padding, true full screen
+- Status bar overlays on video (transparent)
+- Bottom navigation bar overlays on video
+
+RIGHT SIDE ACTION BUTTONS:
+Position on right side vertically:
+- Profile photo (tappable → opens profile)
+  * Small + button below it to follow
+  * Highlighted ring if they have a story
+- ❤️ Heart (like button)
+  * Count below it
+  * Fills red when liked
+  * Bounce animation on tap
+- 💬 Comment button
+  * Count below it
+  * Opens comments bottom sheet
+- ↗️ Share button
+  * Count below it
+  * Opens share sheet
+- 🔖 Bookmark/Save button
+  * Saves reel to collection
+- ⭐ Super like (special Vibe feature)
+- ··· More options button
+
+BOTTOM INFO SECTION:
+- Username (@alex.w) - tappable → opens profile
+- Caption text (expandable "...more")
+- Hashtags in purple - each tappable
+- Music credit: 🎵 "unreleased · alex.w" 
+  scrolling marquee animation - tappable
+- View count: 👁️ 578.0k views
+
+PROGRESS BAR:
+- Thin progress bar at very bottom
+- Shows how far through the reel you are
+- Tap to seek position
+
+VIDEO CONTROLS:
+- Tap anywhere on video = pause/play
+- Double tap left side = go back
+- Double tap right side = skip forward  
+- Double tap center = like with heart animation
+- Swipe up = next reel
+- Swipe down = previous reel
+- Long press = slow motion preview
+
+SOUND BUTTON:
+- Small sound icon top left of video
+- Tap to mute/unmute
+- Remembers preference
+
+FOLLOWING VS FOR YOU:
+- Following tab: reels from followed users
+- For You tab: algorithm based (default)
+- Smooth slide when switching
+
+FIX ALL ICONS:
+- Like icon: use Ionicons "heart" and "heart-outline"
+- Comment: use Ionicons "chatbubble-outline"
+- Share: use Ionicons "paper-plane-outline"  
+- Bookmark: use Ionicons "bookmark-outline"
+- Search: use Ionicons "search-outline"
+- More: use Ionicons "ellipsis-vertical"
+- Music: use Ionicons "musical-notes-outline"
+- NO MORE BROKEN SQUARE BOXES anywhere
+
+BOTTOM TAB BAR ON REELS:
+- Semi transparent dark background
+- Icons visible over video
+- Active tab (Reels) highlighted in purple
+- All 5 tab icons must be proper icons
+
+COMMENTS BOTTOM SHEET:
+- Slides up from bottom
+- Shows all comments with profile photos
+- Like individual comments
+- Reply to comments
+- @mention in reply
+- Post comment at bottom
+- Keyboard pushes sheet up
+
+LOADING & PERFORMANCE:
+- Preload next 2 reels while watching current
+- Smooth transition between reels
+- Show loading spinner on slow connection
+- Never show blank black screen
+
+EMPTY STATE:
+- If no reels yet show:
+  * "No reels yet" 
+  * "Be the first to post a reel! 🎬"
+  * Create reel button
+
+Make everything look clean, minimal and 
+professional like TikTok!
