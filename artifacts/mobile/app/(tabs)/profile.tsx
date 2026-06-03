@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -21,7 +21,7 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { fetchFavouritedPosts, fetchLikedPosts, fetchRepostedPosts } from "@/lib/db";
+import { fetchFavouritedPosts, fetchLikedPosts, fetchProfilePosts, fetchRepostedPosts, ProfileGridItem } from "@/lib/db";
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { MOCK_HIGHLIGHTS, Profile, supabase } from "@/lib/supabase";
@@ -90,6 +90,9 @@ interface GridItem {
   likes?: number;
   comments?: number;
   caption?: string;
+  duration?: number;
+  video_url?: string;
+  created_at?: string;
 }
 
 function formatCount(n: number) {
@@ -294,6 +297,9 @@ export default function ProfileScreen() {
   const [likedPosts, setLikedPosts] = useState<GridItem[]>([]);
   const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<GridItem[]>([]);
+  const [myPosts, setMyPosts] = useState<GridItem[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [tabLoaded, setTabLoaded] = useState<Set<string>>(new Set(["posts", "reels"]));
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -318,6 +324,43 @@ export default function ProfileScreen() {
       .then(({ data }) => { if (data) setProfile(data as Profile); });
   }, [session]);
 
+  const loadMyPosts = useCallback(async (uid: string) => {
+    const results = await fetchProfilePosts(uid);
+    setMyPosts(results);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    setPostsLoading(true);
+    loadMyPosts(session.user.id).finally(() => setPostsLoading(false));
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const uid = session.user.id;
+    const channel = supabase
+      .channel(`profile-grid-${uid}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts', filter: `user_id=eq.${uid}` }, (payload) => {
+        const p = payload.new as any;
+        setMyPosts((prev) => [{ id: p.id, image_url: p.image_url ?? p.media_url ?? '', isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at }, ...prev]);
+        setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reels', filter: `user_id=eq.${uid}` }, (payload) => {
+        const r = payload.new as any;
+        setMyPosts((prev) => [{ id: `reel_${r.id}`, image_url: r.thumbnail_url ?? '', video_url: r.video_url, isReel: true, likes: 0, comments: 0, caption: r.caption ?? '', duration: r.duration, created_at: r.created_at }, ...prev]);
+        setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.user?.id]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!session?.user?.id) return;
+    setRefreshing(true);
+    await loadMyPosts(session.user.id);
+    setRefreshing(false);
+  }, [session?.user?.id, loadMyPosts]);
+
   const openPhoto = (photos: GridItem[], index: number) => {
     setViewerPhotos(photos);
     setViewerIndex(index);
@@ -336,9 +379,11 @@ export default function ProfileScreen() {
   const emailUsername = session?.user?.email?.split("@")[0] ?? "your_vibe";
   const displayUsername = profile.username === "your_vibe" ? emailUsername : profile.username;
 
+  const reelsOnly = myPosts.filter((p) => p.isReel);
+
   const gridData: GridItem[] =
-    activeTab === "posts" ? MOCK_GRID :
-    activeTab === "reels" ? MOCK_REELS_GRID :
+    activeTab === "posts" ? (myPosts.length > 0 ? myPosts : MOCK_GRID) :
+    activeTab === "reels" ? (reelsOnly.length > 0 ? reelsOnly : MOCK_REELS_GRID) :
     activeTab === "liked" ? (likedPosts.length > 0 ? likedPosts : MOCK_LIKED_GRID) :
     activeTab === "saved" ? (savedPosts.length > 0 ? savedPosts : MOCK_SAVED_GRID) :
     (repostedPosts.length > 0 ? repostedPosts : MOCK_REPOSTS_GRID);
@@ -462,16 +507,25 @@ export default function ProfileScreen() {
         numColumns={3}
         ListHeaderComponent={ListHeader}
         contentContainerStyle={{ paddingBottom: bottomInset }}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         renderItem={({ item, index }) => (
           <TouchableOpacity
             activeOpacity={0.85}
             style={{ position: "relative" }}
             onPress={() => openPhoto(gridData, index)}
           >
-            <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="cover" />
+            <Image source={{ uri: item.image_url || undefined }} style={styles.gridImage} resizeMode="cover" />
             {item.isReel && (
               <View style={styles.reelBadge}>
                 <Ionicons name="play" size={12} color="#fff" />
+              </View>
+            )}
+            {item.duration != null && (
+              <View style={styles.durationBadge}>
+                <Text style={styles.durationBadgeText}>
+                  {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
+                </Text>
               </View>
             )}
             <View style={styles.gridOverlay}>
@@ -540,6 +594,8 @@ const styles = StyleSheet.create({
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   gridImage: { width: GRID_ITEM, height: GRID_ITEM },
   reelBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 6, padding: 3 },
+  durationBadge: { position: "absolute", bottom: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
+  durationBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Poppins_600SemiBold" },
   gridOverlay: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
   gridLikes: { color: "#fff", fontSize: 10, fontFamily: "Poppins_500Medium" },
 });

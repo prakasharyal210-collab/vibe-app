@@ -41,6 +41,22 @@ export interface Post {
   music_artist?: string;
 }
 
+export interface Reel {
+  id: string;
+  user_id: string;
+  video_url: string;
+  thumbnail_url?: string;
+  caption?: string;
+  hashtags?: string[];
+  music_id?: string;
+  duration?: number;
+  is_public?: boolean;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  profiles?: Profile;
+}
+
 export interface Comment {
   id: string;
   post_id: string;

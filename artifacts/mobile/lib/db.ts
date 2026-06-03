@@ -935,3 +935,114 @@ export async function saveTabPreference(userId: string, tab: string): Promise<vo
     );
   } catch {}
 }
+
+// ── Profile Grid ──────────────────────────────────────────────────────────────
+export interface ProfileGridItem {
+  id: string;
+  image_url: string;
+  video_url?: string;
+  isReel: boolean;
+  likes: number;
+  comments: number;
+  caption: string;
+  duration?: number;
+  created_at: string;
+}
+
+export function extractHashtags(caption: string): string[] {
+  const matches = caption.match(/#\w+/g);
+  return matches ? matches.map((h) => h.slice(1)) : [];
+}
+
+export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem[]> {
+  const [postsRes, reelsRes] = await Promise.allSettled([
+    supabase.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+    supabase.from('reels').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+  ]);
+  const posts: ProfileGridItem[] =
+    postsRes.status === 'fulfilled' && postsRes.value.data
+      ? (postsRes.value.data as any[]).map((p) => ({
+          id: p.id,
+          image_url: p.image_url ?? p.media_url ?? '',
+          isReel: false,
+          likes: p.likes_count ?? 0,
+          comments: p.comments_count ?? 0,
+          caption: p.caption ?? '',
+          created_at: p.created_at,
+        }))
+      : [];
+  const reels: ProfileGridItem[] =
+    reelsRes.status === 'fulfilled' && reelsRes.value.data
+      ? (reelsRes.value.data as any[]).map((r) => ({
+          id: `reel_${r.id}`,
+          image_url: r.thumbnail_url ?? '',
+          video_url: r.video_url,
+          isReel: true,
+          likes: r.likes_count ?? 0,
+          comments: r.comments_count ?? 0,
+          caption: r.caption ?? '',
+          duration: r.duration,
+          created_at: r.created_at,
+        }))
+      : [];
+  return [...posts, ...reels].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+}
+
+export async function uploadPostMedia(
+  userId: string,
+  uri: string,
+  caption: string
+): Promise<{ id: string } | null> {
+  try {
+    const ext = (uri.split('.').pop() ?? 'jpg').split('?')[0];
+    const path = `${userId}/${Date.now()}.${ext}`;
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const { error: upErr } = await supabase.storage.from('posts').upload(path, blob, { upsert: true });
+    let mediaUrl = uri;
+    if (!upErr) {
+      const { data: urlData } = supabase.storage.from('posts').getPublicUrl(path);
+      mediaUrl = urlData.publicUrl;
+    }
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({ user_id: userId, image_url: mediaUrl, caption, hashtags: extractHashtags(caption), is_reel: false })
+      .select('id')
+      .single();
+    if (error) return null;
+    return { id: (data as any).id };
+  } catch {
+    return null;
+  }
+}
+
+export async function uploadReelMedia(
+  userId: string,
+  uri: string,
+  caption: string,
+  duration?: number
+): Promise<{ id: string } | null> {
+  try {
+    const ext = (uri.split('.').pop() ?? 'mp4').split('?')[0];
+    const path = `${userId}/${Date.now()}.${ext}`;
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const { error: upErr } = await supabase.storage.from('reels').upload(path, blob, { upsert: true });
+    let videoUrl = uri;
+    if (!upErr) {
+      const { data: urlData } = supabase.storage.from('reels').getPublicUrl(path);
+      videoUrl = urlData.publicUrl;
+    }
+    const { data, error } = await supabase
+      .from('reels')
+      .insert({ user_id: userId, video_url: videoUrl, caption, hashtags: extractHashtags(caption), duration, is_public: true })
+      .select('id')
+      .single();
+    if (error) return null;
+    return { id: (data as any).id };
+  } catch {
+    return null;
+  }
+}

@@ -5,6 +5,7 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+
 import {
   Alert,
   Animated,
@@ -28,7 +29,7 @@ import { StickerPickerModal } from "@/components/StickerPickerModal";
 import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/components/EffectsPickerSheet";
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { useAuth } from "@/context/AuthContext";
-import { detectSpam } from "@/lib/db";
+import { detectSpam, uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 import { Track } from "@/lib/music";
 
@@ -90,7 +91,77 @@ function GridOverlay() {
   );
 }
 
-function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+function CelebrationModal({ visible, onGoToProfile, onClose }: {
+  visible: boolean;
+  onGoToProfile: () => void;
+  onClose: () => void;
+}) {
+  const fireScale = useRef(new Animated.Value(1)).current;
+  const cardScale = useRef(new Animated.Value(0.5)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    if (!visible) {
+      fireScale.setValue(1);
+      cardScale.setValue(0.5);
+      fadeIn.setValue(0);
+      setCountdown(5);
+      return;
+    }
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: true }),
+    ]).start();
+    let loopRunning = true;
+    const pulse = () => {
+      if (!loopRunning) return;
+      Animated.sequence([
+        Animated.timing(fireScale, { toValue: 1.25, duration: 480, useNativeDriver: true }),
+        Animated.timing(fireScale, { toValue: 1, duration: 480, useNativeDriver: true }),
+      ]).start(() => pulse());
+    };
+    pulse();
+    setCountdown(5);
+    let n = 5;
+    const tick = setInterval(() => {
+      n--;
+      setCountdown(n);
+      if (n <= 0) { clearInterval(tick); onGoToProfile(); }
+    }, 1000);
+    return () => { loopRunning = false; clearInterval(tick); };
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible transparent animationType="none">
+      <Animated.View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center", opacity: fadeIn }}>
+        <Animated.View style={{ alignItems: "center", paddingHorizontal: 32, transform: [{ scale: cardScale }] }}>
+          <Animated.Text style={{ fontSize: 88, transform: [{ scale: fireScale }] }}>🔥</Animated.Text>
+          <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 18, textAlign: "center", lineHeight: 34 }}>
+            Your reel is live{"\n"}on Vibe!
+          </Text>
+          <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: 8 }}>
+            Auto-closing in {countdown}s
+          </Text>
+          <View style={{ gap: 12, marginTop: 32, width: 270 }}>
+            <TouchableOpacity onPress={onGoToProfile} style={{ borderRadius: 16, overflow: "hidden" }}>
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: "center" }}>
+                <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Go to Profile</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={{ paddingVertical: 14, alignItems: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)" }}>
+              <Text style={{ color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Post Another</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+function PostMode({ colors, isLoggedIn, onRequireLogin, onPosted }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void; onPosted: () => void }) {
   const { session } = useAuth();
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
@@ -167,7 +238,7 @@ function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <GradientButton
-              title={posting ? "Checking..." : "Post Now"}
+              title={posting ? "Uploading..." : "Post Now"}
               onPress={async () => {
                 if (!isLoggedIn) { onRequireLogin(); return; }
                 const userId = session?.user?.id;
@@ -179,7 +250,10 @@ function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
                     Alert.alert("⚠️ Slow down!", "You're posting too fast. Wait a bit before posting again.");
                     return;
                   }
-                  Alert.alert("Posted! 🔥", "Your post is now live on Vibe");
+                  await uploadPostMedia(userId, mediaUri ?? "", caption);
+                  setMediaUri(null);
+                  setCaption("");
+                  onPosted();
                 } finally {
                   setPosting(false);
                 }
@@ -192,7 +266,8 @@ function PostMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogge
   );
 }
 
-function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void }) {
+function VideoMode({ colors, isLoggedIn, onRequireLogin, onPosted }: { colors: any; isLoggedIn: boolean; onRequireLogin: () => void; onPosted: () => void }) {
+  const { session } = useAuth();
   const [camPermission, requestCamPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [facing, setFacing] = useState<"front" | "back">("back");
@@ -359,12 +434,16 @@ function VideoMode({ colors, isLoggedIn, onRequireLogin }: { colors: any; isLogg
         textOverlays={textOverlays}
         stickers={stickers}
         onDiscard={() => { setRecordedUri(null); setTextOverlays([]); setStickers([]); }}
-        onPost={() => {
+        onPost={async (data) => {
+          const uri = recordedUri;
           setRecordedUri(null);
           setTextOverlays([]);
           setStickers([]);
           setSelectedMusic(null);
-          Alert.alert("Posted! 🔥", "Your reel is now live on Vibe", [{ text: "Nice!" }]);
+          if (uri && session?.user?.id) {
+            await uploadReelMedia(session.user.id, uri, data.caption ?? "");
+          }
+          onPosted();
         }}
       />
     );
@@ -739,7 +818,14 @@ export default function CreateScreen() {
   const isLoggedIn = !!session;
   const [mode, setMode] = useState<CreateMode>("video");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+
+  const handlePosted = useCallback(() => setShowCelebration(true), []);
+  const handleGoToProfile = useCallback(() => {
+    setShowCelebration(false);
+    router.navigate("/(tabs)/profile" as any);
+  }, []);
 
   const MODES: { key: CreateMode; label: string; icon: string }[] = [
     { key: "post", label: "Post", icon: "images-outline" },
@@ -771,11 +857,16 @@ export default function CreateScreen() {
         ))}
       </View>
 
-      {mode === "post" && <PostMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} />}
-      {mode === "video" && <VideoMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} />}
+      {mode === "post" && <PostMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} onPosted={handlePosted} />}
+      {mode === "video" && <VideoMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} onPosted={handlePosted} />}
       {mode === "live" && <LiveMode colors={colors} isLoggedIn={isLoggedIn} onRequireLogin={() => setShowLoginPrompt(true)} />}
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
+      <CelebrationModal
+        visible={showCelebration}
+        onGoToProfile={handleGoToProfile}
+        onClose={() => setShowCelebration(false)}
+      />
     </View>
   );
 }

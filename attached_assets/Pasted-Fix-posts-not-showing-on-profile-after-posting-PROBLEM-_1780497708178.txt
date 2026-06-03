@@ -1,0 +1,109 @@
+Fix posts not showing on profile after posting:
+
+PROBLEM:
+- User posts reel/video but profile grid is empty
+- Posts save to Supabase but don't load on profile
+
+FIX PROFILE POSTS LOADING:
+
+1. Profile Posts Grid:
+- Load posts from BOTH posts AND reels tables
+- Query posts table:
+  SELECT * FROM posts 
+  WHERE user_id = profileId
+  ORDER BY created_at DESC
+
+- Query reels table:
+  SELECT * FROM reels
+  WHERE user_id = profileId  
+  ORDER BY created_at DESC
+
+- Combine and sort by created_at DESC
+- Show in 3 column grid
+
+2. Profile Tabs:
+- Tab 1: Grid icon → shows ALL posts + reels mixed
+- Tab 2: Reels icon → shows only reels
+- Tab 3: Tag icon → shows tagged posts
+
+3. After Posting:
+- When "Posted! 🔥" popup shows and user taps "NICE!"
+  * Navigate to Profile tab
+  * Refresh profile posts immediately
+  * New post should appear at top left of grid
+
+4. Real time update:
+- Subscribe to both posts and reels tables
+- When new post/reel inserted by this user
+  * Add to top of profile grid instantly
+  * Update posts_count in profile header
+
+5. Fix the "Posted!" popup:
+- Replace basic white popup with:
+  * Full screen dark celebration
+  * 🔥 animation
+  * "Your reel is live on Vibe!"
+  * Two buttons:
+    - "View Post" → opens the post full screen
+    - "Go to Profile" → goes to profile tab
+  * Share button to share the post link
+  * Auto dismiss after 5 seconds
+
+6. Profile grid thumbnails:
+- Photos: show the actual image
+- Videos/Reels: show thumbnail_url
+  * If no thumbnail show first frame
+  * Show play icon overlay on videos
+  * Show duration bottom right
+- Tapping any thumbnail opens full screen viewer
+
+7. Connect Create screen to Supabase:
+When user posts a reel save to reels table:
+  await supabase.from('reels').insert({
+    user_id: userId,
+    video_url: uploadedVideoUrl,
+    thumbnail_url: thumbnailUrl,
+    caption: caption,
+    hashtags: extractHashtags(caption),
+    music_id: selectedMusicId,
+    duration: videoDuration,
+    is_public: true
+  })
+
+When user posts a photo/post save to posts table:
+  await supabase.from('posts').insert({
+    user_id: userId,
+    media_url: uploadedImageUrl,
+    media_type: 'image',
+    caption: caption,
+    hashtags: extractHashtags(caption),
+    is_reel: false
+  })
+
+8. Extract hashtags from caption:
+const extractHashtags = (caption) => {
+  const matches = caption.match(/#\w+/g)
+  return matches ? matches.map(h => h.slice(1)) : []
+}
+
+9. Upload media to Supabase Storage:
+Photos → supabase.storage.from('posts').upload()
+Videos → supabase.storage.from('reels').upload()
+Get public URL after upload:
+  const { data } = supabase.storage
+    .from('posts')
+    .getPublicUrl(filePath)
+
+10. Profile refresh:
+- Pull down to refresh on profile
+- Refreshes all counts and posts grid
+- Shows loading skeleton while loading
+- No more empty profile after posting
+
+Make sure:
+- Every post immediately shows on profile
+- Both posts and reels show in grid
+- Video thumbnails show properly
+- Play icon on video posts
+- Counts update immediately after posting
+- No more empty profile screen
