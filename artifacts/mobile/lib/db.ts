@@ -501,6 +501,37 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
   return MOCK_CONVERSATIONS;
 }
 
+export async function fetchMessages(myId: string, otherId: string): Promise<import("./supabase").Message[]> {
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .or(
+        `and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`
+      )
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (!error && data && data.length > 0) return data as import("./supabase").Message[];
+  } catch {}
+  return [];
+}
+
+export async function sendMessageToUser(
+  senderId: string,
+  receiverId: string,
+  text: string
+): Promise<import("./supabase").Message | null> {
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({ sender_id: senderId, receiver_id: receiverId, text })
+      .select()
+      .single();
+    if (!error && data) return data as import("./supabase").Message;
+  } catch {}
+  return null;
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export async function searchProfiles(query: string): Promise<Profile[]> {

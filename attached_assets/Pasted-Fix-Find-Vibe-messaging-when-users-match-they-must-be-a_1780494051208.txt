@@ -1,0 +1,119 @@
+Fix Find Vibe messaging - when users match they must 
+be able to chat properly:
+
+PROBLEM:
+- Message button shows basic "Chat with Ariana" popup
+- Should open a real full chat screen
+- All messages must save to Supabase
+
+FIX FIND VIBE MESSAGING:
+
+1. When user taps Message button on a match:
+   - Close the popup
+   - Create or find existing conversation
+   - Open full ChatScreen with that user
+   - ChatScreen is same as regular DM screen
+
+2. Create conversation in Supabase:
+   - Check if conversation already exists:
+     SELECT * FROM messages 
+     WHERE (sender_id = myId AND receiver_id = theirId)
+     OR (sender_id = theirId AND receiver_id = myId)
+     LIMIT 1
+   - If exists → open that conversation
+   - If not → create new conversation and open it
+
+3. FULL CHAT SCREEN must have:
+   - Their profile photo and name at top
+   - Back button top left
+   - Video call and voice call buttons top right
+   - Messages list in middle
+   - Each message shows:
+     * Bubble (mine = right purple, theirs = left grey)
+     * Time stamp
+     * Seen receipt (✓✓)
+   - Bottom input bar:
+     * Text input field
+     * Emoji button
+     * GIF button (Giphy API)
+     * Voice message button (hold to record)
+     * Send button (turns active when text typed)
+   - Keyboard pushes input bar up
+   - Scroll to latest message on open
+
+4. MESSAGES SAVE TO SUPABASE:
+   - Every message inserts into messages table:
+     INSERT INTO messages (
+       sender_id, receiver_id, content, created_at
+     )
+   - Load messages:
+     SELECT * FROM messages
+     WHERE (sender_id = myId AND receiver_id = theirId)
+     OR (sender_id = theirId AND receiver_id = myId)
+     ORDER BY created_at ASC
+   - Real time: subscribe to new messages
+   - New message appears instantly without refresh
+
+5. FIX ALL BOTTOM TAB ICONS:
+   - All 5 tab icons showing as broken squares
+   - Replace with proper Ionicons:
+     * Reels → Ionicons "play-circle" or "film"
+     * Feed → Ionicons "home" or "newspaper"
+     * Create → custom + button (already gradient)
+     * Find Vibe → Ionicons "heart" or "people"
+     * Profile → Ionicons "person"
+   - Active tab icon filled version
+   - Inactive tab icon outline version
+   - Tab labels show correctly below icons
+
+6. FIX FIND VIBE ACTION BUTTONS:
+   - Bottom 3 circle buttons icons are broken
+   - Left button (skip/X) → Ionicons "close"
+   - Middle button (super vibe ⭐) → Ionicons "star"
+   - Right button (vibe/heart 💜) → Ionicons "heart"
+   - All must be properly visible and tappable
+
+7. VIBE MATCH CHAT FLOW:
+   - When both users match → show match animation
+   - After animation show two buttons:
+     * "Send Message" → opens chat immediately
+     * "Keep Swiping" → closes and continues
+   - Send Message creates conversation in Supabase
+   - Opens ChatScreen straight away
+
+8. MESSAGE NOTIFICATIONS:
+   - When message received show notification
+   - Inbox icon shows unread count badge
+   - In app toast notification slides from top
+   - Tap notification → opens that chat
+
+9. INBOX SCREEN:
+   - Shows all conversations
+   - Each row: profile photo + name + 
+     last message + time + unread count
+   - Vibe matches shown at top with special
+     purple border "💜 Vibe Match"
+   - Tap any conversation → opens ChatScreen
+   - Search conversations at top
+   - Real time unread count updates
+
+10. MESSAGE ALGORITHM (save these to Supabase):
+    - Track message response time
+    - Track conversation length
+    - Active conversations boost vibe score
+    - Long conversations (+15 vibe score)
+    - Quick responses (+5 vibe score)
+    - Save to user_interactions table:
+      INSERT INTO user_interactions (
+        user_id, content_id, content_type,
+        interaction_type
+      ) VALUES (
+        userId, conversationId, 'message', 'sent'
+      )
+
+Make sure:
+- All messages save to Supabase instantly
+- Real time chat works
+- No more basic popups
+- All icons are visible
+- Smooth animations throughout

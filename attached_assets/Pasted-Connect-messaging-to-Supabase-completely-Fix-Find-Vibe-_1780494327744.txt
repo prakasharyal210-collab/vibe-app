@@ -1,0 +1,128 @@
+Connect messaging to Supabase completely.
+Fix Find Vibe message button and all chat features:
+
+FIND VIBE - FIX MESSAGE BUTTON:
+- Remove basic "Chat with Ariana" popup
+- When message button tapped on a match:
+  1. Call get_or_create_conversation(myId, theirId)
+  2. Navigate to ChatScreen with conversation_id
+  3. No more basic popups ever
+
+MATCH FLOW:
+- When both users match show full screen animation
+- "It's a Vibe! 💜" with confetti
+- Two buttons appear:
+  * "💬 Send Message" → creates conversation 
+    then opens ChatScreen
+  * "Keep Swiping ✨" → continues swiping
+- Auto create conversation using:
+  get_or_create_conversation(
+    myId, theirId, true, matchId
+  )
+
+CHAT SCREEN (full featured):
+- Load messages: call get_messages(
+    conversationId, userId
+  )
+- Messages show in correct order (oldest top)
+- My messages: right side, purple gradient bubble
+- Their messages: left side, dark grey bubble
+- Show profile photo next to their messages
+- Show timestamp under each message
+- Show ✓ sent, ✓✓ delivered, ✓✓ blue = read
+- "Vibe Match 💜" banner at top for match chats
+
+SEND MESSAGE:
+- Call send_message(
+    senderId, receiverId, content, 'text'
+  )
+- Message appears instantly (optimistic update)
+- If fails show error and allow retry
+
+REAL TIME CHAT:
+- Subscribe to messages table:
+  supabase.channel('chat-' + conversationId)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public', 
+      table: 'messages',
+      filter: `conversation_id=eq.${conversationId}`
+    }, handleNewMessage)
+    .subscribe()
+- New messages appear instantly
+- Auto scroll to bottom on new message
+- Mark as read: call mark_messages_read(
+    conversationId, userId
+  ) when chat is opened
+
+VOICE MESSAGES:
+- Hold mic button to record
+- Release to send
+- Shows waveform animation while recording
+- Save audio to Supabase storage 'original-sounds' bucket
+- Upload then call send_message with:
+  message_type: 'voice'
+  voice_url: uploaded URL
+  voice_duration: seconds
+- Play voice message: tap play button
+- Shows duration and progress bar
+
+GIF MESSAGES:
+- Tap GIF button opens GIF picker
+- Search GIFs using Giphy API
+- Tap GIF to send with:
+  message_type: 'gif'
+  gif_url: giphy URL
+- GIF shows in chat bubble
+
+REPLY TO MESSAGE:
+- Swipe right on any message to reply
+- Shows quoted message above input
+- Send with reply_to: messageId
+- Shows reply preview in chat bubble
+
+REACT TO MESSAGE:
+- Long press message shows emoji picker
+- Select emoji adds reaction
+- Saves to message_reaction_list table
+- Shows below message bubble
+
+DELETE MESSAGE:
+- Long press → delete option
+- Call delete_message(messageId, userId)
+- Shows "This message was deleted" in grey
+
+INBOX SCREEN:
+- Load using get_conversations(userId)
+- Vibe matches shown at TOP with 💜 badge
+- Each row shows:
+  * Profile photo (tappable → opens profile)
+  * Username (bold if unread)
+  * Last message preview
+  * Time (relative: "2m", "1h", "Yesterday")
+  * Unread count badge (purple circle)
+  * Online green dot if is_online = true
+- Tap row → opens ChatScreen
+- Swipe left on conversation:
+  * Delete conversation
+  * Mute notifications
+- Pull to refresh
+- Real time unread badge on inbox tab icon:
+  Call get_total_unread(userId)
+  Show on bottom tab bar Messages icon
+
+ONLINE STATUS:
+- Call update_online_status(userId) every 2 minutes
+- Show green dot on profiles of online users
+- "Active now" or "Active 5m ago" in chat header
+- Update last_active in profiles table
+
+Make sure:
+- All messages save to Supabase
+- Real time works perfectly
+- No more basic popups
+- Smooth animations
+- Voice messages work
+- GIFs work
+- All icons visible
+- Unread counts update in real time

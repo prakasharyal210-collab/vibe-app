@@ -223,7 +223,7 @@ export default function TabLayout() {
 
   return (
     <>
-      {isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}
+      {isLiquidGlassAvailable() && Platform.OS === "ios" ? <NativeTabLayout /> : <ClassicTabLayout />}
       <DailyRewardModal
         visible={showReward}
         coins={rewardCoins}

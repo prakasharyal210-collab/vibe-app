@@ -324,7 +324,10 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
       {connected ? (
         <View style={dailyStyles.connectedRow}>
           <Text style={dailyStyles.connectedText}>🎉 You vibed with {DAILY_VIBE_CARD.name}!</Text>
-          <TouchableOpacity style={dailyStyles.msgBtn} onPress={() => Alert.alert("💜 Message", `Start a conversation with ${DAILY_VIBE_CARD.name}`)}>
+          <TouchableOpacity
+            style={dailyStyles.msgBtn}
+            onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: DAILY_VIBE_CARD.id, username: DAILY_VIBE_CARD.name, isVibeMatch: "true" } })}
+          >
             <Text style={dailyStyles.msgBtnText}>💬 Message</Text>
           </TouchableOpacity>
         </View>
@@ -524,11 +527,14 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
         {(card.matchInterests?.length ?? 0) > 0 && (
           <Text style={matchStyles.matchSub}>You both vibe on {card.matchInterests!.slice(0, 2).join(" & ")} 🎯</Text>
         )}
-        <TouchableOpacity onPress={() => Alert.alert("💬 Message", `Chat with ${card.name}`)} style={matchStyles.messageBtn}>
+        <TouchableOpacity
+          onPress={() => { onClose(); router.push({ pathname: "/chat/[userId]", params: { userId: card.id, username: card.name, isVibeMatch: "true" } }); }}
+          style={matchStyles.messageBtn}
+        >
           <Text style={matchStyles.messageBtnText}>💬 Send Message</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={onClose} style={matchStyles.keepBtn}>
-          <Text style={matchStyles.keepBtnText}>Keep Swiping →</Text>
+          <Text style={matchStyles.keepBtnText}>Keep Swiping ✨</Text>
         </TouchableOpacity>
       </Animated.View>
     </Animated.View>
@@ -809,7 +815,6 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
         card={iceBreakerCard}
         visible={!!iceBreakerCard}
         onSend={(card, msg) => {
-          Alert.alert("💜 Vibe Sent!", `You sent "${msg}" to ${card.name}`);
           proceedAfterIceBreaker(card);
         }}
         onSkip={(card) => proceedAfterIceBreaker(card)}
