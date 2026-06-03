@@ -342,6 +342,7 @@ export default function FeedScreen() {
 
   const pagerRef = useRef<ScrollView>(null);
   const scrollX = useRef(new Animated.Value(0)).current;
+  const pillsAnim = useRef(new Animated.Value(1)).current;
   const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
@@ -425,6 +426,15 @@ export default function FeedScreen() {
       })();
     }
   }, [tabStates.foryou.loading, tabStates.foryou.posts.length]);
+
+  // Animate pills in/out when tab switches
+  useEffect(() => {
+    Animated.timing(pillsAnim, {
+      toValue: activeTabIndex === 0 ? 1 : 0,
+      duration: 220,
+      useNativeDriver: false,
+    }).start();
+  }, [activeTabIndex]);
 
   const switchToIndex = useCallback((index: number) => {
     if (isScrollingPager.current) return;
@@ -572,12 +582,18 @@ export default function FeedScreen() {
           </Animated.View>
         </View>
 
-        {/* Category pills */}
-        <CategoryPills
-          active={activeCategory}
-          onSelect={(id) => setActiveCategory(id)}
-        />
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        {/* Category pills — For You only, animated */}
+        <Animated.View style={{
+          maxHeight: pillsAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 52] }),
+          opacity: pillsAnim,
+          overflow: "hidden",
+        }}>
+          <CategoryPills
+            active={activeCategory}
+            onSelect={(id) => setActiveCategory(id)}
+          />
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        </Animated.View>
       </View>
 
       {/* Swipeable Tab Pages */}
