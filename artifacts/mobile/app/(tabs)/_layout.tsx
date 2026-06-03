@@ -111,13 +111,9 @@ function ClassicTabLayout() {
         options={{
           title: "Reels",
           tabBarIcon: ({ color, focused }) =>
-            sfIcon(
-              "play.rectangle",
-              "play.rectangle.fill",
-              focused ? "play-circle" : "play-circle-outline",
-              color,
-              focused
-            ),
+            isIOS
+              ? <SymbolView name={focused ? "play.rectangle.fill" : "play.rectangle"} tintColor={color} size={24} />
+              : <Ionicons name={focused ? "play-circle" : "play-circle-outline"} size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -125,7 +121,9 @@ function ClassicTabLayout() {
         options={{
           title: "Feed",
           tabBarIcon: ({ color, focused }) =>
-            sfIcon("house", "house.fill", focused ? "home" : "home-outline", color, focused),
+            isIOS
+              ? <SymbolView name={focused ? "house.fill" : "house"} tintColor={color} size={24} />
+              : <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -140,13 +138,9 @@ function ClassicTabLayout() {
         options={{
           title: "Find Vibe",
           tabBarIcon: ({ color, focused }) =>
-            sfIcon(
-              "heart.circle",
-              "heart.circle.fill",
-              focused ? "heart-circle" : "heart-circle-outline",
-              color,
-              focused
-            ),
+            isIOS
+              ? <SymbolView name={focused ? "heart.fill" : "heart"} tintColor={color} size={24} />
+              : <Ionicons name={focused ? "heart" : "heart-outline"} size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -154,7 +148,9 @@ function ClassicTabLayout() {
         options={{
           title: "Profile",
           tabBarIcon: ({ color, focused }) =>
-            sfIcon("person", "person.fill", focused ? "person" : "person-outline", color, focused),
+            isIOS
+              ? <SymbolView name={focused ? "person.fill" : "person"} tintColor={color} size={24} />
+              : <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />,
         }}
       />
       <Tabs.Screen name="explore" options={{ href: null }} />

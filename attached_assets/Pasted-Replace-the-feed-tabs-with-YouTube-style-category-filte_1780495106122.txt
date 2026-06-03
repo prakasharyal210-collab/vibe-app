@@ -1,0 +1,80 @@
+Replace the feed tabs with YouTube-style category 
+filter pills AND keep the For You/Friends/Following 
+tabs above them:
+
+LAYOUT (top to bottom):
+1. Top bar: VIBE logo + notification + message + search
+2. Tab row: For You | Friends | Following | Nearby | Vibes
+3. Category pills row (scrollable horizontal)
+4. Feed content below
+
+CATEGORY PILLS (like YouTube):
+- Horizontally scrollable row
+- Rounded pill buttons
+- First pill always: 🧭 Explore (compass icon)
+- Then these categories:
+  * 🔥 Trending
+  * 🎵 Music  
+  * 💃 Dance
+  * 😂 Comedy
+  * ✈️ Travel
+  * 🍕 Food
+  * 💪 Fitness
+  * 🎮 Gaming
+  * 📸 Photography
+  * 🎨 Art
+  * 💄 Fashion
+  * 🐾 Pets
+  * ⚽ Sports
+  * 💻 Tech
+  * 📚 Education
+  * 🌿 Nature
+
+PILL STYLING:
+- Default: dark grey background (#1A1A1A)
+  white text, rounded corners
+- Active/Selected: white background, 
+  black text (exactly like YouTube)
+- First pill (Explore) always has compass icon
+- Smooth animation when selecting
+- Scroll position remembers last position
+
+BEHAVIOR:
+- Tapping a pill filters the feed content
+- "Trending" shows posts by highest content score
+- "Music" shows posts with music category
+- "Dance" shows dance tagged posts
+- etc.
+- Pills work independently of tabs above
+- Tab = who (For You/Friends/Following)
+- Pill = what category (Music/Dance/etc)
+- Combined: "Following" + "Music" = 
+  music posts from people I follow
+
+TRENDING SECTION:
+- When "Trending" pill selected show:
+  * Trending posts grid (like your current screen)
+  * But fix the broken like count icons 
+    (showing as squares)
+  * Show proper heart icon ❤️ before count
+  * Show view count with 👁️ eye icon
+  * Post thumbnails tappable → full screen
+
+FIX ICONS ON FEED:
+- All icons showing as broken squares
+- Fix notification bell icon top right
+- Fix message icon top right  
+- Fix search icon top right
+- Fix bottom tab bar icons:
+  * Reels → use Ionicons "play-circle-outline"
+  * Feed → use Ionicons "home-outline"
+  * Create → keep gradient + button
+  * Find Vibe → use Ionicons "heart-outline"
+  * Profile → use Ionicons "person-outline"
+- Fix like count icon on trending grid
+- Fix view count icon on trending grid
+
+VIBE LOGO:
+- Make VIBE text use purple to orange gradient
+- Or use the actual Vibe logo image from assets
+- Should look premium not plain white text

@@ -52,6 +52,105 @@ const INDICATOR_W = 28;
 
 type FeedTabId = "foryou" | "friends" | "following" | "nearby" | "vibes";
 
+// ─── Category pills ────────────────────────────────────────────────────────────
+interface Category { id: string; label: string; keywords: string[] }
+const CATEGORIES: Category[] = [
+  { id: "explore",     label: "🧭 Explore",     keywords: [] },
+  { id: "trending",    label: "🔥 Trending",     keywords: [] },
+  { id: "music",       label: "🎵 Music",        keywords: ["music", "song", "beat", "artist", "track", "album", "listen"] },
+  { id: "dance",       label: "💃 Dance",        keywords: ["dance", "dancing", "choreo", "moves"] },
+  { id: "comedy",      label: "😂 Comedy",       keywords: ["comedy", "funny", "laugh", "humor", "joke", "lol"] },
+  { id: "travel",      label: "✈️ Travel",       keywords: ["travel", "trip", "vacation", "explore", "adventure", "wanderlust"] },
+  { id: "food",        label: "🍕 Food",         keywords: ["food", "eat", "recipe", "cooking", "foodie", "chef"] },
+  { id: "fitness",     label: "💪 Fitness",      keywords: ["fitness", "gym", "workout", "run", "exercise", "health"] },
+  { id: "gaming",      label: "🎮 Gaming",       keywords: ["gaming", "game", "play", "stream", "esports", "gamer"] },
+  { id: "photography", label: "📸 Photography",  keywords: ["photo", "photography", "shot", "camera", "portrait", "landscape"] },
+  { id: "art",         label: "🎨 Art",          keywords: ["art", "drawing", "painting", "sketch", "creative", "design"] },
+  { id: "fashion",     label: "💄 Fashion",      keywords: ["fashion", "style", "outfit", "ootd", "clothes", "wear"] },
+  { id: "pets",        label: "🐾 Pets",         keywords: ["pet", "dog", "cat", "puppy", "kitten", "animal"] },
+  { id: "sports",      label: "⚽ Sports",       keywords: ["sport", "football", "basketball", "soccer", "tennis", "athlete"] },
+  { id: "tech",        label: "💻 Tech",         keywords: ["tech", "ai", "coding", "developer", "startup", "software"] },
+  { id: "education",   label: "📚 Education",    keywords: ["learn", "education", "study", "school", "knowledge", "tutorial"] },
+  { id: "nature",      label: "🌿 Nature",       keywords: ["nature", "forest", "ocean", "mountains", "outdoor", "wildlife"] },
+];
+
+function CategoryPills({
+  active,
+  onSelect,
+}: {
+  active: string;
+  onSelect: (id: string) => void;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  return (
+    <ScrollView
+      ref={scrollRef}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={pillStyles.row}
+      style={pillStyles.scrollView}
+    >
+      {CATEGORIES.map((cat) => {
+        const isActive = cat.id === active;
+        return (
+          <TouchableOpacity
+            key={cat.id}
+            onPress={() => onSelect(cat.id)}
+            activeOpacity={0.75}
+            style={[pillStyles.pill, isActive && pillStyles.pillActive]}
+          >
+            <Text style={[pillStyles.pillText, isActive && pillStyles.pillTextActive]}>
+              {cat.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+const pillStyles = StyleSheet.create({
+  scrollView: { flexShrink: 0 },
+  row: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row" },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "#1A1A2E",
+  },
+  pillActive: { backgroundColor: "#fff" },
+  pillText: { fontSize: 12, fontFamily: "Poppins_500Medium", color: "#fff" },
+  pillTextActive: { color: "#000" },
+});
+
+// ─── Gradient VIBE logo ────────────────────────────────────────────────────────
+function VibeLogo() {
+  if (Platform.OS === "web") {
+    return (
+      <Text
+        style={[logoStyles.text, {
+          // @ts-ignore — web-only CSS
+          background: "linear-gradient(to right, #7C3AED, #F97316)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+        }]}
+      >
+        VIBE
+      </Text>
+    );
+  }
+  return (
+    <View style={logoStyles.nativeWrap}>
+      <Text style={[logoStyles.text, { color: "#7C3AED" }]}>VI</Text>
+      <Text style={[logoStyles.text, { color: "#F97316" }]}>BE</Text>
+    </View>
+  );
+}
+const logoStyles = StyleSheet.create({
+  nativeWrap: { flexDirection: "row" },
+  text: { fontSize: 26, fontFamily: "Poppins_700Bold", letterSpacing: 4 },
+});
+
 interface TabState {
   posts: Post[];
   loading: boolean;
@@ -169,27 +268,39 @@ const vibeBadge = StyleSheet.create({
   text: { fontSize: 11, fontFamily: "Poppins_500Medium", color: "rgba(255,255,255,0.7)" },
 });
 
-function TrendingGrid({ posts, colors }: { posts: { id: string; image_url: string; likes_count: number }[]; colors: any }) {
+function TrendingGrid({ posts, colors, title = "Trending on Vibe" }: { posts: { id: string; image_url: string; likes_count: number }[]; colors: any; title?: string }) {
   const ITEM = (W - 4) / 3;
   function fmt(n: number) {
+    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
     if (n >= 1000) return (n / 1000).toFixed(1) + "k";
     return String(n);
   }
   return (
     <View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 24, paddingBottom: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 20, paddingBottom: 10 }}>
         <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: 3, height: 16, borderRadius: 2 }} />
-        <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 15 }}>Trending on Vibe</Text>
+        <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 15 }}>{title}</Text>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
         {posts.map((p) => (
-          <View key={p.id} style={{ position: "relative" }}>
+          <TouchableOpacity
+            key={p.id}
+            activeOpacity={0.85}
+            onPress={() => router.push(`/post/${p.id}` as any)}
+            style={{ position: "relative" }}
+          >
             <Image source={{ uri: p.image_url }} style={{ width: ITEM, height: ITEM }} resizeMode="cover" />
-            <View style={{ position: "absolute", bottom: 4, left: 5, flexDirection: "row", alignItems: "center", gap: 2 }}>
-              <Ionicons name="heart" size={10} color="#fff" />
-              <Text style={{ color: "#fff", fontSize: 10, fontFamily: "Poppins_600SemiBold" }}>{fmt(p.likes_count)}</Text>
+            <View style={{ position: "absolute", bottom: 4, left: 5, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                <Text style={{ fontSize: 9 }}>❤️</Text>
+                <Text style={{ color: "#fff", fontSize: 10, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.8)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{fmt(p.likes_count)}</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                <Text style={{ fontSize: 9 }}>👁️</Text>
+                <Text style={{ color: "#fff", fontSize: 10, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.8)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{fmt(p.likes_count * 8)}</Text>
+              </View>
             </View>
-          </View>
+          </TouchableOpacity>
         ))}
       </View>
     </View>
@@ -220,6 +331,7 @@ export default function FeedScreen() {
   const userId = session?.user?.id ?? "";
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
+  const [activeCategory, setActiveCategory] = useState("explore");
   const [tabStates, setTabStates] = useState<Record<FeedTabId, TabState>>({
     foryou: { ...INIT_TAB },
     friends: { ...INIT_TAB, loading: false },
@@ -498,7 +610,7 @@ export default function FeedScreen() {
       {/* Fixed Header */}
       <View style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background }]}>
         <View style={styles.headerTop}>
-          <Text style={[styles.brand, { color: colors.foreground }]}>VIBE</Text>
+          <VibeLogo />
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.iconBtn}
@@ -567,6 +679,13 @@ export default function FeedScreen() {
             />
           </Animated.View>
         </View>
+
+        {/* Category pills */}
+        <CategoryPills
+          active={activeCategory}
+          onSelect={(id) => setActiveCategory(id)}
+        />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
       </View>
 
       {/* Swipeable Tab Pages */}
@@ -588,13 +707,28 @@ export default function FeedScreen() {
       >
         {TABS.map((tab, tabIndex) => {
           const state = tabStates[tab.id];
+          const catDef = CATEGORIES.find((c) => c.id === activeCategory);
+          const isTrending = activeCategory === "trending";
+          const filteredPosts = (catDef && catDef.keywords.length > 0 && !state.loading)
+            ? state.posts.filter((p) => {
+                const haystack = (p.caption ?? "").toLowerCase();
+                return catDef.keywords.some((kw) => haystack.includes(kw));
+              })
+            : state.posts;
           return (
             <View key={tab.id} style={{ width: W, flex: 1 }}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
-                data={state.loading ? [] : state.posts}
+                data={state.loading ? [] : (isTrending ? [] : filteredPosts)}
                 keyExtractor={(item) => item.id + tab.id}
                 renderItem={renderTabPost(tab.id)}
+                ListHeaderComponent={isTrending ? (
+                  <TrendingGrid
+                    posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
+                    colors={colors}
+                    title={`🔥 Trending — ${TABS[tabIndex].label}`}
+                  />
+                ) : null}
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {
                   if (state.loadingMore) {
