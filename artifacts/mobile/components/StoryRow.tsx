@@ -1,6 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { CreateStorySheet } from "./CreateStorySheet";
 import {
@@ -171,7 +172,14 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
         <StoryProgressBar total={viewable.length} current={current} progress={progress} />
 
         <View style={[viewerStyles.topBar, { paddingTop: Platform.OS === "web" ? 20 : insets.top + 8 }]}>
-          <View style={viewerStyles.userRow}>
+          <TouchableOpacity
+            style={viewerStyles.userRow}
+            activeOpacity={0.8}
+            onPress={() => {
+              onClose();
+              setTimeout(() => router.push(`/profile/${story.username}` as any), 280);
+            }}
+          >
             <View style={viewerStyles.viewerAvatarWrap}>
               <UserAvatar username={story.username} size={36} />
               {story.isOnline && <View style={viewerStyles.onlineDot} />}
@@ -180,7 +188,7 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
               <Text style={viewerStyles.username}>{story.username}</Text>
               <Text style={viewerStyles.timeAgo}>2h ago</Text>
             </View>
-          </View>
+          </TouchableOpacity>
           <TouchableOpacity onPress={onClose} style={viewerStyles.closeBtn}>
             <Ionicons name="close" size={24} color="#fff" />
           </TouchableOpacity>

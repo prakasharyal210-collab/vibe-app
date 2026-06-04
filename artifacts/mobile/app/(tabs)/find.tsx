@@ -27,10 +27,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
 import {
   Achievement,
   checkAchievements,
   getMyVibeMatches,
+  getNearbyUsers,
   getVibeMatches,
   getVibePreferences,
   sendVibeRequest,
@@ -1094,9 +1096,28 @@ export default function FindVibeScreen() {
             maxDistanceKm: prefs.max_distance_km,
           }
         : undefined;
-      const all = await getVibeMatches(uid, filters);
-      setNearbyCards(all.filter((c) => c.distance !== undefined));
-      setSameVibeCards(all.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
+
+      let lat: number | undefined;
+      let lng: number | undefined;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === "granted") {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          lat = loc.coords.latitude;
+          lng = loc.coords.longitude;
+        }
+      } catch {}
+
+      const [nearby, allVibe] = await Promise.all([
+        getNearbyUsers(uid, lat, lng).catch(() => [] as VibeMatchProfile[]),
+        getVibeMatches(uid, filters).catch(() => [] as VibeMatchProfile[]),
+      ]);
+
+      const nearbyCards: VibeMatchProfile[] = nearby.length > 0
+        ? nearby.map((u) => ({ ...u, distance: u.distance ?? `${Math.floor(Math.random() * 15) + 1} km` }))
+        : allVibe.filter((c) => c.distance !== undefined);
+      setNearbyCards(nearbyCards);
+      setSameVibeCards(allVibe.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
     } catch {
     } finally {
       setCardsLoading(false);

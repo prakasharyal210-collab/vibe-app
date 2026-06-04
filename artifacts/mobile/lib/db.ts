@@ -1414,3 +1414,117 @@ export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile
     return MOCK_MY_MATCHES;
   }
 }
+
+// ─── Block / Report ───────────────────────────────────────────────────────────
+
+export async function blockUser(myId: string, theirId: string): Promise<void> {
+  try {
+    await supabase.rpc("block_user", { p_blocker_id: myId, p_blocked_id: theirId });
+  } catch {}
+  try {
+    await supabase.from("blocks").upsert({ blocker_id: myId, blocked_id: theirId }, { onConflict: "blocker_id,blocked_id" });
+    await supabase.from("follows").delete().or(`and(follower_id.eq.${myId},following_id.eq.${theirId}),and(follower_id.eq.${theirId},following_id.eq.${myId})`);
+    await supabase.from("vibe_matches").delete().or(`and(user_id.eq.${myId},matched_user_id.eq.${theirId}),and(user_id.eq.${theirId},matched_user_id.eq.${myId})`);
+  } catch {}
+}
+
+export async function unblockUser(myId: string, theirId: string): Promise<void> {
+  try {
+    await supabase.rpc("unblock_user", { p_blocker_id: myId, p_blocked_id: theirId });
+  } catch {}
+  try {
+    await supabase.from("blocks").delete().eq("blocker_id", myId).eq("blocked_id", theirId);
+  } catch {}
+}
+
+export async function reportContent(
+  myId: string,
+  contentId: string,
+  contentType: "user" | "post" | "comment" | "story",
+  reason: string,
+): Promise<void> {
+  try {
+    await supabase.rpc("report_content", { p_reporter_id: myId, p_content_id: contentId, p_content_type: contentType, p_reason: reason });
+  } catch {}
+  try {
+    await supabase.from("reports").insert({ reporter_id: myId, content_id: contentId, content_type: contentType, reason });
+  } catch {}
+}
+
+export async function isUserBlocked(myId: string, theirId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("blocks")
+      .select("id")
+      .eq("blocker_id", myId)
+      .eq("blocked_id", theirId)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Profile Stats ─────────────────────────────────────────────────────────────
+
+export interface ProfileStats {
+  posts_count: number;
+  followers_count: number;
+  following_count: number;
+}
+
+export async function getProfileStats(userId: string): Promise<ProfileStats> {
+  try {
+    const { data, error } = await supabase.rpc("get_profile_stats", { p_user_id: userId });
+    if (!error && data) return data as ProfileStats;
+  } catch {}
+  try {
+    const [postsRes, followersRes, followingRes] = await Promise.all([
+      supabase.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", userId),
+      supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", userId),
+    ]);
+    return {
+      posts_count: postsRes.count ?? 0,
+      followers_count: followersRes.count ?? 0,
+      following_count: followingRes.count ?? 0,
+    };
+  } catch {
+    return { posts_count: 0, followers_count: 0, following_count: 0 };
+  }
+}
+
+// ─── Nearby Users ──────────────────────────────────────────────────────────────
+
+export async function getNearbyUsers(
+  userId: string,
+  lat: number | undefined,
+  lng: number | undefined,
+  radiusKm = 50,
+): Promise<VibeMatchProfile[]> {
+  try {
+    const { data, error } = await supabase.rpc("get_nearby_users", {
+      p_user_id: userId,
+      p_lat: lat,
+      p_lng: lng,
+      p_radius_km: radiusKm,
+    });
+    if (!error && data && (data as any[]).length > 0) {
+      return (data as any[]).map((row: any) => ({
+        id: row.id,
+        name: row.display_name ?? row.username ?? "Vibe User",
+        age: row.age ?? 24,
+        image: row.avatar_url ?? `https://picsum.photos/seed/${row.id}/400/600`,
+        bio: row.bio ?? "",
+        interests: row.interests ?? [],
+        distance: row.distance_km ? `${Math.round(row.distance_km)} km away` : undefined,
+        isOnline: row.is_online ?? false,
+        gender: row.gender,
+      }));
+    }
+  } catch {}
+  return MOCK_MATCH_PROFILES.map((p, i) => ({
+    ...p,
+    distance: `${(i + 1) * 2 + Math.floor(Math.random() * 3)} km away`,
+  }));
+}

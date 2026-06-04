@@ -42,9 +42,20 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
   const colors = useColors();
   const config = TYPE_CONFIG[notif.type];
 
+  const handlePress = () => {
+    onRead(notif.id);
+    if (notif.type === "follow") {
+      router.push(`/profile/${notif.username}` as any);
+    } else if (notif.type === "like" || notif.type === "comment" || notif.type === "mention") {
+      router.push(`/profile/${notif.username}` as any);
+    } else if (notif.type === "vibe") {
+      router.push("/(tabs)/find" as any);
+    }
+  };
+
   return (
     <TouchableOpacity
-      onPress={() => onRead(notif.id)}
+      onPress={handlePress}
       style={[
         styles.notifRow,
         { borderBottomColor: colors.border },

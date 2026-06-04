@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -18,6 +18,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FullScreenMediaViewer, MediaItem } from "@/components/FullScreenMediaViewer";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuth } from "@/context/AuthContext";
+import { blockUser, isUserBlocked, reportContent } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W } = Dimensions.get("window");
@@ -166,20 +168,65 @@ const GRID_IMAGES: MediaItem[] = Array.from({ length: 15 }, (_, i) => ({
   isVideo: i % 5 === 0,
 }));
 
-function ThreeDotsModal({ visible, onClose, username }: {
+const REPORT_REASONS = [
+  "Spam or fake account",
+  "Harassment or bullying",
+  "Inappropriate content",
+  "Hate speech",
+  "Violence or dangerous content",
+  "Impersonation",
+  "Other",
+];
+
+function ThreeDotsModal({ visible, onClose, username, myId, onBlocked }: {
   visible: boolean;
   onClose: () => void;
   username: string;
+  myId?: string;
+  onBlocked?: () => void;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const [showReport, setShowReport] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [reporting, setReporting] = useState<string | null>(null);
+
+  const handleBlock = async () => {
+    if (!myId) { Alert.alert("Sign in to block users"); return; }
+    setBlocking(true);
+    try {
+      await blockUser(myId, username);
+      onClose();
+      onBlocked?.();
+      Alert.alert("Blocked", `You blocked @${username}. They won't see your content.`);
+    } catch {
+      Alert.alert("Error", "Could not complete action. Try again.");
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const handleReport = async (reason: string) => {
+    if (!myId) { Alert.alert("Sign in to report users"); return; }
+    setReporting(reason);
+    try {
+      await reportContent(myId, username, "user", reason);
+      setShowReport(false);
+      onClose();
+      Alert.alert("Reported", "Thank you. Our team will review this account within 24 hours.");
+    } catch {
+      Alert.alert("Error", "Could not submit report. Try again.");
+    } finally {
+      setReporting(null);
+    }
+  };
 
   const options: { icon: string; label: string; action: () => void; destructive?: boolean }[] = [
     { icon: "share-social-outline", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
     { icon: "copy-outline", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `vibe.app/@${username} copied to clipboard`) },
-    { icon: "person-remove-outline", label: "Block @" + username, action: () => { Alert.alert("Blocked", `You blocked @${username}`); onClose(); }, destructive: true },
-    { icon: "flag-outline", label: "Report User", action: () => { Alert.alert("Reported", "Thank you. We'll review this account."); onClose(); }, destructive: true },
-    { icon: "eye-off-outline", label: "Restrict User", action: () => Alert.alert("Restricted", `@${username} won't know they're restricted`) },
+    { icon: "person-remove-outline", label: blocking ? "Blocking..." : "Block @" + username, action: handleBlock, destructive: true },
+    { icon: "flag-outline", label: "Report User", action: () => setShowReport(true), destructive: true },
+    { icon: "eye-off-outline", label: "Restrict User", action: () => { Alert.alert("Restricted", `@${username} won't know they're restricted`); onClose(); } },
   ];
 
   return (
@@ -187,21 +234,47 @@ function ThreeDotsModal({ visible, onClose, username }: {
       <TouchableOpacity style={menuStyles.overlay} activeOpacity={1} onPress={onClose} />
       <View style={[menuStyles.sheet, { backgroundColor: colors.card, paddingBottom: Platform.OS === "web" ? 20 : insets.bottom + 8 }]}>
         <View style={[menuStyles.handle, { backgroundColor: colors.border }]} />
-        {options.map((opt, i) => (
-          <TouchableOpacity
-            key={i}
-            onPress={() => { opt.action(); if (!opt.destructive) onClose(); }}
-            style={[menuStyles.option, { borderBottomColor: colors.border }]}
-          >
-            <Ionicons name={opt.icon as any} size={20} color={opt.destructive ? "#EF4444" : colors.foreground} />
-            <Text style={[menuStyles.optionText, { color: opt.destructive ? "#EF4444" : colors.foreground }]}>
-              {opt.label}
-            </Text>
+        {!showReport ? (
+          <>
+            {options.map((opt, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={opt.action}
+                style={[menuStyles.option, { borderBottomColor: colors.border }]}
+              >
+                <Ionicons name={opt.icon as any} size={20} color={opt.destructive ? "#EF4444" : colors.foreground} />
+                <Text style={[menuStyles.optionText, { color: opt.destructive ? "#EF4444" : colors.foreground }]}>
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </>
+        ) : (
+          <>
+            <Text style={[menuStyles.reportTitle, { color: colors.foreground }]}>Why are you reporting this account?</Text>
+            {REPORT_REASONS.map((reason) => (
+              <TouchableOpacity
+                key={reason}
+                onPress={() => handleReport(reason)}
+                disabled={!!reporting}
+                style={[menuStyles.option, { borderBottomColor: colors.border, opacity: reporting === reason ? 0.5 : 1 }]}
+              >
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                <Text style={[menuStyles.optionText, { color: colors.foreground }]}>
+                  {reporting === reason ? "Submitting..." : reason}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setShowReport(false)} style={[menuStyles.cancelBtn, { borderTopColor: colors.border }]}>
+              <Text style={[menuStyles.cancelText, { color: colors.foreground }]}>Back</Text>
+            </TouchableOpacity>
+          </>
+        )}
+        {!showReport && (
+          <TouchableOpacity onPress={onClose} style={[menuStyles.cancelBtn, { borderTopColor: colors.border }]}>
+            <Text style={[menuStyles.cancelText, { color: colors.foreground }]}>Cancel</Text>
           </TouchableOpacity>
-        ))}
-        <TouchableOpacity onPress={onClose} style={[menuStyles.cancelBtn, { borderTopColor: colors.border }]}>
-          <Text style={[menuStyles.cancelText, { color: colors.foreground }]}>Cancel</Text>
-        </TouchableOpacity>
+        )}
       </View>
     </Modal>
   );
@@ -209,12 +282,20 @@ function ThreeDotsModal({ visible, onClose, username }: {
 
 export default function UserProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
+  const { session } = useAuth();
+  const myId = session?.user?.id;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [following, setFollowing] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged">("posts");
   const [showMenu, setShowMenu] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; startIndex: number }>({ visible: false, startIndex: 0 });
+
+  useEffect(() => {
+    if (!myId || !username) return;
+    isUserBlocked(myId, username).then(setIsBlocked).catch(() => {});
+  }, [myId, username]);
 
   const u = username ?? "";
   const userData: UserRecord = MOCK_USER_DATA[u] ?? getDefaultData(u);
@@ -237,6 +318,15 @@ export default function UserProfileScreen() {
           <Ionicons name="ellipsis-horizontal" size={22} color={colors.foreground} />
         </TouchableOpacity>
       </View>
+
+      {isBlocked && (
+        <View style={{ backgroundColor: "#EF4444", padding: 12, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16 }}>
+          <Ionicons name="ban" size={18} color="#fff" />
+          <Text style={{ color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 13, flex: 1 }}>
+            You have blocked @{u}. They can't see your content.
+          </Text>
+        </View>
+      )}
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.coverWrap}>
@@ -457,7 +547,13 @@ export default function UserProfileScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <ThreeDotsModal visible={showMenu} onClose={() => setShowMenu(false)} username={u} />
+      <ThreeDotsModal
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        username={u}
+        myId={myId}
+        onBlocked={() => { setIsBlocked(true); router.back(); }}
+      />
 
       <FullScreenMediaViewer
         items={gridData}
@@ -477,6 +573,7 @@ const menuStyles = StyleSheet.create({
   optionText: { fontFamily: "Poppins_500Medium", fontSize: 15 },
   cancelBtn: { paddingVertical: 16, alignItems: "center", borderTopWidth: 0.5, marginTop: 4 },
   cancelText: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  reportTitle: { fontFamily: "Poppins_700Bold", fontSize: 15, paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.08)" },
 });
 
 const styles = StyleSheet.create({

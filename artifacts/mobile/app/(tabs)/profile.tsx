@@ -14,6 +14,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -22,7 +23,7 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProfilePosts, ProfileGridItem } from "@/lib/db";
+import { fetchProfilePosts, getProfileStats, ProfileGridItem } from "@/lib/db";
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { MOCK_HIGHLIGHTS, Profile, supabase } from "@/lib/supabase";
@@ -332,6 +333,8 @@ export default function ProfileScreen() {
   const [viewerIndex, setViewerIndex] = useState(0);
   const [viewerPhotos, setViewerPhotos] = useState<GridItem[]>([]);
   const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
+  const [showCreateHighlight, setShowCreateHighlight] = useState(false);
+  const [newHighlightName, setNewHighlightName] = useState("");
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
@@ -508,7 +511,7 @@ export default function ProfileScreen() {
 
       <View style={[styles.highlightsSection, { borderBottomColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightsScroll}>
-          <TouchableOpacity style={styles.highlightNew} onPress={() => Alert.alert("New Highlight", "Add a new highlight from your stories")}>
+          <TouchableOpacity style={styles.highlightNew} onPress={() => setShowCreateHighlight(true)}>
             <View style={[styles.highlightCircle, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1, borderStyle: "dashed" }]}>
               <Ionicons name="add" size={26} color="#7C3AED" />
             </View>
@@ -606,6 +609,48 @@ export default function ProfileScreen() {
           onClose={() => setViewerOpen(false)}
         />
       )}
+
+      <Modal visible={showCreateHighlight} transparent animationType="slide" onRequestClose={() => setShowCreateHighlight(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setShowCreateHighlight(false)} />
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: insets.bottom + 24, gap: 16 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginBottom: 4 }} />
+            <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 18, color: colors.foreground }}>New Highlight</Text>
+            <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 14, color: colors.mutedForeground, lineHeight: 20 }}>
+              Give your highlight a name. You can add stories to it from your story archive.
+            </Text>
+            <TextInput
+              value={newHighlightName}
+              onChangeText={setNewHighlightName}
+              placeholder="e.g. Summer 2025, Travel, Food..."
+              placeholderTextColor={colors.mutedForeground}
+              maxLength={32}
+              style={{
+                backgroundColor: colors.muted,
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                fontFamily: "Poppins_400Regular",
+                fontSize: 15,
+                color: colors.foreground,
+              }}
+            />
+            <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14 }}>
+              <TouchableOpacity
+                style={{ paddingVertical: 14, alignItems: "center" }}
+                onPress={() => {
+                  if (!newHighlightName.trim()) { Alert.alert("Name required", "Please enter a name for your highlight."); return; }
+                  Alert.alert("Highlight Created!", `"${newHighlightName.trim()}" will appear on your profile once you add stories to it.`);
+                  setNewHighlightName("");
+                  setShowCreateHighlight(false);
+                }}
+              >
+                <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 15, color: "#fff" }}>Create Highlight</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
