@@ -68,6 +68,10 @@ function RootLayoutNav() {
         name="highlight/[id]"
         options={{ animation: "fade", presentation: "fullScreenModal" }}
       />
+      <Stack.Screen
+        name="find-friends"
+        options={{ animation: "slide_from_right" }}
+      />
     </Stack>
   );
 }

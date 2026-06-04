@@ -504,6 +504,10 @@ export default function ProfileScreen() {
           <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => router.push("/suggested-users" as any)}>
             <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.findFriendsBtn, { backgroundColor: "rgba(124,58,237,0.12)", borderColor: "#7C3AED" }]} onPress={() => router.push("/find-friends" as any)}>
+            <Ionicons name="people-outline" size={15} color="#7C3AED" />
+            <Text style={styles.findFriendsBtnText}>Find Friends</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(124,58,237,0.15)", borderColor: "#7C3AED" }]}>
             <Text style={styles.walletEmoji}>🪙</Text>
             <Text style={styles.walletChipText}>Wallet</Text>
@@ -697,6 +701,8 @@ const styles = StyleSheet.create({
   walletChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   walletEmoji: { fontSize: 14 },
   walletChipText: { color: "#7C3AED", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  findFriendsBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
+  findFriendsBtnText: { color: "#7C3AED", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   gridTabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginTop: 4 },
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   gridImage: { width: GRID_ITEM, height: GRID_ITEM },

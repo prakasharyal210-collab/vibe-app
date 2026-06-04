@@ -1,0 +1,86 @@
+Connect Find Friends to Supabase and 
+make everything work:
+
+FIND FRIENDS BUTTON:
+- Add to Profile screen next to add friends icon
+- Also add in suggested users screen
+- Tapping opens FindFriendsScreen
+
+PHONE CONTACTS:
+- Request permission using expo-contacts
+- Extract all emails and phone numbers
+- Call find_users_by_contacts(emails, userId)
+- Show matched Vibe users with Follow button
+- Show unmatched contacts with Invite button
+- Invite opens native share with referral link:
+  "Join me on Vibe! https://vibe.app/download
+   Use my code: {referralCode}"
+
+REFERRAL CODE:
+- Generate on signup using generate_referral_code()
+- Show in Profile → Share Profile
+- Show in Find Friends screen
+- "Your referral code: PRAK1234"
+- Copy button next to code
+- Share button opens native share
+
+REFERRAL REWARDS:
+- When new user signs up with referral code:
+  * Ask "Were you invited? Enter referral code"
+  * Optional field on signup screen
+  * Call process_referral(newUserId, code)
+  * Both get +100 coins instantly
+  * Show celebration animation
+
+FACEBOOK CONNECTION:
+- "Connect Facebook" button
+- Opens Facebook OAuth
+- After connecting shows FB friends on Vibe
+- Save to social_connections table:
+  platform: 'facebook'
+  platform_id: fbUserId
+  platform_username: fbName
+
+TIKTOK CONNECTION:
+- "Connect TikTok" button  
+- Ask user to enter their TikTok username
+- Search profiles where tiktok_username matches
+- Show matching Vibe users
+- Save to social_connections:
+  platform: 'tiktok'
+  platform_username: tiktokUsername
+
+UPDATE PROFILE:
+- Add TikTok username field in Edit Profile
+- Add phone number field in Edit Profile
+- These help friends find you
+
+FIND FRIENDS SCREEN UI:
+- Search bar at top
+- 4 sections:
+  1. From Contacts (with permission button)
+  2. Facebook Friends (with connect button)
+  3. TikTok Friends (with connect button)  
+  4. Suggested (from get_suggested_users())
+- Each section collapsible
+- Loading skeletons while fetching
+- Empty states for each section
+
+FOLLOW ALL BUTTON:
+- "Follow All" button in each section
+- Follows everyone in that section at once
+- Shows progress: "Following 5/12..."
+- Calls toggle_follow() for each user
+
+PRIVACY NOTICE:
+- Small text: "Contacts are never stored"
+- "We only use them to find your friends"
+- Option to revoke permission
+
+Make sure:
+- Contacts permission works on Android
+- Follow buttons work instantly
+- Referral code shows on profile
+- Invite message looks professional
+- All saves to Supabase correctly
+- Smooth loading states

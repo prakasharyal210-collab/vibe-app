@@ -1,0 +1,245 @@
+Add "Find Friends" feature - import contacts 
+from Phone, Facebook and TikTok:
+
+FIND FRIENDS SCREEN:
+- Add "Find Friends" button in Profile screen
+  next to the Add Friends icon
+- Or in the suggested users screen
+- Opens FindFriendsScreen
+
+FIND FRIENDS SCREEN LAYOUT:
+┌─────────────────────────────┐
+│ ← Find Friends              │
+├─────────────────────────────┤
+│ 📱 Phone Contacts           │
+│ Connect your contacts →     │
+├─────────────────────────────┤
+│ 👥 Facebook Friends         │
+│ Connect Facebook →          │
+├─────────────────────────────┤
+│ 🎵 TikTok Friends           │
+│ Connect TikTok →            │
+├─────────────────────────────┤
+│ Suggested Friends           │
+│ [User cards with Follow btn]│
+└─────────────────────────────┘
+
+1. PHONE CONTACTS:
+
+Ask permission to access contacts:
+import * as Contacts from 'expo-contacts'
+
+const { status } = await Contacts.requestPermissionsAsync()
+
+if (status === 'granted') {
+  const { data } = await Contacts.getContactsAsync({
+    fields: [
+      Contacts.Fields.PhoneNumbers,
+      Contacts.Fields.Emails,
+      Contacts.Fields.Name,
+      Contacts.Fields.Image
+    ]
+  })
+  
+  // Extract phone numbers and emails
+  const phoneNumbers = data
+    .flatMap(c => c.phoneNumbers || [])
+    .map(p => p.number)
+    
+  const emails = data
+    .flatMap(c => c.emails || [])
+    .map(e => e.email)
+  
+  // Find Vibe users with these numbers/emails
+  findVibeUsersFromContacts(phoneNumbers, emails)
+}
+
+MATCH CONTACTS TO VIBE USERS:
+Call Supabase to find matching users:
+const { data } = await supabase
+  .from('profiles')
+  .select('*')
+  .in('email', emails)
+
+Show matched contacts with:
+- Their Vibe profile photo
+- Username
+- Phone contact name
+- "Follow" button
+- "Invite" button if not on Vibe
+
+NOT ON VIBE YET:
+- Show contacts not on Vibe
+- "Invite to Vibe" button
+- Opens native share:
+  "Hey! I'm using Vibe, join me! 
+   Download here: vibe.app/download"
+
+2. FACEBOOK FRIENDS:
+
+Use Facebook Login SDK:
+import * as Facebook from 'expo-facebook'
+
+const connectFacebook = async () => {
+  await Facebook.initializeAsync({
+    appId: 'YOUR_FB_APP_ID'
+  })
+  
+  const { type, token } = 
+    await Facebook.logInWithReadPermissionsAsync({
+      permissions: ['public_profile', 'user_friends']
+    })
+    
+  if (type === 'success') {
+    // Get Facebook friends
+    const response = await fetch(
+      `https://graph.facebook.com/me/friends?
+       access_token=${token}`
+    )
+    const { data: fbFriends } = await response.json()
+    
+    // Get user's own FB profile
+    const profileRes = await fetch(
+      `https://graph.facebook.com/me?
+       fields=id,name,email,picture&
+       access_token=${token}`
+    )
+    const fbProfile = await profileRes.json()
+    
+    // Save FB connection to Supabase
+    await supabase.from('social_connections').upsert({
+      user_id: myUserId,
+      platform: 'facebook',
+      platform_id: fbProfile.id,
+      platform_username: fbProfile.name,
+      access_token: token
+    })
+    
+    // Find FB friends on Vibe
+    findVibeUsersFromFacebook(fbFriends)
+  }
+}
+
+SHOW FACEBOOK FRIENDS ON VIBE:
+- Match FB email/id to Vibe profiles
+- Show "X Facebook friends are on Vibe"
+- List with Follow buttons
+- If already following show "Following" ✓
+
+3. TIKTOK FRIENDS:
+
+Use TikTok Login Kit:
+const connectTikTok = async () => {
+  // Open TikTok OAuth
+  const tiktokAuthUrl = 
+    'https://www.tiktok.com/auth/authorize/' +
+    '?client_key=YOUR_TIKTOK_KEY' +
+    '&scope=user.info.basic,user.info.profile' +
+    '&response_type=code' +
+    '&redirect_uri=vibeapp://tiktok-callback'
+  
+  // Open in browser
+  await Linking.openURL(tiktokAuthUrl)
+}
+
+// Handle callback
+// Get TikTok username and followers
+// Find matching Vibe users
+
+TIKTOK MATCHING:
+- Save TikTok username to profiles table
+- Match tiktok_username field
+- Show "X TikTok friends are on Vibe"
+- Follow button for each
+
+4. SAVE SOCIAL CONNECTIONS TO SUPABASE:
+Already have social_connections table or create:
+
+create table if not exists social_connections (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references profiles(id) on delete cascade,
+  platform text not null, -- facebook, tiktok, instagram
+  platform_id text,
+  platform_username text,
+  platform_email text,
+  access_token text,
+  connected_at timestamp default now(),
+  unique(user_id, platform)
+);
+
+5. INVITE FRIENDS:
+If friend not on Vibe show invite button:
+
+const inviteFriend = async (contact) => {
+  await Share.share({
+    message: 
+      `Hey ${contact.name}! 👋\n` +
+      `I'm using Vibe - the new social app ` +
+      `that's better than TikTok! 🔥\n` +
+      `Come join me: https://vibe.app/download\n` +
+      `Use my referral code: ${myUsername}`,
+    title: 'Join me on Vibe!'
+  })
+}
+
+REFERRAL SYSTEM:
+- Each user has unique referral code (username)
+- When friend joins using referral:
+  * Both get 100 bonus coins
+  * Save to referrals table
+  * Show "You referred 5 friends! +500 coins"
+
+6. FIND FRIENDS UI:
+
+CONTACTS SECTION:
+- "📱 From your contacts"
+- Shows matched users in horizontal scroll
+- "X people from your contacts are on Vibe"
+- "Follow All" button
+- Individual follow buttons
+
+FACEBOOK SECTION:
+- "👥 Facebook friends on Vibe"
+- Connect button if not connected
+- Shows friends list if connected
+- Friend count badge
+
+TIKTOK SECTION:
+- "🎵 TikTok friends on Vibe"  
+- Connect button if not connected
+- Shows friends list if connected
+
+SUGGESTED SECTION:
+- "People you may know"
+- Based on mutual friends
+- Based on same interests
+- Based on location
+- Uses get_suggested_users() function
+
+ALL SECTIONS:
+- Each user shows:
+  * Profile photo
+  * Username
+  * Full name
+  * Mutual friends count
+  * Follow/Following button
+  * Invite button (if not on Vibe)
+- Pull to refresh
+- Search bar at top
+
+7. PRIVACY:
+- "Don't sync my contacts" option
+- Contacts never stored on server
+- Only used to find matches
+- Delete connection option
+- GDPR compliant
+
+Make sure:
+- Contacts permission asked politely
+- Facebook OAuth works
+- TikTok OAuth works  
+- Found friends show correctly
+- Follow buttons work
+- Invite message looks good
+- All saved to Supabase
+- Privacy respected

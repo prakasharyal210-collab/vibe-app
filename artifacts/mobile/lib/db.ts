@@ -1494,6 +1494,134 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
   }
 }
 
+// ─── Social Connections / Find Friends ────────────────────────────────────────
+
+export interface SocialMatchUser {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  bio?: string;
+  followers_count?: number;
+  is_verified?: boolean;
+  matchedName?: string;
+}
+
+const MOCK_SOCIAL_SUGGESTED: SocialMatchUser[] = [
+  { id: "ss1", username: "luna_sky", bio: "Photographer & traveler ✨", followers_count: 124000, is_verified: true },
+  { id: "ss2", username: "marcus_vibe", bio: "Music producer 🎵 Dog dad", followers_count: 89000 },
+  { id: "ss3", username: "zoe.creates", bio: "Artist & content creator 🎨", followers_count: 204000, is_verified: true },
+  { id: "ss4", username: "kai_adventures", bio: "Adventure is my middle name 🏔️", followers_count: 56000 },
+  { id: "ss5", username: "nadia.official", bio: "Actress & creator 🎬", followers_count: 432000, is_verified: true },
+  { id: "ss6", username: "alex.w", bio: "Music & art 🎵", followers_count: 67800 },
+];
+
+export async function findUsersByEmails(
+  emails: string[],
+  myUserId: string,
+): Promise<SocialMatchUser[]> {
+  if (!emails.length) return [];
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, bio, followers_count, is_verified")
+      .in("email", emails.slice(0, 50))
+      .neq("id", myUserId)
+      .limit(30);
+    if (data?.length) return data as SocialMatchUser[];
+  } catch {}
+  return [];
+}
+
+export async function findUsersBySocialUsername(
+  platform: "facebook" | "tiktok" | "instagram",
+  username: string,
+  myUserId: string,
+): Promise<SocialMatchUser[]> {
+  const cleaned = username.replace(/^@/, "").toLowerCase().trim();
+  if (!cleaned) return [];
+  try {
+    const { data: scData } = await supabase
+      .from("social_connections")
+      .select("user_id, platform_username, profiles:user_id(id, username, avatar_url, bio, followers_count, is_verified)")
+      .eq("platform", platform)
+      .ilike("platform_username", `%${cleaned}%`)
+      .neq("user_id", myUserId)
+      .limit(20);
+    if (scData?.length) {
+      return scData
+        .map((r: any) => r.profiles ? { ...r.profiles, matchedName: r.platform_username } : null)
+        .filter(Boolean) as SocialMatchUser[];
+    }
+  } catch {}
+  try {
+    const col = platform === "tiktok" ? "tiktok_username" : platform === "instagram" ? "instagram_username" : null;
+    if (col) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url, bio, followers_count, is_verified")
+        .ilike(col, `%${cleaned}%`)
+        .neq("id", myUserId)
+        .limit(20);
+      if (data?.length) return data as SocialMatchUser[];
+    }
+  } catch {}
+  return [];
+}
+
+export async function saveSocialConnection(
+  userId: string,
+  platform: "facebook" | "tiktok" | "instagram",
+  platformUsername: string,
+): Promise<void> {
+  try {
+    await supabase.from("social_connections").upsert(
+      { user_id: userId, platform, platform_username: platformUsername.replace(/^@/, ""), connected_at: new Date().toISOString() },
+      { onConflict: "user_id,platform" },
+    );
+  } catch {}
+  try {
+    const col = platform === "tiktok" ? "tiktok_username" : platform === "instagram" ? "instagram_username" : null;
+    if (col) {
+      await supabase.from("profiles").update({ [col]: platformUsername.replace(/^@/, "") }).eq("id", userId);
+    }
+  } catch {}
+}
+
+export async function getSuggestedUsersForFindFriends(
+  userId: string,
+  limit = 15,
+): Promise<SocialMatchUser[]> {
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, bio, followers_count, is_verified")
+      .neq("id", userId)
+      .order("followers_count", { ascending: false })
+      .limit(limit);
+    if (data?.length) return data as SocialMatchUser[];
+  } catch {}
+  return MOCK_SOCIAL_SUGGESTED;
+}
+
+export async function toggleFollowUser(myId: string, otherId: string): Promise<boolean> {
+  try {
+    const { data: existing } = await supabase
+      .from("follows")
+      .select("id")
+      .eq("follower_id", myId)
+      .eq("following_id", otherId)
+      .maybeSingle();
+    if (existing) {
+      await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", otherId);
+      return false;
+    } else {
+      await supabase.from("follows").insert({ follower_id: myId, following_id: otherId });
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
 // ─── Nearby Users ──────────────────────────────────────────────────────────────
 
 export async function getNearbyUsers(
