@@ -7,7 +7,11 @@
     "dev": "EXPO_PACKAGER_PROXY_URL=https://$REPLIT_EXPO_DEV_DOMAIN EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN EXPO_PUBLIC_REPL_ID=$REPL_ID REACT_NATIVE_PACKAGER_HOSTNAME=$REPLIT_DEV_DOMAIN pnpm exec expo start --localhost --port $PORT",
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "eas:login": "npx eas-cli@latest login",
+    "eas:apk": "EAS_NO_VCS=1 npx eas-cli@latest build --platform android --profile preview",
+    "eas:aab": "EAS_NO_VCS=1 npx eas-cli@latest build --platform android --profile production",
+    "eas:status": "npx eas-cli@latest build:list --platform android --limit 5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

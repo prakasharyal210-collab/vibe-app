@@ -527,7 +527,11 @@ export default function ReelsScreen() {
   const switchTab = (tab: "foryou" | "following") => {
     setFeedTab(tab);
     setActiveIndex(0);
-    setTimeout(() => flatListRef.current?.scrollToIndex({ index: 0, animated: false }), 50);
+    setTimeout(() => {
+      if (flatListRef.current && reels.length > 0) {
+        flatListRef.current.scrollToIndex({ index: 0, animated: false });
+      }
+    }, 50);
   };
 
   const feedPanResponder = useRef(
