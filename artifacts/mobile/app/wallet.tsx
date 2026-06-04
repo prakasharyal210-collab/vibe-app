@@ -32,15 +32,6 @@ const EARNINGS_DATA = [
 
 const MAX_COINS = Math.max(...EARNINGS_DATA.map((d) => d.coins));
 
-const TRANSACTIONS = [
-  { id: "t1", icon: "🎁", label: "Live Gift — Diamond", username: "luna_sky", coins: 500, time: "2h ago" },
-  { id: "t2", icon: "👁", label: "Reel Views Bonus", username: "1.2M views", coins: 240, time: "5h ago" },
-  { id: "t3", icon: "🌹", label: "Live Gift — Rose", username: "marcus_vibe", coins: 10, time: "1d ago" },
-  { id: "t4", icon: "🚀", label: "Live Gift — Rocket", username: "zoe.creates", coins: 99, time: "1d ago" },
-  { id: "t5", icon: "⚡", label: "Post Boost Earnings", username: "892 clicks", coins: 180, time: "2d ago" },
-  { id: "t6", icon: "👁", label: "Reel Views Bonus", username: "890k views", coins: 178, time: "3d ago" },
-  { id: "t7", icon: "🦁", label: "Live Gift — Lion", username: "kai_adventures", coins: 199, time: "4d ago" },
-];
 
 const EARNING_SOURCES = [
   { icon: "🎁", label: "Live Gifts", amount: "1,248", change: "+12%", color: "#7C3AED", bg: "rgba(124,58,237,0.12)" },
@@ -156,8 +147,8 @@ export default function WalletScreen() {
         <View style={[styles.section, { paddingHorizontal: 16 }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Recent Transactions</Text>
           <View style={[styles.transactionCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            {(dbTransactions.length > 0 ? dbTransactions : TRANSACTIONS).map((t, i) => (
-              <View key={t.id} style={[styles.txRow, i < TRANSACTIONS.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
+            {dbTransactions.length > 0 ? dbTransactions.map((t, i) => (
+              <View key={t.id} style={[styles.txRow, i < dbTransactions.length - 1 && { borderBottomWidth: 0.5, borderBottomColor: colors.border }]}>
                 <View style={[styles.txIcon, { backgroundColor: colors.muted }]}>
                   <Text style={{ fontSize: 18 }}>{t.icon}</Text>
                 </View>
@@ -170,7 +161,15 @@ export default function WalletScreen() {
                   <Text style={[styles.txAmount, { color: "#10B981" }]}>+{t.coins}</Text>
                 </View>
               </View>
-            ))}
+            )) : (
+              <View style={{ paddingVertical: 28, alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 30 }}>🪙</Text>
+                <Text style={{ color: colors.foreground, fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>No transactions yet</Text>
+                <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center", paddingHorizontal: 20 }}>
+                  Earn coins by going live, posting reels, and receiving gifts
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 

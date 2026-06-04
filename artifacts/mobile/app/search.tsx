@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { clearSearchHistory, deleteSearchHistoryItem, loadSearchHistory, saveSearchHistory, searchHashtags, searchProfiles, SearchHistoryItem } from "@/lib/db";
-import { MOCK_HASHTAGS, MOCK_SEARCH_ACCOUNTS, Profile, Hashtag, formatCount } from "@/lib/supabase";
+import { Profile, Hashtag, formatCount } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
 const { width: W } = Dimensions.get("window");
@@ -34,10 +34,10 @@ export default function SearchScreen() {
   const inputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("top");
-  const [filteredAccounts, setFilteredAccounts] = useState<Profile[]>(MOCK_SEARCH_ACCOUNTS);
-  const [filteredHashtags, setFilteredHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
-  const [trendingHashtags, setTrendingHashtags] = useState<Hashtag[]>(MOCK_HASHTAGS);
-  const [suggestedAccounts, setSuggestedAccounts] = useState<Profile[]>(MOCK_SEARCH_ACCOUNTS);
+  const [filteredAccounts, setFilteredAccounts] = useState<Profile[]>([]);
+  const [filteredHashtags, setFilteredHashtags] = useState<Hashtag[]>([]);
+  const [trendingHashtags, setTrendingHashtags] = useState<Hashtag[]>([]);
+  const [suggestedAccounts, setSuggestedAccounts] = useState<Profile[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
 
   useEffect(() => {

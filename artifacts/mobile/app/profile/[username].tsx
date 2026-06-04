@@ -19,7 +19,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FullScreenMediaViewer, MediaItem } from "@/components/FullScreenMediaViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { blockUser, isUserBlocked, reportContent } from "@/lib/db";
+import {
+  blockUser,
+  checkIsFollowing,
+  fetchProfilePosts,
+  isUserBlocked,
+  lookupProfileByUsername,
+  ProfileGridItem,
+  PublicProfile,
+  reportContent,
+} from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W } = Dimensions.get("window");
@@ -32,141 +42,6 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-type UserRecord = {
-  fullName: string;
-  bio: string;
-  website?: string;
-  followers: number;
-  following: number;
-  posts: number;
-  isVerified: boolean;
-  isPrivate: boolean;
-  location: string;
-  mutualFollowers: string[];
-  followsYou: boolean;
-  coverSeed: string;
-  highlights: { label: string; image: string }[];
-};
-
-const MOCK_USER_DATA: Record<string, UserRecord> = {
-  luna_sky: {
-    fullName: "Luna Sky",
-    bio: "Photographer & world traveler ✨\nAlways chasing golden hour 📸\nLife is better in golden tones",
-    website: "lunasky.photo",
-    followers: 124000,
-    following: 892,
-    posts: 347,
-    isVerified: true,
-    isPrivate: false,
-    location: "Santorini, Greece",
-    mutualFollowers: ["alex.w", "mia_nearby", "kai_adventures"],
-    followsYou: true,
-    coverSeed: "lunacover",
-    highlights: [
-      { label: "Travel", image: "https://picsum.photos/seed/hl1/100/100" },
-      { label: "Sunsets", image: "https://picsum.photos/seed/hl2/100/100" },
-      { label: "Art", image: "https://picsum.photos/seed/hl3/100/100" },
-      { label: "Coffee", image: "https://picsum.photos/seed/hl4/100/100" },
-    ],
-  },
-  marcus_vibe: {
-    fullName: "Marcus Rivera",
-    bio: "Music producer 🎵\nDog dad 🐕\nStudio sessions > everything",
-    followers: 89000,
-    following: 543,
-    posts: 201,
-    isVerified: false,
-    isPrivate: false,
-    location: "New York, NY",
-    mutualFollowers: ["zoe.creates"],
-    followsYou: false,
-    coverSeed: "marcuscover",
-    highlights: [
-      { label: "Music", image: "https://picsum.photos/seed/hl5/100/100" },
-      { label: "Dogs", image: "https://picsum.photos/seed/hl6/100/100" },
-    ],
-  },
-  "zoe.creates": {
-    fullName: "Zoe Patel",
-    bio: "Artist & content creator 🎨\nCreating worlds with color\nCommissions: open",
-    website: "zoecreates.art",
-    followers: 204000,
-    following: 1204,
-    posts: 512,
-    isVerified: true,
-    isPrivate: false,
-    location: "Los Angeles, CA",
-    mutualFollowers: ["luna_sky", "mia_nearby"],
-    followsYou: true,
-    coverSeed: "zoecover",
-    highlights: [
-      { label: "Art", image: "https://picsum.photos/seed/hl7/100/100" },
-      { label: "Process", image: "https://picsum.photos/seed/hl8/100/100" },
-      { label: "Behind", image: "https://picsum.photos/seed/hl9/100/100" },
-    ],
-  },
-  kai_adventures: {
-    fullName: "Kai Tanaka",
-    bio: "Adventure is my middle name 🏔️\nChasing horizons worldwide 🌍",
-    followers: 56000,
-    following: 342,
-    posts: 189,
-    isVerified: false,
-    isPrivate: false,
-    location: "Patagonia, Argentina",
-    mutualFollowers: ["luna_sky"],
-    followsYou: false,
-    coverSeed: "kaicover",
-    highlights: [
-      { label: "Mountains", image: "https://picsum.photos/seed/hlk1/100/100" },
-      { label: "Hiking", image: "https://picsum.photos/seed/hlk2/100/100" },
-    ],
-  },
-  "nadia.official": {
-    fullName: "Nadia Gomez",
-    bio: "Actress & creator 🎬\nBig INTJ energy ⚡\nLA → NYC",
-    followers: 432000,
-    following: 891,
-    posts: 634,
-    isVerified: true,
-    isPrivate: false,
-    location: "Los Angeles, CA",
-    mutualFollowers: ["luna_sky", "zoe.creates", "kai_adventures"],
-    followsYou: false,
-    coverSeed: "nadiacover",
-    highlights: [
-      { label: "Shoots", image: "https://picsum.photos/seed/hln1/100/100" },
-      { label: "BTS", image: "https://picsum.photos/seed/hln2/100/100" },
-      { label: "Life", image: "https://picsum.photos/seed/hln3/100/100" },
-    ],
-  },
-};
-
-function getDefaultData(username: string): UserRecord {
-  const seed = username.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
-  return {
-    fullName: username.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    bio: "Living life one vibe at a time ✨",
-    followers: (seed % 50000) + 500,
-    following: (seed % 500) + 50,
-    posts: (seed % 100) + 5,
-    isVerified: false,
-    isPrivate: seed % 5 === 0,
-    location: "",
-    mutualFollowers: [],
-    followsYou: seed % 3 === 0,
-    coverSeed: username + "cover",
-    highlights: [],
-  };
-}
-
-const GRID_IMAGES: MediaItem[] = Array.from({ length: 15 }, (_, i) => ({
-  id: `g${i}`,
-  image: `https://picsum.photos/seed/grid${i + 1}/400/400`,
-  likes: Math.floor((i + 1) * 317 + 100),
-  caption: i % 3 === 0 ? "Golden hour hits different ✨ #vibes #photography" : undefined,
-  isVideo: i % 5 === 0,
-}));
 
 const REPORT_REASONS = [
   "Spam or fake account",
@@ -178,10 +53,11 @@ const REPORT_REASONS = [
   "Other",
 ];
 
-function ThreeDotsModal({ visible, onClose, username, myId, onBlocked }: {
+function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked }: {
   visible: boolean;
   onClose: () => void;
   username: string;
+  userId?: string;
   myId?: string;
   onBlocked?: () => void;
 }) {
@@ -195,7 +71,7 @@ function ThreeDotsModal({ visible, onClose, username, myId, onBlocked }: {
     if (!myId) { Alert.alert("Sign in to block users"); return; }
     setBlocking(true);
     try {
-      await blockUser(myId, username);
+      await blockUser(myId, userId ?? username);
       onClose();
       onBlocked?.();
       Alert.alert("Blocked", `You blocked @${username}. They won't see your content.`);
@@ -288,24 +164,70 @@ export default function UserProfileScreen() {
   const insets = useSafeAreaInsets();
   const [following, setFollowing] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [posts, setPosts] = useState<ProfileGridItem[]>([]);
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged">("posts");
   const [showMenu, setShowMenu] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; startIndex: number }>({ visible: false, startIndex: 0 });
 
-  useEffect(() => {
-    if (!myId || !username) return;
-    isUserBlocked(myId, username).then(setIsBlocked).catch(() => {});
-  }, [myId, username]);
-
   const u = username ?? "";
-  const userData: UserRecord = MOCK_USER_DATA[u] ?? getDefaultData(u);
+
+  useEffect(() => {
+    if (!u) return;
+    lookupProfileByUsername(u).then((p) => { if (p) setProfile(p); }).catch(() => {});
+  }, [u]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    fetchProfilePosts(profile.id).then(setPosts).catch(() => {});
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!myId || !profile?.id) return;
+    checkIsFollowing(myId, profile.id).then(setFollowing).catch(() => {});
+    isUserBlocked(myId, profile.id).then(setIsBlocked).catch(() => {});
+  }, [myId, profile?.id]);
+
+  const handleFollow = async () => {
+    if (!myId || !profile?.id) return;
+    const nowFollowing = !following;
+    setFollowing(nowFollowing);
+    try {
+      if (nowFollowing) {
+        await supabase.from("follows").insert({ follower_id: myId, following_id: profile.id });
+      } else {
+        await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", profile.id);
+      }
+    } catch {}
+  };
 
   const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
-  const mutualText = userData.mutualFollowers.length > 0
-    ? `Followed by ${userData.mutualFollowers.slice(0, 2).join(", ")}${userData.mutualFollowers.length > 2 ? ` and ${userData.mutualFollowers.length - 2} others` : ""}`
-    : null;
+  const mutualText = null;
 
-  const gridData = GRID_IMAGES.map((item) => ({ ...item, username: u }));
+  const userData = {
+    fullName: (profile as any)?.display_name ?? u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    bio: profile?.bio ?? "",
+    website: profile?.website,
+    followers: profile?.followers_count ?? 0,
+    following: profile?.following_count ?? 0,
+    posts: profile?.posts_count ?? posts.length,
+    isVerified: profile?.is_verified ?? false,
+    isPrivate: profile?.is_private ?? false,
+    location: profile?.location ?? "",
+    mutualFollowers: [] as string[],
+    followsYou: false,
+    coverSeed: `${u}cover`,
+    highlights: [] as { label: string; image: string }[],
+  };
+
+  const gridData: Array<{ id: string; image: string; likes: number; caption?: string; isVideo?: boolean; username: string }> = posts.map((p) => ({
+    id: p.id,
+    image: p.image_url || `https://picsum.photos/seed/${p.id}/400/400`,
+    likes: p.likes,
+    caption: p.caption,
+    isVideo: p.isReel,
+    username: u,
+  }));
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -429,7 +351,7 @@ export default function UserProfileScreen() {
 
           <View style={styles.actionRow}>
             <TouchableOpacity
-              onPress={() => setFollowing((f) => !f)}
+              onPress={handleFollow}
               style={[
                 styles.followBtn,
                 following && { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
@@ -551,6 +473,7 @@ export default function UserProfileScreen() {
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         username={u}
+        userId={profile?.id}
         myId={myId}
         onBlocked={() => { setIsBlocked(true); router.back(); }}
       />

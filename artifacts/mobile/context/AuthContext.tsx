@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { ensureUserSetup } from "@/lib/db";
 
 interface AuthContextType {
   session: Session | null;
@@ -29,6 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+      if (session?.user && (_event === "SIGNED_IN" || _event === "TOKEN_REFRESHED")) {
+        const u = session.user;
+        const username = u.user_metadata?.username ?? u.email?.split("@")[0] ?? "user";
+        ensureUserSetup(u.id, username, u.email ?? undefined).catch(() => {});
+      }
     });
 
     return () => subscription.unsubscribe();

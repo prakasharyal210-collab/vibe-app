@@ -15,7 +15,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { fetchConversations } from "@/lib/db";
-import { Conversation, MOCK_CONVERSATIONS, timeAgo } from "@/lib/supabase";
+import { Conversation, timeAgo } from "@/lib/supabase";
 
 function ConversationItem({ convo }: { convo: Conversation }) {
   const colors = useColors();
@@ -83,7 +83,7 @@ export default function InboxScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const [search, setSearch] = useState("");
-  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 

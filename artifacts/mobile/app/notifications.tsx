@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/db";
-import { MOCK_NOTIFICATIONS, Notification, supabase } from "@/lib/supabase";
+import { Notification, supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
 function notifTypeText(type: string): string {
@@ -105,7 +105,7 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
     if (!session?.user?.id) return;

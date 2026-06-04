@@ -1,0 +1,134 @@
+Final complete check - make sure EVERY feature 
+is properly connected to Supabase:
+
+COMPLETE CONNECTION AUDIT:
+
+1. AUTH:
+- Sign up → creates profile + wallet + 
+  vibe_scores + user_settings automatically
+- Login → loads user session
+- Logout → clears session
+- Auto login if session exists
+
+2. POSTS:
+- Create post → uploads to storage/posts bucket
+  → inserts into posts table
+  → extracts hashtags → saves to hashtags table
+  → posts_count +1 on profile automatically
+- Load feed → get_for_you_feed() or 
+  get_friends_feed()
+- Like → toggle_like() → likes_count updates
+- Comment → add_post_comment() → 
+  comments_count updates
+- Share → generates vibe.app/@user/post/id
+- Save → insert into favourites table
+- Delete → removes from posts + storage
+
+3. REELS:
+- Create reel → uploads to storage/reels bucket
+  → inserts into reels table
+  → reel_scores initialized
+  → posts_count +1 on profile
+- Load reels → get_for_you_reels() or
+  get_following_reels()
+- Track view → track_reel_view() after 2 seconds
+- Like → toggle_reel_like()
+- Comment → add_reel_comment()
+- Save → toggle_reel_save()
+- Share → generates vibe.app/@user/reel/id
+
+4. STORIES:
+- Create → uploads to storage/stories bucket
+  → inserts into stories table
+  → expires_at = now() + 24 hours
+- Load → get_friends_stories()
+- View → mark_story_viewed()
+- Reply → send_message()
+- Highlight → create_highlight()
+- Load highlights → get_highlights()
+
+5. PROFILE:
+- Load → get_full_profile(username, viewerId)
+- Stats → get_profile_stats(userId)
+- Posts → get_profile_posts(userId, viewerId, type)
+- Edit → update_profile()
+- Follow → toggle_follow()
+- Stats update in real time
+
+6. MESSAGES:
+- Load inbox → get_conversations(userId)
+- Open chat → get_messages(conversationId, userId)
+- Send → send_message()
+- Real time → Supabase channel subscription
+- Unread count → get_total_unread(userId)
+- Mark read → mark_messages_read()
+
+7. NOTIFICATIONS:
+- Load → get_notifications(userId)
+- Unread count → get_unread_notifications(userId)
+- Mark read → mark_all_notifications_read()
+- Real time → Supabase channel subscription
+- Bell badge updates instantly
+
+8. FIND VIBE:
+- Load matches → get_vibe_matches()
+- Swipe right → send_vibe_request()
+- Match → auto creates conversation
+- My matches → get_my_vibe_matches()
+- Setup preferences → update_vibe_preferences()
+
+9. SEARCH:
+- Search → search_content(query, type)
+- Save history → save_search()
+- Load history → from search_history table
+- Hashtag page → get_hashtag_posts()
+- Music page → get_music_posts()
+- Location page → get posts by location_id
+
+10. WALLET:
+- Load → from wallet table
+- Daily reward → claim_daily_reward()
+- Transactions → from coin_transactions table
+- Achievements → from user_achievements table
+- Leaderboard → from leaderboard table
+
+11. SETTINGS:
+- Load → from user_settings table
+- Save → upsert into user_settings
+- All toggles save immediately
+- Privacy settings respected throughout app
+
+12. LIVE:
+- Start → insert into live_streams
+  → profile is_live = true
+- Comments → live_comments real time
+- Viewers → live_viewers real time
+- Gifts → gifts table + wallet update
+- End → is_active = false
+  → profile is_live = false
+
+13. ALGORITHM:
+- Every post view → mark_post_seen()
+- Every reel view → track_reel_view()
+- Every interaction → track_user_interest()
+- Scores update automatically via triggers
+- Feed personalized based on interests
+
+14. REAL TIME SUBSCRIPTIONS:
+Start these on app login:
+- notifications channel → bell badge
+- messages channel → inbox badge
+- posts channel → feed updates
+- profiles channel → count updates
+- stories channel → stories bar
+
+15. FIND FRIENDS:
+- Phone contacts → find_users_by_contacts()
+- Referral → process_referral()
+- Social connections → social_connections table
+
+Fix anything that is NOT properly connected.
+Make sure every single feature saves to 
+and loads from Supabase correctly.
+No mock data anywhere.
+Everything real and working.

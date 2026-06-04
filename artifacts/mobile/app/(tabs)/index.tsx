@@ -60,20 +60,6 @@ interface Reel {
   isVerified?: boolean;
 }
 
-// ─── Mock data ───────────────────────────────────────────────────────────────────
-const MOCK_REELS: Reel[] = [
-  { id: "r1", image: "https://picsum.photos/seed/reel1/450/900", username: "luna_sky", caption: "Golden hour hits different 🌅 #sunset #vibes #photography", likes: 124300, comments: 8432, shares: 2910, views: 1240000, sound: "Original Sound · luna_sky", isVerified: true },
-  { id: "r2", image: "https://picsum.photos/seed/reel2/450/900", username: "marcus_vibe", caption: "City nights never sleep ✨ #citylife #nightout #aesthetic", likes: 89100, comments: 3421, shares: 1289, views: 892000, sound: "Blinding Lights — The Weeknd" },
-  { id: "r3", image: "https://picsum.photos/seed/reel3/450/900", username: "zoe.creates", caption: "Art takes time 🎨 follow the process #art #creative #design", likes: 204000, comments: 12840, shares: 8920, views: 2040000, sound: "original sound · zoe.creates", isVerified: true },
-  { id: "r4", image: "https://picsum.photos/seed/reel4/450/900", username: "kai_adventures", caption: "Hiking this trail was insane 🏔️ #adventure #nature #hike #outdoors", likes: 56200, comments: 2341, shares: 892, views: 562000, sound: "Mountain High — Lo-Fi Beats" },
-  { id: "r5", image: "https://picsum.photos/seed/reel5/450/900", username: "nadia.official", caption: "Friday mood activated 🎉 #weekend #vibes #fyp #trending", likes: 432100, comments: 24300, shares: 18920, views: 4320000, sound: "Good Days — SZA", isVerified: true },
-  { id: "r6", image: "https://picsum.photos/seed/reel6/450/900", username: "alex.w", caption: "New studio session dropped 🎵 #music #studio #producer #hiphop", likes: 67800, comments: 4320, shares: 1890, views: 678000, sound: "Unreleased · alex.w" },
-];
-
-const MOCK_FOLLOWING_REELS: Reel[] = [
-  { id: "f1", image: "https://picsum.photos/seed/follow1/450/900", username: "alex.w", caption: "Behind the scenes of the new track 🎧 #music #studio", likes: 12300, comments: 432, shares: 210, views: 123000, sound: "Unreleased · alex.w" },
-  { id: "f2", image: "https://picsum.photos/seed/follow2/450/900", username: "zoe.creates", caption: "New piece dropping tomorrow 🎨 #art #sneak peek", likes: 8900, comments: 321, shares: 189, views: 89000, sound: "Lofi Chill — Beats", isVerified: true },
-];
 
 const TRENDING_SOUNDS = [
   { id: "s1", name: "Good Days", artist: "SZA", uses: "2.1M" },
@@ -479,8 +465,8 @@ export default function ReelsScreen() {
   const [soundOn, setSoundOn] = useState(true);
   const [showSounds, setShowSounds] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const [forYouReels, setForYouReels] = useState(MOCK_REELS);
-  const [followingReels, setFollowingReels] = useState(MOCK_FOLLOWING_REELS);
+  const [forYouReels, setForYouReels] = useState<Reel[]>([]);
+  const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 

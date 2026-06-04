@@ -1622,6 +1622,75 @@ export async function toggleFollowUser(myId: string, otherId: string): Promise<b
   return false;
 }
 
+// ─── Public Profile Lookup ────────────────────────────────────────────────────
+
+export interface PublicProfile {
+  id: string;
+  username: string;
+  bio?: string;
+  avatar_url?: string;
+  cover_url?: string;
+  location?: string;
+  website?: string;
+  is_verified?: boolean;
+  is_private?: boolean;
+  followers_count?: number;
+  following_count?: number;
+  posts_count?: number;
+}
+
+export async function lookupProfileByUsername(username: string): Promise<PublicProfile | null> {
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, username, bio, avatar_url, cover_url, location, website, is_verified, is_private, followers_count, following_count, posts_count")
+      .eq("username", username)
+      .maybeSingle();
+    if (!error && data) return data as PublicProfile;
+  } catch {}
+  return null;
+}
+
+export async function checkIsFollowing(followerId: string, followingId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("follows")
+      .select("id")
+      .eq("follower_id", followerId)
+      .eq("following_id", followingId)
+      .maybeSingle();
+    return !!data;
+  } catch {}
+  return false;
+}
+
+export async function ensureUserSetup(userId: string, username: string, email?: string): Promise<void> {
+  try {
+    const { data: existing } = await supabase.from("profiles").select("id").eq("id", userId).maybeSingle();
+    if (!existing) {
+      await supabase.from("profiles").insert({ id: userId, username, email });
+    }
+  } catch {}
+  try {
+    const { data: wallet } = await supabase.from("wallet").select("id").eq("user_id", userId).maybeSingle();
+    if (!wallet) {
+      await supabase.from("wallet").insert({ user_id: userId, coins: 100, total_earnings: 0 });
+    }
+  } catch {}
+  try {
+    const { data: settings } = await supabase.from("user_settings").select("id").eq("user_id", userId).maybeSingle();
+    if (!settings) {
+      await supabase.from("user_settings").insert({ user_id: userId });
+    }
+  } catch {}
+  try {
+    const { data: vs } = await supabase.from("vibe_scores").select("id").eq("user_id", userId).maybeSingle();
+    if (!vs) {
+      await supabase.from("vibe_scores").insert({ user_id: userId, score: 100, level: 1 });
+    }
+  } catch {}
+}
+
 // ─── Nearby Users ──────────────────────────────────────────────────────────────
 
 export async function getNearbyUsers(
