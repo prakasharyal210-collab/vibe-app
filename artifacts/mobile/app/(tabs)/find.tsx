@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -1043,6 +1044,7 @@ export default function FindVibeScreen() {
   const isLoggedIn = !!session;
   const userId = session?.user?.id;
 
+  const mainTabSwipe = useMainTabSwipe("find");
   const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "matches">("nearby");
   const pagerRef = useRef<SwipeablePagerRef>(null);
   const underlineX = useRef(new RNAnimated.Value(0)).current;
@@ -1174,7 +1176,7 @@ export default function FindVibeScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
         <View style={[styles.guestContainer, { paddingTop: topInset + 40 }]}>
           <Text style={styles.guestEmoji}>💜</Text>
           <Text style={[styles.guestTitle, { color: colors.foreground }]}>Find Your Vibe</Text>
@@ -1198,7 +1200,7 @@ export default function FindVibeScreen() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
         <View style={styles.headerActions}>

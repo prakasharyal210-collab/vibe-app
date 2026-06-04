@@ -1,0 +1,159 @@
+Fix ALL swipe navigation throughout the app:
+
+1. REELS SCREEN - Two level swipes:
+
+HORIZONTAL SWIPE (top level):
+- Swipe LEFT/RIGHT to switch between 
+  "Following" and "For You" tabs
+- Tab indicator slides smoothly
+- Content slides with finger
+
+VERTICAL SWIPE (inside each tab):
+- Swipe UP → next reel
+- Swipe DOWN → previous reel
+- This is the PRIMARY gesture on reels
+
+GESTURE PRIORITY on Reels:
+- If finger moves MORE vertically → scroll reels
+- If finger moves MORE horizontally → switch tabs
+- Detect in first 10px of movement
+- Lock direction once detected
+- Never conflict between the two
+
+REELS TAB LAYOUT:
+┌─────────────────────────┐
+│  Following  │  For You  │ ← swipe left/right
+│             ↑           │
+│    [REEL    │  swipe    │
+│    VIDEO]   │  up/down  │
+│             ↓           │
+└─────────────────────────┘
+
+2. FEED SCREEN - Two level swipes:
+
+HORIZONTAL SWIPE:
+- Swipe LEFT → Friends tab
+- Swipe RIGHT → For You tab
+- Tab indicator syncs
+
+VERTICAL SWIPE:
+- Normal scroll through posts
+- Pull down to refresh
+
+3. FIND VIBE - Three level swipes:
+
+HORIZONTAL TAB SWIPE:
+- Near | Vibe | Daily | Rooms | Matches
+- Swipe between tabs
+
+CARD SWIPE (on Near/Vibe tabs):
+- Swipe RIGHT on card → Like ❤️
+- Swipe LEFT on card → Skip ✕
+- These are CARD level gestures
+- Don't conflict with tab swipes
+
+VERTICAL:
+- Normal scroll in Rooms/Matches tabs
+
+4. MAIN APP - Swipe between screens:
+
+HORIZONTAL SWIPE at root level:
+- Reels → Feed → Find Vibe → Profile
+- Swipe left/right between main tabs
+- Create tab skipped in swipe
+
+5. IMPLEMENTATION:
+
+For Reels (nested swipes):
+Use react-native-gesture-handler with 
+simultaneous gesture support:
+
+import { 
+  GestureDetector, 
+  Gesture,
+  GestureHandlerRootView 
+} from 'react-native-gesture-handler'
+
+// Vertical gesture for reel scrolling
+const verticalGesture = Gesture.Pan()
+  .onUpdate((e) => {
+    if (Math.abs(e.translationY) > 
+        Math.abs(e.translationX)) {
+      handleReelScroll(e.translationY)
+    }
+  })
+  .onEnd((e) => {
+    if (e.translationY < -50) nextReel()
+    if (e.translationY > 50) prevReel()
+  })
+
+// Horizontal gesture for tab switching
+const horizontalGesture = Gesture.Pan()
+  .onUpdate((e) => {
+    if (Math.abs(e.translationX) > 
+        Math.abs(e.translationY)) {
+      handleTabSwipe(e.translationX)
+    }
+  })
+  .onEnd((e) => {
+    if (e.translationX < -50) switchToForYou()
+    if (e.translationX > 50) switchToFollowing()
+  })
+
+// Race gesture - first one wins
+const gesture = Gesture.Race(
+  verticalGesture,
+  horizontalGesture
+)
+
+6. ANIMATIONS:
+
+Reel scroll animation:
+- Current reel slides up/down
+- Next reel slides in from bottom/top
+- Smooth spring physics
+- Velocity based (fast swipe = instant)
+
+Tab switch animation:
+- Content slides left/right
+- Tab indicator follows
+- Slight scale effect on transition
+
+7. VISUAL INDICATORS:
+
+On Reels screen show:
+- Small dots or tab labels at top
+- "Following ←→ For You"
+- Active tab bolder/brighter
+- Subtle peek of other tab at edge
+
+On Feed show:
+- "For You ←→ Friends" tabs
+- Gradient underline follows swipe
+
+8. EDGE CASES:
+
+- At first reel: can't swipe down
+- At last reel: load more reels
+- At first tab: can't swipe right
+- At last tab: can't swipe left
+- Bounce effect at boundaries
+
+9. PERFORMANCE:
+
+- Preload adjacent reels (current ± 2)
+- Lazy load tab content
+- 60fps guaranteed
+- No dropped frames on swipe
+- Cancel animations if new gesture starts
+
+Make sure ALL of these work together:
+✅ Swipe up/down = next/prev reel
+✅ Swipe left/right = Following/ForYou tab
+✅ Main app swipe between screens
+✅ Find Vibe card swipes
+✅ Find Vibe tab swipes
+✅ Feed tab swipes
+✅ No conflicts anywhere
+✅ Smooth 60fps always
+✅ Works on Android

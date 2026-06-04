@@ -473,6 +473,7 @@ export default function ReelsScreen() {
   const isLoggedIn = !!session;
 
   const [feedTab, setFeedTab] = useState<"foryou" | "following">("foryou");
+  const feedTabRef = useRef<"foryou" | "following">("foryou");
   const [activeIndex, setActiveIndex] = useState(0);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
@@ -481,6 +482,7 @@ export default function ReelsScreen() {
   const [forYouReels, setForYouReels] = useState(MOCK_REELS);
   const [followingReels, setFollowingReels] = useState(MOCK_FOLLOWING_REELS);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
 
@@ -545,10 +547,17 @@ export default function ReelsScreen() {
   const feedPanResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5 && Math.abs(gs.dx) > 25,
+        Math.abs(gs.dx) > Math.abs(gs.dy) * 1.8 && Math.abs(gs.dx) > 25,
       onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -40) switchTab("foryou");
-        else if (gs.dx > 40) switchTab("following");
+        if (gs.dx < -40) {
+          if (feedTabRef.current === "foryou") {
+            router.navigate("/(tabs)/feed" as any);
+          } else {
+            switchTab("foryou");
+          }
+        } else if (gs.dx > 40) {
+          switchTab("following");
+        }
       },
     })
   ).current;
@@ -556,7 +565,7 @@ export default function ReelsScreen() {
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
   return (
-    <View style={S.container}>
+    <View style={S.container} {...feedPanResponder.panHandlers}>
       <FlatList
         ref={flatListRef}
         data={reels}
@@ -601,7 +610,7 @@ export default function ReelsScreen() {
       {/* ── Fixed top bar ───────────────────────────────────────────────── */}
       <View style={[S.topBar, { paddingTop: topPad + 6 }]} pointerEvents="box-none">
         {/* Following / For You tabs */}
-        <View style={S.topTabs} {...feedPanResponder.panHandlers}>
+        <View style={S.topTabs}>
           <TouchableOpacity onPress={() => switchTab("following")} style={S.topTabBtn}>
             <Text style={[S.topTabText, feedTab === "following" && S.topTabTextActive]}>Following</Text>
             {feedTab === "following" && <View style={S.topTabUnderline} />}

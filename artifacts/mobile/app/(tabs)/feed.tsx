@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, {
   useCallback,
   useEffect,
@@ -341,6 +342,7 @@ export default function FeedScreen() {
   const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url: string; likes_count: number }[]>([]);
 
   const pagerRef = useRef<ScrollView>(null);
+  const mainTabSwipe = useMainTabSwipe("feed");
   const scrollX = useRef(new Animated.Value(0)).current;
   const pillsAnim = useRef(new Animated.Value(1)).current;
   const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
@@ -511,7 +513,7 @@ export default function FeedScreen() {
   }, [tabStates, colors, trendingPosts]);
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       {/* Fixed Header */}
       <View style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background }]}>
         <View style={styles.headerTop}>

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import {
   Alert,
   Animated,
@@ -338,6 +339,7 @@ export default function ProfileScreen() {
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
+  const mainTabSwipe = useMainTabSwipe("profile");
 
   useEffect(() => {
     if (!session?.user?.id || activeTab !== "tagged") return;
@@ -419,7 +421,7 @@ export default function ProfileScreen() {
 
   if (!isLoggedIn) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
         <GuestProfile />
         <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
       </View>
@@ -550,7 +552,7 @@ export default function ProfileScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       <FlatList
         data={gridData}
         keyExtractor={(item) => item.id}
