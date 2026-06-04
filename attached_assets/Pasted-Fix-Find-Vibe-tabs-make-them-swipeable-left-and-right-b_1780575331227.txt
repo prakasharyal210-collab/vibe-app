@@ -1,0 +1,120 @@
+Fix Find Vibe tabs - make them swipeable 
+left and right between tabs:
+
+CURRENT PROBLEM:
+- Find Vibe has tabs: Near | Vibe | Daily | Rooms | Matches
+- Tabs are NOT swipeable left/right
+- Only tappable
+
+FIX - Add swipe navigation:
+
+1. Wrap all tab content in a PagerView or 
+   horizontal ScrollView with paging enabled:
+
+import PagerView from 'react-native-pager-view'
+
+<PagerView
+  style={{ flex: 1 }}
+  initialPage={0}
+  onPageSelected={(e) => {
+    setActiveTab(e.nativeEvent.position)
+  }}
+>
+  <View key="0">{nearContent}</View>
+  <View key="1">{vibeContent}</View>
+  <View key="2">{dailyContent}</View>
+  <View key="3">{roomsContent}</View>
+  <View key="4">{matchesContent}</View>
+</PagerView>
+
+2. TAB INDICATOR syncs with swipe:
+- When user swipes tab indicator moves
+- Smooth animated underline follows finger
+- Tab text highlights as you swipe
+- Same as TikTok and Instagram behavior
+
+3. TAB ORDER (left to right):
+- Page 0: Near 📍
+- Page 1: Vibe ✨  
+- Page 2: Daily ⭐
+- Page 3: Rooms 🏠
+- Page 4: Matches 💜
+
+4. SWIPE GESTURE:
+- Swipe LEFT → go to next tab
+- Swipe RIGHT → go to previous tab
+- Swipe speed matches finger velocity
+- Spring animation when releasing
+- Can't swipe past first or last tab
+
+5. TAB BAR SYNCS:
+- Tapping tab → jumps to that page
+- Swiping → updates active tab indicator
+- Both ways work together perfectly
+
+6. EACH TAB CONTENT:
+Near tab:
+- Swipe cards (up/down to skip, right to like)
+- These swipes should NOT conflict with 
+  horizontal tab swipes
+- Vertical swipe on card = card action
+- Horizontal swipe on EMPTY area = tab switch
+- If finger starts on card → card action
+- If finger starts on background → tab switch
+
+Vibe tab:
+- Same swipe cards
+- Same gesture handling
+
+Daily tab:
+- Daily match card
+- Countdown timer
+
+Rooms tab:
+- Rooms grid (no swipe cards)
+- Horizontal tab swipe works normally
+
+Matches tab:
+- Matches grid (no swipe cards)
+- Horizontal tab swipe works normally
+
+7. GESTURE CONFLICT FIX:
+The tricky part is swipe cards vs tab swipe.
+Fix this by:
+
+const panResponder = PanResponder.create({
+  onMoveShouldSetPanResponder: (evt, gestureState) => {
+    // Only capture if horizontal movement
+    // is MORE than vertical (tab switch intent)
+    const isHorizontal = 
+      Math.abs(gestureState.dx) > 
+      Math.abs(gestureState.dy)
+    // And not on a swipe card
+    const isOnCard = checkIfOnCard(evt)
+    return isHorizontal && !isOnCard
+  }
+})
+
+8. VISUAL FEEDBACK:
+- As user swipes between tabs:
+  * Next tab content peeks from edge
+  * Current tab slides away
+  * Smooth 60fps animation
+  * Tab indicator smoothly slides
+
+9. Also fix Feed tabs (For You / Friends):
+- Same swipeable behavior
+- Swipe left = Friends tab
+- Swipe right = For You tab
+- Already requested but make sure it works
+
+10. Also fix Reels tabs (Following / For You):
+- Same swipeable behavior
+- All tabs throughout app swipeable
+
+Make sure:
+- No gesture conflicts
+- Smooth 60fps animations
+- Tab indicator syncs perfectly
+- Works on Android
+- Card swipes still work on Near/Vibe tabs

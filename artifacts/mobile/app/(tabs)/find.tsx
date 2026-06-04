@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated as RNAnimated,
   Dimensions,
   Image,
   Modal,
@@ -16,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import SwipeablePager, { SwipeablePagerRef } from "@/components/SwipeablePager";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   interpolate,
@@ -1042,6 +1044,10 @@ export default function FindVibeScreen() {
   const userId = session?.user?.id;
 
   const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "matches">("nearby");
+  const pagerRef = useRef<SwipeablePagerRef>(null);
+  const underlineX = useRef(new RNAnimated.Value(0)).current;
+  const tabLayouts = useRef<{ x: number; width: number }[]>([]);
+  const UNDERLINE_W = 40;
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
@@ -1183,8 +1189,6 @@ export default function FindVibeScreen() {
     );
   }
 
-  const cards: VibeCard[] = activeTab === "nearby" ? nearbyCards : sameVibeCards;
-
   const TABS = [
     { id: "nearby" as const, label: "📍 Near" },
     { id: "samevibe" as const, label: "✨ Vibe" },
@@ -1223,56 +1227,125 @@ export default function FindVibeScreen() {
         </View>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-        <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
-          {TABS.map((tab) => (
-            <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={[styles.tabBtn, activeTab === tab.id && styles.tabBtnActive]}>
-              {activeTab === tab.id && (
-                <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 1 }} style={styles.tabUnderline} />
-              )}
-              <Text style={[styles.tabText, { color: activeTab === tab.id ? colors.foreground : colors.mutedForeground }, activeTab === tab.id && styles.tabTextActive]}>
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+      {/* ── Animated tab bar ── */}
+      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
+        {TABS.map((tab, i) => (
+          <TouchableOpacity
+            key={tab.id}
+            onPress={() => {
+              pagerRef.current?.setPage(i);
+              setActiveTab(tab.id);
+              const layout = tabLayouts.current[i];
+              if (layout) {
+                RNAnimated.spring(underlineX, {
+                  toValue: layout.x + layout.width / 2 - UNDERLINE_W / 2,
+                  useNativeDriver: true,
+                  tension: 300,
+                  friction: 30,
+                }).start();
+              }
+            }}
+            onLayout={(e) => {
+              tabLayouts.current[i] = {
+                x: e.nativeEvent.layout.x,
+                width: e.nativeEvent.layout.width,
+              };
+            }}
+            style={styles.tabBtn}
+          >
+            <Text style={[styles.tabText, { color: activeTab === tab.id ? colors.foreground : colors.mutedForeground }, activeTab === tab.id && styles.tabTextActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        <RNAnimated.View
+          style={[
+            styles.tabUnderlineAnimated,
+            { transform: [{ translateX: underlineX }] },
+          ]}
+        />
+      </View>
 
-      {activeTab === "rooms" ? (
-        <VibeRoomsTab />
-      ) : activeTab === "matches" ? (
-        userId ? <MatchesTab userId={userId} /> : null
-      ) : activeTab === "daily" ? (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
-          <DailyVibeSection
-            onViewProfile={(card) => setDailyProfileCard(card)}
-            onConnect={() => {}}
-          />
-          <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
-            <Text style={[styles.historyTitle, { color: colors.foreground }]}>📅 Daily Vibe History</Text>
-            {[
-              { name: "Zoey", date: "Yesterday", matched: true, image: "https://picsum.photos/seed/h1/100/100" },
-              { name: "Marcus", date: "2 days ago", matched: false, image: "https://picsum.photos/seed/h2/100/100" },
-              { name: "Sofia", date: "3 days ago", matched: true, image: "https://picsum.photos/seed/h3/100/100" },
-            ].map((h, i) => (
-              <View key={i} style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Image source={{ uri: h.image }} style={styles.historyPhoto} />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.historyName, { color: colors.foreground }]}>{h.name}</Text>
-                  <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>{h.date}</Text>
+      {/* ── PagerView for swipeable tabs ── */}
+      <SwipeablePager
+        ref={pagerRef}
+        style={{ flex: 1 }}
+        initialPage={0}
+        onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {
+          const { position, offset } = e.nativeEvent;
+          const from = tabLayouts.current[position];
+          const to = tabLayouts.current[position + 1];
+          if (from && to) {
+            const fromCenter = from.x + from.width / 2 - UNDERLINE_W / 2;
+            const toCenter = to.x + to.width / 2 - UNDERLINE_W / 2;
+            underlineX.setValue(fromCenter + (toCenter - fromCenter) * offset);
+          }
+        }}
+        onPageSelected={(e: { nativeEvent: { position: number } }) => {
+          const page = e.nativeEvent.position;
+          setActiveTab(TABS[page].id);
+          const layout = tabLayouts.current[page];
+          if (layout) {
+            RNAnimated.spring(underlineX, {
+              toValue: layout.x + layout.width / 2 - UNDERLINE_W / 2,
+              useNativeDriver: true,
+              tension: 300,
+              friction: 30,
+            }).start();
+          }
+        }}
+      >
+        {/* Page 0 — Near */}
+        <View key="0" style={{ flex: 1 }}>
+          <SwipeCardDeck cards={nearbyCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} />
+        </View>
+
+        {/* Page 1 — Vibe */}
+        <View key="1" style={{ flex: 1 }}>
+          <SwipeCardDeck cards={sameVibeCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} />
+        </View>
+
+        {/* Page 2 — Daily */}
+        <View key="2" style={{ flex: 1 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
+            <DailyVibeSection
+              onViewProfile={(card) => setDailyProfileCard(card)}
+              onConnect={() => {}}
+            />
+            <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
+              <Text style={[styles.historyTitle, { color: colors.foreground }]}>📅 Daily Vibe History</Text>
+              {[
+                { name: "Zoey", date: "Yesterday", matched: true, image: "https://picsum.photos/seed/h1/100/100" },
+                { name: "Marcus", date: "2 days ago", matched: false, image: "https://picsum.photos/seed/h2/100/100" },
+                { name: "Sofia", date: "3 days ago", matched: true, image: "https://picsum.photos/seed/h3/100/100" },
+              ].map((h, i) => (
+                <View key={i} style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  <Image source={{ uri: h.image }} style={styles.historyPhoto} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.historyName, { color: colors.foreground }]}>{h.name}</Text>
+                    <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>{h.date}</Text>
+                  </View>
+                  <View style={[styles.historyStatus, { backgroundColor: h.matched ? "rgba(124,58,237,0.2)" : "rgba(255,255,255,0.05)" }]}>
+                    <Text style={{ color: h.matched ? "#A78BFA" : colors.mutedForeground, fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>
+                      {h.matched ? "✨ Vibed" : "Missed"}
+                    </Text>
+                  </View>
                 </View>
-                <View style={[styles.historyStatus, { backgroundColor: h.matched ? "rgba(124,58,237,0.2)" : "rgba(255,255,255,0.05)" }]}>
-                  <Text style={{ color: h.matched ? "#A78BFA" : colors.mutedForeground, fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>
-                    {h.matched ? "✨ Vibed" : "Missed"}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      ) : (
-        <SwipeCardDeck key={activeTab} cards={cards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} />
-      )}
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Page 3 — Rooms */}
+        <View key="3" style={{ flex: 1 }}>
+          <VibeRoomsTab />
+        </View>
+
+        {/* Page 4 — Matches */}
+        <View key="4" style={{ flex: 1 }}>
+          {userId ? <MatchesTab userId={userId} /> : <View />}
+        </View>
+      </SwipeablePager>
 
       {dailyProfileCard && (
         <ProfileModal
@@ -1351,10 +1424,19 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   scoreBadge: { position: "absolute", top: 16, right: 16, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   scoreText: { color: "#FBBF24", fontFamily: "Poppins_700Bold", fontSize: 12 },
-  tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4, paddingHorizontal: 4 },
-  tabBtn: { alignItems: "center", paddingVertical: 10, paddingHorizontal: 14, position: "relative", minWidth: 72 },
+  tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4, paddingHorizontal: 4, position: "relative" },
+  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 10, paddingHorizontal: 8 },
   tabBtnActive: {},
   tabUnderline: { position: "absolute", bottom: 0, left: 10, right: 10, height: 2, borderRadius: 1 },
+  tabUnderlineAnimated: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    width: 40,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "#7C3AED",
+  },
   tabText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
   tabTextActive: { fontFamily: "Poppins_700Bold" },
   deckArea: { flex: 1, alignItems: "center", paddingHorizontal: 16, paddingTop: 8 },

@@ -59,6 +59,7 @@
     "@expo-google-fonts/poppins": "^0.4.1",
     "@supabase/supabase-js": "^2.106.2",
     "expo-av": "^16.0.8",
-    "expo-camera": "~17.0.10"
+    "expo-camera": "~17.0.10",
+    "react-native-pager-view": "^6.9.1"
   }
 }

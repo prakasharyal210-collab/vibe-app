@@ -13,6 +13,7 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -541,6 +542,17 @@ export default function ReelsScreen() {
     setTimeout(() => flatListRef.current?.scrollToIndex({ index: 0, animated: false }), 50);
   };
 
+  const feedPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5 && Math.abs(gs.dx) > 25,
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dx < -40) switchTab("foryou");
+        else if (gs.dx > 40) switchTab("following");
+      },
+    })
+  ).current;
+
   const topPad = Platform.OS === "web" ? 20 : insets.top;
 
   return (
@@ -589,7 +601,7 @@ export default function ReelsScreen() {
       {/* ── Fixed top bar ───────────────────────────────────────────────── */}
       <View style={[S.topBar, { paddingTop: topPad + 6 }]} pointerEvents="box-none">
         {/* Following / For You tabs */}
-        <View style={S.topTabs}>
+        <View style={S.topTabs} {...feedPanResponder.panHandlers}>
           <TouchableOpacity onPress={() => switchTab("following")} style={S.topTabBtn}>
             <Text style={[S.topTabText, feedTab === "following" && S.topTabTextActive]}>Following</Text>
             {feedTab === "following" && <View style={S.topTabUnderline} />}
