@@ -37,11 +37,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { LoginPrompt } from "@/components/LoginPrompt";
+import { ReelAdCard } from "@/components/ReelAdCard";
 import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
@@ -467,10 +469,15 @@ export default function ReelsScreen() {
   const flatListRef = useRef<FlatList>(null);
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
+  const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
+  const displayReels = useMemo(
+    () => insertAdsInReels(reels, reelAds),
+    [reels, reelAds]
+  );
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -513,6 +520,10 @@ export default function ReelsScreen() {
     })();
   }, [session?.user?.id]);
 
+  useEffect(() => {
+    loadFeedAds(session?.user?.id, "reel").then(setReelAds).catch(() => setReelAds(HOUSE_REEL_ADS));
+  }, [session?.user?.id]);
+
   const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
     if (viewableItems[0]) setActiveIndex(viewableItems[0].index ?? 0);
   }, []);
@@ -521,14 +532,15 @@ export default function ReelsScreen() {
 
   const handleComplete = useCallback(() => {
     const next = activeIndex + 1;
-    if (next < reels.length) flatListRef.current?.scrollToIndex({ index: next, animated: true });
-  }, [activeIndex, reels.length]);
+    if (next < displayReels.length) flatListRef.current?.scrollToIndex({ index: next, animated: true });
+  }, [activeIndex, displayReels.length]);
 
   const switchTab = (tab: "foryou" | "following") => {
     setFeedTab(tab);
     setActiveIndex(0);
     setTimeout(() => {
-      if (flatListRef.current && reels.length > 0) {
+      const targetReels = tab === "foryou" ? forYouReels : followingReels;
+      if (flatListRef.current && targetReels.length > 0) {
         flatListRef.current.scrollToIndex({ index: 0, animated: false });
       }
     }, 50);
@@ -558,8 +570,8 @@ export default function ReelsScreen() {
     <View style={S.container} {...feedPanResponder.panHandlers}>
       <FlatList
         ref={flatListRef}
-        data={reels}
-        keyExtractor={(item) => item.id + feedTab}
+        data={displayReels}
+        keyExtractor={(item) => (('isAd' in item && (item as AdItem).isAd) ? `ad-${(item as AdItem).ad_id}` : (item as Reel).id) + feedTab}
         snapToInterval={SCREEN_H}
         snapToAlignment="start"
         decelerationRate="fast"
@@ -571,17 +583,34 @@ export default function ReelsScreen() {
         initialNumToRender={2}
         maxToRenderPerBatch={3}
         windowSize={5}
-        renderItem={({ item, index }) => (
-          <ReelItem
-            reel={item}
-            isActive={index === activeIndex}
-            onComplete={handleComplete}
-            onRequireLogin={() => setShowLoginPrompt(true)}
-            isLoggedIn={isLoggedIn}
-            soundOn={soundOn}
-            onToggleSound={() => setSoundOn((s) => !s)}
-          />
-        )}
+        renderItem={({ item, index }) => {
+          if ('isAd' in item && (item as AdItem).isAd) {
+            return (
+              <ReelAdCard
+                ad={item as AdItem}
+                isActive={index === activeIndex}
+                userId={session?.user?.id}
+                onSkip={() => {
+                  const next = index + 1;
+                  if (next < displayReels.length) {
+                    flatListRef.current?.scrollToIndex({ index: next, animated: true });
+                  }
+                }}
+              />
+            );
+          }
+          return (
+            <ReelItem
+              reel={item as Reel}
+              isActive={index === activeIndex}
+              onComplete={handleComplete}
+              onRequireLogin={() => setShowLoginPrompt(true)}
+              isLoggedIn={isLoggedIn}
+              soundOn={soundOn}
+              onToggleSound={() => setSoundOn((s) => !s)}
+            />
+          );
+        }}
         ListEmptyComponent={() => (
           <View style={[S.emptyState, { height: SCREEN_H }]}>
             <Text style={S.emptyEmoji}>🎬</Text>

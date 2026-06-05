@@ -23,6 +23,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AdCard } from "@/components/AdCard";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
 import { useRealtime } from "@/context/RealtimeContext";
@@ -40,6 +41,7 @@ import {
 } from "@/lib/db";
 import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
+import { AdItem, HOUSE_ADS, insertAdsInFeed, loadFeedAds } from "@/lib/ads";
 
 const { width: W } = Dimensions.get("window");
 const PAGE_SIZE = 20;
@@ -334,6 +336,7 @@ export default function FeedScreen() {
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
 
+  const [feedAds, setFeedAds] = useState<AdItem[]>(HOUSE_ADS);
   const [friendStories, setFriendStories] = useState<StoryEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -388,6 +391,10 @@ export default function FeedScreen() {
 
   useEffect(() => {
     loadTabData("foryou", true);
+  }, [userId]);
+
+  useEffect(() => {
+    loadFeedAds(userId || undefined, "feed_post").then(setFeedAds).catch(() => setFeedAds(HOUSE_ADS));
   }, [userId]);
 
   // Load friend stories (for Friends tab) + realtime subscription
@@ -470,11 +477,21 @@ export default function FeedScreen() {
     extrapolate: "clamp",
   });
 
-  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item, index }: { item: Post; index: number }) => {
-    if (userId) markPostSeen(userId, item.id).catch(() => {});
+  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item, index }: { item: Post | AdItem; index: number }) => {
+    if ('isAd' in item && item.isAd) {
+      return (
+        <AdCard
+          ad={item as AdItem}
+          userId={userId || undefined}
+          onHide={(adId) => setFeedAds((prev) => prev.filter((a) => a.ad_id !== adId))}
+        />
+      );
+    }
+    const post = item as Post;
+    if (userId) markPostSeen(userId, post.id).catch(() => {});
     return (
       <View>
-        <PostCard post={item} onRequireLogin={() => setShowLoginPrompt(true)} isLoggedIn={isLoggedIn} />
+        <PostCard post={post} onRequireLogin={() => setShowLoginPrompt(true)} isLoggedIn={isLoggedIn} />
         {tabId === "foryou" && <WhyThisButton index={index} />}
       </View>
     );
@@ -629,8 +646,8 @@ export default function FeedScreen() {
             <View key={tab.id} style={{ width: W, flex: 1 }}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
-                data={state.loading ? [] : (isTrending ? [] : filteredPosts)}
-                keyExtractor={(item) => item.id + tab.id}
+                data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
+                keyExtractor={(item) => (('isAd' in item && (item as AdItem).isAd) ? `ad-${(item as AdItem).ad_id}` : (item as Post).id) + tab.id}
                 renderItem={renderTabPost(tab.id)}
                 ListHeaderComponent={() => {
                   if (isTrending) {

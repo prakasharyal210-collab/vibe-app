@@ -72,6 +72,10 @@ function RootLayoutNav() {
         name="find-friends"
         options={{ animation: "slide_from_right" }}
       />
+      <Stack.Screen
+        name="advertise"
+        options={{ animation: "slide_from_right" }}
+      />
     </Stack>
   );
 }

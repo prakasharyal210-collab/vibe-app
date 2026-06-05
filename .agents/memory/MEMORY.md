@@ -1,1 +1,2 @@
 - [Vibe app mock-to-Supabase audit](vibe-supabase-audit.md) — all mock initial states removed; profile screen rewired to real DB lookups
+- [Vibe ads system](ads-system.md) — feed ads every 4 posts, reel ads every 3 reels; house ads fallback; AdCard + ReelAdCard + advertise screen all wired in.

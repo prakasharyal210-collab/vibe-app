@@ -1,0 +1,143 @@
+Add Facebook/TikTok style ads to the app:
+
+HOW ADS WORK IN THE FEED:
+- Every 4th or 5th post in feed = AD
+- Every 3rd reel = AD
+- Stories can have ad stories
+- Ads look like regular posts but show "Sponsored"
+
+FEED ADS (like Facebook):
+When loading feed insert ads between posts:
+
+const insertAdsInFeed = (posts, ads) => {
+  const result = []
+  posts.forEach((post, index) => {
+    result.push(post)
+    // Insert ad every 4 posts
+    if ((index + 1) % 4 === 0 && ads.length > 0) {
+      result.push({
+        ...ads[Math.floor(index/4) % ads.length],
+        isAd: true
+      })
+    }
+  })
+  return result
+}
+
+FEED AD CARD looks like regular post but:
+- Shows "Sponsored" label in grey
+- Shows advertiser name and logo
+- Shows the ad image/video
+- Shows ad caption/description
+- CTA button at bottom:
+  * "Learn More" → opens cta_url
+  * "Shop Now" → opens cta_url
+  * "Download" → opens cta_url
+  * "Sign Up" → opens cta_url
+- Three dots menu shows:
+  * "Why am I seeing this?"
+  * "Hide ad"
+  * "Report ad"
+- Tap image → opens cta_url in browser
+
+REEL ADS (like TikTok):
+- Every 3rd reel is an ad reel
+- Full screen like regular reel
+- Shows "Sponsored" top right
+- Shows advertiser username top left
+- CTA button slides up from bottom
+- "Skip Ad" after 5 seconds (optional)
+- Track view after 2 seconds
+
+STORY ADS:
+- Mixed between friend stories
+- Shows "Sponsored" at top
+- Swipe up = go to ad link
+- Can't pause story ads
+
+AD DISPLAY CODE:
+
+// Load ads from Supabase
+const loadFeedAds = async () => {
+  const { data } = await supabase
+    .rpc('get_feed_ads', {
+      p_user_id: userId,
+      p_ad_type: 'feed_post',
+      p_limit: 5
+    })
+  return data || []
+}
+
+const loadReelAds = async () => {
+  const { data } = await supabase
+    .rpc('get_feed_ads', {
+      p_user_id: userId,
+      p_ad_type: 'reel',
+      p_limit: 3
+    })
+  return data || []
+}
+
+// Track when ad is shown
+const onAdVisible = async (adId) => {
+  await supabase.rpc('track_ad_impression', {
+    p_ad_id: adId,
+    p_user_id: userId,
+    p_impression_type: 'view',
+    p_watch_duration: 0
+  })
+}
+
+// Track ad click
+const onAdClick = async (adId, ctaUrl) => {
+  await supabase.rpc('track_ad_click', {
+    p_ad_id: adId,
+    p_user_id: userId
+  })
+  // Open URL in browser
+  Linking.openURL(ctaUrl)
+}
+
+AD TARGETING:
+Ads shown based on:
+- User gender (from profiles.gender)
+- User interests (from profiles.interests)
+- User age (from profiles.age)
+- User location
+- Bid amount (higher bid = more shown)
+
+FALLBACK ADS:
+When no real ads exist show house ads:
+- Promote Vibe Premium features
+- "Get verified on Vibe ✅"
+- "Buy coins and send gifts 🎁"
+- "Start your live stream 🔴"
+- These promote Vibe's own features
+
+AD PLACEMENT:
+Feed: post, ad, post, post, post, ad, post...
+Reels: reel, reel, reel, AD, reel, reel, reel, AD...
+Stories: story, story, AD story, story...
+
+ADVERTISE ON VIBE BUTTON:
+- Add in Profile → Settings
+- "Advertise on Vibe" option
+- Opens simple form:
+  * Business name
+  * Ad image/video upload
+  * Caption
+  * CTA button text and link
+  * Daily budget ($5 minimum)
+  * Target audience (age, gender, interests)
+  * Duration (7, 14, 30 days)
+- Submit for review
+- Goes live after approval
+
+Make sure:
+- Ads load from get_feed_ads() function
+- Impressions tracked automatically
+- Clicks tracked and open URL
+- "Sponsored" label shows on all ads
+- Targeting works correctly
+- Fallback house ads when no paid ads
+- Smooth integration with feed/reels

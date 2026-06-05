@@ -362,6 +362,11 @@ export default function SettingsScreen() {
           <SettingRow icon="trash-outline" label="Clear Cache" sub={cacheCleared ? "✅ Cache cleared (48 MB freed)" : "Free up storage space · 48 MB used"} onPress={clearCache} colors={colors} iconColor="#EF4444" />
         </View>
 
+        <SectionHeader label="CREATOR TOOLS" colors={colors} />
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingRow icon="megaphone-outline" label="Advertise on Vibe" sub="Reach millions of engaged users" onPress={() => router.push("/advertise" as any)} colors={colors} iconColor="#7C3AED" />
+        </View>
+
         <SectionHeader label="ABOUT" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SettingRow icon="document-text-outline" label="Terms of Service" onPress={() => openLink("https://vibe.app/terms", "Terms of Service")} colors={colors} />

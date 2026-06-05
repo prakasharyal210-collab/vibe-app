@@ -1,0 +1,260 @@
+Add Facebook/TikTok style ads to the app:
+
+HOW ADS WORK IN THE FEED:
+- Every 4th or 5th post in feed = AD
+- Every 3rd reel = AD
+- Stories can have ad stories
+- Ads look like regular posts but show "Sponsored"
+
+FEED ADS (like Facebook):
+When loading feed insert ads between posts:
+
+const insertAdsInFeed = (posts, ads) => {
+  const result = []
+  posts.forEach((post, index) => {
+    result.push(post)
+    // Insert ad every 4 posts
+    if ((index + 1) % 4 === 0 && ads.length > 0) {
+      result.push({
+        ...ads[Math.floor(index/4) % ads.length],
+        isAd: true
+      })
+    }
+  })
+  return result
+}
+
+FEED AD CARD looks like regular post but:
+- Shows "Sponsored" label in grey
+- Shows advertiser name and logo
+- Shows the ad image/video
+- Shows ad caption/description
+- CTA button at bottom:
+  * "Learn More" → opens cta_url
+  * "Shop Now" → opens cta_url
+  * "Download" → opens cta_url
+  * "Sign Up" → opens cta_url
+- Three dots menu shows:
+  * "Why am I seeing this?"
+  * "Hide ad"
+  * "Report ad"
+- Tap image → opens cta_url in browser
+
+REEL ADS (like TikTok):
+- Every 3rd reel is an ad reel
+- Full screen like regular reel
+- Shows "Sponsored" top right
+- Shows advertiser username top left
+- CTA button slides up from bottom
+- "Skip Ad" after 5 seconds
+- Track view after 2 seconds
+
+STORY ADS:
+- Mixed between friend stories
+- Shows "Sponsored" at top
+- Swipe up = go to ad link
+
+FALLBACK HOUSE ADS:
+When no real paid ads exist show:
+- "Get verified on Vibe ✅"
+  image: purple gradient with checkmark
+  cta: "Apply Now"
+- "Buy coins and send gifts 🎁"
+  image: coins animation
+  cta: "Get Coins"  
+- "Start your live stream 🔴"
+  image: live streaming graphic
+  cta: "Go Live"
+- "Find your Vibe match 💜"
+  image: Find Vibe screenshot
+  cta: "Find Vibe"
+- "Invite friends, earn coins 🎉"
+  image: referral graphic
+  cta: "Invite Now"
+
+These house ads always show until
+real advertisers start paying.
+
+AD DISPLAY CODE:
+
+// Load ads from Supabase
+const loadFeedAds = async () => {
+  const { data } = await supabase
+    .rpc('get_feed_ads', {
+      p_user_id: userId,
+      p_ad_type: 'feed_post',
+      p_limit: 5
+    })
+  
+  // If no real ads use house ads
+  if (!data || data.length === 0) {
+    return getHouseAds()
+  }
+  return data
+}
+
+const getHouseAds = () => [
+  {
+    ad_id: 'house-1',
+    advertiser_name: 'Vibe',
+    title: 'Get Verified on Vibe ✅',
+    description: 'Stand out with a verified badge',
+    media_url: null,
+    cta_text: 'Apply Now',
+    cta_url: 'vibe://verification',
+    isAd: true,
+    isHouseAd: true
+  },
+  {
+    ad_id: 'house-2',
+    advertiser_name: 'Vibe',
+    title: 'Buy Coins & Send Gifts 🎁',
+    description: 'Support your favorite creators',
+    media_url: null,
+    cta_text: 'Get Coins',
+    cta_url: 'vibe://wallet',
+    isAd: true,
+    isHouseAd: true
+  },
+  {
+    ad_id: 'house-3',
+    advertiser_name: 'Vibe',
+    title: 'Find Your Vibe Match 💜',
+    description: 'Connect with people who match your vibe',
+    media_url: null,
+    cta_text: 'Find Vibe',
+    cta_url: 'vibe://findvibe',
+    isAd: true,
+    isHouseAd: true
+  },
+  {
+    ad_id: 'house-4',
+    advertiser_name: 'Vibe',
+    title: 'Go Live & Earn Coins 🔴',
+    description: 'Start streaming and receive gifts',
+    media_url: null,
+    cta_text: 'Go Live',
+    cta_url: 'vibe://live',
+    isAd: true,
+    isHouseAd: true
+  },
+  {
+    ad_id: 'house-5',
+    advertiser_name: 'Vibe',
+    title: 'Invite Friends & Earn 🎉',
+    description: 'Get 100 coins for every friend you invite',
+    media_url: null,
+    cta_text: 'Invite Now',
+    cta_url: 'vibe://invite',
+    isAd: true,
+    isHouseAd: true
+  }
+]
+
+// Track when ad is shown
+const onAdVisible = async (adId) => {
+  if (adId.startsWith('house-')) return
+  await supabase.rpc('track_ad_impression', {
+    p_ad_id: adId,
+    p_user_id: userId,
+    p_impression_type: 'view',
+    p_watch_duration: 0
+  })
+}
+
+// Track ad click
+const onAdClick = async (adId, ctaUrl) => {
+  if (!adId.startsWith('house-')) {
+    await supabase.rpc('track_ad_click', {
+      p_ad_id: adId,
+      p_user_id: userId
+    })
+  }
+  // Open URL
+  if (ctaUrl.startsWith('vibe://')) {
+    handleDeepLink(ctaUrl)
+  } else {
+    Linking.openURL(ctaUrl)
+  }
+}
+
+AD CARD COMPONENT:
+Create AdCard component that shows:
+- Advertiser profile photo (or Vibe logo)
+- Advertiser name + "Sponsored" in grey
+- Ad media (image or video)
+- Ad title and description
+- CTA button (gradient purple-orange)
+- Three dots menu
+
+For house ads show:
+- Vibe logo as profile photo
+- Purple/orange gradient background
+- Bold title text
+- CTA button
+
+REEL AD COMPONENT:
+Full screen like regular reel:
+- Video or image fills screen
+- "Sponsored" badge top right (orange)
+- Advertiser name bottom left
+- CTA button slides up from bottom
+- "×" skip button after 5 seconds
+- Track impression on show
+- Track click on CTA tap
+
+AD PLACEMENT IN FEED:
+posts = [p1, p2, p3, p4, AD, p5, p6, p7, p8, AD...]
+- Ad after every 4 real posts
+- Smooth integration looks natural
+- Pull to refresh loads new ads too
+
+AD PLACEMENT IN REELS:
+reels = [r1, r2, r3, AD, r4, r5, r6, AD...]
+- Ad after every 3 real reels
+- Full screen same as real reels
+- Skip after 5 seconds
+
+ADVERTISE ON VIBE (in Settings):
+- Settings → "Advertise on Vibe" 
+- Opens simple ad creation form:
+  * Business name field
+  * Upload ad image/video
+  * Ad title (max 50 chars)
+  * Ad description (max 150 chars)  
+  * CTA button text selector
+  * CTA URL field
+  * Daily budget slider ($5 - $500)
+  * Duration: 7, 14, 30 days
+  * Target gender (All/Men/Women)
+  * Target age range slider
+  * Target interests (multi select)
+- "Submit for Review" button
+- Saves to advertisers + ad_campaigns + ads tables
+- Shows "Under Review" status
+- Approved ads go live automatically
+
+WHY AM I SEEING THIS:
+When user taps "Why am I seeing this":
+Show popup:
+"You're seeing this ad because:
+- You're in the target age group
+- You're interested in [interest]
+- The advertiser wants to reach 
+  people in your area"
+
+HIDE AD:
+When user hides an ad:
+- Remove from feed immediately
+- Never show that ad again
+- Save to hidden_ads table
+
+Make sure:
+- Ads show naturally in feed and reels
+- House ads always available as fallback
+- Sponsored label always visible
+- CTA buttons work and open correct URLs
+- Impressions and clicks tracked
+- Targeting works correctly
+- Advertise on Vibe form works
+- All connected to Supabase
