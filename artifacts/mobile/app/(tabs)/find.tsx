@@ -60,7 +60,7 @@ import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
 // ── Setup timing helpers ────────────────────────────────────────────────────
-const SETUP_INTERVAL_DAYS = 60;
+const SETUP_INTERVAL_DAYS = 365;
 const BANNER_SNOOZE_DAYS = 7;
 
 // Key: 'vibe_setup_done_<userId>' — stores ISO timestamp when setup was last completed/skipped
