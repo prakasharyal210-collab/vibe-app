@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Vibe",
-    "slug": "mobile",
+    "slug": "vibe",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
