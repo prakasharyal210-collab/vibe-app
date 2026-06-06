@@ -1315,10 +1315,10 @@ export default function FindVibeScreen() {
 
   const TABS = [
     { id: "nearby" as const,   label: "📍 Near" },
+    { id: "goals" as const,    label: "🎯 Goals" },
     { id: "samevibe" as const, label: "✨ Vibe" },
     { id: "daily" as const,    label: "🌟 Daily" },
     { id: "rooms" as const,    label: "🏠 Rooms" },
-    { id: "goals" as const,    label: "🎯 Goals" },
     { id: "matches" as const,  label: "💜 Matches" },
   ];
 
@@ -1425,13 +1425,18 @@ export default function FindVibeScreen() {
           <SwipeCardDeck cards={nearbyCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
         </View>
 
-        {/* Page 1 — Vibe */}
+        {/* Page 1 — Goals Discovery */}
         <View key="1" style={{ flex: 1 }}>
+          <GoalsDiscoveryTab onGoalSelect={handleGoalDiscovery} />
+        </View>
+
+        {/* Page 2 — Vibe */}
+        <View key="2" style={{ flex: 1 }}>
           <SwipeCardDeck cards={sameVibeCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
         </View>
 
-        {/* Page 2 — Daily */}
-        <View key="2" style={{ flex: 1 }}>
+        {/* Page 3 — Daily */}
+        <View key="3" style={{ flex: 1 }}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
             <DailyVibeSection
               onViewProfile={(card) => setDailyProfileCard(card)}
@@ -1461,14 +1466,9 @@ export default function FindVibeScreen() {
           </ScrollView>
         </View>
 
-        {/* Page 3 — Rooms */}
-        <View key="3" style={{ flex: 1 }}>
-          <VibeRoomsTab />
-        </View>
-
-        {/* Page 4 — Goals Discovery */}
+        {/* Page 4 — Rooms */}
         <View key="4" style={{ flex: 1 }}>
-          <GoalsDiscoveryTab onGoalSelect={handleGoalDiscovery} />
+          <VibeRoomsTab />
         </View>
 
         {/* Page 5 — Matches */}
