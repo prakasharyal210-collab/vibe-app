@@ -63,9 +63,10 @@ import { supabase } from "@/lib/supabase";
 const SETUP_INTERVAL_DAYS = 60;
 const BANNER_SNOOZE_DAYS = 7;
 
+// Key: 'vibe_setup_done_<userId>' — stores ISO timestamp when setup was last completed/skipped
 async function shouldShowSetup(userId: string): Promise<{ show: boolean; daysSince: number }> {
   try {
-    const stored = await AsyncStorage.getItem(`vibe_setup_date:${userId}`);
+    const stored = await AsyncStorage.getItem(`vibe_setup_done_${userId}`);
     if (!stored) return { show: true, daysSince: -1 };
     const daysSince = Math.floor((Date.now() - new Date(stored).getTime()) / 86_400_000);
     return { show: daysSince >= SETUP_INTERVAL_DAYS, daysSince };
@@ -76,7 +77,7 @@ async function shouldShowSetup(userId: string): Promise<{ show: boolean; daysSin
 
 async function markSetupComplete(userId: string): Promise<void> {
   const now = new Date().toISOString();
-  await AsyncStorage.setItem(`vibe_setup_date:${userId}`, now).catch(() => {});
+  await AsyncStorage.setItem(`vibe_setup_done_${userId}`, now).catch(() => {});
   void supabase.from("user_settings").upsert({ user_id: userId, vibe_setup_last_shown: now, vibe_setup_completed_count: 1 });
 }
 
@@ -1740,30 +1741,27 @@ export default function FindVibeScreen() {
       const prefs = await getVibePreferences(userId).catch(() => null);
       setVibePrefs(prefs);
 
+      // Always load cards first — wizard is never blocking
+      loadCards(userId, prefs);
+
+      // Check 60-day timing (uses vibe_setup_done_<userId> key)
+      const { show, daysSince } = await shouldShowSetup(userId);
+
+      if (!show) return; // Completed/skipped within last 60 days — do nothing
+
       if (!prefs?.gender) {
-        // First-time user — always show full setup
+        // First-time user — show wizard once; cards already loading above
         setIsReturningUser(false);
         setInitialWizardPrefs(undefined);
         setShowSetup(true);
-        return;
+      } else {
+        // Has prefs but 60+ days passed — show gentle banner, non-blocking
+        const snoozed = await isBannerSnoozed(userId);
+        if (!snoozed) {
+          setUpdateBannerDays(daysSince);
+          setShowUpdateBanner(true);
+        }
       }
-
-      // Has prefs — check 60-day timing
-      const { show, daysSince } = await shouldShowSetup(userId);
-
-      if (!show) {
-        // Within 60 days — go straight to cards
-        loadCards(userId, prefs);
-        return;
-      }
-
-      // 60+ days passed — show gentle banner (non-blocking), still load cards
-      const snoozed = await isBannerSnoozed(userId);
-      if (!snoozed) {
-        setUpdateBannerDays(daysSince);
-        setShowUpdateBanner(true);
-      }
-      loadCards(userId, prefs);
     })();
   }, [userId]);
 
@@ -2120,7 +2118,12 @@ export default function FindVibeScreen() {
       <VibeSetupWizard
         visible={showSetup}
         onComplete={handleSetupComplete}
-        onSkip={() => { setShowSetup(false); setShowUpdateBanner(false); }}
+        onSkip={() => {
+          setShowSetup(false);
+          setShowUpdateBanner(false);
+          // Save key so wizard doesn't re-appear for 60 days
+          if (userId) void markSetupComplete(userId);
+        }}
         isReturning={isReturningUser}
         initialPrefs={initialWizardPrefs}
         lastUpdatedLabel={updateBannerDays > 0 ? `Last updated ${updateBannerDays} days ago` : undefined}

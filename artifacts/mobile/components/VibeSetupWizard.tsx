@@ -246,14 +246,14 @@ export function VibeSetupWizard({ visible, onComplete, onSkip, isReturning, init
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
       <LinearGradient colors={["#0B0B1A", "#130D2E", "#0B0B1A"]} style={[styles.container, { paddingTop: topInset }]}>
-        {/* Header row — returning users get a Skip button */}
+        {/* Header row — Skip always available */}
         <View style={styles.topRow}>
           <View style={styles.progressRow}>
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
               <Dot key={i} active={i === step} done={i < step} />
             ))}
           </View>
-          {isReturning && onSkip && (
+          {onSkip && (
             <TouchableOpacity onPress={onSkip} style={styles.topSkipBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
               <Text style={styles.topSkipText}>Skip</Text>
             </TouchableOpacity>
