@@ -24,12 +24,14 @@ import {
   blockUser,
   checkIsFollowing,
   fetchProfilePosts,
+  getOrCreateConversation,
   isUserBlocked,
   lookupProfileByUsername,
   ProfileGridItem,
   PublicProfile,
   reportContent,
   restrictUser,
+  sendVibeRequest,
 } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
@@ -203,8 +205,12 @@ export default function UserProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [following, setFollowing] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);         // I blocked them
-  const [amBlocked, setAmBlocked] = useState(false);         // They blocked me
+  const [followSaving, setFollowSaving] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [amBlocked, setAmBlocked] = useState(false);
+  const [vibeSent, setVibeSent] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfileGridItem[]>([]);
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged">("posts");
@@ -217,7 +223,15 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     if (!u) return;
-    lookupProfileByUsername(u).then((p) => { if (p) setProfile(p); setProfileLoaded(true); }).catch(() => setProfileLoaded(true));
+    lookupProfileByUsername(u)
+      .then((p) => {
+        if (p) {
+          setProfile(p);
+          setFollowersCount(p.followers_count ?? 0);
+        }
+        setProfileLoaded(true);
+      })
+      .catch(() => setProfileLoaded(true));
   }, [u]);
 
   useEffect(() => {
@@ -232,24 +246,91 @@ export default function UserProfileScreen() {
     amIBlockedBy(myId, profile.id).then(setAmBlocked).catch(() => {});
   }, [myId, profile?.id]);
 
+  // ── Follow / Unfollow ──────────────────────────────────────────────────────
   const handleFollow = async () => {
-    if (!myId || !profile?.id) return;
-    const nowFollowing = !following;
-    setFollowing(nowFollowing);
+    if (!myId || !profile?.id || followSaving) return;
+    const wasFollowing = following;
+    // Optimistic update — instant feedback
+    setFollowing(!wasFollowing);
+    setFollowersCount((n) => (!wasFollowing ? n + 1 : Math.max(0, n - 1)));
+    setFollowSaving(true);
     try {
-      if (nowFollowing) {
-        await supabase.from("follows").insert({ follower_id: myId, following_id: profile.id });
-      } else {
-        await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", profile.id);
+      // Try toggle_follow RPC first (handles duplicates gracefully)
+      const { error } = await supabase.rpc("toggle_follow", {
+        p_follower_id: myId,
+        p_following_id: profile.id,
+      });
+      if (error) throw error;
+    } catch {
+      // Fallback to direct table operations
+      try {
+        if (!wasFollowing) {
+          await supabase.from("follows").upsert(
+            { follower_id: myId, following_id: profile.id },
+            { onConflict: "follower_id,following_id" }
+          );
+        } else {
+          await supabase.from("follows").delete()
+            .eq("follower_id", myId).eq("following_id", profile.id);
+        }
+      } catch {
+        // Revert optimistic update on total failure
+        setFollowing(wasFollowing);
+        setFollowersCount((n) => (wasFollowing ? n + 1 : Math.max(0, n - 1)));
       }
-    } catch {}
+    } finally {
+      setFollowSaving(false);
+    }
+  };
+
+  // ── Open Chat ──────────────────────────────────────────────────────────────
+  const handleMessage = async () => {
+    if (!myId || !profile?.id || openingChat) return;
+    setOpeningChat(true);
+    try {
+      const convId = await getOrCreateConversation(myId, profile.id);
+      if (convId) {
+        router.push({
+          pathname: "/chat/[userId]",
+          params: {
+            userId: convId,
+            username: u,
+            avatar_url: profile.avatar_url ?? "",
+          },
+        } as any);
+      } else {
+        // Fallback: navigate with username
+        router.push({ pathname: "/chat/[userId]", params: { userId: profile.id, username: u } });
+      }
+    } catch {
+      router.push({ pathname: "/chat/[userId]", params: { userId: profile.id, username: u } });
+    } finally {
+      setOpeningChat(false);
+    }
+  };
+
+  // ── Send Vibe ──────────────────────────────────────────────────────────────
+  const handleVibe = async () => {
+    if (!myId || !profile?.id || vibeSent) return;
+    setVibeSent(true);
+    const result = await sendVibeRequest(myId, profile.id);
+    if (result === "matched") {
+      Alert.alert("🎉 It's a Match!", `You and ${userData.fullName} both vibed each other!`, [
+        { text: "Send Message 💬", onPress: handleMessage },
+        { text: "Later", style: "cancel" },
+      ]);
+    } else {
+      // result === "pending"
+      Alert.alert("💜 Vibe Sent!", `Your vibe was sent to ${userData.fullName}. If they vibe back, it's a match!`);
+    }
+    setTimeout(() => setVibeSent(false), 10000);
   };
 
   const userData = {
     fullName: (profile as any)?.display_name ?? u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
     bio: profile?.bio ?? "",
     website: profile?.website,
-    followers: profile?.followers_count ?? 0,
+    followers: followersCount,
     following: profile?.following_count ?? 0,
     posts: profile?.posts_count ?? posts.length,
     isVerified: profile?.is_verified ?? false,
@@ -368,31 +449,64 @@ export default function UserProfileScreen() {
           </View>
 
           <View style={styles.actionRow}>
+            {/* ── Follow button — gradient uses pointerEvents=none so TouchableOpacity stays tappable ── */}
             <TouchableOpacity
               onPress={handleFollow}
-              style={[styles.followBtn, following && { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }]}
-              activeOpacity={0.85}
+              activeOpacity={0.8}
+              style={[
+                styles.followBtn,
+                following
+                  ? { backgroundColor: "transparent", borderWidth: 1.5, borderColor: "#7C3AED" }
+                  : { backgroundColor: "#7C3AED" },
+              ]}
             >
               {following ? (
-                <Text style={[styles.followBtnText, { color: colors.foreground }]}>Following ✓</Text>
+                <Text style={[styles.followBtnText, { color: "#7C3AED" }]}>
+                  {followSaving ? "…" : "Following ✓"}
+                </Text>
               ) : (
-                <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.followGrad}>
-                  <Text style={[styles.followBtnText, { color: "#fff" }]}>Follow</Text>
-                </LinearGradient>
+                <>
+                  {/* Gradient as decoration only — touch handled by parent */}
+                  <LinearGradient
+                    colors={["#7C3AED", "#EA580C"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFill}
+                    pointerEvents="none"
+                  />
+                  <Text style={[styles.followBtnText, { color: "#fff" }]}>
+                    {followSaving ? "…" : "Follow"}
+                  </Text>
+                </>
               )}
             </TouchableOpacity>
+
+            {/* ── Message button ── */}
             <TouchableOpacity
-              onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: u, username: u } })}
-              style={[styles.msgBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              onPress={handleMessage}
+              disabled={openingChat}
+              style={[styles.msgBtn, { backgroundColor: colors.muted, borderColor: colors.border, opacity: openingChat ? 0.6 : 1 }]}
+              activeOpacity={0.8}
             >
               <Ionicons name="chatbubble-outline" size={15} color={colors.foreground} />
-              <Text style={[styles.msgBtnText, { color: colors.foreground }]}>Message</Text>
+              <Text style={[styles.msgBtnText, { color: colors.foreground }]}>
+                {openingChat ? "Opening…" : "Message"}
+              </Text>
             </TouchableOpacity>
+
+            {/* ── Vibe button ── */}
             <TouchableOpacity
-              onPress={() => Alert.alert("💜 Vibe Sent!", `You sent a vibe to ${userData.fullName}`)}
-              style={[styles.vibeBtn, { backgroundColor: "rgba(124,58,237,0.1)", borderColor: "rgba(124,58,237,0.4)" }]}
+              onPress={handleVibe}
+              disabled={vibeSent}
+              style={[
+                styles.vibeBtn,
+                vibeSent
+                  ? { backgroundColor: "rgba(124,58,237,0.25)", borderColor: "#7C3AED" }
+                  : { backgroundColor: "rgba(124,58,237,0.1)", borderColor: "rgba(124,58,237,0.4)" },
+              ]}
+              activeOpacity={0.8}
             >
-              <Text style={styles.vibeBtnText}>💜</Text>
+              <Text style={styles.vibeBtnText}>{vibeSent ? "✅" : "💜"}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -520,9 +634,8 @@ const styles = StyleSheet.create({
   websiteRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   websiteText: { color: "#7C3AED", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   actionRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  followBtn: { flex: 1, borderRadius: 12, overflow: "hidden", alignItems: "center", justifyContent: "center", height: 38 },
-  followGrad: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
-  followBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14 },
+  followBtn: { flex: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", height: 38, position: "relative", overflow: "hidden" },
+  followBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, zIndex: 1 },
   msgBtn: { flex: 1, flexDirection: "row", gap: 6, borderRadius: 12, alignItems: "center", justifyContent: "center", height: 38, borderWidth: 1 },
   msgBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   vibeBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },

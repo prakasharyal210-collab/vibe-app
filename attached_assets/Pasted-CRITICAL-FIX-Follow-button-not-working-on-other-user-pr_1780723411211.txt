@@ -1,0 +1,155 @@
+CRITICAL FIX - Follow button not working on 
+other user profiles. This is the most important
+button in the app!
+
+PROBLEM:
+- Follow button on @marcus_vibe profile not tappable
+- Button shows but doesn't respond to tap
+- This is happening on ALL user profiles
+
+ROOT CAUSE - Check these common issues:
+1. Button wrapped in non-touchable view
+2. Another view overlapping the button
+3. TouchableOpacity has disabled={true}
+4. zIndex issue blocking touches
+5. onPress handler not connected
+6. Supabase call failing silently
+
+FIX FOLLOW BUTTON EVERYWHERE:
+
+In profile.tsx and any other profile screen:
+Remove any view that might block touches.
+Make sure Follow button uses:
+
+<TouchableOpacity
+  onPress={handleFollow}
+  activeOpacity={0.8}
+  style={{
+    backgroundColor: isFollowing 
+      ? 'transparent' 
+      : '#8B5CF6',
+    borderWidth: isFollowing ? 1 : 0,
+    borderColor: '#8B5CF6',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+    zIndex: 999, // Make sure nothing overlaps
+  }}
+>
+  <Text style={{ color: '#fff', fontWeight: '700' }}>
+    {isFollowing ? 'Following' : 'Follow'}
+  </Text>
+</TouchableOpacity>
+
+handleFollow function:
+const handleFollow = async () => {
+  if (!userId || !profileData?.user_id) return
+  
+  try {
+    // Optimistic update first
+    setIsFollowing(!isFollowing)
+    
+    const { data, error } = await supabase
+      .rpc('toggle_follow', {
+        p_follower_id: userId,
+        p_following_id: profileData.user_id
+      })
+    
+    if (error) {
+      // Revert on error
+      setIsFollowing(isFollowing)
+      console.log('Follow error:', error)
+      return
+    }
+    
+    // Update counts
+    if (data === 'followed') {
+      setFollowersCount(prev => prev + 1)
+    } else {
+      setFollowersCount(prev => 
+        Math.max(0, prev - 1))
+    }
+    
+  } catch (err) {
+    // Revert on error
+    setIsFollowing(isFollowing)
+    console.log('Follow error:', err)
+  }
+}
+
+FIX ALL BUTTONS ON OTHER USER PROFILE:
+Make sure ALL these buttons work:
+- Follow/Unfollow button ← MOST CRITICAL
+- Message button → get_or_create_conversation()
+  then navigate to chat
+- Vibe button → send_vibe_request()
+- Three dots → opens action sheet
+- Posts grid items → opens full screen
+- Reels grid items → opens reel player
+- Followers count → opens followers list
+- Following count → opens following list
+- Back button → goes back
+
+CHECK FOR OVERLAPPING VIEWS:
+The most common cause of untappable buttons
+is a transparent view overlapping them.
+
+Add this debug temporarily:
+<View 
+  style={{ 
+    ...StyleSheet.absoluteFillObject,
+    zIndex: -1 // Make sure no overlay
+  }} 
+  pointerEvents="none"
+/>
+
+ALSO FIX - Message button:
+const handleMessage = async () => {
+  if (!userId || !profileData?.user_id) return
+  
+  const { data: convId } = await supabase
+    .rpc('get_or_create_conversation', {
+      p_user1_id: userId,
+      p_user2_id: profileData.user_id,
+      p_is_match: false
+    })
+  
+  if (convId) {
+    navigation.navigate('chat', {
+      conversationId: convId,
+      otherUserId: profileData.user_id,
+      otherUsername: profileData.username,
+      otherAvatar: profileData.avatar_url
+    })
+  }
+}
+
+ALSO FIX - Vibe button:
+const handleVibe = async () => {
+  if (!userId || !profileData?.user_id) return
+  
+  const { data } = await supabase
+    .rpc('send_vibe_request', {
+      p_sender_id: userId,
+      p_receiver_id: profileData.user_id
+    })
+  
+  if (data === 'matched') {
+    // Show match animation!
+    setShowMatchAnimation(true)
+  } else {
+    showToast('Vibe sent! 💜')
+  }
+}
+
+Make absolutely sure:
+- Follow button responds to EVERY tap
+- No overlapping invisible views
+- Optimistic update (instant feedback)
+- Supabase call happens in background
+- Error handling reverts optimistic update
+- Works on ALL user profiles
+- Works from anywhere in the app
+- Console.log any errors for debugging
