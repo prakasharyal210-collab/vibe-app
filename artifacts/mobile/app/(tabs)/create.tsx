@@ -542,7 +542,7 @@ export default function CreateScreen() {
 
         {/* ── RIGHT SIDE TOOLS (hidden during LIVE, fades during recording) ── */}
         {mode !== "Live" && (
-          <Animated.View style={[s.sideTools, { top: insets.top + 64 }, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
+          <Animated.View style={[s.sideTools, { bottom: insets.bottom + 225 }, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
             <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
               <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={22} color="#fff" /></View>
               <Text style={s.sideLabel}>Flip</Text>
@@ -744,8 +744,9 @@ export default function CreateScreen() {
 
       </View>
 
-      {/* ── VIDEO EDITOR (full screen overlay) ── */}
+      {/* ── VIDEO EDITOR (full screen overlay — must cover camera, not split with it) ── */}
       {recordedUri && (
+        <View style={StyleSheet.absoluteFill}>
         <VideoEditorSheet
           uri={recordedUri}
           isPhoto={capturedIsPhoto}
@@ -772,6 +773,7 @@ export default function CreateScreen() {
             setShowCelebration(true);
           }}
         />
+        </View>
       )}
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />

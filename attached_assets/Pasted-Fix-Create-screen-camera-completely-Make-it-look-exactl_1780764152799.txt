@@ -1,0 +1,314 @@
+Fix Create screen camera completely.
+Make it look exactly like TikTok/Instagram:
+
+PROBLEMS TO FIX:
+1. "LIVE" text cut off showing "LIVFlip"
+2. Flash & Flip labels overlapping
+3. "Photo Editor" bar showing during camera
+4. Right side panel cramped
+
+COMPLETE CAMERA REDESIGN:
+
+LAYOUT STRUCTURE:
+┌─────────────────────────┐
+│ ✕              ⏱️  ?   │ ← TOP BAR
+│                         │
+│                         │
+│      CAMERA VIEW        │
+│      (full screen)      │
+│                         │
+│                 🔄 Flip │
+│                 ⚡ Flash│ ← RIGHT TOOLS
+│                 ⏱️Timer │
+│                 🎵Music │
+│                 ✨Effects│
+│                 💄Beauty│
+│                         │
+│  [15s][30s][60s][3min]  │ ← DURATION
+│                         │
+│  POST  │ VIDEO │  LIVE  │ ← MODE TABS
+│        ●                │ ← RECORD BTN
+└─────────────────────────┘
+
+FIX 1 - TOP BAR:
+<View style={{
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  paddingHorizontal: 16,
+  paddingTop: 50,
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: 10
+}}>
+  <TouchableOpacity onPress={onClose}>
+    <Ionicons name="close" size={28} 
+      color="white" />
+  </TouchableOpacity>
+  
+  <TouchableOpacity>
+    <Ionicons name="help-circle-outline" 
+      size={28} color="white" />
+  </TouchableOpacity>
+</View>
+
+FIX 2 - RIGHT SIDE TOOLS:
+Each tool is a separate component:
+const CameraTool = ({ icon, label, onPress }) => (
+  <TouchableOpacity
+    onPress={onPress}
+    style={{
+      alignItems: 'center',
+      marginBottom: 20,
+      width: 50
+    }}
+  >
+    <View style={{
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'center',
+      alignItems: 'center'
+    }}>
+      <Ionicons name={icon} 
+        size={22} color="white" />
+    </View>
+    <Text style={{
+      color: 'white',
+      fontSize: 11,
+      marginTop: 4,
+      textShadowColor: 'black',
+      textShadowRadius: 4
+    }}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+)
+
+// Right tools container
+<View style={{
+  position: 'absolute',
+  right: 8,
+  bottom: 200,
+  alignItems: 'center',
+  zIndex: 10
+}}>
+  <CameraTool icon="camera-reverse" 
+    label="Flip" onPress={flipCamera} />
+  <CameraTool icon="flash" 
+    label="Flash" onPress={toggleFlash} />
+  <CameraTool icon="timer-outline" 
+    label="Timer" onPress={openTimer} />
+  <CameraTool icon="musical-notes" 
+    label="Music" onPress={openMusic} />
+  <CameraTool icon="sparkles" 
+    label="Effects" onPress={openEffects} />
+  <CameraTool icon="color-wand" 
+    label="Beauty" onPress={openBeauty} />
+</View>
+
+FIX 3 - BOTTOM SECTION:
+Remove "Photo Editor" bar completely!
+Replace with clean bottom controls:
+
+<View style={{
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  paddingBottom: 30,
+  zIndex: 10
+}}>
+  {/* Duration pills */}
+  <View style={{
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 16
+  }}>
+    {['15s', '30s', '60s', '3min'].map(d => (
+      <TouchableOpacity
+        key={d}
+        onPress={() => setDuration(d)}
+        style={{
+          paddingHorizontal: 16,
+          paddingVertical: 6,
+          borderRadius: 20,
+          backgroundColor: 
+            duration === d 
+              ? 'white' 
+              : 'rgba(255,255,255,0.2)'
+        }}
+      >
+        <Text style={{
+          color: duration === d 
+            ? 'black' : 'white',
+          fontWeight: '600',
+          fontSize: 13
+        }}>
+          {d}
+        </Text>
+      </TouchableOpacity>
+    ))}
+  </View>
+
+  {/* Mode tabs - POST VIDEO LIVE */}
+  <View style={{
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+    gap: 32
+  }}>
+    {['Post', 'Video', 'Live'].map(mode => (
+      <TouchableOpacity
+        key={mode}
+        onPress={() => setActiveMode(mode)}
+      >
+        <Text style={{
+          color: activeMode === mode 
+            ? 'white' : 'rgba(255,255,255,0.6)',
+          fontSize: 16,
+          fontWeight: activeMode === mode 
+            ? '700' : '400'
+        }}>
+          {mode}
+        </Text>
+        {activeMode === mode && (
+          <View style={{
+            height: 2,
+            backgroundColor: 'white',
+            borderRadius: 1,
+            marginTop: 4
+          }} />
+        )}
+      </TouchableOpacity>
+    ))}
+  </View>
+
+  {/* Record button row */}
+  <View style={{
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40
+  }}>
+    {/* Gallery picker */}
+    <TouchableOpacity
+      onPress={openGallery}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 8,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'absolute',
+        left: 40
+      }}
+    >
+      <Ionicons name="images" 
+        size={24} color="white" />
+    </TouchableOpacity>
+
+    {/* Main record button */}
+    <TouchableOpacity
+      onPress={handleRecord}
+      style={{
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        borderWidth: 4,
+        borderColor: 'white',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}
+    >
+      <View style={{
+        width: 64,
+        height: 64,
+        borderRadius: isRecording ? 8 : 32,
+        backgroundColor: isRecording 
+          ? 'red' : '#FF4458'
+      }} />
+    </TouchableOpacity>
+
+    {/* Flip camera shortcut */}
+    <TouchableOpacity
+      onPress={flipCamera}
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        position: 'absolute',
+        right: 40
+      }}
+    >
+      <Ionicons name="camera-reverse" 
+        size={24} color="white" />
+    </TouchableOpacity>
+  </View>
+</View>
+
+FIX 4 - EFFECTS from Giphy (FREE):
+Use Giphy API for stickers:
+
+const GIPHY_KEY = 'your_giphy_api_key'
+
+const loadStickers = async (query = 'trending') => {
+  const res = await fetch(
+    'https://api.giphy.com/v1/stickers/trending' +
+    '?api_key=' + GIPHY_KEY +
+    '&limit=20'
+  )
+  const data = await res.json()
+  return data.data
+}
+
+Get FREE Giphy API key at: giphy.com/developers
+
+FIX 5 - FILTERS (device-side, no storage):
+Use expo-gl or react-native-vision-camera
+for real-time filters:
+
+Filters are just color matrix transforms:
+const filters = {
+  normal: null,
+  warm: [1.2, 0, 0, 0, 0.1,
+         0, 1.1, 0, 0, 0.05,
+         0, 0, 0.9, 0, 0,
+         0, 0, 0, 1, 0],
+  cool: [0.9, 0, 0, 0, 0,
+         0, 1, 0, 0, 0.05,
+         0, 0, 1.2, 0, 0.1,
+         0, 0, 0, 1, 0],
+  vintage: [0.9, 0.1, 0, 0, 0.1,
+            0.1, 0.8, 0.1, 0, 0,
+            0, 0.1, 0.7, 0, 0.1,
+            0, 0, 0, 1, 0]
+}
+
+FIX 6 - TEXT OVERLAYS:
+After recording add text:
+- Tap screen → text input appears
+- Choose font, size, color
+- Drag to position
+- Rotate with two fingers
+
+FIX 7 - MUSIC PICKER:
+Already using Jamendo API ✅
+Show music picker bottom sheet:
+- Search bar
+- Trending songs
+- Recently used
+- Each song: tap to preview
+- "Add" to select
+
+Remove Photo Editor bar completely.
+Fix all overlapping text.
+Make it look professional like TikTok!
