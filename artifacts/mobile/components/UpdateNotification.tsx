@@ -68,63 +68,62 @@ export function UpdateBanner({
     ? "Tap to install and restart"
     : "Tap to install the latest version";
 
+  const singleLabel = downloading
+    ? `⬇️  Downloading… ${Math.round(progress * 100)}%`
+    : downloaded
+    ? "🎉  Ready to install! Tap to restart"
+    : "✨  Update available! Tap to install";
+
   return (
     <Animated.View
       style={[
         bannerStyles.container,
-        { paddingTop: insets.top + 6, transform: [{ translateY: slideY }] },
+        { paddingTop: insets.top + 4, transform: [{ translateY: slideY }] },
       ]}
       pointerEvents={visible ? "box-none" : "none"}
     >
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.92}
-        style={bannerStyles.inner}
-      >
+      <View style={bannerStyles.inner}>
         <LinearGradient
           colors={["#7C3AED", "#A855F7"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={bannerStyles.gradient}
         >
-          <View style={bannerStyles.left}>
-            <Text style={bannerStyles.emoji}>
-              {downloading ? "⬇️" : downloaded ? "🎉" : "✨"}
+          {/* Tappable label area */}
+          <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.88}
+            style={bannerStyles.labelArea}
+          >
+            <Text
+              style={bannerStyles.label}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {singleLabel}
             </Text>
-            <View style={{ flex: 1 }}>
-              <Text style={bannerStyles.title}>{label}</Text>
-              <Text style={bannerStyles.sub}>{sub}</Text>
-              {downloading && (
-                <View style={bannerStyles.progressTrack}>
-                  <Animated.View
-                    style={[
-                      bannerStyles.progressFill,
-                      { width: `${Math.round(progress * 100)}%` as any },
-                    ]}
-                  />
-                </View>
-              )}
-            </View>
-          </View>
-          {!downloading && (
-            <View style={bannerStyles.pill}>
-              <Text style={bannerStyles.pillText}>
-                {downloaded ? "Install →" : "Update →"}
-              </Text>
-            </View>
-          )}
-          {downloading && (
-            <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" />
-          )}
+            {downloading && (
+              <View style={bannerStyles.progressTrack}>
+                <Animated.View
+                  style={[
+                    bannerStyles.progressFill,
+                    { width: `${Math.round(progress * 100)}%` as any },
+                  ]}
+                />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Dismiss ✕ — in-flow, never overlaps text */}
+          <TouchableOpacity
+            onPress={onDismiss}
+            hitSlop={{ top: 12, bottom: 12, left: 14, right: 14 }}
+            style={bannerStyles.dismiss}
+          >
+            <Text style={bannerStyles.dismissText}>✕</Text>
+          </TouchableOpacity>
         </LinearGradient>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={onDismiss}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        style={bannerStyles.dismiss}
-      >
-        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 16 }}>✕</Text>
-      </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 }
@@ -138,16 +137,13 @@ const bannerStyles = StyleSheet.create({
     zIndex: 9999,
   },
   inner: { marginHorizontal: 12, marginBottom: 8, borderRadius: 16, overflow: "hidden", elevation: 8, shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10 },
-  gradient: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
-  left: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
-  emoji: { fontSize: 20 },
-  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
-  sub: { color: "rgba(255,255,255,0.78)", fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
+  gradient: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 13, gap: 0 },
+  labelArea: { flex: 1, justifyContent: "center" },
+  label: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
   progressTrack: { height: 3, backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 2, marginTop: 5, overflow: "hidden" },
   progressFill: { height: 3, backgroundColor: "#fff", borderRadius: 2 },
-  pill: { backgroundColor: "#fff", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  pillText: { color: "#7C3AED", fontFamily: "Poppins_700Bold", fontSize: 12 },
-  dismiss: { position: "absolute", top: 6, right: 18 },
+  dismiss: { paddingLeft: 12 },
+  dismissText: { color: "rgba(255,255,255,0.65)", fontSize: 15, fontFamily: "Poppins_400Regular" },
 });
 
 // ─── Update Bottom Sheet ──────────────────────────────────────────────────────

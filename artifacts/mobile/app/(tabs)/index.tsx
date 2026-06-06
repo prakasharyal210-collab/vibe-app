@@ -479,72 +479,85 @@ export default function ReelsScreen() {
     [reels, reelAds]
   );
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    const uid = session.user.id;
-    (async () => {
-      let fyLoaded = false;
-      try {
-        const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
-        if (fyData && fyData.length > 0) {
-          fyLoaded = true;
-          setForYouReels(fyData.map((r: any) => ({
-            id: r.id,
-            image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
-            username: r.username ?? r.profiles?.username ?? "user",
-            caption: r.caption ?? "",
-            likes: r.likes_count ?? 0,
-            comments: r.comments_count ?? 0,
-            shares: r.shares_count ?? 0,
-            views: r.views_count ?? 0,
-            sound: r.sound_name ?? "Original Sound",
-            isVerified: r.is_verified ?? false,
-          })));
-        }
-      } catch {}
+  // Helper: map a posts-table row to the Reel shape
+  const postToReel = (p: any): Reel => ({
+    id: `post_${p.id}`,
+    image: p.image_url ?? p.media_url ?? `https://picsum.photos/seed/${p.id}/450/900`,
+    username: p.profiles?.username ?? "user",
+    caption: p.caption ?? "",
+    likes: p.likes_count ?? 0,
+    comments: p.comments_count ?? 0,
+    shares: p.shares_count ?? 0,
+    views: p.views_count ?? 0,
+    sound: "Original Sound",
+    isVerified: p.profiles?.is_verified ?? false,
+  });
 
-      // Fallback: if no reels from RPC, show photo posts from the posts table
-      if (!fyLoaded) {
+  // Helper: fetch posts table as a reel fallback (works for guests too)
+  const loadPostsFallback = async (): Promise<Reel[]> => {
+    const { data } = await supabase
+      .from("posts")
+      .select("*, profiles!user_id(username, avatar_url, is_verified)")
+      .order("created_at", { ascending: false })
+      .limit(30);
+    return (data ?? []).map(postToReel);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const uid = session?.user?.id;
+
+      // ── For You feed ────────────────────────────────────────────────────────
+      let fyLoaded = false;
+      if (uid) {
         try {
-          const { data: postsData } = await supabase
-            .from("posts")
-            .select("*, profiles!user_id(username, avatar_url, is_verified)")
-            .order("created_at", { ascending: false })
-            .limit(20);
-          if (postsData && postsData.length > 0) {
-            setForYouReels(postsData.map((p: any) => ({
-              id: `post_${p.id}`,
-              image: p.image_url ?? p.media_url ?? `https://picsum.photos/seed/${p.id}/450/900`,
-              username: p.profiles?.username ?? "user",
-              caption: p.caption ?? "",
-              likes: p.likes_count ?? 0,
-              comments: p.comments_count ?? 0,
-              shares: p.shares_count ?? 0,
-              views: p.views_count ?? 0,
-              sound: "Original Sound",
-              isVerified: p.profiles?.is_verified ?? false,
+          const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
+          if (fyData && fyData.length > 0) {
+            fyLoaded = true;
+            setForYouReels(fyData.map((r: any) => ({
+              id: r.id,
+              image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+              username: r.username ?? r.profiles?.username ?? "user",
+              caption: r.caption ?? "",
+              likes: r.likes_count ?? 0,
+              comments: r.comments_count ?? 0,
+              shares: r.shares_count ?? 0,
+              views: r.views_count ?? 0,
+              sound: r.sound_name ?? "Original Sound",
+              isVerified: r.is_verified ?? false,
             })));
           }
         } catch {}
       }
 
-      try {
-        const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
-        if (flData && flData.length > 0) {
-          setFollowingReels(flData.map((r: any) => ({
-            id: r.id,
-            image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
-            username: r.username ?? r.profiles?.username ?? "user",
-            caption: r.caption ?? "",
-            likes: r.likes_count ?? 0,
-            comments: r.comments_count ?? 0,
-            shares: r.shares_count ?? 0,
-            views: r.views_count ?? 0,
-            sound: r.sound_name ?? "Original Sound",
-            isVerified: r.is_verified ?? false,
-          })));
-        }
-      } catch {}
+      // Fallback for both guests and logged-in users with no RPC results
+      if (!fyLoaded) {
+        try {
+          const fallback = await loadPostsFallback();
+          if (fallback.length > 0) setForYouReels(fallback);
+        } catch {}
+      }
+
+      // ── Following feed (logged-in only) ─────────────────────────────────────
+      if (uid) {
+        try {
+          const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
+          if (flData && flData.length > 0) {
+            setFollowingReels(flData.map((r: any) => ({
+              id: r.id,
+              image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+              username: r.username ?? r.profiles?.username ?? "user",
+              caption: r.caption ?? "",
+              likes: r.likes_count ?? 0,
+              comments: r.comments_count ?? 0,
+              shares: r.shares_count ?? 0,
+              views: r.views_count ?? 0,
+              sound: r.sound_name ?? "Original Sound",
+              isVerified: r.is_verified ?? false,
+            })));
+          }
+        } catch {}
+      }
     })();
   }, [session?.user?.id]);
 
@@ -639,19 +652,35 @@ export default function ReelsScreen() {
             />
           );
         }}
-        ListEmptyComponent={() => (
-          <View style={[S.emptyState, { height: SCREEN_H }]}>
-            <Text style={S.emptyEmoji}>🎬</Text>
-            <Text style={S.emptyTitle}>No reels yet</Text>
-            <Text style={S.emptySub}>Be the first to post a reel!</Text>
-            <TouchableOpacity
-              onPress={() => router.push("/(tabs)/create" as any)}
-              style={S.emptyBtn}
-            >
-              <Text style={S.emptyBtnText}>Create Reel →</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        ListEmptyComponent={() =>
+          feedTab === "following" ? (
+            <View style={[S.emptyState, { height: SCREEN_H }]}>
+              <Text style={S.emptyEmoji}>💜</Text>
+              <Text style={S.emptyTitle}>Nothing here yet</Text>
+              <Text style={S.emptySub}>
+                Follow people to see their reels here
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/search" as any)}
+                style={S.emptyBtn}
+              >
+                <Text style={S.emptyBtnText}>Find People →</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={[S.emptyState, { height: SCREEN_H }]}>
+              <Text style={S.emptyEmoji}>🎬</Text>
+              <Text style={S.emptyTitle}>No reels yet</Text>
+              <Text style={S.emptySub}>Be the first to post a reel!</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(tabs)/create" as any)}
+                style={S.emptyBtn}
+              >
+                <Text style={S.emptyBtnText}>Create Reel →</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        }
       />
 
       {/* ── Fixed top bar ───────────────────────────────────────────────── */}
