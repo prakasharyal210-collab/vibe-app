@@ -1,0 +1,109 @@
+Fix Find Vibe setup wizard - only show 
+once every 2 months, not every time:
+
+CURRENT PROBLEM:
+- Setup wizard shows too often
+- Should only show once every 2 months
+- After completing, remember for 60 days
+
+FIX - Smart timing logic:
+
+import AsyncStorage from '@react-native-async-storage/async-storage'
+
+const SETUP_INTERVAL_DAYS = 60 // 2 months
+
+const shouldShowSetup = async (userId: string) => {
+  try {
+    // Check last setup date
+    const lastSetup = await AsyncStorage.getItem(
+      `vibe_setup_${userId}`
+    )
+    
+    if (!lastSetup) {
+      // Never done setup → show it
+      return true
+    }
+    
+    const lastDate = new Date(lastSetup)
+    const now = new Date()
+    const daysDiff = Math.floor(
+      (now.getTime() - lastDate.getTime()) / 
+      (1000 * 60 * 60 * 24)
+    )
+    
+    // Show again if 60+ days passed
+    return daysDiff >= SETUP_INTERVAL_DAYS
+    
+  } catch {
+    return true
+  }
+}
+
+const markSetupComplete = async (userId: string) => {
+  // Save completion date
+  await AsyncStorage.setItem(
+    `vibe_setup_${userId}`,
+    new Date().toISOString()
+  )
+  
+  // Also save to Supabase
+  await supabase
+    .from('user_settings')
+    .upsert({
+      user_id: userId,
+      vibe_setup_last_shown: new Date().toISOString()
+    })
+}
+
+ALSO save to Supabase:
+alter table user_settings
+add column if not exists vibe_setup_last_shown 
+  timestamp,
+add column if not exists vibe_setup_completed_count
+  int default 0;
+
+FLOW:
+1. User opens Find Vibe tab
+2. Check shouldShowSetup(userId)
+3. If true → show setup wizard
+4. User completes → markSetupComplete(userId)
+5. Next 60 days → skip setup, go straight to cards
+6. After 60 days → show again with:
+   * Pre-filled with their previous answers
+   * "Update your preferences?" title
+   * "Last updated X days ago" subtitle
+   * Can skip if nothing changed
+   * "Looks good!" button to keep same
+
+UPDATE REMINDER (not annoying):
+After 60 days show gentle reminder:
+- Small banner at top of Find Vibe:
+  "Update your preferences? 
+   Last updated 60 days ago 📝"
+- Tap banner → opens setup
+- Dismiss X button → hides for 7 more days
+- NOT a full blocking popup
+
+PRE-FILL PREVIOUS ANSWERS:
+When showing setup after 60 days:
+- Load previous preferences from Supabase
+- Pre-select previous gender preference
+- Pre-select previous goals
+- Pre-select previous age range
+- User just reviews and confirms
+- Much faster second time
+
+SKIP OPTION:
+On second+ time showing setup:
+- Add "Skip" button top right
+- "Keep my current preferences"
+- Goes straight to Find Vibe cards
+
+Make sure:
+- First time users ALWAYS see setup
+- Returning users skip if < 60 days
+- After 60 days show gentle reminder
+- Pre-fill previous answers
+- Save completion to both 
+  AsyncStorage AND Supabase
+- Works correctly after logout/login

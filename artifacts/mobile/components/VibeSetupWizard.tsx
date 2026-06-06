@@ -33,6 +33,10 @@ export interface VibePreferences {
 interface Props {
   visible: boolean;
   onComplete: (prefs: VibePreferences) => void;
+  onSkip?: () => void;
+  isReturning?: boolean;
+  initialPrefs?: VibePreferences;
+  lastUpdatedLabel?: string;
 }
 
 const TOTAL_STEPS = 6;
@@ -142,7 +146,7 @@ function RangeRow({
   );
 }
 
-export function VibeSetupWizard({ visible, onComplete }: Props) {
+export function VibeSetupWizard({ visible, onComplete, onSkip, isReturning, initialPrefs, lastUpdatedLabel }: Props) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -154,6 +158,20 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(35);
   const [maxDistance, setMaxDistance] = useState(25);
+
+  // Pre-fill from previous answers when re-opening
+  React.useEffect(() => {
+    if (visible && initialPrefs) {
+      setGender(initialPrefs.gender ?? "");
+      setInterestedIn(initialPrefs.interestedIn ?? []);
+      setGoals(initialPrefs.goals ?? []);
+      setAge(initialPrefs.age ? String(initialPrefs.age) : "");
+      setAgeMin(initialPrefs.ageMin ?? 18);
+      setAgeMax(initialPrefs.ageMax ?? 35);
+      setMaxDistance(initialPrefs.maxDistance ?? 25);
+    }
+    if (visible) setStep(0);
+  }, [visible]);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
@@ -209,23 +227,47 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
     );
   };
 
-  const STEP_META = [
+  const STEP_META = (isReturning ? [
+    { title: "Still a...", subtitle: "Update if anything changed" },
+    { title: "Interested in...", subtitle: "Select all that apply" },
+    { title: "What are you looking for?", subtitle: "Pick all that apply — be honest 💜" },
+    { title: "Your age", subtitle: "Update if needed" },
+    { title: "Show me people aged..." },
+    { title: "Within distance of..." },
+  ] : [
     { title: "I am a..." },
     { title: "Interested in...", subtitle: "Select all that apply" },
     { title: "What are you looking for?", subtitle: "Pick all that apply — be honest 💜" },
     { title: "Your age", subtitle: "Your age is kept private" },
     { title: "Show me people aged..." },
     { title: "Within distance of..." },
-  ][step] as { title: string; subtitle?: string };
+  ])[step] as { title: string; subtitle?: string };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
       <LinearGradient colors={["#0B0B1A", "#130D2E", "#0B0B1A"]} style={[styles.container, { paddingTop: topInset }]}>
-        <View style={styles.progressRow}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
-            <Dot key={i} active={i === step} done={i < step} />
-          ))}
+        {/* Header row — returning users get a Skip button */}
+        <View style={styles.topRow}>
+          <View style={styles.progressRow}>
+            {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+              <Dot key={i} active={i === step} done={i < step} />
+            ))}
+          </View>
+          {isReturning && onSkip && (
+            <TouchableOpacity onPress={onSkip} style={styles.topSkipBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.topSkipText}>Skip</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {isReturning && step === 0 && (
+          <View style={styles.returningHeader}>
+            <Text style={styles.returningTitle}>Update your preferences? 📝</Text>
+            {lastUpdatedLabel ? (
+              <Text style={styles.returningSubtitle}>{lastUpdatedLabel}</Text>
+            ) : null}
+          </View>
+        )}
 
         <Animated.View style={[styles.content, { transform: [{ translateX: slideAnim }] }]}>
           <Text style={styles.stepTitle}>{STEP_META.title}</Text>
@@ -362,7 +404,9 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
           >
             <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.continueBtn}>
               <Text style={styles.continueBtnText}>
-                {step === TOTAL_STEPS - 1 ? "Find My Vibe 💜" : "Continue"}
+                {step === TOTAL_STEPS - 1
+                  ? (isReturning ? "Looks Good! 💜" : "Find My Vibe 💜")
+                  : "Continue"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -389,8 +433,14 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 24, paddingBottom: Platform.OS === "ios" ? 34 : 24 },
-  progressRow: { flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", paddingVertical: 20 },
-  content: { flex: 1, paddingTop: 24 },
+  topRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 20, position: "relative" },
+  progressRow: { flexDirection: "row", gap: 6, alignItems: "center" },
+  topSkipBtn: { position: "absolute", right: 0 },
+  topSkipText: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  returningHeader: { marginBottom: 8, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" },
+  returningTitle: { color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 18, marginBottom: 2 },
+  returningSubtitle: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 13 },
+  content: { flex: 1, paddingTop: 20 },
   stepTitle: { color: "#fff", fontSize: 28, fontFamily: "Poppins_700Bold", marginBottom: 6 },
   stepSubtitle: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontFamily: "Poppins_400Regular", marginBottom: 20 },
   optionsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },

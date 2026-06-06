@@ -56,6 +56,40 @@ import { VibeRoomsTab } from "@/components/VibeRoomsTab";
 import { VibeSetupWizard, VibePreferences } from "@/components/VibeSetupWizard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { supabase } from "@/lib/supabase";
+
+// ── Setup timing helpers ────────────────────────────────────────────────────
+const SETUP_INTERVAL_DAYS = 60;
+const BANNER_SNOOZE_DAYS = 7;
+
+async function shouldShowSetup(userId: string): Promise<{ show: boolean; daysSince: number }> {
+  try {
+    const stored = await AsyncStorage.getItem(`vibe_setup_date:${userId}`);
+    if (!stored) return { show: true, daysSince: -1 };
+    const daysSince = Math.floor((Date.now() - new Date(stored).getTime()) / 86_400_000);
+    return { show: daysSince >= SETUP_INTERVAL_DAYS, daysSince };
+  } catch {
+    return { show: true, daysSince: -1 };
+  }
+}
+
+async function markSetupComplete(userId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await AsyncStorage.setItem(`vibe_setup_date:${userId}`, now).catch(() => {});
+  void supabase.from("user_settings").upsert({ user_id: userId, vibe_setup_last_shown: now, vibe_setup_completed_count: 1 });
+}
+
+async function isBannerSnoozed(userId: string): Promise<boolean> {
+  try {
+    const until = await AsyncStorage.getItem(`vibe_banner_snooze:${userId}`);
+    return !!until && new Date(until) > new Date();
+  } catch { return false; }
+}
+
+async function snoozeBanner(userId: string): Promise<void> {
+  const until = new Date(Date.now() + BANNER_SNOOZE_DAYS * 86_400_000).toISOString();
+  await AsyncStorage.setItem(`vibe_banner_snooze:${userId}`, until).catch(() => {});
+}
 
 const { width: W, height: H } = Dimensions.get("window");
 const SWIPE_THRESHOLD = W * 0.3;
@@ -1165,6 +1199,10 @@ export default function FindVibeScreen() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showSpeedVibe, setShowSpeedVibe] = useState(false);
   const [showSetup, setShowSetup] = useState(false);
+  const [isReturningUser, setIsReturningUser] = useState(false);
+  const [initialWizardPrefs, setInitialWizardPrefs] = useState<VibePreferences | undefined>(undefined);
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
+  const [updateBannerDays, setUpdateBannerDays] = useState(0);
   const [vibePrefs, setVibePrefs] = useState<VibePrefsRow | null>(null);
   const [nearbyCards, setNearbyCards] = useState<VibeCard[]>([]);
   const [sameVibeCards, setSameVibeCards] = useState<VibeCard[]>([]);
@@ -1184,21 +1222,33 @@ export default function FindVibeScreen() {
     if (!userId) return;
     getUserGoals(userId).then(setMyGoals).catch(() => {});
     (async () => {
-      const setupDone = await AsyncStorage.getItem(`vibeSetupDone:${userId}`).catch(() => null);
-      if (!setupDone) {
-        const prefs = await getVibePreferences(userId).catch(() => null);
-        if (!prefs?.gender) {
-          setShowSetup(true);
-          return;
-        }
-        setVibePrefs(prefs);
-        await AsyncStorage.setItem(`vibeSetupDone:${userId}`, "1").catch(() => {});
-        loadCards(userId, prefs);
-      } else {
-        const prefs = await getVibePreferences(userId).catch(() => null);
-        setVibePrefs(prefs);
-        loadCards(userId, prefs);
+      const prefs = await getVibePreferences(userId).catch(() => null);
+      setVibePrefs(prefs);
+
+      if (!prefs?.gender) {
+        // First-time user — always show full setup
+        setIsReturningUser(false);
+        setInitialWizardPrefs(undefined);
+        setShowSetup(true);
+        return;
       }
+
+      // Has prefs — check 60-day timing
+      const { show, daysSince } = await shouldShowSetup(userId);
+
+      if (!show) {
+        // Within 60 days — go straight to cards
+        loadCards(userId, prefs);
+        return;
+      }
+
+      // 60+ days passed — show gentle banner (non-blocking), still load cards
+      const snoozed = await isBannerSnoozed(userId);
+      if (!snoozed) {
+        setUpdateBannerDays(daysSince);
+        setShowUpdateBanner(true);
+      }
+      loadCards(userId, prefs);
     })();
   }, [userId]);
 
@@ -1244,9 +1294,10 @@ export default function FindVibeScreen() {
 
   const handleSetupComplete = async (prefs: VibePreferences) => {
     setShowSetup(false);
+    setShowUpdateBanner(false);
     if (userId) {
       await updateVibePreferences(userId, prefs).catch(() => {});
-      await AsyncStorage.setItem(`vibeSetupDone:${userId}`, "1").catch(() => {});
+      await markSetupComplete(userId);
       if (prefs.goals?.length) {
         setMyGoals(prefs.goals);
         saveUserGoals(userId, prefs.goals).catch(() => {});
@@ -1263,6 +1314,31 @@ export default function FindVibeScreen() {
       setVibePrefs(row);
       loadCards(userId, row);
     }
+  };
+
+  const handleOpenUpdateWizard = () => {
+    setShowUpdateBanner(false);
+    setIsReturningUser(true);
+    if (vibePrefs) {
+      setInitialWizardPrefs({
+        gender: vibePrefs.gender ?? "",
+        interestedIn: Array.isArray(vibePrefs.interested_in)
+          ? vibePrefs.interested_in
+          : vibePrefs.interested_in ? [vibePrefs.interested_in] : [],
+        goals: myGoals,
+        lookingFor: vibePrefs.looking_for ?? "",
+        age: vibePrefs.age ?? 25,
+        ageMin: vibePrefs.age_min ?? 18,
+        ageMax: vibePrefs.age_max ?? 35,
+        maxDistance: vibePrefs.max_distance_km ?? 25,
+      });
+    }
+    setShowSetup(true);
+  };
+
+  const handleDismissBanner = async () => {
+    setShowUpdateBanner(false);
+    if (userId) await snoozeBanner(userId);
   };
 
   const handleGoalDiscovery = async (goalValue: string) => {
@@ -1350,6 +1426,21 @@ export default function FindVibeScreen() {
         <View style={styles.anonBanner}>
           <Text style={styles.anonText}>👻 Anonymous mode — you appear as a silhouette</Text>
         </View>
+      )}
+
+      {showUpdateBanner && (
+        <TouchableOpacity onPress={handleOpenUpdateWizard} activeOpacity={0.85} style={styles.updateBanner}>
+          <LinearGradient colors={["rgba(124,58,237,0.18)", "rgba(249,115,22,0.12)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.updateBannerGrad}>
+            <Text style={styles.updateBannerEmoji}>📝</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.updateBannerTitle}>Update your preferences?</Text>
+              <Text style={styles.updateBannerSub}>Last updated {updateBannerDays} days ago</Text>
+            </View>
+            <TouchableOpacity onPress={handleDismissBanner} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.updateBannerClose}>
+              <Ionicons name="close" size={16} color="rgba(255,255,255,0.45)" />
+            </TouchableOpacity>
+          </LinearGradient>
+        </TouchableOpacity>
       )}
 
       {/* ── Animated tab bar ── */}
@@ -1494,7 +1585,14 @@ export default function FindVibeScreen() {
         initialPrefs={vibePrefs}
       />
       <SpeedVibeModal visible={showSpeedVibe} onClose={() => setShowSpeedVibe(false)} />
-      <VibeSetupWizard visible={showSetup} onComplete={handleSetupComplete} />
+      <VibeSetupWizard
+        visible={showSetup}
+        onComplete={handleSetupComplete}
+        onSkip={() => { setShowSetup(false); setShowUpdateBanner(false); }}
+        isReturning={isReturningUser}
+        initialPrefs={initialWizardPrefs}
+        lastUpdatedLabel={updateBannerDays > 0 ? `Last updated ${updateBannerDays} days ago` : undefined}
+      />
     </View>
   );
 }
@@ -1548,6 +1646,12 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   iconBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   speedText: { fontFamily: "Poppins_700Bold", fontSize: 12 },
+  updateBanner: { marginHorizontal: 12, marginBottom: 6, borderRadius: 14, overflow: "hidden" },
+  updateBannerGrad: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
+  updateBannerEmoji: { fontSize: 20 },
+  updateBannerTitle: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  updateBannerSub: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_400Regular", fontSize: 11 },
+  updateBannerClose: { padding: 4 },
   anonBanner: { backgroundColor: "rgba(124,58,237,0.2)", marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
   anonText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12, textAlign: "center" },
   filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
