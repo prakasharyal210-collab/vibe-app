@@ -1723,6 +1723,7 @@ export default function FindVibeScreen() {
   const [nearbyCards, setNearbyCards] = useState<VibeCard[]>([]);
   const [sameVibeCards, setSameVibeCards] = useState<VibeCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
+  const [screenError, setScreenError] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     showGender: ["everyone"],
     goal: "all",
@@ -1738,29 +1739,35 @@ export default function FindVibeScreen() {
     if (!userId) return;
     getUserGoals(userId).then(setMyGoals).catch(() => {});
     (async () => {
-      const prefs = await getVibePreferences(userId).catch(() => null);
-      setVibePrefs(prefs);
+      try {
+        const prefs = await getVibePreferences(userId).catch(() => null);
+        setVibePrefs(prefs);
 
-      // Always load cards first — wizard is never blocking
-      loadCards(userId, prefs);
+        // Always load cards first — wizard is never blocking
+        loadCards(userId, prefs);
 
-      // Check 60-day timing (uses vibe_setup_done_<userId> key)
-      const { show, daysSince } = await shouldShowSetup(userId);
+        // Check 60-day timing (uses vibe_setup_done_<userId> key)
+        const { show, daysSince } = await shouldShowSetup(userId);
 
-      if (!show) return; // Completed/skipped within last 60 days — do nothing
+        if (!show) return; // Completed/skipped within last 60 days — do nothing
 
-      if (!prefs?.gender) {
-        // First-time user — show wizard once; cards already loading above
-        setIsReturningUser(false);
-        setInitialWizardPrefs(undefined);
-        setShowSetup(true);
-      } else {
-        // Has prefs but 60+ days passed — show gentle banner, non-blocking
-        const snoozed = await isBannerSnoozed(userId);
-        if (!snoozed) {
-          setUpdateBannerDays(daysSince);
-          setShowUpdateBanner(true);
+        if (!prefs?.gender) {
+          // First-time user — show wizard once; cards already loading above
+          setIsReturningUser(false);
+          setInitialWizardPrefs(undefined);
+          setShowSetup(true);
+        } else {
+          // Has prefs but 60+ days passed — show gentle banner, non-blocking
+          const snoozed = await isBannerSnoozed(userId);
+          if (!snoozed) {
+            setUpdateBannerDays(daysSince);
+            setShowUpdateBanner(true);
+          }
         }
+      } catch (err) {
+        console.log("FindVibe init error:", err);
+        // Don't crash — just show content with empty cards
+        setCardsLoading(false);
       }
     })();
   }, [userId]);
@@ -1783,11 +1790,18 @@ export default function FindVibeScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === "granted") {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          lat = loc.coords.latitude;
-          lng = loc.coords.longitude;
+          const locOrTimeout = await Promise.race([
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+          ]);
+          if (locOrTimeout) {
+            lat = (locOrTimeout as Location.LocationObject).coords.latitude;
+            lng = (locOrTimeout as Location.LocationObject).coords.longitude;
+          }
         }
-      } catch {}
+      } catch {
+        // location unavailable — continue without it
+      }
 
       const [nearby, allVibe] = await Promise.all([
         getNearbyUsers(uid, lat, lng).catch(() => [] as VibeMatchProfile[]),
@@ -1885,6 +1899,24 @@ export default function FindVibeScreen() {
       setCardsLoading(false);
     }
   };
+
+  if (screenError) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center", gap: 16 }]}>
+        <Text style={{ fontSize: 48 }}>😕</Text>
+        <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 18 }}>Something went wrong</Text>
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", paddingHorizontal: 32 }}>
+          Couldn't load Find Vibe. Check your connection and try again.
+        </Text>
+        <TouchableOpacity
+          onPress={() => { setScreenError(false); setCardsLoading(true); if (userId) loadCards(userId, vibePrefs); }}
+          style={{ backgroundColor: "#7C3AED", paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24 }}
+        >
+          <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (!isLoggedIn) {
     return (

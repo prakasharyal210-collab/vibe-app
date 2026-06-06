@@ -1,0 +1,126 @@
+CRITICAL BUG - App crashes when opening 
+Find Vibe tab. Fix immediately!
+
+The Find Vibe screen is crashing the app.
+Most likely causes:
+
+1. FIX LOCATION PERMISSION CRASH:
+Location request crashes on some Android devices.
+Wrap in try/catch:
+
+const getLocation = async () => {
+  try {
+    const { status } = await 
+      Location.requestForegroundPermissionsAsync()
+    if (status !== 'granted') {
+      setLocationDenied(true)
+      return
+    }
+    const loc = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+      timeout: 5000 // Add timeout!
+    })
+    setLocation(loc.coords)
+  } catch (err) {
+    console.log('Location error:', err)
+    setLocationDenied(true)
+    // Don't crash - just continue without location
+  }
+}
+
+2. FIX SUPABASE CALL CRASH:
+Wrap ALL Supabase calls in try/catch:
+
+const loadMatches = async () => {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_vibe_matches', {...})
+    if (error) throw error
+    setMatches(data || [])
+  } catch (err) {
+    console.log('Load matches error:', err)
+    setMatches([]) // Empty array not crash
+  }
+}
+
+3. FIX NULL REFERENCE CRASHES:
+Check every variable before using:
+
+// Wrong - crashes if data is null:
+data.map(item => ...)
+
+// Right - safe:
+(data || []).map(item => ...)
+
+4. FIX ASYNC STORAGE CRASH:
+const checkSetup = async () => {
+  try {
+    const val = await AsyncStorage
+      .getItem('vibe_setup_' + userId)
+    // handle val
+  } catch (err) {
+    console.log('Storage error:', err)
+  }
+}
+
+5. FIX REANIMATED CRASH:
+Make sure all animated values are
+initialized before use:
+const translateX = useSharedValue(0)
+// Never use before initialization
+
+6. FIX GESTURE HANDLER CRASH:
+Make sure GestureHandlerRootView
+wraps the entire app in _layout.tsx
+
+7. FIX PAGER VIEW CRASH:
+Check PagerView has valid children:
+- All pages must be View components
+- No null/undefined children
+- Use key prop on each page
+
+8. FIX SETUP WIZARD CRASH:
+The VibeSetupWizard might crash on load.
+Wrap in error boundary:
+
+const FindVibeScreen = () => {
+  const [error, setError] = useState(null)
+  
+  if (error) {
+    return (
+      <View style={{flex:1, 
+        backgroundColor:'#080810',
+        justifyContent:'center',
+        alignItems:'center'}}>
+        <Text style={{color:'white'}}>
+          Something went wrong
+        </Text>
+        <TouchableOpacity 
+          onPress={() => setError(null)}>
+          <Text style={{color:'#8B5CF6'}}>
+            Try Again
+          </Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  return (
+    // Normal Find Vibe content
+  )
+}
+
+9. ADD LOADING STATE:
+Show loading spinner while data loads:
+if (loading) return <LoadingScreen />
+
+10. FIX TABS CRASH:
+Make sure all 6 tabs have valid content.
+Empty tab content = crash!
+Each tab needs at least:
+<View style={{flex:1}}>
+  <Text>Loading...</Text>
+</View>
+
+Fix ALL of these issues in find.tsx
+and make sure Find Vibe never crashes!
