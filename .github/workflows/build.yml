@@ -1,0 +1,45 @@
+name: Build Vibe APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        working-directory: artifacts/mobile
+        run: npm install
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build Android APK
+        working-directory: artifacts/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_SUPABASE_URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+        run: |
+          eas build --platform android \
+            --profile preview \
+            --non-interactive \
+            --no-wait
+
+      - name: Build Android AAB
+        working-directory: artifacts/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build --platform android \
+            --profile production \
+            --non-interactive \
+            --no-wait

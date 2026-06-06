@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   websiteRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   websiteText: { color: "#7C3AED", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   actionRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  followBtn: { flex: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", height: 38, position: "relative", overflow: "hidden" },
+  followBtn: { flex: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", height: 38, position: "relative", overflow: "visible" },
   followBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, zIndex: 1 },
   msgBtn: { flex: 1, flexDirection: "row", gap: 6, borderRadius: 12, alignItems: "center", justifyContent: "center", height: 38, borderWidth: 1 },
   msgBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
