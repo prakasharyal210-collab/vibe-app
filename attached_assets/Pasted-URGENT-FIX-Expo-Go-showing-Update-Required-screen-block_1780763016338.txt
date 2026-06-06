@@ -1,0 +1,98 @@
+URGENT FIX - Expo Go showing "Update Required"
+screen blocking everything.
+
+This happens because Expo Go has its own
+update check that conflicts with our app.
+
+FIX 1 - Disable Expo Go update blocking:
+In app.json add:
+"updates": {
+  "enabled": true,
+  "checkAutomatically": "ON_LOAD",
+  "fallbackToCacheTimeout": 0,
+  "url": "https://u.expo.dev/d38613d6-8e11-4977-8572-7ca88697f852"
+}
+
+FIX 2 - Add skip to our update screen:
+In components/UpdateNotification.tsx
+Make sure ForceUpdateScreen has skip:
+
+// Even force update should have escape
+// when in DEVELOPMENT mode:
+if (__DEV__) {
+  return (
+    <View>
+      // Show update screen BUT
+      // add "Skip (Dev Mode)" button
+      <TouchableOpacity 
+        onPress={() => setShowUpdate(false)}
+      >
+        <Text>Skip (Dev Mode)</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+FIX 3 - Don't show update screen in DEV:
+In app/_layout.tsx:
+
+const checkForUpdates = async () => {
+  // NEVER show update UI in development
+  if (__DEV__) return
+  
+  try {
+    const update = await 
+      Updates.checkForUpdateAsync()
+    if (update.isAvailable) {
+      setUpdateAvailable(true)
+    }
+  } catch (err) {
+    console.log('Update check failed:', err)
+  }
+}
+
+FIX 4 - Skip option on all update screens:
+Add to EVERY update UI:
+
+// Small skip button always visible
+<TouchableOpacity
+  onPress={() => {
+    setShowUpdate(false)
+    setUpdateAvailable(false)
+  }}
+  style={{
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    padding: 8
+  }}
+>
+  <Text style={{
+    color: '#6B7280',
+    fontSize: 14
+  }}>
+    Skip ✕
+  </Text>
+</TouchableOpacity>
+
+FIX 5 - Handle Expo Go specifically:
+Check if running in Expo Go:
+
+import * as Application from 'expo-application'
+
+const isExpoGo = 
+  Application.applicationId === 
+  'host.exp.Exponent'
+
+if (isExpoGo) {
+  // Don't show our update UI in Expo Go
+  // Expo Go handles updates differently
+  return
+}
+
+Make sure:
+- Update screen never blocks in DEV mode
+- Skip button always available
+- Expo Go handled separately
+- Force update only in production APK
+- Never blocks testing in Expo Go
