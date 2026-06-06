@@ -1,0 +1,47 @@
+name: Build Vibe APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store
+        id: pnpm-cache
+        run: echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install ALL workspace dependencies
+        run: pnpm install --no-frozen-lockfile
+        working-directory: /home/runner/work/vibe-app/vibe-app
+
+      - name: Build Android APK
+        run: eas build --platform android --profile preview --non-interactive --no-wait
+        working-directory: /home/runner/work/vibe-app/vibe-app/artifacts/mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
