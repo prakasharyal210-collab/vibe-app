@@ -1523,6 +1523,13 @@ export async function findUsersByEmails(
 ): Promise<SocialMatchUser[]> {
   if (!emails.length) return [];
   try {
+    const { data, error } = await supabase.rpc("find_users_by_contacts", {
+      p_emails: emails.slice(0, 100),
+      p_user_id: myUserId,
+    });
+    if (!error && data?.length) return data as SocialMatchUser[];
+  } catch {}
+  try {
     const { data } = await supabase
       .from("profiles")
       .select("id, username, avatar_url, bio, followers_count, is_verified")
@@ -1534,59 +1541,24 @@ export async function findUsersByEmails(
   return [];
 }
 
-export async function findUsersBySocialUsername(
-  platform: "facebook" | "tiktok" | "instagram",
-  username: string,
+export async function searchVibeUsers(
+  query: string,
   myUserId: string,
+  limit = 20,
 ): Promise<SocialMatchUser[]> {
-  const cleaned = username.replace(/^@/, "").toLowerCase().trim();
-  if (!cleaned) return [];
+  const q = query.replace(/^@/, "").toLowerCase().trim();
+  if (!q || q.length < 2) return [];
   try {
-    const { data: scData } = await supabase
-      .from("social_connections")
-      .select("user_id, platform_username, profiles:user_id(id, username, avatar_url, bio, followers_count, is_verified)")
-      .eq("platform", platform)
-      .ilike("platform_username", `%${cleaned}%`)
-      .neq("user_id", myUserId)
-      .limit(20);
-    if (scData?.length) {
-      return scData
-        .map((r: any) => r.profiles ? { ...r.profiles, matchedName: r.platform_username } : null)
-        .filter(Boolean) as SocialMatchUser[];
-    }
-  } catch {}
-  try {
-    const col = platform === "tiktok" ? "tiktok_username" : platform === "instagram" ? "instagram_username" : null;
-    if (col) {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username, avatar_url, bio, followers_count, is_verified")
-        .ilike(col, `%${cleaned}%`)
-        .neq("id", myUserId)
-        .limit(20);
-      if (data?.length) return data as SocialMatchUser[];
-    }
+    const { data } = await supabase
+      .from("profiles")
+      .select("id, username, avatar_url, bio, followers_count, is_verified")
+      .ilike("username", `%${q}%`)
+      .neq("id", myUserId)
+      .order("followers_count", { ascending: false })
+      .limit(limit);
+    if (data?.length) return data as SocialMatchUser[];
   } catch {}
   return [];
-}
-
-export async function saveSocialConnection(
-  userId: string,
-  platform: "facebook" | "tiktok" | "instagram",
-  platformUsername: string,
-): Promise<void> {
-  try {
-    await supabase.from("social_connections").upsert(
-      { user_id: userId, platform, platform_username: platformUsername.replace(/^@/, ""), connected_at: new Date().toISOString() },
-      { onConflict: "user_id,platform" },
-    );
-  } catch {}
-  try {
-    const col = platform === "tiktok" ? "tiktok_username" : platform === "instagram" ? "instagram_username" : null;
-    if (col) {
-      await supabase.from("profiles").update({ [col]: platformUsername.replace(/^@/, "") }).eq("id", userId);
-    }
-  } catch {}
 }
 
 export async function getSuggestedUsersForFindFriends(

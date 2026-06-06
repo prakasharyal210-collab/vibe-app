@@ -222,13 +222,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Remote — fire and forget
     const userId = userIdRef.current;
     if (userId) {
-      supabase
-        .from("user_settings")
-        .upsert(
-          { user_id: userId, selected_theme: id, updated_at: new Date().toISOString() },
-          { onConflict: "user_id" },
-        )
-        .catch(() => {});
+      void (async () => {
+        try {
+          await supabase
+            .from("user_settings")
+            .upsert(
+              { user_id: userId, selected_theme: id, updated_at: new Date().toISOString() },
+              { onConflict: "user_id" },
+            );
+        } catch {}
+      })();
     }
   }, []);
 

@@ -1,0 +1,114 @@
+Fix the Supabase error in Find Friends screen
+and improve the friend finding features:
+
+1. FIX SUPABASE ERROR:
+The error shows "_libSupabase.supabase.fr..."
+Fix the find_users_by_contacts function call:
+
+const findFriends = async (emails: string[]) => {
+  try {
+    const { data, error } = await supabase
+      .rpc('find_users_by_contacts', {
+        p_emails: emails,
+        p_user_id: userId
+      })
+    if (error) throw error
+    return data || []
+  } catch (err) {
+    console.log('Find friends error:', err)
+    return []
+  }
+}
+
+2. PHONE CONTACTS (most powerful):
+- Request contacts permission
+- Extract ALL emails and phone numbers
+- Search Vibe database for matches
+- Show "X friends already on Vibe!"
+- Follow all button
+
+3. SHARE YOUR PROFILE LINK:
+- Generate unique link: vibe.app/@username
+- "Share your Vibe profile" button
+- Opens native share sheet:
+  * Share to WhatsApp
+  * Share to Facebook
+  * Share to Instagram
+  * Share to Twitter/X
+  * Copy link
+  * Share via SMS
+- Message: "Hey! Follow me on Vibe 🔥
+  vibe.app/@{username}"
+
+4. QR CODE:
+- "My QR Code" button
+- Shows unique QR code
+- Friend scans → opens their profile
+- Follow button on scanned profile
+- Download QR code option
+
+5. INVITE FRIENDS:
+- "Invite Friends" section
+- Shows contacts NOT on Vibe
+- "Invite" button sends SMS/WhatsApp:
+  "Hey {name}! I'm using Vibe, 
+   the new social app 🔥 
+   Join me: vibe.app/download
+   Use my code: {referralCode}
+   We both get 100 free coins! 🎁"
+
+6. SEARCH VIBE USERS:
+- Search bar at top
+- Search by username or name
+- Shows results with Follow button
+- Recent searches saved
+
+7. SUGGESTED FRIENDS:
+- Based on mutual connections
+- Based on same interests
+- Based on location (nearby users)
+- Load from get_suggested_users()
+
+8. SOCIAL PLATFORM SECTIONS:
+Instead of username input fields,
+show share buttons:
+
+FACEBOOK section:
+- "Share to Facebook" button
+- Opens Facebook with your profile link
+- Friends see it and can follow you
+- No API needed!
+
+TIKTOK section:
+- "Share to TikTok" button  
+- Opens TikTok compose with link
+- No API needed!
+
+INSTAGRAM section:
+- "Share to Instagram Story" button
+- Opens Instagram with profile card
+- No API needed!
+
+TWITTER/X section:
+- "Share to Twitter" button
+- "Follow me on Vibe! vibe.app/@username"
+- No API needed!
+
+This way we share TO those platforms
+instead of importing FROM them!
+Much simpler and works immediately!
+
+9. REFERRAL TRACKING:
+- Each share tracks the platform
+- "5 friends joined from your WhatsApp share"
+- "2 friends joined from your Instagram share"
+- Coins for each friend who joins
+
+10. FIX THE LAYOUT:
+- Remove username input fields
+- Replace with share buttons
+- Much cleaner and more effective
+- Shows friend count from contacts
+
+Make everything work without
+needing any external API keys!
