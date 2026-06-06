@@ -1,0 +1,115 @@
+Fix Find Vibe tabs - they are too crowded 
+and messy. Make them clean and readable:
+
+TAB BAR FIX:
+Problem: 6 tabs cramped in small space
+Solution: Make tabs horizontally scrollable
+
+SCROLLABLE TABS:
+- Wrap tabs in horizontal ScrollView
+- Each tab has enough padding
+- User swipes tab bar to see more tabs
+- Active tab always visible/centered
+- Smooth scroll to active tab
+
+TAB DESIGN:
+Each tab pill shows:
+- Emoji on top (20px)
+- Label below (11px, bold)
+- Minimum width: 70px
+- Padding: 10px horizontal
+- Active: gradient background pill
+- Inactive: transparent, grey text
+- Rounded pill shape (20px radius)
+- Gap between tabs: 8px
+
+TAB BAR CONTAINER:
+- Horizontal ScrollView
+- showsHorizontalScrollIndicator = false
+- contentContainerStyle: padding 16px
+- Slight fade at edges showing more tabs
+- No fixed width tabs
+- Let content determine width
+
+CODE:
+<ScrollView
+  horizontal
+  showsHorizontalScrollIndicator={false}
+  contentContainerStyle={{
+    paddingHorizontal: 16,
+    gap: 8,
+    alignItems: 'center'
+  }}
+>
+  {TABS.map((tab, index) => (
+    <TouchableOpacity
+      key={tab.key}
+      onPress={() => switchToTab(index)}
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        minWidth: 70,
+        alignItems: 'center',
+        backgroundColor: activeTab === index 
+          ? gradientColor 
+          : 'transparent',
+        borderWidth: activeTab === index ? 0 : 1,
+        borderColor: 'rgba(255,255,255,0.1)'
+      }}
+    >
+      <Text style={{ fontSize: 18 }}>
+        {tab.emoji}
+      </Text>
+      <Text style={{
+        fontSize: 11,
+        fontWeight: '600',
+        color: activeTab === index 
+          ? '#fff' 
+          : '#6B7280',
+        marginTop: 2
+      }}>
+        {tab.label}
+      </Text>
+    </TouchableOpacity>
+  ))}
+</ScrollView>
+
+MATCHES TAB - Fix layout:
+Each match card:
+- Full width card (not cramped)
+- Left side: profile photo (70px circle)
+- Right side: content
+  * Name and age (bold, 16px)
+  * "💜 Vibe Match" badge (small pill)
+  * "Matched X ago" (grey, 12px)
+  * Interests row (small pills)
+- Bottom: two buttons full width
+  * "💬 Message" (gradient left button)
+  * "👤 View" (outline right button)
+- Card padding: 16px
+- Card margin bottom: 12px
+- Rounded corners: 16px
+- Background: glass dark card
+
+Fix the "Message" button being cut off:
+- Make button wider
+- Show full text "Message"
+- Icon + text both visible
+- Gradient background on Message button
+
+OVERALL FIND VIBE HEADER:
+- "Find Vibe" title (large, bold, left)
+- Right side buttons: 
+  * Profile icon (small, subtle)
+  * "⚡ Speed" orange pill button
+  * Filter icon (subtle)
+- More breathing room between elements
+- Clean minimal header
+
+Make everything:
+- More spacious and breathable
+- Easy to read
+- Not cramped or overlapping
+- Professional and clean
+- Smooth scrollable tabs

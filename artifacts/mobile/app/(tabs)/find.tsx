@@ -1425,9 +1425,9 @@ const matchTabStyles = StyleSheet.create({
   time: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   interests: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
   btnRow: { flexDirection: "row", gap: 8, marginTop: 6 },
-  msgGrad: { paddingVertical: 8, alignItems: "center", borderRadius: 10 },
+  msgGrad: { paddingVertical: 9, paddingHorizontal: 8, alignItems: "center", borderRadius: 10, flexDirection: "row", justifyContent: "center", gap: 4 },
   msgText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
-  profileBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  profileBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   profileText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
 });
 
@@ -1442,9 +1442,6 @@ export default function FindVibeScreen() {
   const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "goals" | "matches">("nearby");
   const [myGoals, setMyGoals] = useState<string[]>([]);
   const pagerRef = useRef<SwipeablePagerRef>(null);
-  const underlineX = useRef(new RNAnimated.Value(0)).current;
-  const tabLayouts = useRef<{ x: number; width: number }[]>([]);
-  const UNDERLINE_W = 40;
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
@@ -1644,13 +1641,15 @@ export default function FindVibeScreen() {
   }
 
   const TABS = [
-    { id: "nearby" as const,   label: "📍 Near" },
-    { id: "goals" as const,    label: "🎯 Goals" },
-    { id: "matches" as const,  label: "💜 Matches" },
-    { id: "rooms" as const,    label: "🏠 Rooms" },
-    { id: "samevibe" as const, label: "✨ Vibe" },
-    { id: "daily" as const,    label: "⭐ Daily" },
+    { id: "nearby"   as const, emoji: "📍", label: "Near" },
+    { id: "goals"    as const, emoji: "🎯", label: "Goals" },
+    { id: "matches"  as const, emoji: "💜", label: "Matches" },
+    { id: "rooms"    as const, emoji: "🏠", label: "Rooms" },
+    { id: "samevibe" as const, emoji: "✨", label: "Vibe" },
+    { id: "daily"    as const, emoji: "⭐", label: "Daily" },
   ];
+  const tabScrollRef = useRef<ScrollView>(null);
+  const tabBtnLayouts = useRef<{ x: number; width: number }[]>([]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
@@ -1697,71 +1696,74 @@ export default function FindVibeScreen() {
         </TouchableOpacity>
       )}
 
-      {/* ── Animated tab bar ── */}
-      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
-        {TABS.map((tab, i) => (
-          <TouchableOpacity
-            key={tab.id}
-            onPress={() => {
-              pagerRef.current?.setPage(i);
-              setActiveTab(tab.id);
-              const layout = tabLayouts.current[i];
-              if (layout) {
-                RNAnimated.spring(underlineX, {
-                  toValue: layout.x + layout.width / 2 - UNDERLINE_W / 2,
-                  useNativeDriver: true,
-                  tension: 300,
-                  friction: 30,
-                }).start();
-              }
-            }}
-            onLayout={(e) => {
-              tabLayouts.current[i] = {
-                x: e.nativeEvent.layout.x,
-                width: e.nativeEvent.layout.width,
-              };
-            }}
-            style={styles.tabBtn}
-          >
-            <Text style={[styles.tabText, { color: activeTab === tab.id ? colors.foreground : colors.mutedForeground }, activeTab === tab.id && styles.tabTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        <RNAnimated.View
-          style={[
-            styles.tabUnderlineAnimated,
-            { transform: [{ translateX: underlineX }] },
-          ]}
-        />
-      </View>
+      {/* ── Scrollable pill tab bar ── */}
+      <ScrollView
+        ref={tabScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabScrollContent}
+        style={styles.tabScrollRow}
+      >
+        {TABS.map((tab, i) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              onPress={() => {
+                pagerRef.current?.setPage(i);
+                setActiveTab(tab.id);
+                const layout = tabBtnLayouts.current[i];
+                if (layout) {
+                  tabScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 24), animated: true });
+                }
+              }}
+              onLayout={(e) => {
+                tabBtnLayouts.current[i] = {
+                  x: e.nativeEvent.layout.x,
+                  width: e.nativeEvent.layout.width,
+                };
+              }}
+              activeOpacity={0.8}
+              style={[
+                styles.tabPill,
+                isActive
+                  ? styles.tabPillActive
+                  : { borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+              ]}
+            >
+              {isActive ? (
+                <LinearGradient
+                  colors={["#7C3AED", "#EC4899"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.tabPillGrad}
+                >
+                  <Text style={styles.tabPillEmoji}>{tab.emoji}</Text>
+                  <Text style={[styles.tabPillLabel, { color: "#fff" }]}>{tab.label}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={styles.tabPillInner}>
+                  <Text style={styles.tabPillEmoji}>{tab.emoji}</Text>
+                  <Text style={[styles.tabPillLabel, { color: "#6B7280" }]}>{tab.label}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* ── PagerView for swipeable tabs ── */}
       <SwipeablePager
         ref={pagerRef}
         style={{ flex: 1 }}
         initialPage={0}
-        onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {
-          const { position, offset } = e.nativeEvent;
-          const from = tabLayouts.current[position];
-          const to = tabLayouts.current[position + 1];
-          if (from && to) {
-            const fromCenter = from.x + from.width / 2 - UNDERLINE_W / 2;
-            const toCenter = to.x + to.width / 2 - UNDERLINE_W / 2;
-            underlineX.setValue(fromCenter + (toCenter - fromCenter) * offset);
-          }
-        }}
+        onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {}}
         onPageSelected={(e: { nativeEvent: { position: number } }) => {
           const page = e.nativeEvent.position;
           setActiveTab(TABS[page].id);
-          const layout = tabLayouts.current[page];
+          const layout = tabBtnLayouts.current[page];
           if (layout) {
-            RNAnimated.spring(underlineX, {
-              toValue: layout.x + layout.width / 2 - UNDERLINE_W / 2,
-              useNativeDriver: true,
-              tension: 300,
-              friction: 30,
-            }).start();
+            tabScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 24), animated: true });
           }
         }}
       >
@@ -1901,11 +1903,11 @@ const filterStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingBottom: 12 },
-  headerTitle: { fontSize: 24, fontFamily: "Poppins_700Bold" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  iconBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
-  speedText: { fontFamily: "Poppins_700Bold", fontSize: 12 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14 },
+  headerTitle: { fontSize: 26, fontFamily: "Poppins_700Bold" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  iconBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  speedText: { fontFamily: "Poppins_700Bold", fontSize: 13 },
   updateBanner: { marginHorizontal: 12, marginBottom: 6, borderRadius: 14, overflow: "hidden" },
   updateBannerGrad: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
   updateBannerEmoji: { fontSize: 20 },
@@ -1918,21 +1920,14 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   scoreBadge: { position: "absolute", top: 16, right: 16, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
   scoreText: { color: "#FBBF24", fontFamily: "Poppins_700Bold", fontSize: 12 },
-  tabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginBottom: 4, paddingHorizontal: 4, position: "relative" },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 10, paddingHorizontal: 8 },
-  tabBtnActive: {},
-  tabUnderline: { position: "absolute", bottom: 0, left: 10, right: 10, height: 2, borderRadius: 1 },
-  tabUnderlineAnimated: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    width: 40,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: "#7C3AED",
-  },
-  tabText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
-  tabTextActive: { fontFamily: "Poppins_700Bold" },
+  tabScrollRow: { maxHeight: 60, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.06)" },
+  tabScrollContent: { paddingHorizontal: 12, paddingVertical: 10, gap: 8, alignItems: "center" },
+  tabPill: { borderRadius: 20, minWidth: 70, overflow: "hidden" },
+  tabPillActive: {},
+  tabPillGrad: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, alignItems: "center", minWidth: 70 },
+  tabPillInner: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, alignItems: "center", minWidth: 70 },
+  tabPillEmoji: { fontSize: 17, lineHeight: 22 },
+  tabPillLabel: { fontSize: 11, fontFamily: "Poppins_700Bold", marginTop: 1 },
   deckArea: { flex: 1, alignItems: "center", paddingHorizontal: 16, paddingTop: 8 },
   card: { position: "absolute", width: W - 32, borderRadius: 24, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
   expandBtn: { position: "absolute", top: 16, left: 16, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 20, padding: 6 },
