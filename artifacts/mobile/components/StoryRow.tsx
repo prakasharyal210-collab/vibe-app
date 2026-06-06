@@ -328,7 +328,7 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
         <View style={S.ownWrap}>
           {story.hasExistingStory ? (
             <LinearGradient
-              colors={["#8B5CF6", "#EC4899", "#F97316"]}
+              colors={colors.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={S.ring}
@@ -352,7 +352,7 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
         /* ── Unseen story: gradient ring ── */
         <View style={S.ownWrap}>
           <LinearGradient
-            colors={["#8B5CF6", "#EC4899", "#F97316"]}
+            colors={colors.gradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={S.ring}

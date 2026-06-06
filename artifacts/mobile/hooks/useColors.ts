@@ -1,12 +1,9 @@
-import colors from "@/constants/colors";
+import { useTheme } from "@/context/ThemeContext";
 
 /**
- * Always returns the dark palette — Vibe is a dark-theme app.
+ * Returns the active theme's color palette.
+ * Theme is set via ThemeContext (persisted in AsyncStorage).
  */
 export function useColors() {
-  const palette =
-    "dark" in colors
-      ? (colors as Record<string, typeof colors.light>).dark
-      : colors.light;
-  return { ...palette, radius: colors.radius };
+  return useTheme().colors;
 }

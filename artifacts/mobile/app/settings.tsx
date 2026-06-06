@@ -20,6 +20,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { fetchUserSettings, saveUserSettings, UserSettings } from "@/lib/db";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/context/ThemeContext";
 
 function OptionPicker({
   visible,
@@ -209,6 +210,7 @@ const RESTRICTED_MOCK = ["@troll_99"];
 
 export default function SettingsScreen() {
   const colors = useColors();
+  const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
@@ -304,6 +306,11 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
+
+        <SectionHeader label="APPEARANCE" colors={colors} />
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingRow icon="color-palette-outline" iconColor={colors.primary} label="Theme" sub={`${theme.name} ${theme.emoji}`} onPress={() => router.push("/theme" as any)} colors={colors} />
+        </View>
 
         <SectionHeader label="ACCOUNT" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>

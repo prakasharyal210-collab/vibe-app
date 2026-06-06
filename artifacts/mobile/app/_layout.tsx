@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastOverlay } from "@/components/ToastNotification";
 import { AuthProvider } from "@/context/AuthContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -54,6 +55,10 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="settings"
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="theme"
         options={{ animation: "slide_from_right" }}
       />
       <Stack.Screen
@@ -99,18 +104,20 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <KeyboardProvider>
-              <AuthProvider>
-                <RealtimeProvider>
-                  <RootLayoutNav />
-                  <ToastOverlay />
-                </RealtimeProvider>
-              </AuthProvider>
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClient}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <AuthProvider>
+                  <RealtimeProvider>
+                    <RootLayoutNav />
+                    <ToastOverlay />
+                  </RealtimeProvider>
+                </AuthProvider>
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </QueryClientProvider>
+        </ThemeProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

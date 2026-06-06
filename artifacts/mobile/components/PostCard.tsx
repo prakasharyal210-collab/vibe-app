@@ -175,7 +175,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
             <Text style={[styles.followBtnText, { color: colors.foreground }]}>Following</Text>
           ) : (
             <LinearGradient
-              colors={["#8B5CF6", "#EC4899"]}
+              colors={[colors.gradientStart, colors.gradientMid] as [string, string]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.followGradient}
@@ -210,7 +210,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
               i === activeImg ? (
                 <LinearGradient
                   key={i}
-                  colors={["#8B5CF6", "#EC4899"]}
+                  colors={[colors.gradientStart, colors.gradientMid] as [string, string]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.dot, styles.dotActive]}

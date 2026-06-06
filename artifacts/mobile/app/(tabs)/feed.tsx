@@ -32,6 +32,7 @@ import { StoryRow } from "@/components/StoryRow";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/context/ThemeContext";
 import {
   fetchFriendStories,
   fetchUnreadCount,
@@ -81,6 +82,7 @@ function CategoryPills({
   onSelect: (id: string) => void;
 }) {
   const scrollRef = useRef<ScrollView>(null);
+  const { theme } = useTheme();
   return (
     <ScrollView
       ref={scrollRef}
@@ -100,7 +102,7 @@ function CategoryPills({
           >
             {isActive ? (
               <LinearGradient
-                colors={["#8B5CF6", "#EC4899", "#F97316"]}
+                colors={theme.gradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={pillStyles.pill}
@@ -138,12 +140,13 @@ const pillStyles = StyleSheet.create({
 
 // ─── Gradient VIBE logo ────────────────────────────────────────────────────────
 function VibeLogo() {
+  const { theme } = useTheme();
   if (Platform.OS === "web") {
     return (
       <Text
         style={[logoStyles.text, {
           // @ts-ignore — web-only CSS
-          background: "linear-gradient(to right, #8B5CF6, #EC4899, #F97316)",
+          background: `linear-gradient(to right, ${theme.gradient[0]}, ${theme.gradient[1]}, ${theme.gradient[2]})`,
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
@@ -155,9 +158,9 @@ function VibeLogo() {
   }
   return (
     <View style={logoStyles.nativeWrap}>
-      <Text style={[logoStyles.text, { color: "#8B5CF6" }]}>V</Text>
-      <Text style={[logoStyles.text, { color: "#EC4899" }]}>I</Text>
-      <Text style={[logoStyles.text, { color: "#F97316" }]}>BE</Text>
+      <Text style={[logoStyles.text, { color: theme.gradient[0] }]}>V</Text>
+      <Text style={[logoStyles.text, { color: theme.gradient[1] }]}>I</Text>
+      <Text style={[logoStyles.text, { color: theme.gradient[2] }]}>BE</Text>
     </View>
   );
 }

@@ -13,11 +13,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
 import { claimDailyReward, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
+import { useTheme } from "@/context/ThemeContext";
 
-const PURPLE = "#8B5CF6";
-const PINK   = "#EC4899";
-const ORANGE = "#F97316";
-const ACTIVE = "#A78BFA";
 const INACTIVE = "#6B7280";
 
 function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
@@ -72,7 +69,7 @@ const toastStyles = StyleSheet.create({
     paddingVertical: 11,
     borderWidth: 1,
     borderColor: `rgba(139,92,246,0.4)`,
-    shadowColor: PURPLE,
+    shadowColor: "#8B5CF6",
     shadowOpacity: 0.4,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 2 },
@@ -131,7 +128,7 @@ function TabIcon({ iconName, label, focused, color, isIOS, sfActive, sfDefault }
         <Ionicons name={iconName as any} size={22} color={color} />
       )}
       <Text style={[tabIconStyles.label, { color }]}>{label}</Text>
-      {focused && <View style={tabIconStyles.dot} />}
+      {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
   );
 }
@@ -143,16 +140,16 @@ const tabIconStyles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: PURPLE,
     marginTop: 1,
   },
 });
 
 function CreateIcon() {
+  const { theme } = useTheme();
   return (
     <View style={styles.createShadow}>
       <LinearGradient
-        colors={[PURPLE, PINK, ORANGE]}
+        colors={theme.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.createIcon}
@@ -165,12 +162,13 @@ function CreateIcon() {
 
 function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
+  const { theme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: ACTIVE,
+        tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: INACTIVE,
         tabBarShowLabel: false,
         tabBarStyle: {
@@ -186,7 +184,7 @@ function ClassicTabLayout() {
           overflow: "hidden",
           borderWidth: 1,
           borderColor: "rgba(255,255,255,0.08)",
-          shadowColor: PURPLE,
+          shadowColor: theme.primary,
           shadowOpacity: 0.18,
           shadowRadius: 28,
           shadowOffset: { width: 0, height: 8 },
@@ -341,7 +339,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   createShadow: {
-    shadowColor: PURPLE,
+    shadowColor: "#8B5CF6",
     shadowOpacity: 0.55,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 4 },

@@ -1,0 +1,220 @@
+Add Theme/Color customization in Settings.
+Users can personalize their Vibe experience:
+
+THEME SETTINGS SCREEN:
+- Add "Appearance" section in Settings
+- Tapping opens ThemeScreen
+- Shows all color theme options
+
+THEME OPTIONS (8 themes):
+
+1. VIBE CLASSIC (default)
+   Primary: #8B5CF6 → #EC4899 → #F97316
+   Background: #080810
+   Name: "Vibe Classic 💜"
+   Preview: purple to orange gradient
+
+2. MIDNIGHT GOLD (luxury)
+   Primary: #F59E0B → #D97706 → #92400E
+   Background: #0A0800
+   Accent: #FFD700
+   Name: "Midnight Gold 👑"
+   Preview: black and gold
+
+3. OCEAN BLUE (cool)
+   Primary: #06B6D4 → #3B82F6 → #8B5CF6
+   Background: #030712
+   Name: "Ocean Blue 🌊"
+   Preview: blue to purple
+
+4. ROSE GOLD (elegant)
+   Primary: #FB7185 → #F43F5E → #E11D48
+   Background: #0F0008
+   Name: "Rose Gold 🌹"
+   Preview: pink to red
+
+5. FOREST GREEN (nature)
+   Primary: #10B981 → #059669 → #047857
+   Background: #030A06
+   Name: "Forest Green 🌿"
+   Preview: green shades
+
+6. SUNSET (warm)
+   Primary: #F97316 → #EF4444 → #DC2626
+   Background: #0F0500
+   Name: "Sunset 🌅"
+   Preview: orange to red
+
+7. GALAXY (cosmic)
+   Primary: #6366F1 → #8B5CF6 → #A855F7
+   Background: #05030F
+   Name: "Galaxy ✨"
+   Preview: indigo to purple
+
+8. ARCTIC (minimal)
+   Primary: #E2E8F0 → #CBD5E1 → #94A3B8
+   Background: #020617
+   Name: "Arctic ❄️"
+   Preview: silver/white on black
+
+THEME SCREEN UI:
+- "Appearance" title
+- "Choose your vibe" subtitle
+- Grid of theme cards (2 columns):
+  * Each card shows gradient preview
+  * Theme name below
+  * Crown icon on premium themes
+  * Checkmark on selected theme
+  * Tap to select instantly
+- "Dark Mode" toggle (always dark for now)
+- "Auto Theme" option:
+  * Changes theme based on time of day
+  * Morning: Sunrise
+  * Day: Ocean Blue
+  * Evening: Sunset
+  * Night: Vibe Classic
+
+THEME CARD DESIGN:
+Each card shows:
+- Gradient rectangle (preview)
+- Mini mockup of how app looks
+- Theme name
+- "Free" or "Premium 👑" badge
+- Selected: gradient border + checkmark
+
+FREE THEMES: Vibe Classic, Ocean Blue, Sunset
+PREMIUM THEMES: Midnight Gold, Rose Gold, 
+                Forest Green, Galaxy, Arctic
+(Premium = users who bought coins or verified)
+
+APPLYING THEME:
+- Tap theme → applies INSTANTLY
+- All gradients update immediately
+- Tab bar colors update
+- Button colors update
+- Story rings update
+- No app restart needed
+- Save to AsyncStorage locally
+- Also save to user_settings table:
+  selected_theme column
+
+THEME IMPLEMENTATION:
+Create ThemeContext that provides colors:
+
+const themes = {
+  classic: {
+    gradient: ['#8B5CF6', '#EC4899', '#F97316'],
+    background: '#080810',
+    surface: '#0F0F1A',
+    primary: '#8B5CF6',
+    secondary: '#EC4899',
+    accent: '#F97316',
+  },
+  gold: {
+    gradient: ['#F59E0B', '#D97706', '#92400E'],
+    background: '#0A0800',
+    surface: '#110D00',
+    primary: '#F59E0B',
+    secondary: '#D97706',
+    accent: '#FFD700',
+  },
+  ocean: {
+    gradient: ['#06B6D4', '#3B82F6', '#8B5CF6'],
+    background: '#030712',
+    surface: '#0A0F1E',
+    primary: '#06B6D4',
+    secondary: '#3B82F6',
+    accent: '#8B5CF6',
+  },
+  rose: {
+    gradient: ['#FB7185', '#F43F5E', '#E11D48'],
+    background: '#0F0008',
+    surface: '#1A000D',
+    primary: '#FB7185',
+    secondary: '#F43F5E',
+    accent: '#E11D48',
+  },
+  forest: {
+    gradient: ['#10B981', '#059669', '#047857'],
+    background: '#030A06',
+    surface: '#071A0E',
+    primary: '#10B981',
+    secondary: '#059669',
+    accent: '#047857',
+  },
+  sunset: {
+    gradient: ['#F97316', '#EF4444', '#DC2626'],
+    background: '#0F0500',
+    surface: '#1A0A00',
+    primary: '#F97316',
+    secondary: '#EF4444',
+    accent: '#DC2626',
+  },
+  galaxy: {
+    gradient: ['#6366F1', '#8B5CF6', '#A855F7'],
+    background: '#05030F',
+    surface: '#0D0A1F',
+    primary: '#6366F1',
+    secondary: '#8B5CF6',
+    accent: '#A855F7',
+  },
+  arctic: {
+    gradient: ['#E2E8F0', '#CBD5E1', '#94A3B8'],
+    background: '#020617',
+    surface: '#0A0F1E',
+    primary: '#E2E8F0',
+    secondary: '#CBD5E1',
+    accent: '#94A3B8',
+  }
+}
+
+SETTINGS MENU:
+Add new section "APPEARANCE" before ACCOUNT:
+┌─────────────────────────────┐
+│ APPEARANCE                  │
+│ 🎨 Theme          Vibe → │
+│ ✨ Animations      On  ⚙️ │
+│ 🔤 Text Size    Medium → │
+└─────────────────────────────┘
+
+ANIMATION TOGGLE:
+- Toggle to turn off all animations
+- For users with older phones
+- Saves to user_settings
+
+PREVIEW IN SETTINGS:
+- Small preview bar in settings
+  showing current theme colors
+- Changes live as user switches
+
+THEME BADGE ON PROFILE:
+- Small colored dot on profile
+  showing current theme
+- "Using Galaxy theme ✨"
+
+SPECIAL EFFECTS PER THEME:
+
+Midnight Gold:
+- Gold particle effects on match
+- Gold shimmer on loading screens
+
+Rose Gold:
+- Pink hearts on like animation
+- Rose colored confetti on match
+
+Galaxy:
+- Star particles on interactions
+- Nebula colors on gradients
+
+Arctic:
+- Snowflake particles
+- Frost effect on glass elements
+
+Make sure:
+- Theme applies INSTANTLY everywhere
+- All gradients update with theme
+- Saved between sessions
+- Preview shows correctly
+- Free/Premium correctly locked
+- Smooth transition when changing
+- Works on all screens
