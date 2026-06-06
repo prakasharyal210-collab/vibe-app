@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 export type ThemeId = "classic" | "gold" | "ocean" | "rose" | "forest" | "sunset" | "galaxy" | "arctic";
 
@@ -123,6 +124,10 @@ export function buildColorsFromTheme(theme: ThemeDef): ThemeColors {
   };
 }
 
+function isValidThemeId(v: unknown): v is ThemeId {
+  return typeof v === "string" && v in THEMES;
+}
+
 interface ThemeContextValue {
   themeId: ThemeId;
   theme: ThemeDef;
@@ -139,16 +144,92 @@ const ThemeContext = createContext<ThemeContextValue>({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [themeId, setThemeId] = useState<ThemeId>("classic");
+  const userIdRef = useRef<string | null>(null);
 
+  // ── Boot: local first, then Supabase sync ──────────────────────────────────
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((saved) => { if (saved && saved in THEMES) setThemeId(saved as ThemeId); })
-      .catch(() => {});
+    let cancelled = false;
+
+    (async () => {
+      // 1. Immediate — apply local cache so there is no flash
+      try {
+        const local = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!cancelled && isValidThemeId(local)) setThemeId(local);
+      } catch {}
+
+      // 2. Async — fetch from Supabase and override if different
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const userId = session?.user?.id ?? null;
+        userIdRef.current = userId;
+
+        if (!userId) return;
+
+        const { data } = await supabase
+          .from("user_settings")
+          .select("selected_theme")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        const remote = data?.selected_theme;
+        if (isValidThemeId(remote)) {
+          setThemeId(remote);
+          AsyncStorage.setItem(STORAGE_KEY, remote).catch(() => {});
+        }
+      } catch {}
+    })();
+
+    // 3. Keep userId in sync when auth state changes (login / logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        const userId = session?.user?.id ?? null;
+        userIdRef.current = userId;
+
+        if (!userId) return;
+
+        // Re-sync theme from Supabase on login
+        try {
+          const { data } = await supabase
+            .from("user_settings")
+            .select("selected_theme")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          const remote = data?.selected_theme;
+          if (isValidThemeId(remote)) {
+            setThemeId(remote);
+            AsyncStorage.setItem(STORAGE_KEY, remote).catch(() => {});
+          }
+        } catch {}
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
   }, []);
 
+  // ── setTheme: instant local + background Supabase write ───────────────────
   const setTheme = useCallback((id: ThemeId) => {
     setThemeId(id);
+
+    // Local — synchronous feel
     AsyncStorage.setItem(STORAGE_KEY, id).catch(() => {});
+
+    // Remote — fire and forget
+    const userId = userIdRef.current;
+    if (userId) {
+      supabase
+        .from("user_settings")
+        .upsert(
+          { user_id: userId, selected_theme: id, updated_at: new Date().toISOString() },
+          { onConflict: "user_id" },
+        )
+        .catch(() => {});
+    }
   }, []);
 
   const theme = THEMES[themeId];

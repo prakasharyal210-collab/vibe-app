@@ -442,6 +442,7 @@ export interface UserSettings {
   notif_follows: boolean;
   notif_live: boolean;
   notif_mentions: boolean;
+  selected_theme?: string;
 }
 
 export const DEFAULT_SETTINGS: UserSettings = {
@@ -455,6 +456,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   notif_follows: true,
   notif_live: true,
   notif_mentions: true,
+  selected_theme: "classic",
 };
 
 export async function fetchUserSettings(userId: string): Promise<UserSettings> {
