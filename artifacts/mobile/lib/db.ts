@@ -1655,6 +1655,53 @@ export async function isUserBlocked(myId: string, theirId: string): Promise<bool
   }
 }
 
+export async function amIBlockedBy(myId: string, theirId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from("blocks")
+      .select("id")
+      .eq("blocker_id", theirId)
+      .eq("blocked_id", myId)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchMessageRequests(userId: string): Promise<Conversation[]> {
+  try {
+    const { data, error } = await supabase
+      .from("conversations")
+      .select("*, other_user:profiles!conversations_other_user_id_fkey(id, username, avatar_url)")
+      .eq("user_id", userId)
+      .eq("is_request", true)
+      .order("last_message_at", { ascending: false });
+    if (!error && data && data.length > 0) {
+      return (data as any[]).map((row: any) => ({
+        id: row.id,
+        other_user: { id: row.other_user?.id ?? "", username: row.other_user?.username ?? "User", avatar_url: row.other_user?.avatar_url },
+        last_message: row.last_message ?? "",
+        last_message_at: row.last_message_at ?? row.created_at ?? "",
+        unread_count: row.unread_count ?? 1,
+      }));
+    }
+  } catch {}
+  return [];
+}
+
+export async function acceptMessageRequest(conversationId: string): Promise<void> {
+  try {
+    await supabase.from("conversations").update({ is_request: false }).eq("id", conversationId);
+  } catch {}
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  try {
+    await supabase.from("conversations").delete().eq("id", conversationId);
+  } catch {}
+}
+
 // ─── Profile Stats ─────────────────────────────────────────────────────────────
 
 export interface ProfileStats {

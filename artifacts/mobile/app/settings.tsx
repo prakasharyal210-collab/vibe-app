@@ -762,7 +762,16 @@ export default function SettingsScreen() {
 
         <SectionHeader label="PRIVACY" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="lock-closed-outline" label="Private Account" sub={privateAccount ? "Only followers can see your content" : "Anyone can see your content"} value={privateAccount} onToggle={(v) => { setPrivateAccount(v); persistSetting({ private_account: v }); }} colors={colors} />
+          <SettingRow icon="lock-closed-outline" label="Private Account" sub={privateAccount ? "Only followers can see your content" : "Anyone can see your content"} value={privateAccount} onToggle={(v) => {
+            const title = v ? "Switch to Private?" : "Switch to Public?";
+            const msg = v
+              ? "Your account will be private. Only approved followers can see your posts and stories."
+              : "Your account will be public. Anyone can see your content.";
+            Alert.alert(title, msg, [
+              { text: "Cancel", style: "cancel" },
+              { text: v ? "Make Private" : "Make Public", onPress: () => { setPrivateAccount(v); persistSetting({ private_account: v }); showToast(v ? "Account is now private 🔒" : "Account is now public 🌍"); } },
+            ]);
+          }} colors={colors} />
           <SettingRow
             icon="chatbubble-outline"
             label="Who can comment"

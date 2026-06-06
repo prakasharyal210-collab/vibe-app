@@ -1,0 +1,119 @@
+Complete all Settings screens that weren't working:
+
+1. BLOCKED ACCOUNTS SCREEN:
+- Load using get_blocked_users(userId)
+- Show list with profile photos
+- "Unblock" red button on each row
+- Unblock calls unblock_user() function
+- Show "Unblocked @username" toast
+- Remove from list immediately
+- Empty state: "No blocked accounts 🚫"
+- Pull to refresh
+
+2. RESTRICTED ACCOUNTS SCREEN:
+- Load using get_restricted_users(userId)
+- Show list with profile photos  
+- "Unrestrict" button on each row
+- Unrestrict calls unrestrict_user()
+- Show "Unrestricted @username" toast
+- Remove from list immediately
+- Empty state: "No restricted accounts"
+- Pull to refresh
+
+3. SWITCH ACCOUNTS SCREEN:
+- Load saved accounts from AsyncStorage
+- Show current account with ✓ checkmark
+- Show other saved accounts
+- "Add Account" button at bottom
+- Tap account → switchAccount()
+- Long press → "Remove account" option
+- Current account cannot be removed
+
+4. WHO CAN COMMENT PICKER:
+- Bottom sheet with 3 options:
+  * Everyone (default)
+  * People I follow
+  * Nobody
+- Radio button on current setting
+- Save button → updates user_settings
+- Toast: "Comment settings updated"
+
+5. WHO CAN MESSAGE ME PICKER:
+- Bottom sheet with 4 options:
+  * Everyone (default)
+  * People I follow
+  * My matches only
+  * Nobody
+- Save → updates user_settings
+
+6. WHO CAN DUET/REMIX PICKER:
+- Bottom sheet with 3 options:
+  * Everyone (default)
+  * People I follow
+  * Nobody
+- Save → updates user_settings
+
+7. PRIVATE ACCOUNT TOGGLE:
+- Toggle saves to user_settings.is_private
+- When ON: show confirmation popup
+  "Your account will be private.
+   Only approved followers can see
+   your posts and stories."
+- When OFF: show popup
+  "Your account will be public.
+   Anyone can see your content."
+- Saves immediately to Supabase
+
+8. MESSAGE REQUESTS in Inbox:
+- Add "Requests" button at top of inbox
+- Shows conversations where is_request = true
+- Each request shows blurred message preview
+- "Accept" → moves to main inbox
+  UPDATE conversations SET is_request = false
+- "Delete" → removes conversation
+- Badge count on Requests button
+
+9. THREE DOTS MENU on profiles:
+Add these options:
+- "Block @username" → 
+  calls block_user(myId, theirId)
+  Shows confirmation: "Block @username?
+  They won't be able to see your posts
+  or find you on Vibe"
+  [Cancel] [Block]
+
+- "Restrict @username" →
+  calls restrict_user(myId, theirId)
+  Shows info: "Restrict @username?
+  Their comments will be hidden from
+  others. They won't know."
+  [Cancel] [Restrict]
+
+- "Report @username" →
+  Opens report form with reasons:
+  * Spam
+  * Inappropriate content
+  * Harassment
+  * Fake account
+  * Other
+  calls report_content()
+
+10. PROFILE VISIBILITY CHECK:
+When opening any profile:
+- Call can_view_profile(viewerId, profileId)
+- If can_view = false AND reason = 'blocked':
+  Show "User not found" screen
+  No profile content shown
+- If reason = 'private':
+  Show private account screen
+  "This account is private"
+  "Follow to see their posts"
+
+Make sure:
+- All settings save to Supabase instantly
+- Blocked users completely hidden everywhere
+- Restricted comments hidden from others
+- Message requests work correctly
+- Switch accounts saves sessions
+- All screens work smoothly
+- Toasts confirm all actions

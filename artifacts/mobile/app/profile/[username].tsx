@@ -20,6 +20,7 @@ import { FullScreenMediaViewer, MediaItem } from "@/components/FullScreenMediaVi
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import {
+  amIBlockedBy,
   blockUser,
   checkIsFollowing,
   fetchProfilePosts,
@@ -28,6 +29,7 @@ import {
   ProfileGridItem,
   PublicProfile,
   reportContent,
+  restrictUser,
 } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
@@ -42,7 +44,6 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-
 const REPORT_REASONS = [
   "Spam or fake account",
   "Harassment or bullying",
@@ -53,33 +54,71 @@ const REPORT_REASONS = [
   "Other",
 ];
 
-function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked }: {
+// ─── ThreeDotsModal ───────────────────────────────────────────────────────────
+
+function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, onRestricted }: {
   visible: boolean;
   onClose: () => void;
   username: string;
   userId?: string;
   myId?: string;
   onBlocked?: () => void;
+  onRestricted?: () => void;
 }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [showReport, setShowReport] = useState(false);
-  const [blocking, setBlocking] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [reporting, setReporting] = useState<string | null>(null);
 
-  const handleBlock = async () => {
+  const handleBlock = () => {
     if (!myId) { Alert.alert("Sign in to block users"); return; }
-    setBlocking(true);
-    try {
-      await blockUser(myId, userId ?? username);
-      onClose();
-      onBlocked?.();
-      Alert.alert("Blocked", `You blocked @${username}. They won't see your content.`);
-    } catch {
-      Alert.alert("Error", "Could not complete action. Try again.");
-    } finally {
-      setBlocking(false);
-    }
+    Alert.alert(
+      `Block @${username}?`,
+      `They won't be able to see your posts or find you on Vibe. They won't be notified.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Block",
+          style: "destructive",
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await blockUser(myId, userId ?? username);
+              onClose();
+              onBlocked?.();
+            } catch {
+              Alert.alert("Error", "Could not block user. Try again.");
+            } finally { setBusy(false); }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRestrict = () => {
+    if (!myId) { Alert.alert("Sign in to restrict users"); return; }
+    Alert.alert(
+      `Restrict @${username}?`,
+      `Their comments will be hidden from others. They won't know they've been restricted and can still see your posts.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Restrict",
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await restrictUser(myId, userId ?? username);
+              onClose();
+              onRestricted?.();
+              Alert.alert("Restricted", `@${username} has been restricted.`);
+            } catch {
+              Alert.alert("Error", "Could not restrict user. Try again.");
+            } finally { setBusy(false); }
+          },
+        },
+      ]
+    );
   };
 
   const handleReport = async (reason: string) => {
@@ -89,20 +128,18 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked }:
       await reportContent(myId, username, "user", reason);
       setShowReport(false);
       onClose();
-      Alert.alert("Reported", "Thank you. Our team will review this account within 24 hours.");
+      Alert.alert("Reported ✅", "Thank you. Our team will review this account within 24 hours.");
     } catch {
       Alert.alert("Error", "Could not submit report. Try again.");
-    } finally {
-      setReporting(null);
-    }
+    } finally { setReporting(null); }
   };
 
   const options: { icon: string; label: string; action: () => void; destructive?: boolean }[] = [
     { icon: "share-social-outline", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
     { icon: "copy-outline", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `vibe.app/@${username} copied to clipboard`) },
-    { icon: "person-remove-outline", label: blocking ? "Blocking..." : "Block @" + username, action: handleBlock, destructive: true },
+    { icon: "person-remove-outline", label: busy ? "Please wait…" : `Block @${username}`, action: handleBlock, destructive: true },
+    { icon: "eye-off-outline", label: `Restrict @${username}`, action: handleRestrict, destructive: true },
     { icon: "flag-outline", label: "Report User", action: () => setShowReport(true), destructive: true },
-    { icon: "eye-off-outline", label: "Restrict User", action: () => { Alert.alert("Restricted", `@${username} won't know they're restricted`); onClose(); } },
   ];
 
   return (
@@ -116,6 +153,7 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked }:
               <TouchableOpacity
                 key={i}
                 onPress={opt.action}
+                disabled={busy}
                 style={[menuStyles.option, { borderBottomColor: colors.border }]}
               >
                 <Ionicons name={opt.icon as any} size={20} color={opt.destructive ? "#EF4444" : colors.foreground} />
@@ -137,7 +175,7 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked }:
               >
                 <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
                 <Text style={[menuStyles.optionText, { color: colors.foreground }]}>
-                  {reporting === reason ? "Submitting..." : reason}
+                  {reporting === reason ? "Submitting…" : reason}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -156,6 +194,8 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked }:
   );
 }
 
+// ─── UserProfileScreen ────────────────────────────────────────────────────────
+
 export default function UserProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
   const { session } = useAuth();
@@ -163,18 +203,21 @@ export default function UserProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [following, setFollowing] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);         // I blocked them
+  const [amBlocked, setAmBlocked] = useState(false);         // They blocked me
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfileGridItem[]>([]);
   const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged">("posts");
   const [showMenu, setShowMenu] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; startIndex: number }>({ visible: false, startIndex: 0 });
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const u = username ?? "";
+  const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
 
   useEffect(() => {
     if (!u) return;
-    lookupProfileByUsername(u).then((p) => { if (p) setProfile(p); }).catch(() => {});
+    lookupProfileByUsername(u).then((p) => { if (p) setProfile(p); setProfileLoaded(true); }).catch(() => setProfileLoaded(true));
   }, [u]);
 
   useEffect(() => {
@@ -186,6 +229,7 @@ export default function UserProfileScreen() {
     if (!myId || !profile?.id) return;
     checkIsFollowing(myId, profile.id).then(setFollowing).catch(() => {});
     isUserBlocked(myId, profile.id).then(setIsBlocked).catch(() => {});
+    amIBlockedBy(myId, profile.id).then(setAmBlocked).catch(() => {});
   }, [myId, profile?.id]);
 
   const handleFollow = async () => {
@@ -201,9 +245,6 @@ export default function UserProfileScreen() {
     } catch {}
   };
 
-  const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
-  const mutualText = null;
-
   const userData = {
     fullName: (profile as any)?.display_name ?? u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
     bio: profile?.bio ?? "",
@@ -214,13 +255,11 @@ export default function UserProfileScreen() {
     isVerified: profile?.is_verified ?? false,
     isPrivate: profile?.is_private ?? false,
     location: profile?.location ?? "",
-    mutualFollowers: [] as string[],
-    followsYou: false,
     coverSeed: `${u}cover`,
     highlights: [] as { label: string; image: string }[],
   };
 
-  const gridData: Array<{ id: string; image: string; likes: number; caption?: string; isVideo?: boolean; username: string }> = posts.map((p) => ({
+  const gridData = posts.map((p) => ({
     id: p.id,
     image: p.image_url || `https://picsum.photos/seed/${p.id}/400/400`,
     likes: p.likes,
@@ -228,6 +267,31 @@ export default function UserProfileScreen() {
     isVideo: p.isReel,
     username: u,
   }));
+
+  // ── "User not found" — they blocked me ───────────────────────────────────────
+  if (profileLoaded && amBlocked) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.topBar, { paddingTop: topPad, backgroundColor: colors.background }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+          </TouchableOpacity>
+          <Text style={[styles.topTitle, { color: colors.foreground }]}>Profile</Text>
+          <View style={styles.iconBtn} />
+        </View>
+        <View style={notFoundSt.wrap}>
+          <Text style={{ fontSize: 64 }}>🔍</Text>
+          <Text style={[notFoundSt.title, { color: colors.foreground }]}>User not found</Text>
+          <Text style={[notFoundSt.sub, { color: colors.mutedForeground }]}>
+            This account doesn't exist or is unavailable.
+          </Text>
+          <TouchableOpacity onPress={() => router.back()} style={[notFoundSt.backBtn, { borderColor: colors.border }]}>
+            <Text style={[notFoundSt.backBtnText, { color: colors.foreground }]}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -252,26 +316,14 @@ export default function UserProfileScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.coverWrap}>
-          <Image
-            source={{ uri: `https://picsum.photos/seed/${userData.coverSeed}/600/300` }}
-            style={styles.coverPhoto}
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.5)"]}
-            style={StyleSheet.absoluteFill}
-          />
+          <Image source={{ uri: `https://picsum.photos/seed/${userData.coverSeed}/600/300` }} style={styles.coverPhoto} resizeMode="cover" />
+          <LinearGradient colors={["transparent", "rgba(0,0,0,0.5)"]} style={StyleSheet.absoluteFill} />
         </View>
 
         <View style={[styles.profileCard, { backgroundColor: colors.background }]}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
-              <LinearGradient
-                colors={["#7C3AED", "#F97316"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.avatarRing}
-              >
+              <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.avatarRing}>
                 <View style={[styles.avatarInner, { backgroundColor: colors.background }]}>
                   <UserAvatar username={u} size={76} />
                 </View>
@@ -279,24 +331,15 @@ export default function UserProfileScreen() {
             </View>
 
             <View style={styles.statsRow}>
-              <TouchableOpacity
-                style={styles.statBox}
-                onPress={() => router.push(`/followers/${u}?type=followers` as any)}
-              >
+              <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/followers/${u}?type=followers` as any)}>
                 <Text style={[styles.statValue, { color: colors.foreground }]}>{formatCount(userData.posts)}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Posts</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.statBox}
-                onPress={() => router.push(`/followers/${u}?type=followers` as any)}
-              >
+              <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/followers/${u}?type=followers` as any)}>
                 <Text style={[styles.statValue, { color: colors.foreground }]}>{formatCount(userData.followers)}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Followers</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.statBox}
-                onPress={() => router.push(`/followers/${u}?type=following` as any)}
-              >
+              <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/followers/${u}?type=following` as any)}>
                 <Text style={[styles.statValue, { color: colors.foreground }]}>{formatCount(userData.following)}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Following</Text>
               </TouchableOpacity>
@@ -306,67 +349,34 @@ export default function UserProfileScreen() {
           <View style={styles.bioSection}>
             <View style={styles.nameRow}>
               <Text style={[styles.fullName, { color: colors.foreground }]}>{userData.fullName}</Text>
-              {userData.isVerified && (
-                <Ionicons name="checkmark-circle" size={17} color="#7C3AED" />
-              )}
-              {userData.followsYou && (
-                <View style={[styles.followsYouPill, { backgroundColor: "rgba(124,58,237,0.15)" }]}>
-                  <Text style={styles.followsYouText}>Follows you</Text>
-                </View>
-              )}
+              {userData.isVerified && <Ionicons name="checkmark-circle" size={17} color="#7C3AED" />}
             </View>
             <Text style={[styles.handle, { color: colors.mutedForeground }]}>@{u}</Text>
-
             {userData.location ? (
               <View style={styles.locationRow}>
                 <Ionicons name="location-outline" size={12} color={colors.mutedForeground} />
                 <Text style={[styles.locationText, { color: colors.mutedForeground }]}>{userData.location}</Text>
               </View>
             ) : null}
-
-            {userData.bio ? (
-              <Text style={[styles.bio, { color: colors.foreground }]}>{userData.bio}</Text>
-            ) : null}
-
+            {userData.bio ? <Text style={[styles.bio, { color: colors.foreground }]}>{userData.bio}</Text> : null}
             {userData.website ? (
               <TouchableOpacity onPress={() => Linking.openURL(`https://${userData.website}`)} style={styles.websiteRow}>
                 <Ionicons name="link-outline" size={13} color="#7C3AED" />
                 <Text style={styles.websiteText}>{userData.website}</Text>
               </TouchableOpacity>
             ) : null}
-
-            {mutualText ? (
-              <View style={styles.mutualRow}>
-                <View style={styles.mutualAvatars}>
-                  {userData.mutualFollowers.slice(0, 2).map((mu, i) => (
-                    <View key={mu} style={[styles.mutualAvatar, { marginLeft: i > 0 ? -10 : 0, zIndex: 2 - i }]}>
-                      <UserAvatar username={mu} size={20} />
-                    </View>
-                  ))}
-                </View>
-                <Text style={[styles.mutualText, { color: colors.mutedForeground }]}>{mutualText}</Text>
-              </View>
-            ) : null}
           </View>
 
           <View style={styles.actionRow}>
             <TouchableOpacity
               onPress={handleFollow}
-              style={[
-                styles.followBtn,
-                following && { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
-              ]}
+              style={[styles.followBtn, following && { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }]}
               activeOpacity={0.85}
             >
               {following ? (
                 <Text style={[styles.followBtnText, { color: colors.foreground }]}>Following ✓</Text>
               ) : (
-                <LinearGradient
-                  colors={["#7C3AED", "#EA580C"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.followGrad}
-                >
+                <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.followGrad}>
                   <Text style={[styles.followBtnText, { color: "#fff" }]}>Follow</Text>
                 </LinearGradient>
               )}
@@ -391,24 +401,15 @@ export default function UserProfileScreen() {
           <View style={styles.privateWrap}>
             <Ionicons name="lock-closed" size={44} color={colors.mutedForeground} />
             <Text style={[styles.privateTitle, { color: colors.foreground }]}>This account is private</Text>
-            <Text style={[styles.privateSub, { color: colors.mutedForeground }]}>
-              Follow to see their photos and videos
-            </Text>
+            <Text style={[styles.privateSub, { color: colors.mutedForeground }]}>Follow to see their photos and videos</Text>
           </View>
         ) : (
           <>
             {userData.highlights.length > 0 && (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.highlightsRow}
-              >
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightsRow}>
                 {userData.highlights.map((hl, i) => (
                   <TouchableOpacity key={i} style={styles.highlightItem} activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={["#7C3AED", "#F97316"]}
-                      style={styles.highlightRing}
-                    >
+                    <LinearGradient colors={["#7C3AED", "#F97316"]} style={styles.highlightRing}>
                       <View style={[styles.highlightInner, { backgroundColor: colors.background }]}>
                         <Image source={{ uri: hl.image }} style={styles.highlightImage} />
                       </View>
@@ -425,16 +426,8 @@ export default function UserProfileScreen() {
                 { id: "reels", icon: "film-outline" as const },
                 { id: "tagged", icon: "person-outline" as const },
               ] as const).map((tab) => (
-                <TouchableOpacity
-                  key={tab.id}
-                  onPress={() => setActiveTab(tab.id)}
-                  style={styles.tabBtn}
-                >
-                  <Ionicons
-                    name={tab.icon}
-                    size={22}
-                    color={activeTab === tab.id ? "#7C3AED" : colors.mutedForeground}
-                  />
+                <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={styles.tabBtn}>
+                  <Ionicons name={tab.icon} size={22} color={activeTab === tab.id ? "#7C3AED" : colors.mutedForeground} />
                   {activeTab === tab.id && <View style={styles.tabIndicator} />}
                 </TouchableOpacity>
               ))}
@@ -442,12 +435,7 @@ export default function UserProfileScreen() {
 
             <View style={styles.grid}>
               {gridData.map((item, i) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.gridItem}
-                  activeOpacity={0.88}
-                  onPress={() => setMediaViewer({ visible: true, startIndex: i })}
-                >
+                <TouchableOpacity key={item.id} style={styles.gridItem} activeOpacity={0.88} onPress={() => setMediaViewer({ visible: true, startIndex: i })}>
                   <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
                   {item.isVideo && (
                     <View style={styles.videoOverlay} pointerEvents="none">
@@ -456,9 +444,7 @@ export default function UserProfileScreen() {
                   )}
                   <View style={styles.gridLikeRow} pointerEvents="none">
                     <Ionicons name="heart" size={12} color="#fff" />
-                    <Text style={styles.gridLikes}>
-                      {(item.likes ?? 0) >= 1000 ? `${((item.likes ?? 0) / 1000).toFixed(1)}k` : item.likes}
-                    </Text>
+                    <Text style={styles.gridLikes}>{(item.likes ?? 0) >= 1000 ? `${((item.likes ?? 0) / 1000).toFixed(1)}k` : item.likes}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -476,6 +462,7 @@ export default function UserProfileScreen() {
         userId={profile?.id}
         myId={myId}
         onBlocked={() => { setIsBlocked(true); router.back(); }}
+        onRestricted={() => {}}
       />
 
       <FullScreenMediaViewer
@@ -488,6 +475,14 @@ export default function UserProfileScreen() {
   );
 }
 
+const notFoundSt = StyleSheet.create({
+  wrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 32 },
+  title: { fontSize: 22, fontFamily: "Poppins_700Bold" },
+  sub: { fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 22 },
+  backBtn: { marginTop: 16, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14, borderWidth: 1 },
+  backBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+});
+
 const menuStyles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.5)" },
   sheet: { position: "absolute", bottom: 0, left: 0, right: 0, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10 },
@@ -496,19 +491,12 @@ const menuStyles = StyleSheet.create({
   optionText: { fontFamily: "Poppins_500Medium", fontSize: 15 },
   cancelBtn: { paddingVertical: 16, alignItems: "center", borderTopWidth: 0.5, marginTop: 4 },
   cancelText: { fontFamily: "Poppins_700Bold", fontSize: 15 },
-  reportTitle: { fontFamily: "Poppins_700Bold", fontSize: 15, paddingHorizontal: 24, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.08)" },
+  reportTitle: { fontFamily: "Poppins_700Bold", fontSize: 15, paddingHorizontal: 24, paddingVertical: 14 },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    zIndex: 10,
-  },
+  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingBottom: 8, zIndex: 10 },
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   topTitle: { flex: 1, textAlign: "center", fontFamily: "Poppins_700Bold", fontSize: 16 },
   coverWrap: { height: COVER_H, position: "relative" },
@@ -525,49 +513,36 @@ const styles = StyleSheet.create({
   bioSection: { gap: 4, marginBottom: 14 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   fullName: { fontFamily: "Poppins_700Bold", fontSize: 16 },
-  followsYouPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  followsYouText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
   handle: { fontFamily: "Poppins_400Regular", fontSize: 13 },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   locationText: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   bio: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
   websiteRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   websiteText: { color: "#7C3AED", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  mutualRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 },
-  mutualAvatars: { flexDirection: "row" },
-  mutualAvatar: { borderRadius: 12, overflow: "hidden", borderWidth: 1.5, borderColor: "#0A0A0F" },
-  mutualText: { fontFamily: "Poppins_400Regular", fontSize: 11, flex: 1 },
   actionRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
-  followBtn: { flex: 2.2, height: 38, borderRadius: 10, overflow: "hidden", alignItems: "center", justifyContent: "center" },
-  followGrad: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center" },
+  followBtn: { flex: 1, borderRadius: 12, overflow: "hidden", alignItems: "center", justifyContent: "center", height: 38 },
+  followGrad: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
   followBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14 },
-  msgBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 10, height: 38, borderWidth: 0.5 },
+  msgBtn: { flex: 1, flexDirection: "row", gap: 6, borderRadius: 12, alignItems: "center", justifyContent: "center", height: 38, borderWidth: 1 },
   msgBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  vibeBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 10, borderWidth: 1 },
-  vibeBtnText: { fontSize: 18 },
-  privateWrap: { alignItems: "center", paddingTop: 60, paddingHorizontal: 40, gap: 12 },
-  privateTitle: { fontFamily: "Poppins_700Bold", fontSize: 17 },
-  privateSub: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 20 },
-  highlightsRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 16 },
-  highlightItem: { alignItems: "center", gap: 5 },
+  vibeBtn: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  vibeBtnText: { fontSize: 16 },
+  privateWrap: { alignItems: "center", gap: 12, paddingVertical: 60, paddingHorizontal: 32 },
+  privateTitle: { fontFamily: "Poppins_700Bold", fontSize: 18 },
+  privateSub: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center" },
+  highlightsRow: { paddingHorizontal: 16, gap: 16, paddingVertical: 12 },
+  highlightItem: { alignItems: "center", gap: 4 },
   highlightRing: { width: 68, height: 68, borderRadius: 34, alignItems: "center", justifyContent: "center" },
-  highlightInner: { width: 62, height: 62, borderRadius: 31, overflow: "hidden" },
+  highlightInner: { width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   highlightImage: { width: "100%", height: "100%" },
-  highlightLabel: { fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center" },
-  tabRow: { flexDirection: "row", borderTopWidth: 0.5, borderBottomWidth: 0.5, marginBottom: 1 },
-  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 11, position: "relative" },
-  tabIndicator: { position: "absolute", top: 0, left: 16, right: 16, height: 2, backgroundColor: "#7C3AED", borderRadius: 1 },
+  highlightLabel: { fontFamily: "Poppins_400Regular", fontSize: 11 },
+  tabRow: { flexDirection: "row", borderTopWidth: 0.5, borderBottomWidth: 0.5 },
+  tabBtn: { flex: 1, alignItems: "center", paddingVertical: 10, position: "relative" },
+  tabIndicator: { position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, backgroundColor: "#7C3AED" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 1.5 },
   gridItem: { width: GRID_SIZE, height: GRID_SIZE, position: "relative" },
-  gridImage: { width: "100%", height: "100%" },
-  videoOverlay: { position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 10, padding: 3 },
+  gridImage: { width: "100%", height: "100%", backgroundColor: "#111" },
+  videoOverlay: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 8, padding: 3 },
   gridLikeRow: { position: "absolute", bottom: 6, left: 6, flexDirection: "row", alignItems: "center", gap: 3 },
-  gridLikes: {
-    color: "#fff",
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 11,
-    textShadowColor: "rgba(0,0,0,0.8)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
+  gridLikes: { color: "#fff", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
 });
