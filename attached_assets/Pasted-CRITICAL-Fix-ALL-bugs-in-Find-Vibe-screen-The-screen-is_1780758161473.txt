@@ -1,0 +1,348 @@
+CRITICAL - Fix ALL bugs in Find Vibe screen.
+The screen is crashing the app on real device.
+
+Do a complete rewrite of find.tsx to fix 
+every possible crash:
+
+1. WRAP ENTIRE SCREEN IN ERROR BOUNDARY:
+Add at top of file:
+import React, { 
+  Component, 
+  ErrorInfo 
+} from 'react'
+
+class FindVibeErrorBoundary extends Component {
+  state = { hasError: false, error: null }
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.log('FindVibe Error:', error, info)
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{
+          flex: 1,
+          backgroundColor: '#080810',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20
+        }}>
+          <Text style={{fontSize: 50}}>💜</Text>
+          <Text style={{
+            color: 'white',
+            fontSize: 20,
+            fontWeight: '700',
+            marginTop: 16,
+            textAlign: 'center'
+          }}>
+            Find Vibe needs a moment
+          </Text>
+          <Text style={{
+            color: '#9CA3AF',
+            fontSize: 14,
+            marginTop: 8,
+            textAlign: 'center'
+          }}>
+            Something went wrong. Please try again.
+          </Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ 
+              hasError: false 
+            })}
+            style={{
+              marginTop: 24,
+              backgroundColor: '#8B5CF6',
+              paddingHorizontal: 32,
+              paddingVertical: 12,
+              borderRadius: 25
+            }}
+          >
+            <Text style={{
+              color: 'white',
+              fontWeight: '700'
+            }}>
+              Try Again
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+    return this.props.children
+  }
+}
+
+2. WRAP MAIN EXPORT:
+export default function FindVibeScreen() {
+  return (
+    <FindVibeErrorBoundary>
+      <FindVibeContent />
+    </FindVibeErrorBoundary>
+  )
+}
+
+3. FIX ALL ASYNC OPERATIONS:
+Every single async call must have try/catch:
+
+// Location - with timeout
+const getLocation = async () => {
+  try {
+    const permission = await Promise.race([
+      Location.requestForegroundPermissionsAsync(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(
+          new Error('timeout')
+        ), 5000)
+      )
+    ])
+    if (permission.status !== 'granted') return
+    
+    const loc = await Promise.race([
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(
+          new Error('timeout')
+        ), 8000)
+      )
+    ])
+    setLocation(loc.coords)
+  } catch (err) {
+    console.log('Location error:', err)
+    // Continue without location - don't crash!
+  }
+}
+
+// Load matches - safe
+const loadMatches = async () => {
+  try {
+    setLoading(true)
+    const { data, error } = await supabase
+      .rpc('get_vibe_matches', {
+        p_user_id: userId,
+        p_limit: 10
+      })
+    if (error) {
+      console.log('Matches error:', error)
+      setMatches([])
+      return
+    }
+    setMatches(data || [])
+  } catch (err) {
+    console.log('Load matches failed:', err)
+    setMatches([])
+  } finally {
+    setLoading(false)
+  }
+}
+
+// Load goals - safe
+const loadGoals = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('relationship_goals')
+      .select('*')
+      .order('position')
+    if (error) throw error
+    setGoals(data || [])
+  } catch (err) {
+    console.log('Goals error:', err)
+    setGoals([])
+  }
+}
+
+// Setup check - safe
+const checkSetup = async () => {
+  try {
+    if (!userId) return
+    const key = 'vibe_setup_' + userId
+    const val = await AsyncStorage.getItem(key)
+    if (!val) {
+      setShowSetup(true)
+    }
+  } catch (err) {
+    console.log('Setup check error:', err)
+    setShowSetup(false)
+  }
+}
+
+4. FIX NULL SAFETY EVERYWHERE:
+Replace ALL unsafe access:
+
+// Unsafe - crashes:
+user.username
+data.map(...)
+item.interests.join(',')
+
+// Safe - never crashes:
+user?.username || 'Unknown'
+(data || []).map(...)
+(item?.interests || []).join(',')
+
+5. FIX PAGER VIEW:
+Make sure all 6 pages are always valid:
+
+<PagerView
+  style={{flex: 1}}
+  initialPage={0}
+  onPageSelected={e => 
+    setActiveTab(e.nativeEvent.position)
+  }
+>
+  <View key="0" style={{flex: 1}}>
+    <NearTab />
+  </View>
+  <View key="1" style={{flex: 1}}>
+    <GoalsTab />
+  </View>
+  <View key="2" style={{flex: 1}}>
+    <MatchesTab />
+  </View>
+  <View key="3" style={{flex: 1}}>
+    <RoomsTab />
+  </View>
+  <View key="4" style={{flex: 1}}>
+    <VibeTab />
+  </View>
+  <View key="5" style={{flex: 1}}>
+    <DailyTab />
+  </View>
+</PagerView>
+
+6. FIX EACH TAB COMPONENT:
+Every tab must handle empty state:
+
+const NearTab = () => {
+  if (loading) return <LoadingSpinner />
+  if (matches.length === 0) return <EmptyState />
+  return <SwipeCards data={matches} />
+}
+
+const GoalsTab = () => {
+  if (!goals || goals.length === 0) {
+    return (
+      <View style={{flex:1, 
+        justifyContent:'center',
+        alignItems:'center'}}>
+        <Text style={{color:'white'}}>
+          Loading goals...
+        </Text>
+      </View>
+    )
+  }
+  return <GoalsGrid goals={goals} />
+}
+
+7. FIX SWIPE CARDS:
+If no cards available show empty state:
+
+const SwipeCards = ({ data }) => {
+  if (!data || data.length === 0) {
+    return (
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+      }}>
+        <Text style={{fontSize: 60}}>💜</Text>
+        <Text style={{
+          color: 'white',
+          fontSize: 20,
+          fontWeight: '700',
+          textAlign: 'center',
+          marginTop: 16
+        }}>
+          No one nearby yet
+        </Text>
+        <Text style={{
+          color: '#9CA3AF',
+          fontSize: 14,
+          textAlign: 'center',
+          marginTop: 8
+        }}>
+          Be the first to join Vibe!
+          Invite your friends 🎉
+        </Text>
+        <TouchableOpacity
+          style={{
+            marginTop: 24,
+            backgroundColor: '#8B5CF6',
+            paddingHorizontal: 32,
+            paddingVertical: 12,
+            borderRadius: 25
+          }}
+          onPress={() => router.push('/invite')}
+        >
+          <Text style={{
+            color: 'white',
+            fontWeight: '700'
+          }}>
+            Invite Friends
+          </Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+  // render cards...
+}
+
+8. FIX SPEED VIBE BUTTON:
+Speed Vibe button crash fix:
+const handleSpeedVibe = () => {
+  try {
+    router.push('/speed-vibe')
+  } catch (err) {
+    console.log('Speed vibe nav error:', err)
+  }
+}
+
+9. FIX FILTER MODAL:
+Filter modal crash fix:
+const [showFilter, setShowFilter] = 
+  useState(false)
+
+// Safe open/close
+const openFilter = () => {
+  try {
+    setShowFilter(true)
+  } catch (err) {
+    console.log('Filter error:', err)
+  }
+}
+
+10. REMOVE ALL CONSOLE.LOG IN PRODUCTION:
+Replace with silent error handling
+
+11. FIX REANIMATED VALUES:
+Initialize all shared values safely:
+const translateX = useSharedValue(0)
+const translateY = useSharedValue(0)
+const scale = useSharedValue(1)
+const opacity = useSharedValue(1)
+
+Make sure these are initialized
+BEFORE any gesture handlers use them!
+
+12. FIX GESTURE HANDLER:
+Wrap in GestureHandlerRootView:
+import { GestureHandlerRootView }
+  from 'react-native-gesture-handler'
+
+<GestureHandlerRootView style={{flex:1}}>
+  <FindVibeContent />
+</GestureHandlerRootView>
+
+Fix EVERY single crash in Find Vibe.
+After fixing, the screen must:
+- Never crash on open
+- Handle empty data gracefully
+- Show loading states
+- Show empty states
+- Handle all errors silently
+- Work on real Android device

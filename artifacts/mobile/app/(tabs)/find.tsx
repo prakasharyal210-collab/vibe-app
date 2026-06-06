@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
-import React, { useEffect, useRef, useState } from "react";
+import React, { Component, ErrorInfo, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated as RNAnimated,
@@ -58,6 +58,45 @@ import { VibeSetupWizard, VibePreferences } from "@/components/VibeSetupWizard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
+
+// ── Error Boundary ──────────────────────────────────────────────────────────
+class FindVibeErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError(_: Error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.log("FindVibe Error:", error.message, info.componentStack);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: "#080810", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <Text style={{ fontSize: 52 }}>💜</Text>
+          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginTop: 16, textAlign: "center", fontFamily: "Poppins_700Bold" }}>
+            Find Vibe needs a moment
+          </Text>
+          <Text style={{ color: "#9CA3AF", fontSize: 14, marginTop: 8, textAlign: "center", lineHeight: 22 }}>
+            Something went wrong. Please try again.
+          </Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ hasError: false })}
+            style={{ marginTop: 28, backgroundColor: "#8B5CF6", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 25 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Setup timing helpers ────────────────────────────────────────────────────
 const SETUP_INTERVAL_DAYS = 365;
@@ -1697,7 +1736,7 @@ const matchTabStyles = StyleSheet.create({
   toastCta: { color: "#EC4899", fontFamily: "Poppins_700Bold", fontSize: 13 },
 });
 
-export default function FindVibeScreen() {
+function FindVibeContent() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
@@ -2278,3 +2317,11 @@ const styles = StyleSheet.create({
   historyDate: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   historyStatus: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
 });
+
+export default function FindVibeScreen() {
+  return (
+    <FindVibeErrorBoundary>
+      <FindVibeContent />
+    </FindVibeErrorBoundary>
+  );
+}
