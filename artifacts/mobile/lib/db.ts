@@ -1105,8 +1105,16 @@ export async function getForYouFeed(userId: string, limit = 20, offset = 0): Pro
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data } = await supabase.from('posts').select('*, profiles(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-  return (data as Post[]) ?? [];
+  try {
+    const { data } = await supabase
+      .from('posts')
+      .select('*, profiles!user_id(*)')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    return (data as Post[]) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
@@ -1224,26 +1232,53 @@ export async function uploadPostMedia(
   userId: string,
   uri: string,
   caption: string
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; mediaUrl: string } | null> {
   try {
-    const ext = (uri.split('.').pop() ?? 'jpg').split('?')[0];
-    const path = `${userId}/${Date.now()}.${ext}`;
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const { error: upErr } = await supabase.storage.from('posts').upload(path, blob, { upsert: true });
+    const cleanUri = uri.split('?')[0];
+    const ext = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
+    const mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+    const filename = `${userId}/${Date.now()}.${ext}`;
+
     let mediaUrl = uri;
-    if (!upErr) {
-      const { data: urlData } = supabase.storage.from('posts').getPublicUrl(path);
-      mediaUrl = urlData.publicUrl;
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const { error: upErr } = await supabase.storage
+        .from('posts')
+        .upload(filename, blob, { contentType: mimeType, upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('posts').getPublicUrl(filename);
+        mediaUrl = urlData.publicUrl;
+      } else {
+        console.log('Storage upload error:', upErr.message);
+      }
+    } catch (storageErr) {
+      console.log('Storage fetch/upload failed:', storageErr);
     }
+
     const { data, error } = await supabase
       .from('posts')
-      .insert({ user_id: userId, image_url: mediaUrl, caption, hashtags: extractHashtags(caption), is_reel: false })
+      .insert({
+        user_id: userId,
+        image_url: mediaUrl,
+        media_url: mediaUrl,
+        caption,
+        hashtags: extractHashtags(caption),
+        is_reel: false,
+        likes_count: 0,
+        comments_count: 0,
+        views_count: 0,
+        created_at: new Date().toISOString(),
+      })
       .select('id')
       .single();
-    if (error) return null;
-    return { id: (data as any).id };
-  } catch {
+    if (error) {
+      console.log('Post insert error:', error.message);
+      return null;
+    }
+    return { id: (data as any).id, mediaUrl };
+  } catch (err) {
+    console.log('uploadPostMedia error:', err);
     return null;
   }
 }
@@ -1253,26 +1288,53 @@ export async function uploadReelMedia(
   uri: string,
   caption: string,
   duration?: number
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; videoUrl: string } | null> {
   try {
-    const ext = (uri.split('.').pop() ?? 'mp4').split('?')[0];
-    const path = `${userId}/${Date.now()}.${ext}`;
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const { error: upErr } = await supabase.storage.from('reels').upload(path, blob, { upsert: true });
+    const cleanUri = uri.split('?')[0];
+    const ext = (cleanUri.split('.').pop() ?? 'mp4').toLowerCase();
+    const mimeType = ext === 'mov' ? 'video/quicktime' : ext === 'webm' ? 'video/webm' : 'video/mp4';
+    const filename = `${userId}/${Date.now()}.${ext}`;
+
     let videoUrl = uri;
-    if (!upErr) {
-      const { data: urlData } = supabase.storage.from('reels').getPublicUrl(path);
-      videoUrl = urlData.publicUrl;
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const { error: upErr } = await supabase.storage
+        .from('reels')
+        .upload(filename, blob, { contentType: mimeType, upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from('reels').getPublicUrl(filename);
+        videoUrl = urlData.publicUrl;
+      } else {
+        console.log('Reel storage upload error:', upErr.message);
+      }
+    } catch (storageErr) {
+      console.log('Reel storage fetch/upload failed:', storageErr);
     }
+
     const { data, error } = await supabase
       .from('reels')
-      .insert({ user_id: userId, video_url: videoUrl, caption, hashtags: extractHashtags(caption), duration, is_public: true })
+      .insert({
+        user_id: userId,
+        video_url: videoUrl,
+        caption,
+        hashtags: extractHashtags(caption),
+        duration,
+        is_public: true,
+        likes_count: 0,
+        comments_count: 0,
+        views_count: 0,
+        created_at: new Date().toISOString(),
+      })
       .select('id')
       .single();
-    if (error) return null;
-    return { id: (data as any).id };
-  } catch {
+    if (error) {
+      console.log('Reel insert error:', error.message);
+      return null;
+    }
+    return { id: (data as any).id, videoUrl };
+  } catch (err) {
+    console.log('uploadReelMedia error:', err);
     return null;
   }
 }

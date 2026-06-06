@@ -483,9 +483,11 @@ export default function ReelsScreen() {
     if (!session?.user?.id) return;
     const uid = session.user.id;
     (async () => {
+      let fyLoaded = false;
       try {
         const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
         if (fyData && fyData.length > 0) {
+          fyLoaded = true;
           setForYouReels(fyData.map((r: any) => ({
             id: r.id,
             image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
@@ -500,6 +502,32 @@ export default function ReelsScreen() {
           })));
         }
       } catch {}
+
+      // Fallback: if no reels from RPC, show photo posts from the posts table
+      if (!fyLoaded) {
+        try {
+          const { data: postsData } = await supabase
+            .from("posts")
+            .select("*, profiles!user_id(username, avatar_url, is_verified)")
+            .order("created_at", { ascending: false })
+            .limit(20);
+          if (postsData && postsData.length > 0) {
+            setForYouReels(postsData.map((p: any) => ({
+              id: `post_${p.id}`,
+              image: p.image_url ?? p.media_url ?? `https://picsum.photos/seed/${p.id}/450/900`,
+              username: p.profiles?.username ?? "user",
+              caption: p.caption ?? "",
+              likes: p.likes_count ?? 0,
+              comments: p.comments_count ?? 0,
+              shares: p.shares_count ?? 0,
+              views: p.views_count ?? 0,
+              sound: "Original Sound",
+              isVerified: p.profiles?.is_verified ?? false,
+            })));
+          }
+        } catch {}
+      }
+
       try {
         const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
         if (flData && flData.length > 0) {

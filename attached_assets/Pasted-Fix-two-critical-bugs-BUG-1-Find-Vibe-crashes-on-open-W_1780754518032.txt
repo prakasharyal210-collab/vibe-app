@@ -1,0 +1,160 @@
+Fix two critical bugs:
+
+BUG 1 - Find Vibe crashes on open:
+Wrap entire find.tsx in try/catch error boundary.
+Add loading states everywhere.
+Wrap all Supabase calls in try/catch.
+Never crash on null data - use empty arrays.
+Wrap location request in try/catch with timeout.
+
+BUG 2 - Photos not showing after posting:
+When user takes photo and posts it:
+
+1. UPLOAD TO SUPABASE STORAGE:
+const uploadPhoto = async (uri) => {
+  try {
+    const filename = `${userId}/${Date.now()}.jpg`
+    const response = await fetch(uri)
+    const blob = await response.blob()
+    
+    const { data, error } = await supabase.storage
+      .from('posts')
+      .upload(filename, blob, {
+        contentType: 'image/jpeg',
+        upsert: false
+      })
+    
+    if (error) throw error
+    
+    const { data: urlData } = supabase.storage
+      .from('posts')
+      .getPublicUrl(filename)
+    
+    return urlData.publicUrl
+  } catch (err) {
+    console.log('Upload error:', err)
+    return null
+  }
+}
+
+2. SAVE POST TO DATABASE:
+const createPost = async (mediaUrl, caption) => {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        user_id: userId,
+        media_url: mediaUrl,
+        media_type: 'image',
+        caption: caption,
+        likes_count: 0,
+        comments_count: 0,
+        views_count: 0,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    // Update posts count on profile
+    await supabase
+      .from('profiles')
+      .update({ 
+        posts_count: supabase.rpc('increment', 
+          { row_id: userId }) 
+      })
+      .eq('id', userId)
+    
+    return data
+  } catch (err) {
+    console.log('Create post error:', err)
+    return null
+  }
+}
+
+3. AFTER POSTING:
+- Show success toast "Posted! 🎉"
+- Navigate to profile tab
+- Reload profile posts
+- Reload feed
+
+4. FIX FEED TO SHOW ALL POSTS:
+Since there is only one user right now,
+show ALL posts in For You feed
+regardless of algorithm score:
+
+const getFeed = async () => {
+  try {
+    // First try algorithm feed
+    const { data } = await supabase
+      .rpc('get_for_you_feed', {
+        p_user_id: userId,
+        p_limit: 20
+      })
+    
+    if (data && data.length > 0) {
+      setFeed(data)
+      return
+    }
+    
+    // Fallback - show ALL posts if feed empty
+    const { data: allPosts } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        profiles!user_id (
+          username,
+          avatar_url,
+          is_verified
+        )
+      `)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    
+    setFeed(allPosts || [])
+  } catch (err) {
+    console.log('Feed error:', err)
+    setFeed([])
+  }
+}
+
+5. FIX PROFILE TO SHOW POSTS:
+In profile screen load posts:
+
+const loadProfilePosts = async () => {
+  try {
+    const { data } = await supabase
+      .from('posts')
+      .select('*')
+      .eq('user_id', profileUserId)
+      .order('created_at', { ascending: false })
+    
+    setPosts(data || [])
+  } catch (err) {
+    console.log('Profile posts error:', err)
+    setPosts([])
+  }
+}
+
+6. FIX POSTS GRID:
+Show posts in 3-column grid on profile:
+- Each post shows media_url image
+- Video posts show thumbnail + play icon
+- Tap post → opens full screen viewer
+- Pull to refresh reloads posts
+
+7. CONTENT SCORE FOR SOLO USER:
+When only 1 user exists:
+- Their posts should have high score
+- Show in For You feed immediately
+- Don't filter by seen posts
+- Don't require minimum engagement
+
+Fix both bugs completely!
+After fixing:
+- Camera photo uploads to Supabase storage
+- Post saves to posts table
+- Post shows in profile grid immediately  
+- Post shows in For You feed immediately
+- Find Vibe doesn't crash
