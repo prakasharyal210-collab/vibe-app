@@ -1,0 +1,91 @@
+Add skip/remind later option to update notification:
+
+UPDATE BANNER:
+- Show "✕" dismiss button on right
+- Tapping ✕ hides banner for 24 hours
+- Shows again after 24 hours
+- Never force dismiss for critical updates
+
+UPDATE BOTTOM SHEET:
+- "Remind me later" button below "Update Now"
+- Tapping dismisses sheet
+- Banner reappears after 30 minutes
+- "Skip this version" option for minor updates
+  (never shows that version again)
+
+SKIP VERSION:
+const skipVersion = async (version) => {
+  await AsyncStorage.setItem(
+    'skipped_version', version
+  )
+}
+
+const shouldShowUpdate = async (version) => {
+  const skipped = await AsyncStorage
+    .getItem('skipped_version')
+  return skipped !== version
+}
+
+FORCE UPDATE (cannot skip):
+- Only when force_update = true in Supabase
+- No dismiss button
+- No "later" option
+- Must update to continue
+
+NORMAL UPDATE (can skip):
+- Has dismiss button ✕
+- Has "Remind me later"
+- Has "Skip this version"
+- User choice respected
+
+UPDATE UI:
+
+// Banner with skip
+<View style={{
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: '#8B5CF6',
+  padding: 12
+}}>
+  <Text style={{flex:1, color:'white'}}>
+    ✨ Update available!
+  </Text>
+  <TouchableOpacity onPress={handleUpdate}>
+    <Text style={{
+      color:'white',
+      fontWeight:'700'
+    }}>
+      Update
+    </Text>
+  </TouchableOpacity>
+  <TouchableOpacity 
+    onPress={dismissUpdate}
+    style={{marginLeft: 12}}
+  >
+    <Text style={{color:'white'}}>✕</Text>
+  </TouchableOpacity>
+</View>
+
+// Bottom sheet buttons
+<TouchableOpacity onPress={handleUpdate}>
+  // "Update Now" gradient button
+</TouchableOpacity>
+
+<TouchableOpacity onPress={remindLater}>
+  <Text style={{color:'#9CA3AF'}}>
+    Remind me later
+  </Text>
+</TouchableOpacity>
+
+<TouchableOpacity onPress={skipVersion}>
+  <Text style={{color:'#6B7280', fontSize:12}}>
+    Skip this version
+  </Text>
+</TouchableOpacity>
+
+Make sure:
+- Skip works for normal updates
+- Cannot skip force updates
+- Remind later works (30 min delay)
+- Skip version persists in AsyncStorage
+- Beautiful UI on all states

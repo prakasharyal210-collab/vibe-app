@@ -158,16 +158,20 @@ export function UpdateBottomSheet({
   downloading,
   progress,
   whatsNew,
+  isForce,
   onUpdate,
   onDismiss,
+  onSkipVersion,
 }: {
   visible: boolean;
   downloaded: boolean;
   downloading: boolean;
   progress: number;
   whatsNew: string[];
+  isForce?: boolean;
   onUpdate: () => void;
   onDismiss: () => void;
+  onSkipVersion?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const slideY = useRef(new Animated.Value(H)).current;
@@ -300,9 +304,18 @@ export function UpdateBottomSheet({
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={onDismiss} style={{ marginTop: 14, alignItems: "center" }}>
-            <Text style={sheetStyles.laterText}>Remind me later</Text>
-          </TouchableOpacity>
+          {!isForce && (
+            <>
+              <TouchableOpacity onPress={onDismiss} style={{ marginTop: 14, alignItems: "center" }}>
+                <Text style={sheetStyles.laterText}>Remind me later</Text>
+              </TouchableOpacity>
+              {onSkipVersion && (
+                <TouchableOpacity onPress={onSkipVersion} style={{ marginTop: 10, alignItems: "center" }}>
+                  <Text style={sheetStyles.skipText}>Skip this version</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -330,6 +343,7 @@ const sheetStyles = StyleSheet.create({
   updateBtn: { paddingVertical: 16, borderRadius: 24, alignItems: "center", justifyContent: "center", minHeight: 54 },
   updateBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
   laterText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  skipText: { color: "rgba(255,255,255,0.2)", fontFamily: "Poppins_400Regular", fontSize: 12 },
 });
 
 // ─── Force Update Screen ──────────────────────────────────────────────────────
