@@ -363,9 +363,11 @@ const sheetStyles = StyleSheet.create({
 export function ForceUpdateScreen({
   visible,
   onUpdate,
+  onSkip,
 }: {
   visible: boolean;
   onUpdate: () => void;
+  onSkip?: () => void;
 }) {
   const dotAnims = useRef([
     new Animated.Value(0),
@@ -442,7 +444,13 @@ export function ForceUpdateScreen({
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={forceStyles.note}>You cannot skip this update</Text>
+        {onSkip ? (
+          <TouchableOpacity onPress={onSkip} activeOpacity={0.7} style={forceStyles.skipBtn}>
+            <Text style={forceStyles.skipText}>Skip for now</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={forceStyles.note}>You cannot skip this update</Text>
+        )}
       </View>
     </Modal>
   );
@@ -461,6 +469,8 @@ const forceStyles = StyleSheet.create({
   updateBtn: { paddingVertical: 18, alignItems: "center", borderRadius: 28 },
   updateBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
   note: { color: "rgba(255,255,255,0.25)", fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center" },
+  skipBtn: { marginTop: 4, padding: 12 },
+  skipText: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center" },
 });
 
 // ─── Maintenance Screen ───────────────────────────────────────────────────────
@@ -470,11 +480,13 @@ export function MaintenanceScreen({
   message,
   checkBackTime,
   onRetry,
+  onSkip,
 }: {
   visible: boolean;
   message?: string;
   checkBackTime?: string;
   onRetry: () => void;
+  onSkip?: () => void;
 }) {
   const dotAnims = useRef([
     new Animated.Value(0),
@@ -546,6 +558,12 @@ export function MaintenanceScreen({
         >
           <Text style={maintStyles.retryText}>Check again</Text>
         </TouchableOpacity>
+
+        {onSkip && (
+          <TouchableOpacity onPress={onSkip} activeOpacity={0.7} style={maintStyles.skipBtn}>
+            <Text style={maintStyles.skipText}>Continue anyway</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </Modal>
   );
@@ -562,4 +580,6 @@ const maintStyles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#7C3AED" },
   retryBtn: { marginTop: 24, backgroundColor: "rgba(255,255,255,0.07)", paddingHorizontal: 28, paddingVertical: 12, borderRadius: 20, borderWidth: 0.5, borderColor: "rgba(255,255,255,0.12)" },
   retryText: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  skipBtn: { marginTop: 8, padding: 12 },
+  skipText: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center" },
 });

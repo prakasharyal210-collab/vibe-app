@@ -1,0 +1,109 @@
+Add skip option to ALL update and maintenance 
+screens. Keep all screens but add skip:
+
+1. UPDATE BOTTOM SHEET - add skip:
+Already has "Skip this version" and 
+"Remind me later" buttons ✅
+Make sure they are clearly visible!
+
+2. FORCE UPDATE SCREEN - add skip:
+Currently has NO skip option.
+Add subtle skip button:
+
+// In ForceUpdateScreen add:
+<TouchableOpacity
+  onPress={() => setShowForceUpdate(false)}
+  style={{
+    marginTop: 16,
+    padding: 12
+  }}
+>
+  <Text style={{
+    color: '#6B7280',
+    fontSize: 13,
+    textAlign: 'center'
+  }}>
+    Skip for now
+  </Text>
+</TouchableOpacity>
+
+3. MAINTENANCE SCREEN - add skip:
+Add skip button at bottom:
+
+<TouchableOpacity
+  onPress={() => setShowMaintenance(false)}
+  style={{
+    marginTop: 20,
+    padding: 12
+  }}
+>
+  <Text style={{
+    color: '#6B7280',
+    fontSize: 13,
+    textAlign: 'center'
+  }}>
+    Continue anyway
+  </Text>
+</TouchableOpacity>
+
+4. ALSO fix checkServerConfig:
+Remove the __DEV__ return so screens
+show in both dev AND production:
+
+// Remove this line:
+if (__DEV__) return
+
+// But keep this for update checks only:
+const checkForUpdates = async () => {
+  if (__DEV__) return // Keep this one
+  ...
+}
+
+// checkServerConfig should run everywhere:
+const checkServerConfig = async () => {
+  // NO __DEV__ guard here
+  try {
+    const { data } = await supabase
+      .from('app_config')
+      .select('*')
+    
+    const config = {}
+    data?.forEach(r => config[r.key] = r.value)
+    
+    if (config.force_update === 'true') {
+      setForceUpdate(true) // Shows with skip
+    }
+    
+    if (config.maintenance_mode === 'true') {
+      setMaintenance(true) // Shows with skip
+    }
+  } catch (err) {
+    console.log('Config check failed:', err)
+  }
+}
+
+5. UPDATE Supabase app_config:
+Set force_update back to false for now:
+UPDATE app_config 
+SET value = 'false' 
+WHERE key = 'force_update';
+
+SUMMARY OF ALL SCREENS:
+
+UPDATE AVAILABLE:
+- "Update Now" → installs
+- "Remind me in 30 mins" → hides 30 mins
+- "Skip this version" → never shows again
+✅ Already working
+
+FORCE UPDATE:
+- "Update Now" → installs  
+- "Skip for now" → dismisses (soft)
+✅ Add this
+
+MAINTENANCE:
+- "Check Again" → retries
+- "Continue anyway" → dismisses
+✅ Add this
+
+Make sure all 3 screens have skip option!

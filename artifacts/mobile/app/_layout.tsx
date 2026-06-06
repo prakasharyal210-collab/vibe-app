@@ -200,7 +200,6 @@ export default function RootLayout() {
 
   // ── Server config check (force update / maintenance / whats new) ──────────
   const checkServerConfig = useCallback(async () => {
-    if (__DEV__) return;
     try {
       const { data } = await supabase.from("app_config").select("key, value");
       if (!data) return;
@@ -345,10 +344,11 @@ export default function RootLayout() {
                       onSkipVersion={handleSkipVersion}
                     />
 
-                    {/* ── Force update — blocking, cannot dismiss ── */}
+                    {/* ── Force update — blocking, skip softly dismisses ── */}
                     <ForceUpdateScreen
                       visible={forceUpdate}
                       onUpdate={handleUpdate}
+                      onSkip={() => setForceUpdate(false)}
                     />
 
                     {/* ── Maintenance mode ── */}
@@ -357,6 +357,7 @@ export default function RootLayout() {
                       message={maintenanceMsg}
                       checkBackTime={maintenanceTime}
                       onRetry={() => { checkServerConfig(); }}
+                      onSkip={() => setMaintenance(false)}
                     />
                   </RealtimeProvider>
                 </AuthProvider>
