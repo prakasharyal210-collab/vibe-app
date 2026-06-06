@@ -471,8 +471,7 @@ export default function UserProfileScreen() {
                     colors={["#7C3AED", "#EA580C"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={StyleSheet.absoluteFill}
-                    pointerEvents="none"
+                    style={[StyleSheet.absoluteFill, { pointerEvents: "none" } as any]}
                   />
                   <Text style={[styles.followBtnText, { color: "#fff" }]}>
                     {followSaving ? "…" : "Follow"}
