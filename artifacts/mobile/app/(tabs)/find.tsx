@@ -34,10 +34,14 @@ import * as Location from "expo-location";
 import {
   Achievement,
   checkAchievements,
+  getGoalInfo,
   getMyVibeMatches,
   getNearbyUsers,
+  getUserGoals,
   getVibeMatches,
   getVibePreferences,
+  RELATIONSHIP_GOALS,
+  saveUserGoals,
   sendVibeRequest,
   updateVibePreferences,
   updateVibeScore,
@@ -93,11 +97,32 @@ function getDailyCountdown(): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function calcMatch(card: VibeCard): number {
+function calcMatch(card: VibeCard, myGoals?: string[]): number {
   const shared = (card.matchInterests ?? []).length;
   const total = new Set([...MY_INTERESTS, ...card.interests]).size;
-  return Math.round((shared / total) * 100);
+  let pct = total > 0 ? Math.round((shared / total) * 100) : 0;
+  if (myGoals?.length && card.goal && myGoals.includes(card.goal)) {
+    pct = Math.min(pct + 20, 99);
+  }
+  return pct;
 }
+
+function GoalPill({ goal, size = "sm" }: { goal: string; size?: "sm" | "md" }) {
+  const info = getGoalInfo(goal);
+  if (!info) return null;
+  const pad = size === "md" ? { px: 12, py: 6, fs: 13 } : { px: 9, py: 3, fs: 11 };
+  return (
+    <View style={[gpStyles.pill, { backgroundColor: info.color + "25", borderColor: info.color + "55", paddingHorizontal: pad.px, paddingVertical: pad.py }]}>
+      <Text style={{ fontSize: size === "md" ? 14 : 12 }}>{info.emoji}</Text>
+      <Text style={[gpStyles.text, { color: info.color, fontSize: pad.fs }]}>{info.shortLabel}</Text>
+    </View>
+  );
+}
+
+const gpStyles = StyleSheet.create({
+  pill: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 10, borderWidth: 1, alignSelf: "flex-start" },
+  text: { fontFamily: "Poppins_600SemiBold" },
+});
 
 function VibeGamesModal({ card, visible, onComplete, onSkip }: {
   card: VibeCard | null;
@@ -399,6 +424,11 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
                 <Text style={profileStyles.locationText}>{card.distance}</Text>
               </View>
             )}
+            {card.goal && (
+              <View style={{ marginBottom: 6 }}>
+                <GoalPill goal={card.goal} size="md" />
+              </View>
+            )}
             <Text style={profileStyles.bio}>{card.bio}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -455,11 +485,8 @@ function FilterModal({
   ];
 
   const GOAL_OPTS = [
-    { value: "all", label: "All", emoji: "💜" },
-    { value: "friendship", label: "Friendship", emoji: "🤝" },
-    { value: "dating", label: "Dating", emoji: "💕" },
-    { value: "networking", label: "Networking", emoji: "💼" },
-    { value: "vibing", label: "Just Vibing", emoji: "✨" },
+    { value: "all", label: "All intentions", emoji: "💜" },
+    ...(RELATIONSHIP_GOALS as readonly { value: string; label: string; emoji: string }[]).map((g) => ({ value: g.value, label: g.label, emoji: g.emoji })),
   ];
 
   const toggleGender = (v: string) => {
@@ -712,7 +739,7 @@ const ibStyles = StyleSheet.create({
   skipText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
 
-function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean }) {
+function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[] }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
@@ -805,7 +832,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
   const topCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
   const thirdCard = cards[currentIndex + 2];
-  const match = topCard ? calcMatch(topCard) : 0;
+  const match = topCard ? calcMatch(topCard, myGoals) : 0;
 
   return (
     <View style={styles.deckArea}>
@@ -862,6 +889,14 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
                     <Text style={[styles.distanceText, { color: "#A78BFA" }]}>{topCard.vibe}</Text>
                   </View>
                 ) : null}
+              </View>
+              <View style={styles.cardGoalRow}>
+                {topCard.goal && <GoalPill goal={topCard.goal} />}
+                {myGoals?.length && topCard.goal && myGoals.includes(topCard.goal) && (
+                  <View style={styles.sameGoalBadge}>
+                    <Text style={styles.sameGoalText}>🎯 Same goals</Text>
+                  </View>
+                )}
               </View>
               <Text style={styles.cardBio} numberOfLines={2}>{topCard.bio}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -944,6 +979,79 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous }: { cards: 
     </View>
   );
 }
+
+function GoalsDiscoveryTab({ onGoalSelect }: { onGoalSelect: (goal: string) => void }) {
+  const colors = useColors();
+  return (
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+      <Text style={[gdStyles.title, { color: colors.foreground }]}>🎯 Browse by Intention</Text>
+      <Text style={[gdStyles.sub, { color: colors.mutedForeground }]}>
+        Find people who want the same things as you
+      </Text>
+      <View style={gdStyles.grid}>
+        {(RELATIONSHIP_GOALS as readonly { value: string; label: string; shortLabel: string; emoji: string; count: string; color: string }[]).map((goal) => (
+          <TouchableOpacity
+            key={goal.value}
+            style={[gdStyles.card, { borderColor: goal.color + "44" }]}
+            onPress={() => onGoalSelect(goal.value)}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={[goal.color + "22", goal.color + "08"]}
+              style={gdStyles.cardGrad}
+            >
+              <View style={[gdStyles.iconWrap, { backgroundColor: goal.color + "22" }]}>
+                <Text style={gdStyles.emoji}>{goal.emoji}</Text>
+              </View>
+              <Text style={[gdStyles.goalLabel, { color: colors.foreground }]} numberOfLines={2}>{goal.label}</Text>
+              <View style={[gdStyles.countPill, { backgroundColor: goal.color + "20" }]}>
+                <Text style={[gdStyles.countText, { color: goal.color }]}>{goal.count} people</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={[gdStyles.statsBanner, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[gdStyles.statsTitle, { color: colors.foreground }]}>🔥 Trending right now</Text>
+        {[
+          { label: "New friends", emoji: "🤝", pct: 42 },
+          { label: "Still figuring out", emoji: "🤔", pct: 31 },
+          { label: "Long-term", emoji: "🌹", pct: 18 },
+        ].map((s) => (
+          <View key={s.label} style={gdStyles.statRow}>
+            <Text style={gdStyles.statEmoji}>{s.emoji}</Text>
+            <Text style={[gdStyles.statLabel, { color: colors.foreground }]}>{s.label}</Text>
+            <View style={gdStyles.statBarBg}>
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[gdStyles.statBarFill, { width: `${s.pct}%` as any }]} />
+            </View>
+            <Text style={[gdStyles.statPct, { color: colors.mutedForeground }]}>{s.pct}%</Text>
+          </View>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+const gdStyles = StyleSheet.create({
+  title: { fontFamily: "Poppins_700Bold", fontSize: 20, marginBottom: 4 },
+  sub: { fontFamily: "Poppins_400Regular", fontSize: 13, marginBottom: 20, lineHeight: 19 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 24 },
+  card: { width: (W - 44) / 2, borderRadius: 18, overflow: "hidden", borderWidth: 1 },
+  cardGrad: { padding: 16, alignItems: "flex-start", gap: 8, minHeight: 120 },
+  iconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 2 },
+  emoji: { fontSize: 22 },
+  goalLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 13, lineHeight: 18 },
+  countPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
+  countText: { fontFamily: "Poppins_600SemiBold", fontSize: 11 },
+  statsBanner: { borderRadius: 20, padding: 18, borderWidth: 0.5, gap: 12 },
+  statsTitle: { fontFamily: "Poppins_700Bold", fontSize: 15, marginBottom: 4 },
+  statRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statEmoji: { fontSize: 16, width: 24 },
+  statLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, width: 120 },
+  statBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  statBarFill: { height: 6, borderRadius: 3 },
+  statPct: { fontFamily: "Poppins_600SemiBold", fontSize: 12, width: 32, textAlign: "right" },
+});
 
 function MatchesTab({ userId }: { userId: string }) {
   const colors = useColors();
@@ -1045,7 +1153,8 @@ export default function FindVibeScreen() {
   const userId = session?.user?.id;
 
   const mainTabSwipe = useMainTabSwipe("find");
-  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "matches">("nearby");
+  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "goals" | "matches">("nearby");
+  const [myGoals, setMyGoals] = useState<string[]>([]);
   const pagerRef = useRef<SwipeablePagerRef>(null);
   const underlineX = useRef(new RNAnimated.Value(0)).current;
   const tabLayouts = useRef<{ x: number; width: number }[]>([]);
@@ -1073,6 +1182,7 @@ export default function FindVibeScreen() {
 
   useEffect(() => {
     if (!userId) return;
+    getUserGoals(userId).then(setMyGoals).catch(() => {});
     (async () => {
       const setupDone = await AsyncStorage.getItem(`vibeSetupDone:${userId}`).catch(() => null);
       if (!setupDone) {
@@ -1137,6 +1247,10 @@ export default function FindVibeScreen() {
     if (userId) {
       await updateVibePreferences(userId, prefs).catch(() => {});
       await AsyncStorage.setItem(`vibeSetupDone:${userId}`, "1").catch(() => {});
+      if (prefs.goals?.length) {
+        setMyGoals(prefs.goals);
+        saveUserGoals(userId, prefs.goals).catch(() => {});
+      }
       const row: VibePrefsRow = {
         gender: prefs.gender,
         interested_in: prefs.interestedIn,
@@ -1149,6 +1263,14 @@ export default function FindVibeScreen() {
       setVibePrefs(row);
       loadCards(userId, row);
     }
+  };
+
+  const handleGoalDiscovery = async (goalValue: string) => {
+    const newFilters = { ...activeFilters, goal: goalValue };
+    setActiveFilters(newFilters);
+    pagerRef.current?.setPage(0);
+    setActiveTab("nearby");
+    await handleApplyFilters(newFilters);
   };
 
   const handleApplyFilters = async (f: FilterState) => {
@@ -1192,11 +1314,12 @@ export default function FindVibeScreen() {
   }
 
   const TABS = [
-    { id: "nearby" as const, label: "📍 Near" },
+    { id: "nearby" as const,   label: "📍 Near" },
     { id: "samevibe" as const, label: "✨ Vibe" },
-    { id: "daily" as const, label: "🌟 Daily" },
-    { id: "rooms" as const, label: "🏠 Rooms" },
-    { id: "matches" as const, label: "💜 Matches" },
+    { id: "daily" as const,    label: "🌟 Daily" },
+    { id: "rooms" as const,    label: "🏠 Rooms" },
+    { id: "goals" as const,    label: "🎯 Goals" },
+    { id: "matches" as const,  label: "💜 Matches" },
   ];
 
   return (
@@ -1299,12 +1422,12 @@ export default function FindVibeScreen() {
       >
         {/* Page 0 — Near */}
         <View key="0" style={{ flex: 1 }}>
-          <SwipeCardDeck cards={nearbyCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} />
+          <SwipeCardDeck cards={nearbyCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
         </View>
 
         {/* Page 1 — Vibe */}
         <View key="1" style={{ flex: 1 }}>
-          <SwipeCardDeck cards={sameVibeCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} />
+          <SwipeCardDeck cards={sameVibeCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
         </View>
 
         {/* Page 2 — Daily */}
@@ -1343,8 +1466,13 @@ export default function FindVibeScreen() {
           <VibeRoomsTab />
         </View>
 
-        {/* Page 4 — Matches */}
+        {/* Page 4 — Goals Discovery */}
         <View key="4" style={{ flex: 1 }}>
+          <GoalsDiscoveryTab onGoalSelect={handleGoalDiscovery} />
+        </View>
+
+        {/* Page 5 — Matches */}
+        <View key="5" style={{ flex: 1 }}>
           {userId ? <MatchesTab userId={userId} /> : <View />}
         </View>
       </SwipeablePager>
@@ -1451,8 +1579,11 @@ const styles = StyleSheet.create({
   matchBadge: { position: "absolute", bottom: 120, right: 14 },
   matchGrad: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16 },
   matchText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_700Bold" },
-  cardBottom: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 18, gap: 6 },
+  cardBottom: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 18, gap: 5 },
   cardNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  cardGoalRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  sameGoalBadge: { backgroundColor: "rgba(234,179,8,0.25)", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "rgba(234,179,8,0.5)" },
+  sameGoalText: { color: "#EAB308", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
   cardName: { color: "#fff", fontSize: 22, fontFamily: "Poppins_700Bold" },
   distancePill: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   distanceText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium" },

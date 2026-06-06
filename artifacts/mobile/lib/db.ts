@@ -1213,6 +1213,36 @@ export async function uploadReelMedia(
   }
 }
 
+// ─── Relationship Goals ───────────────────────────────────────────────────────
+
+export const RELATIONSHIP_GOALS = [
+  { value: "long_term",        label: "Long-term partner",  shortLabel: "Long-term",     emoji: "🌹", count: "3K",   color: "#EC4899" },
+  { value: "serious",          label: "Serious commitment", shortLabel: "Serious",       emoji: "💍", count: "2K",   color: "#EF4444" },
+  { value: "friendship_first", label: "Friendship first",   shortLabel: "Friends first", emoji: "💜", count: "3.5K", color: "#7C3AED" },
+  { value: "friendship",       label: "New friends",        shortLabel: "Friends",       emoji: "🤝", count: "5K",   color: "#8B5CF6" },
+  { value: "activity",         label: "Activity partner",   shortLabel: "Activity",      emoji: "🏃", count: "2.5K", color: "#10B981" },
+  { value: "travel",           label: "Travel buddy",       shortLabel: "Travel",        emoji: "✈️", count: "1.5K", color: "#3B82F6" },
+  { value: "gaming",           label: "Gaming buddy",       shortLabel: "Gaming",        emoji: "🎮", count: "1.2K", color: "#A855F7" },
+  { value: "language",         label: "Language partner",   shortLabel: "Language",      emoji: "🗣️", count: "800",  color: "#06B6D4" },
+  { value: "networking",       label: "Networking",         shortLabel: "Networking",    emoji: "💼", count: "2K",   color: "#64748B" },
+  { value: "short_term",       label: "Short-term fun",     shortLabel: "Short-term",    emoji: "🍭", count: "1K",   color: "#F59E0B" },
+  { value: "tonight",          label: "Free tonight",       shortLabel: "Tonight",       emoji: "🌙", count: "1K",   color: "#F97316" },
+  { value: "figuring",         label: "Still figuring out", shortLabel: "Figuring out",  emoji: "🤔", count: "4K",   color: "#9CA3AF" },
+] as const;
+
+export type RelGoalValue = typeof RELATIONSHIP_GOALS[number]["value"];
+
+export function getGoalInfo(value?: string | null): { emoji: string; shortLabel: string; label: string; color: string } | null {
+  if (!value || value === "all") return null;
+  const found = (RELATIONSHIP_GOALS as readonly { value: string; label: string; shortLabel: string; emoji: string; color: string }[]).find((g) => g.value === value);
+  if (found) return found;
+  const compat: Record<string, { emoji: string; shortLabel: string; label: string; color: string }> = {
+    dating:     { emoji: "💕", shortLabel: "Dating",     label: "Dating",      color: "#EC4899" },
+    vibing:     { emoji: "✨", shortLabel: "Vibing",     label: "Just vibing", color: "#F97316" },
+  };
+  return compat[value] ?? null;
+}
+
 // ─── Vibe Preferences ─────────────────────────────────────────────────────────
 
 export interface VibePrefsRow {
@@ -1231,6 +1261,7 @@ export async function updateVibePreferences(
     gender: string;
     interestedIn: string[];
     lookingFor: string;
+    goals?: string[];
     age: number;
     ageMin: number;
     ageMax: number;
@@ -1253,6 +1284,9 @@ export async function updateVibePreferences(
       { onConflict: 'user_id' }
     );
     await supabase.from('profiles').update({ gender: prefs.gender }).eq('id', userId);
+    if (prefs.goals?.length) {
+      saveUserGoals(userId, prefs.goals).catch(() => {});
+    }
   } catch {
   }
 }
@@ -1269,6 +1303,27 @@ export async function getVibePreferences(userId: string): Promise<VibePrefsRow |
   } catch {
     return null;
   }
+}
+
+export async function saveUserGoals(userId: string, goals: string[]): Promise<void> {
+  try {
+    await supabase.from("user_relationship_goals").upsert(
+      { user_id: userId, goals, primary_goal: goals[0] ?? null, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+  } catch {}
+}
+
+export async function getUserGoals(userId: string): Promise<string[]> {
+  try {
+    const { data } = await supabase
+      .from("user_relationship_goals")
+      .select("goals")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return (data as any)?.goals ?? [];
+  } catch {}
+  return [];
 }
 
 // ─── Vibe Requests (Gender-based Matching) ────────────────────────────────────

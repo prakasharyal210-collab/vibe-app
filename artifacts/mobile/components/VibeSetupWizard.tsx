@@ -15,13 +15,15 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RELATIONSHIP_GOALS } from "@/lib/db";
 
-const { width: W, height: H } = Dimensions.get("window");
+const { width: W } = Dimensions.get("window");
 
 export interface VibePreferences {
   gender: string;
   interestedIn: string[];
   lookingFor: string;
+  goals: string[];
   age: number;
   ageMin: number;
   ageMax: number;
@@ -36,31 +38,23 @@ interface Props {
 const TOTAL_STEPS = 6;
 
 const GENDERS = [
-  { value: "man", label: "Man", emoji: "👨" },
-  { value: "woman", label: "Woman", emoji: "👩" },
-  { value: "nonbinary", label: "Non-binary", emoji: "🏳️" },
-  { value: "other", label: "Other", emoji: "🌈" },
+  { value: "man",      label: "Man",        emoji: "👨" },
+  { value: "woman",    label: "Woman",       emoji: "👩" },
+  { value: "nonbinary",label: "Non-binary",  emoji: "🏳️" },
+  { value: "other",    label: "Other",       emoji: "🌈" },
 ];
 
 const INTERESTS_IN = [
-  { value: "men", label: "Men", emoji: "👨" },
-  { value: "women", label: "Women", emoji: "👩" },
+  { value: "men",      label: "Men",      emoji: "👨" },
+  { value: "women",    label: "Women",    emoji: "👩" },
   { value: "everyone", label: "Everyone", emoji: "💜" },
-];
-
-const GOALS = [
-  { value: "friendship", label: "Friendship", emoji: "🤝" },
-  { value: "dating", label: "Dating", emoji: "💕" },
-  { value: "networking", label: "Networking", emoji: "💼" },
-  { value: "vibing", label: "Just Vibing", emoji: "✨" },
-  { value: "all", label: "All of the above", emoji: "💜" },
 ];
 
 function Dot({ active, done }: { active: boolean; done: boolean }) {
   return (
     <View style={[
       dotStyles.dot,
-      done && { backgroundColor: "#7C3AED" },
+      done  && { backgroundColor: "#7C3AED" },
       active && { backgroundColor: "#A78BFA", width: 20 },
       !active && !done && { backgroundColor: "rgba(255,255,255,0.2)" },
     ]} />
@@ -86,6 +80,36 @@ function SelectCard({
         <View style={styles.optionInner}>
           <Text style={styles.optionEmoji}>{emoji}</Text>
           <Text style={styles.optionLabel}>{label}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+function GoalCard({ value, label, emoji, count, color, selected, onPress }: {
+  value: string; label: string; emoji: string; count: string; color: string; selected: boolean; onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.82} style={styles.goalCard}>
+      {selected ? (
+        <LinearGradient
+          colors={[color + "CC", color + "88"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.goalCardGrad}
+        >
+          <View style={styles.goalCardCheck}>
+            <Ionicons name="checkmark" size={12} color="#fff" />
+          </View>
+          <Text style={styles.goalCardEmoji}>{emoji}</Text>
+          <Text style={styles.goalCardLabelSelected} numberOfLines={2}>{label}</Text>
+          <Text style={styles.goalCardCount}>{count} people</Text>
+        </LinearGradient>
+      ) : (
+        <View style={[styles.goalCardInner, { borderColor: color + "33" }]}>
+          <Text style={styles.goalCardEmoji}>{emoji}</Text>
+          <Text style={styles.goalCardLabel} numberOfLines={2}>{label}</Text>
+          <Text style={[styles.goalCardCount, { color: color }]}>{count}</Text>
         </View>
       )}
     </TouchableOpacity>
@@ -125,7 +149,7 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
 
   const [gender, setGender] = useState("");
   const [interestedIn, setInterestedIn] = useState<string[]>([]);
-  const [lookingFor, setLookingFor] = useState("");
+  const [goals, setGoals] = useState<string[]>([]);
   const [age, setAge] = useState("");
   const [ageMin, setAgeMin] = useState(18);
   const [ageMax, setAgeMax] = useState(35);
@@ -145,7 +169,7 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
   const canContinue = () => {
     if (step === 0) return !!gender;
     if (step === 1) return interestedIn.length > 0;
-    if (step === 2) return !!lookingFor;
+    if (step === 2) return goals.length > 0;
     if (step === 3) return !!age && parseInt(age, 10) >= 18;
     return true;
   };
@@ -158,7 +182,8 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
       onComplete({
         gender,
         interestedIn,
-        lookingFor,
+        goals,
+        lookingFor: goals[0] ?? "",
         age: isNaN(parsedAge) ? 25 : parsedAge,
         ageMin,
         ageMax,
@@ -178,16 +203,20 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
     }
   };
 
-  const STEPS: { title: string; subtitle?: string; optional?: boolean } = [
+  const toggleGoal = (val: string) => {
+    setGoals((prev) =>
+      prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]
+    );
+  };
+
+  const STEP_META = [
     { title: "I am a..." },
     { title: "Interested in...", subtitle: "Select all that apply" },
-    { title: "Looking for..." },
+    { title: "What are you looking for?", subtitle: "Pick all that apply — be honest 💜" },
     { title: "Your age", subtitle: "Your age is kept private" },
     { title: "Show me people aged..." },
     { title: "Within distance of..." },
-  ][step] as any;
-
-  const stepTitles = ["I am a...", "Interested in...", "Looking for...", "Your age", "Age range", "Distance"];
+  ][step] as { title: string; subtitle?: string };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" statusBarTranslucent>
@@ -199,8 +228,8 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
         </View>
 
         <Animated.View style={[styles.content, { transform: [{ translateX: slideAnim }] }]}>
-          <Text style={styles.stepTitle}>{STEPS.title}</Text>
-          {STEPS.subtitle && <Text style={styles.stepSubtitle}>{STEPS.subtitle}</Text>}
+          <Text style={styles.stepTitle}>{STEP_META.title}</Text>
+          {STEP_META.subtitle && <Text style={styles.stepSubtitle}>{STEP_META.subtitle}</Text>}
 
           {step === 0 && (
             <View style={styles.optionsGrid}>
@@ -219,24 +248,29 @@ export function VibeSetupWizard({ visible, onComplete }: Props) {
           )}
 
           {step === 2 && (
-            <View style={styles.optionsColumn}>
-              {GOALS.map((g) => (
-                <TouchableOpacity key={g.value} onPress={() => setLookingFor(g.value)} activeOpacity={0.82} style={styles.goalRow}>
-                  {lookingFor === g.value ? (
-                    <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.goalGrad}>
-                      <Text style={styles.goalEmoji}>{g.emoji}</Text>
-                      <Text style={styles.goalLabelSelected}>{g.label}</Text>
-                      <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginLeft: "auto" }} />
-                    </LinearGradient>
-                  ) : (
-                    <View style={styles.goalInner}>
-                      <Text style={styles.goalEmoji}>{g.emoji}</Text>
-                      <Text style={styles.goalLabel}>{g.label}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={styles.goalsGrid}>
+              {(RELATIONSHIP_GOALS as readonly { value: string; label: string; shortLabel: string; emoji: string; count: string; color: string }[]).map((g) => (
+                <GoalCard
+                  key={g.value}
+                  value={g.value}
+                  label={g.label}
+                  emoji={g.emoji}
+                  count={g.count}
+                  color={g.color}
+                  selected={goals.includes(g.value)}
+                  onPress={() => toggleGoal(g.value)}
+                />
               ))}
-            </View>
+              {goals.length > 0 && (
+                <View style={styles.goalsSelectedBanner}>
+                  <LinearGradient colors={["#7C3AED22", "#EA580C22"]} style={styles.goalsSelectedGrad}>
+                    <Text style={styles.goalsSelectedText}>
+                      ✓ {goals.length} intention{goals.length !== 1 ? "s" : ""} selected — you can always change this later
+                    </Text>
+                  </LinearGradient>
+                </View>
+              )}
+            </ScrollView>
           )}
 
           {step === 3 && (
@@ -358,7 +392,7 @@ const styles = StyleSheet.create({
   progressRow: { flexDirection: "row", gap: 6, alignItems: "center", justifyContent: "center", paddingVertical: 20 },
   content: { flex: 1, paddingTop: 24 },
   stepTitle: { color: "#fff", fontSize: 28, fontFamily: "Poppins_700Bold", marginBottom: 6 },
-  stepSubtitle: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontFamily: "Poppins_400Regular", marginBottom: 28 },
+  stepSubtitle: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontFamily: "Poppins_400Regular", marginBottom: 20 },
   optionsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
   optionCard: { width: (W - 60) / 2, borderRadius: 20, overflow: "hidden" },
   optionGrad: { padding: 20, alignItems: "center", gap: 8, minHeight: 110, justifyContent: "center" },
@@ -367,13 +401,18 @@ const styles = StyleSheet.create({
   optionLabel: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
   optionLabelSelected: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
   checkCircle: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(255,255,255,0.25)", borderRadius: 10, width: 20, height: 20, alignItems: "center", justifyContent: "center" },
-  optionsColumn: { gap: 10, marginTop: 8 },
-  goalRow: { borderRadius: 16, overflow: "hidden" },
-  goalGrad: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, gap: 12 },
-  goalInner: { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 16, gap: 12, backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
-  goalEmoji: { fontSize: 22 },
-  goalLabel: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  goalLabelSelected: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  goalsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingBottom: 16 },
+  goalCard: { width: (W - 68) / 2, borderRadius: 16, overflow: "hidden" },
+  goalCardGrad: { padding: 14, alignItems: "center", gap: 4, minHeight: 100, justifyContent: "center", position: "relative" },
+  goalCardInner: { padding: 14, alignItems: "center", gap: 4, minHeight: 100, justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 16, borderWidth: 1 },
+  goalCardCheck: { position: "absolute", top: 8, right: 8, backgroundColor: "rgba(255,255,255,0.3)", borderRadius: 9, width: 18, height: 18, alignItems: "center", justifyContent: "center" },
+  goalCardEmoji: { fontSize: 26 },
+  goalCardLabel: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_500Medium", fontSize: 13, textAlign: "center" },
+  goalCardLabelSelected: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13, textAlign: "center" },
+  goalCardCount: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 11 },
+  goalsSelectedBanner: { width: "100%", borderRadius: 14, overflow: "hidden", marginTop: 4 },
+  goalsSelectedGrad: { paddingHorizontal: 14, paddingVertical: 10 },
+  goalsSelectedText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12, textAlign: "center" },
   ageInputWrap: { alignItems: "center", marginTop: 24, marginBottom: 32 },
   ageInput: { fontSize: 72, fontFamily: "Poppins_700Bold", color: "#fff", textAlign: "center", minWidth: 140 },
   ageUnit: { color: "rgba(255,255,255,0.45)", fontSize: 18, fontFamily: "Poppins_400Regular", marginTop: -8 },

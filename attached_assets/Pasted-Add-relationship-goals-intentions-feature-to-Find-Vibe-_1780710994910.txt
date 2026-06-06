@@ -1,0 +1,115 @@
+Add relationship goals/intentions feature 
+to Find Vibe like dating apps:
+
+1. SETUP WIZARD - Add goal selection step:
+After gender preferences setup add:
+
+STEP - "What are you looking for?"
+- Full screen with title "What brings you here?"
+- Subtitle "Select all that apply"
+- Beautiful 2-column grid of goal cards:
+
+Each card shows:
+- Large emoji/icon (from Lottie or image)
+- Goal name (bold white text)
+- Users count "3K people" (grey text)
+- Dark card background (#1A1A2E)
+- Rounded corners (20px)
+- Selected: gradient border + checkmark
+- Can select MULTIPLE goals
+
+Goals to show:
+🌹 Long-term partner - 3K
+💍 Serious commitment - 2K
+🌙 Free Tonight - 1K
+🍭 Short-term fun - 1K
+🤝 New friends - 5K
+🤔 Still figuring out - 4K
+💜 Friendship first - 3.5K
+🏃 Activity partner - 2.5K
+✈️ Travel buddy - 1.5K
+💼 Networking - 2K
+🗣️ Language partner - 800
+🎮 Gaming buddy - 1.2K
+
+- "Continue" button (gradient)
+- Saves to user_relationship_goals table
+- Primary goal = first selected
+
+2. PROFILE SETUP - Show goal on profile:
+In Edit Profile add:
+- "What I'm looking for" section
+- Shows selected goals as chips
+- Can edit anytime
+- Privacy toggle: show/hide on profile
+
+3. FIND VIBE CARDS:
+Show goal on swipe cards:
+- Below name and age
+- Small pill badge with emoji + name:
+  "🌹 Long-term" or "🤝 Friends"
+- If multiple goals show primary one
+- Color coded:
+  * Serious: pink/red
+  * Friends: purple
+  * Fun: orange
+  * Other: blue
+
+4. FILTER BY GOAL:
+In Find Vibe filter:
+- "Looking for" section
+- Multi select goal chips
+- Only show people with matching goals
+- "Show all" option
+
+5. GOAL DISCOVERY PAGE:
+New section in Find Vibe "By Goal":
+- Grid of goal cards (like the screenshot)
+- Each card shows:
+  * Large emoji
+  * Goal name
+  * "X people" count
+  * Tap → shows users with that goal
+- Beautiful dark cards with gradient borders
+- Scroll through all goals
+- Tap goal → opens filtered Find Vibe
+
+6. COMPATIBILITY BOOST:
+- If you share same goals: +20 compatibility
+- Shown on card: "Same goals 🎯"
+- Highlighted in match results
+
+7. GOAL ON PROFILE:
+Public profile shows:
+- "Looking for: 🌹 Long-term partner"
+- Small section below bio
+- Only if user chose to show it
+- Tappable → shows others with same goal
+
+8. GOAL MATCHING ALGORITHM:
+In get_vibe_matches() function:
+- Boost users with same goals x1.4
+- Filter by goal if user set preference
+- Show goal compatibility in %
+
+9. GOAL STATS IN EXPLORE:
+In Explore page show:
+- "Popular intentions on Vibe"
+- Horizontal scroll of goal cards
+- Tap to see people with that goal
+
+10. EDIT GOALS:
+In Profile → Edit Profile:
+- "What I'm looking for" section
+- Shows current goals as selected chips
+- Can add/remove goals anytime
+- Changes save immediately to Supabase
+
+Make sure:
+- Goals load from relationship_goals table
+- User selections save to user_relationship_goals
+- Shows on Find Vibe cards
+- Filter works correctly
+- Compatibility calculation includes goals
+- Beautiful card design like the screenshot
+- Smooth animations on selection
