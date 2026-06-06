@@ -36,6 +36,7 @@ import {
   checkAchievements,
   getGoalInfo,
   getMyVibeMatches,
+  getOrCreateConversation,
   getNearbyUsers,
   getUserGoals,
   getVibeMatches,
@@ -1321,6 +1322,8 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
   const [loading, setLoading] = useState(true);
   const [selectedProfile, setSelectedProfile] = useState<VibeCard | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [onlineOnly, setOnlineOnly] = useState(false);
+  const [openingChat, setOpeningChat] = useState<string | null>(null);
   const [newMatchToast, setNewMatchToast] = useState<VibeMatchProfile | null>(null);
   const toastY = useRef(new RNAnimated.Value(-110)).current;
   const heartY1 = useRef(new RNAnimated.Value(0)).current;
@@ -1379,9 +1382,17 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
     ]).start(() => setNewMatchToast(null));
   };
 
-  const filtered = searchQuery.trim()
-    ? matches.filter((m) => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : matches;
+  const openChat = async (m: VibeMatchProfile) => {
+    setOpeningChat(m.id);
+    router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, avatar_url: m.image, isVibeMatch: "true" } });
+    setOpeningChat(null);
+  };
+
+  const filtered = matches.filter((m) => {
+    if (onlineOnly && !m.isOnline) return false;
+    if (searchQuery.trim() && !m.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -1442,9 +1453,17 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
             <Text style={[styles.historyTitle, { color: colors.foreground }]}>
               💜 {matches.length} Match{matches.length !== 1 ? "es" : ""}
             </Text>
-            <Text style={[styles.emptySub, { color: colors.mutedForeground, marginTop: 0 }]}>
-              vibed back ✨
-            </Text>
+            {/* Online-only toggle */}
+            <TouchableOpacity
+              onPress={() => setOnlineOnly((v) => !v)}
+              activeOpacity={0.8}
+              style={[matchTabStyles.onlineToggle, onlineOnly && matchTabStyles.onlineToggleActive]}
+            >
+              <View style={[matchTabStyles.onlineDotSmall, { backgroundColor: onlineOnly ? "#22C55E" : "#6B7280" }]} />
+              <Text style={[matchTabStyles.onlineToggleText, { color: onlineOnly ? "#22C55E" : colors.mutedForeground }]}>
+                Online only
+              </Text>
+            </TouchableOpacity>
           </View>
           {/* Search bar */}
           <View style={[matchTabStyles.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
@@ -1464,15 +1483,24 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
           </View>
         </View>
 
-        {filtered.length === 0 && searchQuery.length > 0 ? (
+        {filtered.length === 0 ? (
           <View style={{ alignItems: "center", paddingTop: 40, gap: 8 }}>
-            <Text style={{ fontSize: 32 }}>🔍</Text>
-            <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>No results for "{searchQuery}"</Text>
+            <Text style={{ fontSize: 32 }}>{onlineOnly ? "💤" : "🔍"}</Text>
+            <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
+              {onlineOnly ? "No one online right now" : `No results for "${searchQuery}"`}
+            </Text>
+            {onlineOnly && (
+              <TouchableOpacity onPress={() => setOnlineOnly(false)}>
+                <Text style={{ color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>Show all matches</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={{ paddingHorizontal: 16, gap: 12 }}>
             {filtered.map((m) => {
               const lvl = vibeLevel(m.vibeScore);
+              const shared = m.sharedInterests ?? [];
+              const isChatting = openingChat === m.id;
               return (
                 <TouchableOpacity
                   key={m.id}
@@ -1490,7 +1518,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
                     </TouchableOpacity>
 
                     <View style={matchTabStyles.info}>
-                      {/* Name row */}
+                      {/* Name + online pill */}
                       <View style={matchTabStyles.nameRow}>
                         <Text style={[matchTabStyles.name, { color: colors.foreground }]} numberOfLines={1}>
                           {m.name}, {m.age}
@@ -1502,54 +1530,97 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
                         )}
                       </View>
 
-                      {/* Vibe Match badge + matched time */}
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {/* Vibe Match badge + matched time + same goal */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                         <View style={matchTabStyles.vibeBadge}>
                           <Text style={matchTabStyles.vibeBadgeText}>💜 Vibe Match</Text>
                         </View>
                         {m.matchedAt && (
                           <Text style={[matchTabStyles.matchedTime, { color: colors.mutedForeground }]}>
-                            {m.matchedAt}
+                            · {m.matchedAt}
                           </Text>
+                        )}
+                        {m.sameGoal && (
+                          <View style={matchTabStyles.sameGoalBadge}>
+                            <Text style={matchTabStyles.sameGoalText}>Same goals 🎯</Text>
+                          </View>
                         )}
                       </View>
 
                       {/* Bio */}
                       {!!m.bio && (
                         <Text style={[matchTabStyles.bio, { color: colors.mutedForeground }]} numberOfLines={2}>
-                          {m.bio}
+                          {m.bio.length > 80 ? `${m.bio.slice(0, 80)}…` : m.bio}
                         </Text>
                       )}
 
-                      {/* Interest pills */}
+                      {/* Last message preview */}
+                      {!!m.lastMessage && (
+                        <View style={matchTabStyles.lastMsgRow}>
+                          <Text style={{ fontSize: 11 }}>💬</Text>
+                          <Text style={[matchTabStyles.lastMsgText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                            {m.lastMessage}
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Interest pills — shared ones glow gold */}
                       {m.interests.length > 0 && (
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }} contentContainerStyle={{ gap: 5 }}>
-                          {m.interests.slice(0, 5).map((tag) => (
-                            <View key={tag} style={[matchTabStyles.interestPill, { backgroundColor: "rgba(124,58,237,0.12)", borderColor: "rgba(124,58,237,0.2)" }]}>
-                              <Text style={matchTabStyles.interestPillText}>
-                                {INTEREST_EMOJI[tag] ?? "•"} {tag}
-                              </Text>
+                          {m.interests.slice(0, 5).map((tag) => {
+                            const isShared = shared.includes(tag);
+                            return (
+                              <View
+                                key={tag}
+                                style={[
+                                  matchTabStyles.interestPill,
+                                  isShared
+                                    ? { backgroundColor: "rgba(234,179,8,0.18)", borderColor: "rgba(234,179,8,0.5)" }
+                                    : { backgroundColor: "rgba(124,58,237,0.12)", borderColor: "rgba(124,58,237,0.2)" },
+                                ]}
+                              >
+                                <Text style={[matchTabStyles.interestPillText, { color: isShared ? "#EAB308" : "#A78BFA" }]}>
+                                  {INTEREST_EMOJI[tag] ?? "•"} {tag}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                          {m.interests.length > 5 && (
+                            <View style={[matchTabStyles.interestPill, { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.15)" }]}>
+                              <Text style={[matchTabStyles.interestPillText, { color: colors.mutedForeground }]}>+{m.interests.length - 5}</Text>
                             </View>
-                          ))}
+                          )}
                         </ScrollView>
                       )}
 
                       {/* Vibe level */}
                       <View style={matchTabStyles.levelRow}>
                         <Text style={[matchTabStyles.levelText, { color: lvl.color }]}>{lvl.label}</Text>
-                        {m.vibeScore ? <Text style={[matchTabStyles.scoreText, { color: lvl.color }]}>{m.vibeScore}</Text> : null}
+                        {!!m.vibeScore && <Text style={[matchTabStyles.scoreText, { color: lvl.color }]}>{m.vibeScore} pts</Text>}
+                        {shared.length > 0 && (
+                          <Text style={{ fontFamily: "Poppins_500Medium", fontSize: 11, color: "#EAB308" }}>
+                            · {shared.length} shared ✨
+                          </Text>
+                        )}
                       </View>
 
                       {/* Action buttons */}
                       <View style={matchTabStyles.btnRow}>
                         <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation(); router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, isVibeMatch: "true" } }); }}
+                          onPress={(e) => { e.stopPropagation(); openChat(m); }}
                           activeOpacity={0.85}
+                          disabled={isChatting}
                           style={{ flex: 1, borderRadius: 10, overflow: "hidden" }}
                         >
                           <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchTabStyles.msgGrad}>
-                            <Text style={matchTabStyles.msgText}>💬 Message</Text>
+                            <Text style={matchTabStyles.msgText}>{isChatting ? "Opening…" : "💬 Message"}</Text>
                           </LinearGradient>
+                          {/* Unread badge */}
+                          {(m.unreadCount ?? 0) > 0 && (
+                            <View style={matchTabStyles.unreadBadge}>
+                              <Text style={matchTabStyles.unreadBadgeText}>{m.unreadCount}</Text>
+                            </View>
+                          )}
                         </TouchableOpacity>
                         <TouchableOpacity
                           onPress={(e) => { e.stopPropagation(); setSelectedProfile(m); }}
@@ -1594,10 +1665,14 @@ const matchTabStyles = StyleSheet.create({
   vibeBadge: { backgroundColor: "rgba(124,58,237,0.18)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: "rgba(124,58,237,0.35)" },
   vibeBadgeText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
   matchedTime: { fontFamily: "Poppins_400Regular", fontSize: 11 },
+  sameGoalBadge: { backgroundColor: "rgba(234,179,8,0.15)", paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: "rgba(234,179,8,0.35)" },
+  sameGoalText: { color: "#EAB308", fontFamily: "Poppins_600SemiBold", fontSize: 10 },
   bio: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  lastMsgRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
+  lastMsgText: { fontFamily: "Poppins_400Regular", fontSize: 11, flex: 1 },
   interestPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
-  interestPillText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 11 },
-  levelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  interestPillText: { fontFamily: "Poppins_500Medium", fontSize: 11 },
+  levelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" },
   levelText: { fontFamily: "Poppins_600SemiBold", fontSize: 12 },
   scoreText: { fontFamily: "Poppins_400Regular", fontSize: 11, opacity: 0.7 },
   btnRow: { flexDirection: "row", gap: 8, marginTop: 6 },
@@ -1605,8 +1680,14 @@ const matchTabStyles = StyleSheet.create({
   msgText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
   profileBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   profileText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  unreadBadge: { position: "absolute", top: -6, right: -6, backgroundColor: "#EF4444", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5, borderWidth: 2, borderColor: "#080810" },
+  unreadBadgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 10 },
   searchBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 14, borderWidth: 1 },
   searchInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 14, padding: 0 },
+  onlineToggle: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "rgba(107,114,128,0.3)" },
+  onlineToggleActive: { borderColor: "rgba(34,197,94,0.5)", backgroundColor: "rgba(34,197,94,0.08)" },
+  onlineToggleText: { fontFamily: "Poppins_500Medium", fontSize: 12 },
+  onlineDotSmall: { width: 7, height: 7, borderRadius: 3.5 },
   newMatchToast: { position: "absolute", top: 0, left: 12, right: 12, zIndex: 999 },
   newMatchToastInner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "rgba(124,58,237,0.95)", borderRadius: 18, padding: 14, shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 12 },
   toastPhoto: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#EC4899" },

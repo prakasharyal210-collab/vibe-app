@@ -1,0 +1,125 @@
+Connect enhanced matches to the app:
+
+MATCHES TAB - Use new Supabase functions:
+
+1. LOAD MATCHES:
+const loadMatches = async () => {
+  setLoading(true)
+  const { data, error } = await supabase
+    .rpc('get_my_vibe_matches', {
+      p_user_id: userId,
+      p_limit: 50
+    })
+  if (data) setMatches(data)
+  setLoading(false)
+}
+
+2. MATCH CARD - Show real data:
+Each card shows:
+- Real avatar_url as profile photo
+- Real full_name or username
+- Real age
+- Real bio (first 80 chars + "...")
+- Real interests as colored pills
+  (max 3 shown, "+X more" if more)
+- Real vibe_score and vibe_level badge
+- Real is_online (green dot)
+- Real matched_at as "Matched X ago"
+- shared_interests highlighted in gold
+- shared_goals shown as "Same goals 🎯"
+- unread_count badge on Message button
+- last_message preview if exists
+
+3. TAP MATCH CARD:
+Opens bottom sheet with full profile:
+- Call get_match_preview(otherUserId, myId)
+- Shows:
+  * Cover photo at top
+  * Large profile photo
+  * Name + verified badge
+  * Vibe score + level
+  * "💜 Matched!" banner
+  * Full bio
+  * All interests as pills
+  * Shared interests highlighted
+  * Shared goals
+  * Recent posts grid (6 posts)
+  * "💬 Message" gradient button
+  * "👤 Full Profile" outline button
+  * Follow button
+
+4. MESSAGE BUTTON:
+- Get conversation_id from match data
+- If conversation exists → navigate to chat
+- If not → create then navigate:
+  const convId = await supabase
+    .rpc('get_or_create_conversation', {
+      p_user1_id: userId,
+      p_user2_id: match.other_user_id,
+      p_is_match: true
+    })
+  navigation.navigate('Chat', { 
+    conversationId: convId 
+  })
+
+5. UNREAD COUNT BADGE:
+- Show red badge on Message button
+- Shows unread_count from match data
+- Updates in real time
+
+6. MATCHES COUNT IN TAB:
+- Show count badge on Matches tab
+- Call get_matches_unread_count(userId)
+- Red dot if any unread messages
+
+7. REAL TIME NEW MATCHES:
+supabase
+  .channel('new-matches')
+  .on('postgres_changes', {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'vibe_matches',
+    filter: `receiver_id=eq.${userId}`
+  }, async (payload) => {
+    if (payload.new.status === 'accepted') {
+      // Reload matches
+      await loadMatches()
+      // Show toast notification
+      showToast({
+        type: 'match',
+        message: 'New Vibe Match! 💜',
+        onPress: () => switchToMatchesTab()
+      })
+    }
+  })
+  .subscribe()
+
+8. SEARCH MATCHES:
+- Search bar at top of matches list
+- Filter by name in real time
+- No API call needed (filter local data)
+- Shows "No results for X" if nothing
+
+9. ONLINE FILTER:
+- Small toggle "Online only"
+- Filters to show only online matches
+- Green dot indicator on cards
+
+10. EMPTY STATE:
+Beautiful empty state:
+- Animated floating hearts (purple/pink)
+- "No matches yet 💜" title
+- "Keep swiping to find your vibe!"
+- "Start Swiping →" button
+  → navigates to Near tab (page 0)
+
+Make sure:
+- Real photos load correctly
+- Real names show
+- Real bio shows
+- Message opens correct chat
+- Online status is accurate
+- Unread counts show
+- Real time updates work
+- Search filters correctly
+- Empty state looks beautiful

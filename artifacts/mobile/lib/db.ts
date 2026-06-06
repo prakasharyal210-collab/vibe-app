@@ -1388,6 +1388,10 @@ export interface VibeMatchProfile {
   isVerified?: boolean;
   matchedAt?: string;
   username?: string;
+  sharedInterests?: string[];
+  sameGoal?: boolean;
+  unreadCount?: number;
+  lastMessage?: string;
 }
 
 const MOCK_MATCH_PROFILES: VibeMatchProfile[] = [
@@ -1436,9 +1440,9 @@ export async function getVibeMatches(
 }
 
 const MOCK_MY_MATCHES: VibeMatchProfile[] = [
-  { id: "m1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/match1/400/400", bio: "Photographer & world traveler ✈️ Coffee addict.", interests: ["Photography", "Travel", "Coffee", "Yoga"], isOnline: true, gender: "woman", vibeScore: 847, goal: "dating", matchedAt: "2h ago", username: "ariana.vibes" },
-  { id: "m2", name: "Zoey", age: 23, image: "https://picsum.photos/seed/match2/400/400", bio: "Artist. Indie music, vintage fashion, late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], isOnline: false, gender: "woman", vibeScore: 931, goal: "vibing", matchedAt: "1d ago", username: "zoey.creates" },
-  { id: "m3", name: "Kai", age: 28, image: "https://picsum.photos/seed/match3/400/400", bio: "Adventure is my love language. Hiker, camper, dreamer.", interests: ["Travel", "Photography", "Camping", "Music"], isOnline: true, gender: "man", vibeScore: 712, goal: "friendship", matchedAt: "3d ago", username: "kai.adventures" },
+  { id: "m1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/match1/400/400", bio: "Photographer & world traveler ✈️ Coffee addict.", interests: ["Photography", "Travel", "Coffee", "Yoga"], isOnline: true, gender: "woman", vibeScore: 847, goal: "dating", matchedAt: "2h ago", username: "ariana.vibes", sharedInterests: ["Photography", "Travel"], sameGoal: true, unreadCount: 3, lastMessage: "Hey! Can't wait to meet 💜" },
+  { id: "m2", name: "Zoey", age: 23, image: "https://picsum.photos/seed/match2/400/400", bio: "Artist. Indie music, vintage fashion, late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], isOnline: false, gender: "woman", vibeScore: 931, goal: "vibing", matchedAt: "1d ago", username: "zoey.creates", sharedInterests: ["Music", "Coffee"], sameGoal: false, unreadCount: 0, lastMessage: "That playlist you shared is 🔥" },
+  { id: "m3", name: "Kai", age: 28, image: "https://picsum.photos/seed/match3/400/400", bio: "Adventure is my love language. Hiker, camper, dreamer.", interests: ["Travel", "Photography", "Camping", "Music"], isOnline: true, gender: "man", vibeScore: 712, goal: "friendship", matchedAt: "3d ago", username: "kai.adventures", sharedInterests: ["Travel", "Photography"], sameGoal: true, unreadCount: 0 },
 ];
 
 function matchTimeStr(isoOrNull: string | null | undefined): string {
@@ -1452,7 +1456,42 @@ function matchTimeStr(isoOrNull: string | null | undefined): string {
   } catch { return "recently"; }
 }
 
+function mapRpcMatch(row: any): VibeMatchProfile {
+  const shared = Array.isArray(row.shared_interests) ? row.shared_interests : [];
+  return {
+    id: row.other_user_id ?? row.matched_user_id ?? row.id,
+    name: row.full_name ?? row.display_name ?? row.username ?? 'Vibe User',
+    username: row.username,
+    age: row.age ?? 25,
+    image: row.avatar_url ?? `https://picsum.photos/seed/${row.other_user_id}/400/400`,
+    bio: row.bio ?? '',
+    interests: Array.isArray(row.interests) ? row.interests : [],
+    gender: row.gender,
+    isOnline: row.is_online ?? false,
+    isVerified: row.is_verified ?? false,
+    vibeScore: row.vibe_score ?? 0,
+    goal: row.looking_for ?? row.goal,
+    matchedAt: matchTimeStr(row.matched_at),
+    sharedInterests: shared,
+    sameGoal: row.same_goal ?? false,
+    unreadCount: row.unread_count ?? 0,
+    lastMessage: row.last_message ?? undefined,
+  };
+}
+
 export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile[]> {
+  // Try the RPC first — it returns richer data (shared interests, unread counts, etc.)
+  try {
+    const { data: rpcData, error: rpcErr } = await supabase.rpc('get_my_vibe_matches', {
+      p_user_id: userId,
+      p_limit: 50,
+    });
+    if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+      return (rpcData as any[]).map(mapRpcMatch);
+    }
+  } catch {}
+
+  // Fallback: direct query
   try {
     const { data, error } = await supabase
       .from('vibe_matches')
@@ -1479,10 +1518,26 @@ export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile
         vibeScore: p.vibe_score ?? 0,
         goal: p.looking_for,
         matchedAt: matchTimeStr(row.matched_at),
+        sharedInterests: [],
+        sameGoal: false,
+        unreadCount: 0,
       };
     });
   } catch {
     return MOCK_MY_MATCHES;
+  }
+}
+
+export async function getOrCreateConversation(userId: string, otherId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.rpc('get_or_create_conversation', {
+      p_user1_id: userId,
+      p_user2_id: otherId,
+      p_is_match: true,
+    });
+    return data as string | null;
+  } catch {
+    return null;
   }
 }
 
