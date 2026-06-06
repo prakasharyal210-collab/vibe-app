@@ -1,0 +1,200 @@
+Add beautiful update notification UI.
+When update is available show it clearly:
+
+UPDATE NOTIFICATION SCREEN:
+When new update available show full screen
+or bottom sheet notification:
+
+import * as Updates from 'expo-updates'
+import Constants from 'expo-constants'
+
+UPDATE BANNER (subtle - for small updates):
+Show at top of every screen:
+
+{updateAvailable && (
+  <TouchableOpacity
+    onPress={handleUpdate}
+    style={{
+      backgroundColor: '#8B5CF6',
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      zIndex: 999
+    }}
+  >
+    <View style={{flexDirection:'row', gap:8}}>
+      <Text style={{fontSize:16}}>✨</Text>
+      <View>
+        <Text style={{
+          color:'white', 
+          fontWeight:'700',
+          fontSize:13
+        }}>
+          Update Available!
+        </Text>
+        <Text style={{
+          color:'rgba(255,255,255,0.8)',
+          fontSize:11
+        }}>
+          Tap to install latest version
+        </Text>
+      </View>
+    </View>
+    <View style={{
+      backgroundColor:'white',
+      paddingHorizontal:12,
+      paddingVertical:6,
+      borderRadius:20
+    }}>
+      <Text style={{
+        color:'#8B5CF6',
+        fontWeight:'700',
+        fontSize:12
+      }}>
+        Update →
+      </Text>
+    </View>
+  </TouchableOpacity>
+)}
+
+UPDATE BOTTOM SHEET (for major updates):
+Shows beautiful modal with:
+- Vibe logo with sparkle animation
+- "New Update Available! 🎉" title
+- Version number (e.g. "Version 1.1.0")
+- What's new list:
+  * ✅ Bug fixes
+  * ✅ Performance improvements  
+  * ✅ New features
+- Progress bar while downloading
+- "Update Now" gradient button
+- "Remind me later" text button
+
+FORCE UPDATE SCREEN (critical updates):
+Full screen blocking update screen:
+- Cannot dismiss
+- Must update to continue
+- Shows update button
+- Opens Play Store or applies OTA
+
+IMPLEMENTATION in app/_layout.tsx:
+
+const [updateAvailable, setUpdateAvailable] = 
+  useState(false)
+const [updateDownloaded, setUpdateDownloaded] = 
+  useState(false)
+const [downloading, setDownloading] = 
+  useState(false)
+const [downloadProgress, setDownloadProgress] = 
+  useState(0)
+const [forceUpdate, setForceUpdate] = 
+  useState(false)
+const [whatsNew, setWhatsNew] = useState([])
+
+useEffect(() => {
+  checkForUpdates()
+  checkServerVersion()
+}, [])
+
+const checkForUpdates = async () => {
+  try {
+    if (__DEV__) return
+    
+    const update = await 
+      Updates.checkForUpdateAsync()
+    
+    if (update.isAvailable) {
+      setUpdateAvailable(true)
+      // Auto download in background
+      setDownloading(true)
+      await Updates.fetchUpdateAsync()
+      setUpdateDownloaded(true)
+      setDownloading(false)
+    }
+  } catch (err) {
+    console.log('Update check failed:', err)
+  }
+}
+
+const checkServerVersion = async () => {
+  try {
+    const { data } = await supabase
+      .from('app_config')
+      .select('*')
+    
+    const config = {}
+    data?.forEach(r => config[r.key] = r.value)
+    
+    // Check force update
+    if (config.force_update === 'true') {
+      setForceUpdate(true)
+    }
+    
+    // Get whats new
+    if (config.whats_new) {
+      setWhatsNew(JSON.parse(config.whats_new))
+    }
+    
+    // Check maintenance
+    if (config.maintenance_mode === 'true') {
+      showMaintenanceScreen(
+        config.maintenance_message
+      )
+    }
+  } catch (err) {
+    console.log('Version check failed:', err)
+  }
+}
+
+const handleUpdate = async () => {
+  try {
+    if (updateDownloaded) {
+      // Already downloaded - just reload
+      await Updates.reloadAsync()
+    } else {
+      // Download then reload
+      setDownloading(true)
+      await Updates.fetchUpdateAsync()
+      await Updates.reloadAsync()
+    }
+  } catch (err) {
+    // If OTA fails open Play Store
+    Linking.openURL(
+      'market://details?id=com.vibeapp.vibe'
+    )
+  }
+}
+
+WHATS NEW in app_config table:
+Update Supabase app_config with:
+{
+  "key": "whats_new",
+  "value": "[\"Bug fixes\",\"Performance improvements\",\"New features\"]"
+}
+
+SHOW UPDATE NOTIFICATION:
+- Banner shows at top when update ready
+- After 3 seconds auto-hide if user ignores
+- Shows again every 30 mins if not updated
+- After downloading shows "Ready to install"
+- On app restart applies automatically
+
+MAINTENANCE MODE:
+If maintenance_mode = true in app_config:
+Show full screen:
+- Vibe logo
+- "We'll be right back! 🔧"
+- "Vibe is getting better for you"
+- Animated loading dots
+- Check back time if available
+- Auto refresh every 60 seconds
+
+Make sure:
+- Update banner looks beautiful
+- Progress shows while downloading
+- Force update cannot be dismissed
+- Maintenance screen looks professional
+- All states handled gracefully
+- Never crashes during update
