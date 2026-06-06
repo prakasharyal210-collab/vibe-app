@@ -1,0 +1,113 @@
+Complete redesign of Create screen to match 
+TikTok and Instagram create features:
+
+FULL SCREEN CAMERA:
+- Camera takes up ENTIRE screen (edge to edge)
+- No black borders or padding
+- True fullscreen like TikTok
+- Front/back camera flip button top right
+- Flash button top left
+- Close X button top left
+
+SWIPE BETWEEN MODES:
+- Swipe LEFT/RIGHT to switch between:
+  POST | VIDEO | LIVE
+- Bottom tab indicator slides with swipe
+- Smooth animation between modes
+- Current mode highlighted
+
+VIDEO RECORDING:
+- Big record button center bottom
+- Tap and HOLD to record
+- Release to stop
+- Progress ring around button fills up
+- Duration options: 15s | 30s | 60s | 3min
+  (tap to select, highlighted pill)
+- While recording:
+  * Red pulsing record indicator top
+  * Timer shows "0:08" counting up
+  * Tap again to stop
+
+PHOTO MODE:
+- Single tap record button = take photo
+- Tap and hold = record video
+- Photo appears briefly then editing screen
+
+RIGHT SIDE TOOLS (vertical):
+- 🔄 Flip camera (top)
+- ⚡ Flash (auto/on/off)
+- ⏱️ Timer (3s/10s countdown)
+- 🎵 Music (opens music picker)
+- ✨ Effects (opens effects grid)
+- 💄 Beauty (skin smoothing)
+- 📐 Grid (composition guide)
+
+BOTTOM TOOLS:
+- Duration selector (15s/30s/60s/3min)
+- Mode tabs (Post/Video/Live) with swipe
+- Record button (center, large)
+- Gallery picker (left of record)
+- Filters (right of record)
+
+MUSIC PICKER:
+- Slides up from bottom (80% height)
+- Search bar at top
+- Trending songs list
+- Recently used
+- My sounds
+- Each song: artwork + title + artist + duration
+- Preview on tap
+- "Add" button to select
+- Selected song shows at bottom of camera
+
+EFFECTS/FILTERS:
+- Horizontal scroll at bottom of camera
+- Real time preview on face
+- Categories: Trending | Beauty | Fun | AR
+- Each effect has preview thumbnail
+
+AFTER RECORDING:
+- Goes to editing screen
+- Video preview plays in loop
+- Right side edit tools:
+  * ✂️ Trim/Cut
+  * 🎵 Add music
+  * 📝 Add text
+  * 😊 Add stickers  
+  * 🎨 Filters
+  * 🔊 Volume
+  * ➡️ Speed (0.5x/1x/2x/3x)
+  * 🎭 Effects
+- Bottom: Discard | Save Draft | Next →
+- "Next →" goes to caption screen
+
+CAPTION SCREEN:
+- Video preview (small, top)
+- Caption text input (large)
+- Hashtag suggestions below
+- Who can watch: Everyone/Friends/Only me
+- Allow comments toggle
+- Allow duet toggle  
+- Allow stitch toggle
+- Location tag
+- Tag people
+- Add to collections
+- "Post" button (gradient, bottom)
+
+LIVE STREAMING:
+- Camera preview full screen
+- "Go Live" big button
+- Title input
+- Category selector
+- Before going live shows:
+  * Preview of camera
+  * Title field
+  * "Start Live" button
+
+Make sure:
+- Camera fills ENTIRE screen
+- Swipe between POST/VIDEO/LIVE works
+- Record button works (tap=photo, hold=video)
+- All tools visible and tappable
+- Smooth animations everywhere
+- Matches TikTok quality
