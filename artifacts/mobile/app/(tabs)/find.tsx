@@ -1087,6 +1087,138 @@ const gdStyles = StyleSheet.create({
   statPct: { fontFamily: "Poppins_600SemiBold", fontSize: 12, width: 32, textAlign: "right" },
 });
 
+// ── Goal Users Sheet ────────────────────────────────────────────────────────
+function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
+  visible: boolean;
+  goalValue: string | null;
+  userId: string | undefined;
+  onClose: () => void;
+}) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const [users, setUsers] = useState<VibeCard[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
+
+  const goalInfo = goalValue ? getGoalInfo(goalValue) : null;
+
+  useEffect(() => {
+    if (!visible || !goalValue || !userId) return;
+    setLoading(true);
+    setUsers([]);
+    getVibeMatches(userId, { lookingFor: goalValue })
+      .then((matches) => setUsers(matches))
+      .catch(() => setUsers([]))
+      .finally(() => setLoading(false));
+  }, [visible, goalValue]);
+
+  const handleVibe = async (targetId: string, name: string) => {
+    if (!userId) return;
+    await sendVibeRequest(userId, targetId).catch(() => {});
+    Alert.alert("💜 Vibe Sent!", `You sent a vibe to ${name}!`);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={[gusStyles.container, { backgroundColor: colors.background, paddingBottom: insets.bottom + 16 }]}>
+        <View style={[gusStyles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={onClose} style={gusStyles.backBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="chevron-down" size={26} color={colors.foreground} />
+          </TouchableOpacity>
+          <View style={gusStyles.headerCenter}>
+            <Text style={[gusStyles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
+              {goalInfo?.emoji ?? "🎯"} {goalInfo?.label ?? goalValue}
+            </Text>
+            {!loading && (
+              <Text style={[gusStyles.headerSub, { color: colors.mutedForeground }]}>
+                {users.length} {users.length === 1 ? "person shares" : "people share"} this intention
+              </Text>
+            )}
+          </View>
+          <View style={{ width: 40 }} />
+        </View>
+
+        {loading ? (
+          <View style={gusStyles.loadWrap}>
+            <Text style={[gusStyles.loadText, { color: colors.mutedForeground }]}>Finding people…</Text>
+          </View>
+        ) : users.length === 0 ? (
+          <View style={gusStyles.loadWrap}>
+            <Text style={{ fontSize: 40 }}>{goalInfo?.emoji ?? "🎯"}</Text>
+            <Text style={[gusStyles.loadText, { color: colors.mutedForeground, marginTop: 12 }]}>
+              No one nearby with this intention yet.{"\n"}Be the first!
+            </Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={gusStyles.grid} showsVerticalScrollIndicator={false}>
+            {users.map((user) => {
+              const matchPct = calcMatch(user);
+              return (
+                <TouchableOpacity
+                  key={user.id}
+                  style={[gusStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => setProfileCard(user)}
+                  activeOpacity={0.88}
+                >
+                  <Image source={{ uri: user.image }} style={gusStyles.photo} />
+                  <View style={gusStyles.cardBody}>
+                    <Text style={[gusStyles.name, { color: colors.foreground }]} numberOfLines={1}>
+                      {user.name}, {user.age}
+                    </Text>
+                    {user.distance && (
+                      <Text style={[gusStyles.dist, { color: colors.mutedForeground }]}>📍 {user.distance}</Text>
+                    )}
+                    <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gusStyles.matchBadge}>
+                      <Text style={gusStyles.matchText}>{matchPct}% match</Text>
+                    </LinearGradient>
+                    <TouchableOpacity
+                      onPress={(e) => { e.stopPropagation(); void handleVibe(user.id, user.name); }}
+                      activeOpacity={0.85}
+                    >
+                      <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gusStyles.vibeBtn}>
+                        <Text style={gusStyles.vibeBtnText}>💜 Vibe</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+      {profileCard && (
+        <ProfileModal
+          card={profileCard}
+          onClose={() => setProfileCard(null)}
+          onVibe={() => { void handleVibe(profileCard.id, profileCard.name); setProfileCard(null); }}
+          onSkip={() => setProfileCard(null)}
+        />
+      )}
+    </Modal>
+  );
+}
+
+const gusStyles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 0.5, gap: 8 },
+  backBtn: { width: 40, alignItems: "flex-start" },
+  headerCenter: { flex: 1, alignItems: "center" },
+  headerTitle: { fontFamily: "Poppins_700Bold", fontSize: 17, textAlign: "center" },
+  headerSub: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  loadWrap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 },
+  loadText: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 16, paddingBottom: 40 },
+  card: { width: (W - 44) / 2, borderRadius: 18, overflow: "hidden", borderWidth: 0.5 },
+  photo: { width: "100%", aspectRatio: 1 },
+  cardBody: { padding: 10, gap: 5 },
+  name: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  dist: { fontFamily: "Poppins_400Regular", fontSize: 11 },
+  matchBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8, alignSelf: "flex-start" },
+  matchText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 11 },
+  vibeBtn: { borderRadius: 12, paddingVertical: 8, alignItems: "center", marginTop: 2 },
+  vibeBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
+});
+
 function MatchesTab({ userId }: { userId: string }) {
   const colors = useColors();
   const [matches, setMatches] = useState<VibeMatchProfile[]>([]);
@@ -1203,6 +1335,7 @@ export default function FindVibeScreen() {
   const [initialWizardPrefs, setInitialWizardPrefs] = useState<VibePreferences | undefined>(undefined);
   const [showUpdateBanner, setShowUpdateBanner] = useState(false);
   const [updateBannerDays, setUpdateBannerDays] = useState(0);
+  const [goalSheet, setGoalSheet] = useState<string | null>(null);
   const [vibePrefs, setVibePrefs] = useState<VibePrefsRow | null>(null);
   const [nearbyCards, setNearbyCards] = useState<VibeCard[]>([]);
   const [sameVibeCards, setSameVibeCards] = useState<VibeCard[]>([]);
@@ -1341,12 +1474,8 @@ export default function FindVibeScreen() {
     if (userId) await snoozeBanner(userId);
   };
 
-  const handleGoalDiscovery = async (goalValue: string) => {
-    const newFilters = { ...activeFilters, goal: goalValue };
-    setActiveFilters(newFilters);
-    pagerRef.current?.setPage(0);
-    setActiveTab("nearby");
-    await handleApplyFilters(newFilters);
+  const handleGoalTap = (goalValue: string) => {
+    setGoalSheet(goalValue);
   };
 
   const handleApplyFilters = async (f: FilterState) => {
@@ -1392,10 +1521,10 @@ export default function FindVibeScreen() {
   const TABS = [
     { id: "nearby" as const,   label: "📍 Near" },
     { id: "goals" as const,    label: "🎯 Goals" },
-    { id: "samevibe" as const, label: "✨ Vibe" },
-    { id: "daily" as const,    label: "🌟 Daily" },
-    { id: "rooms" as const,    label: "🏠 Rooms" },
     { id: "matches" as const,  label: "💜 Matches" },
+    { id: "rooms" as const,    label: "🏠 Rooms" },
+    { id: "samevibe" as const, label: "✨ Vibe" },
+    { id: "daily" as const,    label: "⭐ Daily" },
   ];
 
   return (
@@ -1518,16 +1647,26 @@ export default function FindVibeScreen() {
 
         {/* Page 1 — Goals Discovery */}
         <View key="1" style={{ flex: 1 }}>
-          <GoalsDiscoveryTab onGoalSelect={handleGoalDiscovery} />
+          <GoalsDiscoveryTab onGoalSelect={handleGoalTap} />
         </View>
 
-        {/* Page 2 — Vibe */}
+        {/* Page 2 — Matches */}
         <View key="2" style={{ flex: 1 }}>
+          {userId ? <MatchesTab userId={userId} /> : <View />}
+        </View>
+
+        {/* Page 3 — Rooms */}
+        <View key="3" style={{ flex: 1 }}>
+          <VibeRoomsTab />
+        </View>
+
+        {/* Page 4 — Vibe */}
+        <View key="4" style={{ flex: 1 }}>
           <SwipeCardDeck cards={sameVibeCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
         </View>
 
-        {/* Page 3 — Daily */}
-        <View key="3" style={{ flex: 1 }}>
+        {/* Page 5 — Daily */}
+        <View key="5" style={{ flex: 1 }}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
             <DailyVibeSection
               onViewProfile={(card) => setDailyProfileCard(card)}
@@ -1556,16 +1695,6 @@ export default function FindVibeScreen() {
             </View>
           </ScrollView>
         </View>
-
-        {/* Page 4 — Rooms */}
-        <View key="4" style={{ flex: 1 }}>
-          <VibeRoomsTab />
-        </View>
-
-        {/* Page 5 — Matches */}
-        <View key="5" style={{ flex: 1 }}>
-          {userId ? <MatchesTab userId={userId} /> : <View />}
-        </View>
       </SwipeablePager>
 
       {dailyProfileCard && (
@@ -1585,6 +1714,12 @@ export default function FindVibeScreen() {
         initialPrefs={vibePrefs}
       />
       <SpeedVibeModal visible={showSpeedVibe} onClose={() => setShowSpeedVibe(false)} />
+      <GoalUsersSheet
+        visible={goalSheet !== null}
+        goalValue={goalSheet}
+        userId={userId}
+        onClose={() => setGoalSheet(null)}
+      />
       <VibeSetupWizard
         visible={showSetup}
         onComplete={handleSetupComplete}
