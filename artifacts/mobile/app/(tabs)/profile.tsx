@@ -210,7 +210,7 @@ const pvStyles = StyleSheet.create({
   arrowLeft: { left: 10 },
   arrowRight: { right: 10 },
   infoPanel: { backgroundColor: "rgba(0,0,0,0.85)", padding: 18, paddingBottom: 36, gap: 12 },
-  reelBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#7C3AED", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start" },
+  reelBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#8B5CF6", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start" },
   reelBadgeText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
   actionRow: { flexDirection: "row", gap: 24 },
   actionItem: { alignItems: "center", gap: 4 },
@@ -218,7 +218,7 @@ const pvStyles = StyleSheet.create({
   caption: { color: "rgba(255,255,255,0.88)", fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 20 },
   dots: { flexDirection: "row", gap: 6, alignSelf: "center" },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.3)" },
-  dotActive: { backgroundColor: "#7C3AED", width: 16 },
+  dotActive: { backgroundColor: "#8B5CF6", width: 16 },
 });
 
 function SkeletonGrid() {
@@ -254,10 +254,10 @@ function EmptyGrid({ onCreatePost }: { onCreatePost: () => void }) {
   return (
     <View style={{ alignItems: "center", paddingTop: 56, paddingHorizontal: 40, gap: 14 }}>
       <LinearGradient
-        colors={["rgba(124,58,237,0.18)", "rgba(249,115,22,0.08)"]}
+        colors={["rgba(139,92,246,0.2)", "rgba(236,72,153,0.08)"]}
         style={{ width: 84, height: 84, borderRadius: 42, alignItems: "center", justifyContent: "center" }}
       >
-        <Ionicons name="camera-outline" size={38} color="#7C3AED" />
+        <Ionicons name="camera-outline" size={38} color="#8B5CF6" />
       </LinearGradient>
       <Text style={{ color: colors.foreground, fontSize: 18, fontFamily: "Poppins_700Bold", textAlign: "center" }}>
         Share your first moment
@@ -266,7 +266,7 @@ function EmptyGrid({ onCreatePost }: { onCreatePost: () => void }) {
         Your photos and videos will appear here
       </Text>
       <TouchableOpacity onPress={onCreatePost} style={{ borderRadius: 14, overflow: "hidden", marginTop: 4 }}>
-        <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: 30, paddingVertical: 14 }}>
+        <LinearGradient colors={["#8B5CF6", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: 30, paddingVertical: 14 }}>
           <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" }}>Create Post</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -303,7 +303,7 @@ function GuestProfile() {
       <Text style={[styles.guestSub, { color: colors.mutedForeground }]}>Sign in to see your posts, followers, and messages</Text>
       <GradientButton onPress={() => router.push("/(auth)/login")} title="Sign In" style={{ width: "80%" }} />
       <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-        <Text style={{ color: "#7C3AED", fontSize: 14, fontFamily: "Poppins_600SemiBold" }}>Create account →</Text>
+        <Text style={{ color: "#8B5CF6", fontSize: 14, fontFamily: "Poppins_600SemiBold" }}>Create account →</Text>
       </TouchableOpacity>
     </View>
   );
@@ -445,8 +445,8 @@ export default function ProfileScreen() {
           <View style={styles.topLeft}>
             <Text style={[styles.username, { color: colors.foreground }]}>{displayUsername}</Text>
             <View style={styles.verifiedRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#7C3AED" />
-              <Text style={[styles.verifiedText, { color: "#7C3AED" }]}>Verified</Text>
+              <Ionicons name="checkmark-circle" size={16} color="#8B5CF6" />
+              <Text style={[styles.verifiedText, { color: "#8B5CF6" }]}>Verified</Text>
             </View>
           </View>
           <View style={styles.topActions}>
@@ -467,8 +467,8 @@ export default function ProfileScreen() {
           <View style={styles.profileInfo}>
             {profile.bio ? <Text style={[styles.bio, { color: colors.mutedForeground }]}>{profile.bio}</Text> : null}
             <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `vibe.app/${displayUsername}`)}>
-              <Ionicons name="link-outline" size={13} color="#7C3AED" />
-              <Text style={[styles.shareLinkText, { color: "#7C3AED" }]}>vibe.app/{displayUsername}</Text>
+              <Ionicons name="link-outline" size={13} color="#8B5CF6" />
+              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>vibe.app/{displayUsername}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -504,11 +504,11 @@ export default function ProfileScreen() {
           <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => router.push("/suggested-users" as any)}>
             <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.findFriendsBtn, { backgroundColor: "rgba(124,58,237,0.12)", borderColor: "#7C3AED" }]} onPress={() => router.push("/find-friends" as any)}>
-            <Ionicons name="people-outline" size={15} color="#7C3AED" />
+          <TouchableOpacity style={[styles.findFriendsBtn, { backgroundColor: "rgba(139,92,246,0.12)", borderColor: "#8B5CF6" }]} onPress={() => router.push("/find-friends" as any)}>
+            <Ionicons name="people-outline" size={15} color="#8B5CF6" />
             <Text style={styles.findFriendsBtnText}>Find Friends</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(124,58,237,0.15)", borderColor: "#7C3AED" }]}>
+          <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(139,92,246,0.15)", borderColor: "#8B5CF6" }]}>
             <Text style={styles.walletEmoji}>🪙</Text>
             <Text style={styles.walletChipText}>Wallet</Text>
           </TouchableOpacity>
@@ -519,7 +519,7 @@ export default function ProfileScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightsScroll}>
           <TouchableOpacity style={styles.highlightNew} onPress={() => setShowCreateHighlight(true)}>
             <View style={[styles.highlightCircle, { backgroundColor: colors.muted, borderColor: colors.border, borderWidth: 1, borderStyle: "dashed" }]}>
-              <Ionicons name="add" size={26} color="#7C3AED" />
+              <Ionicons name="add" size={26} color="#8B5CF6" />
             </View>
             <Text style={[styles.highlightLabel, { color: colors.mutedForeground }]}>New</Text>
           </TouchableOpacity>
@@ -529,7 +529,7 @@ export default function ProfileScreen() {
               style={styles.highlightItem}
               onPress={() => setActiveHighlight({ ...h, username: displayUsername })}
             >
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} style={styles.highlightRing}>
+              <LinearGradient colors={["#8B5CF6", "#EC4899"]} style={styles.highlightRing}>
                 <View style={[styles.highlightInner, { backgroundColor: colors.background }]}>
                   <Image source={{ uri: h.image }} style={styles.highlightImg} />
                 </View>
@@ -547,8 +547,8 @@ export default function ProfileScreen() {
           { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
         ]).map((tab) => (
           <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
-            style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#7C3AED", borderBottomWidth: 2.5 }]}>
-            <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#7C3AED" : colors.mutedForeground} />
+            style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
+            <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#8B5CF6" : colors.mutedForeground} />
           </TouchableOpacity>
         ))}
       </View>
@@ -641,7 +641,7 @@ export default function ProfileScreen() {
                 color: colors.foreground,
               }}
             />
-            <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14 }}>
+            <LinearGradient colors={["#8B5CF6", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14 }}>
               <TouchableOpacity
                 style={{ paddingVertical: 14, alignItems: "center" }}
                 onPress={() => {
@@ -700,9 +700,9 @@ const styles = StyleSheet.create({
   highlightLabel: { fontSize: 11, fontFamily: "Poppins_400Regular", textAlign: "center" },
   walletChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   walletEmoji: { fontSize: 14 },
-  walletChipText: { color: "#7C3AED", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  walletChipText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   findFriendsBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
-  findFriendsBtnText: { color: "#7C3AED", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  findFriendsBtnText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   gridTabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginTop: 4 },
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   gridImage: { width: GRID_ITEM, height: GRID_ITEM },

@@ -178,7 +178,7 @@ export function CommentsSheet({
 
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#7C3AED" />
+            <ActivityIndicator color="#8B5CF6" />
           </View>
         ) : (
           <FlatList
@@ -227,12 +227,12 @@ export function CommentsSheet({
             />
             <TouchableOpacity onPress={submitComment} disabled={!comment.trim() || submitting}>
               {submitting ? (
-                <ActivityIndicator color="#7C3AED" size="small" />
+                <ActivityIndicator color="#8B5CF6" size="small" />
               ) : (
                 <Ionicons
                   name="send"
                   size={22}
-                  color={comment.trim() ? "#7C3AED" : colors.mutedForeground}
+                  color={comment.trim() ? "#8B5CF6" : colors.mutedForeground}
                 />
               )}
             </TouchableOpacity>

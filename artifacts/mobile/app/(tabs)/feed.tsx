@@ -96,11 +96,22 @@ function CategoryPills({
             key={cat.id}
             onPress={() => onSelect(cat.id)}
             activeOpacity={0.75}
-            style={[pillStyles.pill, isActive && pillStyles.pillActive]}
+            style={pillStyles.pillWrap}
           >
-            <Text style={[pillStyles.pillText, isActive && pillStyles.pillTextActive]}>
-              {cat.label}
-            </Text>
+            {isActive ? (
+              <LinearGradient
+                colors={["#8B5CF6", "#EC4899", "#F97316"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={pillStyles.pill}
+              >
+                <Text style={[pillStyles.pillText, pillStyles.pillTextActive]}>{cat.label}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={[pillStyles.pill, pillStyles.pillInactive]}>
+                <Text style={pillStyles.pillText}>{cat.label}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         );
       })}
@@ -110,15 +121,19 @@ function CategoryPills({
 const pillStyles = StyleSheet.create({
   scrollView: { flexShrink: 0 },
   row: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row" },
+  pillWrap: { borderRadius: 20, overflow: "hidden" },
   pill: {
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: "#1A1A2E",
   },
-  pillActive: { backgroundColor: "#fff" },
-  pillText: { fontSize: 12, fontFamily: "Poppins_500Medium", color: "#fff" },
-  pillTextActive: { color: "#000" },
+  pillInactive: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  pillText: { fontSize: 12, fontFamily: "Poppins_500Medium", color: "rgba(156,163,175,0.9)" },
+  pillTextActive: { color: "#fff" },
 });
 
 // ─── Gradient VIBE logo ────────────────────────────────────────────────────────
@@ -128,7 +143,7 @@ function VibeLogo() {
       <Text
         style={[logoStyles.text, {
           // @ts-ignore — web-only CSS
-          background: "linear-gradient(to right, #7C3AED, #F97316)",
+          background: "linear-gradient(to right, #8B5CF6, #EC4899, #F97316)",
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
@@ -140,14 +155,15 @@ function VibeLogo() {
   }
   return (
     <View style={logoStyles.nativeWrap}>
-      <Text style={[logoStyles.text, { color: "#7C3AED" }]}>VI</Text>
+      <Text style={[logoStyles.text, { color: "#8B5CF6" }]}>V</Text>
+      <Text style={[logoStyles.text, { color: "#EC4899" }]}>I</Text>
       <Text style={[logoStyles.text, { color: "#F97316" }]}>BE</Text>
     </View>
   );
 }
 const logoStyles = StyleSheet.create({
   nativeWrap: { flexDirection: "row" },
-  text: { fontSize: 26, fontFamily: "Poppins_700Bold", letterSpacing: 4 },
+  text: { fontSize: 28, fontFamily: "Poppins_700Bold", letterSpacing: 4 },
 });
 
 interface TabState {

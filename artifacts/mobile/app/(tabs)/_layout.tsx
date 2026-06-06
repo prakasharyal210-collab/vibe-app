@@ -7,19 +7,24 @@ import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
-import { useColors } from "@/hooks/useColors";
 import { claimDailyReward, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
+
+const PURPLE = "#8B5CF6";
+const PINK   = "#EC4899";
+const ORANGE = "#F97316";
+const ACTIVE = "#A78BFA";
+const INACTIVE = "#6B7280";
 
 function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(80)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const bottomPad = Platform.OS === "web" ? 96 : insets.bottom + 84;
+  const bottomPad = Platform.OS === "web" ? 100 : insets.bottom + 92;
 
   useEffect(() => {
     if (!visible || coins <= 0) return;
@@ -42,10 +47,7 @@ function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
 
   return (
     <Animated.View
-      style={[
-        toastStyles.wrap,
-        { bottom: bottomPad, opacity, transform: [{ translateY }] },
-      ]}
+      style={[toastStyles.wrap, { bottom: bottomPad, opacity, transform: [{ translateY }] }]}
       pointerEvents="none"
     >
       <View style={toastStyles.pill}>
@@ -64,15 +66,15 @@ const toastStyles = StyleSheet.create({
     zIndex: 9999,
   },
   pill: {
-    backgroundColor: "rgba(30,14,52,0.96)",
+    backgroundColor: "rgba(8,8,16,0.96)",
     borderRadius: 30,
     paddingHorizontal: 20,
     paddingVertical: 11,
     borderWidth: 1,
-    borderColor: "rgba(124,58,237,0.45)",
-    shadowColor: "#7C3AED",
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    borderColor: `rgba(139,92,246,0.4)`,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 2 },
     elevation: 8,
   },
@@ -110,72 +112,121 @@ function NativeTabLayout() {
   );
 }
 
+interface TabIconProps {
+  iconName: string;
+  label: string;
+  focused: boolean;
+  color: string;
+  isIOS: boolean;
+  sfActive: string;
+  sfDefault: string;
+}
+
+function TabIcon({ iconName, label, focused, color, isIOS, sfActive, sfDefault }: TabIconProps) {
+  return (
+    <View style={tabIconStyles.wrap}>
+      {isIOS ? (
+        <SymbolView name={focused ? sfActive : sfDefault} tintColor={color} size={22} />
+      ) : (
+        <Ionicons name={iconName as any} size={22} color={color} />
+      )}
+      <Text style={[tabIconStyles.label, { color }]}>{label}</Text>
+      {focused && <View style={tabIconStyles.dot} />}
+    </View>
+  );
+}
+
+const tabIconStyles = StyleSheet.create({
+  wrap: { alignItems: "center", justifyContent: "center", gap: 2, paddingTop: 2 },
+  label: { fontSize: 10, fontFamily: "Poppins_500Medium" },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: PURPLE,
+    marginTop: 1,
+  },
+});
+
 function CreateIcon() {
   return (
-    <LinearGradient
-      colors={["#7C3AED", "#EA580C"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.createIcon}
-    >
-      <Ionicons name="add" size={26} color="#fff" />
-    </LinearGradient>
+    <View style={styles.createShadow}>
+      <LinearGradient
+        colors={[PURPLE, PINK, ORANGE]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.createIcon}
+      >
+        <Ionicons name="add" size={28} color="#fff" />
+      </LinearGradient>
+    </View>
   );
 }
 
 function ClassicTabLayout() {
-  const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#7C3AED",
-        tabBarInactiveTintColor: colors.mutedForeground,
-        tabBarLabelStyle: {
-          fontFamily: "Poppins_500Medium",
-          fontSize: 10,
-          marginTop: -2,
-        },
+        tabBarActiveTintColor: ACTIVE,
+        tabBarInactiveTintColor: INACTIVE,
+        tabBarShowLabel: false,
         tabBarStyle: {
           position: "absolute",
-          backgroundColor: isIOS ? "transparent" : colors.card,
-          borderTopWidth: 0.5,
-          borderTopColor: colors.border,
+          left: 16,
+          right: 16,
+          bottom: Platform.OS === "web" ? 10 : 10,
+          borderRadius: 28,
+          height: Platform.OS === "web" ? 68 : 68,
+          backgroundColor: isIOS ? "transparent" : "rgba(8,8,16,0.96)",
+          borderTopWidth: 0,
           elevation: 0,
-          height: Platform.OS === "web" ? 84 : undefined,
+          overflow: "hidden",
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.08)",
+          shadowColor: PURPLE,
+          shadowOpacity: 0.18,
+          shadowRadius: 28,
+          shadowOffset: { width: 0, height: 8 },
         },
         tabBarBackground: () =>
           isIOS ? (
-            <BlurView
-              intensity={80}
-              tint={isDark ? "dark" : "light"}
-              style={StyleSheet.absoluteFill}
-            />
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
           ) : null,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Reels",
-          tabBarIcon: ({ color, focused }) =>
-            isIOS
-              ? <SymbolView name={focused ? "play.rectangle.fill" : "play.rectangle"} tintColor={color} size={24} />
-              : <Ionicons name={focused ? "play-circle" : "play-circle-outline"} size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon
+              iconName={focused ? "play-circle" : "play-circle-outline"}
+              label="Reels"
+              focused={focused}
+              color={color}
+              isIOS={isIOS}
+              sfActive="play.rectangle.fill"
+              sfDefault="play.rectangle"
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="feed"
         options={{
-          title: "Feed",
-          tabBarIcon: ({ color, focused }) =>
-            isIOS
-              ? <SymbolView name={focused ? "house.fill" : "house"} tintColor={color} size={24} />
-              : <Ionicons name={focused ? "home" : "home-outline"} size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon
+              iconName={focused ? "home" : "home-outline"}
+              label="Feed"
+              focused={focused}
+              color={color}
+              isIOS={isIOS}
+              sfActive="house.fill"
+              sfDefault="house"
+            />
+          ),
         }}
       />
       <Tabs.Screen
@@ -188,21 +239,33 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="find"
         options={{
-          title: "Find Vibe",
-          tabBarIcon: ({ color, focused }) =>
-            isIOS
-              ? <SymbolView name={focused ? "heart.fill" : "heart"} tintColor={color} size={24} />
-              : <Ionicons name={focused ? "heart" : "heart-outline"} size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon
+              iconName={focused ? "heart" : "heart-outline"}
+              label="Find Vibe"
+              focused={focused}
+              color={color}
+              isIOS={isIOS}
+              sfActive="heart.fill"
+              sfDefault="heart"
+            />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
-          tabBarIcon: ({ color, focused }) =>
-            isIOS
-              ? <SymbolView name={focused ? "person.fill" : "person"} tintColor={color} size={24} />
-              : <Ionicons name={focused ? "person" : "person-outline"} size={24} color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon
+              iconName={focused ? "person" : "person-outline"}
+              label="Profile"
+              focused={focused}
+              color={color}
+              isIOS={isIOS}
+              sfActive="person.fill"
+              sfDefault="person"
+            />
+          ),
         }}
       />
       <Tabs.Screen name="explore" options={{ href: null }} />
@@ -246,16 +309,13 @@ export default function TabLayout() {
       try {
         const localDone = await AsyncStorage.getItem("onboarding_done");
         if (localDone === "true") return;
-
         const required = await needsOnboarding(userId).catch(() => false);
         if (!required) {
           await AsyncStorage.setItem("onboarding_done", "true").catch(() => {});
           return;
         }
-
         setTimeout(() => setShowOnboarding(true), 600);
-      } catch {
-      }
+      } catch {}
     })();
   }, [userId]);
 
@@ -280,12 +340,18 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  createShadow: {
+    shadowColor: PURPLE,
+    shadowOpacity: 0.55,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 12,
+  },
   createIcon: {
-    width: 48,
-    height: 32,
-    borderRadius: 10,
+    width: 52,
+    height: 38,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 2,
   },
 });

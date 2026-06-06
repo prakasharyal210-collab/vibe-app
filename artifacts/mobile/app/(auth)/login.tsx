@@ -1,8 +1,9 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
   Platform,
   StyleSheet,
   Text,
@@ -16,12 +17,75 @@ import { GradientButton } from "@/components/GradientButton";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
+function BackgroundOrbs() {
+  const anim1 = useRef(new Animated.Value(0)).current;
+  const anim2 = useRef(new Animated.Value(0)).current;
+  const anim3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = (val: Animated.Value, dur: number, dist: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(val, { toValue: 1, duration: dur, useNativeDriver: true }),
+          Animated.timing(val, { toValue: 0, duration: dur, useNativeDriver: true }),
+        ])
+      ).start();
+    loop(anim1, 4200, 30);
+    loop(anim2, 5800, 25);
+    loop(anim3, 7000, 20);
+  }, []);
+
+  const ty1 = anim1.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
+  const ty2 = anim2.interpolate({ inputRange: [0, 1], outputRange: [0, 25] });
+  const ty3 = anim3.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View style={[orbStyles.orb, orbStyles.orb1, { transform: [{ translateY: ty1 }] }]} />
+      <Animated.View style={[orbStyles.orb, orbStyles.orb2, { transform: [{ translateY: ty2 }] }]} />
+      <Animated.View style={[orbStyles.orb, orbStyles.orb3, { transform: [{ translateY: ty3 }] }]} />
+    </View>
+  );
+}
+
+const orbStyles = StyleSheet.create({
+  orb: {
+    position: "absolute",
+    borderRadius: 999,
+  },
+  orb1: {
+    width: 340,
+    height: 340,
+    top: -80,
+    left: -60,
+    backgroundColor: "rgba(139,92,246,0.18)",
+    ...Platform.select({ web: { filter: "blur(80px)" } as any }),
+  },
+  orb2: {
+    width: 280,
+    height: 280,
+    top: 200,
+    right: -80,
+    backgroundColor: "rgba(236,72,153,0.14)",
+    ...Platform.select({ web: { filter: "blur(80px)" } as any }),
+  },
+  orb3: {
+    width: 240,
+    height: 240,
+    bottom: 60,
+    left: 40,
+    backgroundColor: "rgba(249,115,22,0.12)",
+    ...Platform.select({ web: { filter: "blur(80px)" } as any }),
+  },
+});
+
 export default function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<"email" | "password" | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -41,15 +105,8 @@ export default function LoginScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={["rgba(124,58,237,0.25)", "transparent"]}
-        style={styles.topGlow}
-      />
-      <LinearGradient
-        colors={["transparent", "rgba(249,115,22,0.15)"]}
-        style={styles.bottomGlow}
-      />
+    <View style={styles.root}>
+      <BackgroundOrbs />
 
       <KeyboardAwareScrollViewCompat
         style={{ flex: 1 }}
@@ -62,45 +119,72 @@ export default function LoginScreen() {
         ]}
         bottomOffset={30}
       >
+        {/* Logo */}
         <View style={styles.logoContainer}>
-          <LinearGradient
-            colors={["#7C3AED", "#F97316"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.logoGradient}
-          >
-            <Text style={styles.logoText}>VIBE</Text>
-          </LinearGradient>
+          <View style={styles.logoGlowWrap}>
+            <View style={styles.logoGlow} />
+            <View style={styles.logoBox}>
+              {Platform.OS === "web" ? (
+                <Text
+                  style={[styles.logoText, {
+                    // @ts-ignore web only
+                    background: "linear-gradient(135deg, #8B5CF6, #EC4899, #F97316)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }]}
+                >
+                  VIBE
+                </Text>
+              ) : (
+                <LinearGradient
+                  colors={["#8B5CF6", "#EC4899", "#F97316"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.logoGradientText}
+                >
+                  <Text style={styles.logoText}>VIBE</Text>
+                </LinearGradient>
+              )}
+            </View>
+          </View>
+          <Text style={styles.headline}>Welcome back</Text>
           <Text style={[styles.tagline, { color: colors.mutedForeground }]}>
-            Share your world, your way
+            Share your world, your way ✨
           </Text>
         </View>
 
-        <View style={styles.form}>
+        {/* Glassmorphism form card */}
+        <View style={styles.card}>
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="Email"
-            placeholderTextColor={colors.mutedForeground}
+            placeholder="Email address"
+            placeholderTextColor="rgba(156,163,175,0.6)"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            onFocus={() => setFocused("email")}
+            onBlur={() => setFocused(null)}
             style={[
               styles.input,
-              { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
+              focused === "email" && styles.inputFocused,
             ]}
           />
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Password"
-            placeholderTextColor={colors.mutedForeground}
+            placeholderTextColor="rgba(156,163,175,0.6)"
             secureTextEntry
+            onFocus={() => setFocused("password")}
+            onBlur={() => setFocused(null)}
             style={[
               styles.input,
-              { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
+              focused === "password" && styles.inputFocused,
             ]}
           />
+
           <GradientButton
             onPress={handleLogin}
             title="Sign In"
@@ -120,7 +204,7 @@ export default function LoginScreen() {
             New to Vibe?{" "}
           </Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-            <Text style={styles.signupLink}>Create account</Text>
+            <Text style={styles.signupLink}>Create account →</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollViewCompat>
@@ -131,48 +215,65 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  topGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-  },
-  bottomGlow: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 250,
+    backgroundColor: "#080810",
   },
   content: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 52,
+    marginBottom: 40,
   },
-  logoGradient: {
-    paddingHorizontal: 24,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginBottom: 12,
+  logoGlowWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  logoGlow: {
+    position: "absolute",
+    width: 120,
+    height: 60,
+    borderRadius: 60,
+    backgroundColor: "rgba(139,92,246,0.35)",
+    ...Platform.select({ web: { filter: "blur(30px)" } as any }),
+  },
+  logoBox: {
+    overflow: "hidden",
+    borderRadius: 12,
+  },
+  logoGradientText: {
+    paddingHorizontal: 20,
+    paddingVertical: 4,
   },
   logoText: {
-    fontSize: 42,
+    fontSize: 48,
     fontFamily: "Poppins_700Bold",
     color: "#fff",
-    letterSpacing: 8,
+    letterSpacing: 10,
+  },
+  headline: {
+    fontSize: 26,
+    fontFamily: "Poppins_700Bold",
+    color: "#fff",
+    letterSpacing: -0.5,
+    marginBottom: 6,
   },
   tagline: {
     fontSize: 14,
     fontFamily: "Poppins_400Regular",
     textAlign: "center",
   },
-  form: {
+  card: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 24,
+    padding: 24,
     gap: 14,
     marginBottom: 24,
+    ...Platform.select({
+      web: { backdropFilter: "blur(20px)" } as any,
+    }),
   },
   input: {
     height: 52,
@@ -181,13 +282,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Poppins_400Regular",
     borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    color: "#fff",
+  },
+  inputFocused: {
+    borderColor: "rgba(139,92,246,0.6)",
+    backgroundColor: "rgba(139,92,246,0.06)",
   },
   btn: {
-    marginTop: 6,
+    marginTop: 4,
   },
   forgotBtn: {
     alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   forgotText: {
     fontSize: 13,
@@ -205,6 +313,6 @@ const styles = StyleSheet.create({
   signupLink: {
     fontSize: 14,
     fontFamily: "Poppins_600SemiBold",
-    color: "#7C3AED",
+    color: "#A78BFA",
   },
 });

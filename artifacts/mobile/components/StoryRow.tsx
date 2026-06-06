@@ -240,7 +240,7 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
               onPress={() => { if (reply.trim()) { setReply(""); } }}
               style={viewerStyles.sendBtn}
             >
-              <Ionicons name="send" size={20} color={reply.trim() ? "#7C3AED" : "rgba(255,255,255,0.4)"} />
+              <Ionicons name="send" size={20} color={reply.trim() ? "#8B5CF6" : "rgba(255,255,255,0.4)"} />
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -328,7 +328,7 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
         <View style={S.ownWrap}>
           {story.hasExistingStory ? (
             <LinearGradient
-              colors={["#7C3AED", "#F97316"]}
+              colors={["#8B5CF6", "#EC4899", "#F97316"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={S.ring}
@@ -352,7 +352,7 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
         /* ── Unseen story: gradient ring ── */
         <View style={S.ownWrap}>
           <LinearGradient
-            colors={["#7C3AED", "#F97316"]}
+            colors={["#8B5CF6", "#EC4899", "#F97316"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={S.ring}
@@ -450,7 +450,7 @@ const S = StyleSheet.create({
   addBadge: {
     position: "absolute", bottom: 0, right: 0,
     width: 22, height: 22, borderRadius: 11,
-    backgroundColor: "#7C3AED",
+    backgroundColor: "#8B5CF6",
     alignItems: "center", justifyContent: "center",
     borderWidth: 2, borderColor: "#0A0A0F",
   },

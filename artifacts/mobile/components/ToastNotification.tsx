@@ -16,7 +16,7 @@ import { UserAvatar } from "./UserAvatar";
 const TOAST_COLORS: Record<ToastType, { bg: string; border: string; icon: string }> = {
   like:    { bg: "rgba(244,63,94,0.15)",  border: "#F43F5E", icon: "#F43F5E" },
   comment: { bg: "rgba(59,130,246,0.15)", border: "#3B82F6", icon: "#3B82F6" },
-  follow:  { bg: "rgba(124,58,237,0.15)", border: "#7C3AED", icon: "#7C3AED" },
+  follow:  { bg: "rgba(139,92,246,0.15)", border: "#8B5CF6", icon: "#8B5CF6" },
   vibe:    { bg: "rgba(234,179,8,0.15)",  border: "#EAB308", icon: "#EAB308" },
   mention: { bg: "rgba(249,115,22,0.15)", border: "#F97316", icon: "#F97316" },
   message: { bg: "rgba(16,185,129,0.15)", border: "#10B981", icon: "#10B981" },

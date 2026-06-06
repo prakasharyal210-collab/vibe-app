@@ -58,8 +58,9 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
       onPress={handlePress}
       style={[
         styles.notifRow,
-        { borderBottomColor: colors.border },
-        !notif.read && { backgroundColor: "rgba(124,58,237,0.06)" },
+        { borderBottomColor: "rgba(255,255,255,0.06)" },
+        !notif.read && { backgroundColor: "rgba(139,92,246,0.06)" },
+        { borderLeftWidth: 3, borderLeftColor: !notif.read ? config.color : "transparent" },
       ]}
       activeOpacity={0.78}
     >
@@ -85,7 +86,7 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
       ) : notif.type === "follow" ? (
         <TouchableOpacity style={styles.followBtn}>
           <LinearGradient
-            colors={["#7C3AED", "#EA580C"]}
+            colors={["#8B5CF6", "#EC4899"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.followBtnGrad}
@@ -225,7 +226,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_700Bold",
   },
   badge: {
-    backgroundColor: "#7C3AED",
+    backgroundColor: "#8B5CF6",
     minWidth: 20,
     height: 20,
     borderRadius: 10,
@@ -240,7 +241,8 @@ const styles = StyleSheet.create({
   },
   markAll: {
     fontSize: 13,
-    fontFamily: "Poppins_500Medium",
+    fontFamily: "Poppins_600SemiBold",
+    color: "#A78BFA",
   },
   sectionHeader: {
     paddingHorizontal: 16,
@@ -303,6 +305,7 @@ const styles = StyleSheet.create({
   followBtnGrad: {
     paddingHorizontal: 14,
     paddingVertical: 7,
+    borderRadius: 10,
   },
   followBtnText: {
     color: "#fff",
@@ -313,7 +316,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#7C3AED",
+    backgroundColor: "#8B5CF6",
   },
   empty: {
     alignItems: "center",

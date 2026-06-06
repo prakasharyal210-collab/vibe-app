@@ -1,0 +1,262 @@
+Redesign the entire Vibe app with a unique 
+premium design that users will LOVE.
+
+DESIGN PHILOSOPHY:
+"Dark Luxury meets Vibrant Energy"
+- Deep dark backgrounds (#080810)
+- Electric purple (#8B5CF6) to hot pink (#EC4899)
+  to orange (#F97316) gradients
+- Glassmorphism cards with blur effects
+- Smooth spring animations everywhere
+- Premium feel like Spotify + TikTok combined
+
+COLOR SYSTEM:
+Primary gradient: #8B5CF6 → #EC4899 → #F97316
+Background: #080810 (ultra dark navy)
+Surface: #0F0F1A (dark card background)
+Glass: rgba(255,255,255,0.05) with blur
+Border: rgba(255,255,255,0.08)
+Text primary: #FFFFFF
+Text secondary: #9CA3AF
+Success: #10B981
+Error: #EF4444
+Online dot: #22C55E
+
+TYPOGRAPHY:
+- Headlines: Bold, large, impactful
+- Body: Clean, readable
+- Gradient text on important elements
+- Letter spacing on uppercase labels
+
+SPLASH SCREEN:
+- Pure black background
+- Vibe logo animates in:
+  * Starts small and scales up
+  * Gradient glow pulses around it
+  * "VIBE" text fades in below
+  * Particles float upward
+  * Transitions to app smoothly
+
+LOGIN/SIGNUP SCREEN:
+- Full screen dark background
+- Animated gradient orbs in background
+  (blurred purple/pink/orange circles
+   slowly moving - like Instagram's login)
+- Vibe logo at top with glow
+- "Welcome to Vibe" headline
+- Glassmorphism card for input fields:
+  * Frosted glass background
+  * Subtle white border
+  * Smooth focus animations
+  * Input fields with gradient underline
+- "Continue with Google" button:
+  * White background, dark text
+  * Google logo
+- "Continue with Apple" button:
+  * Black background, white text
+- "Sign up with Email" button:
+  * Gradient purple to orange
+  * Slightly rounded corners
+- Already have account? Login link
+
+BOTTOM TAB BAR:
+- Glassmorphism bar floating above content
+- NOT touching the edges - floating pill shape
+- Slight blur/frosted glass effect
+- Active tab: gradient icon + gradient underline dot
+- Inactive: grey icons
+- Center + button: 
+  * Larger than other tabs
+  * Full gradient background
+  * Subtle glow/shadow effect
+  * Slight bounce animation on tap
+- Tab bar floats 10px above bottom edge
+- Rounded corners on the bar itself
+
+NAVIGATION:
+- All screens slide in smoothly
+- Spring physics on transitions
+- Shared element transitions where possible
+- Back gesture feels natural
+
+REELS SCREEN:
+- True edge to edge full screen
+- Semi transparent top bar
+- Right side buttons:
+  * Circular glassmorphism containers
+  * Icons with gradient colors
+  * Count text below each button
+  * Subtle glow on liked state
+- Bottom info:
+  * Gradient text on username
+  * Scrolling music ticker
+  * Hashtags in gradient color
+- Progress bar: thin gradient line at bottom
+- Between reels: smooth slide with parallax
+
+FEED SCREEN:
+- VIBE gradient logo at top
+- Stories bar:
+  * Gradient ring on unseen stories
+  * Frosted glass username pills
+  * Smooth horizontal scroll
+- Post cards:
+  * Rounded corners (16px)
+  * Subtle shadow
+  * Glassmorphism action bar below post
+  * Like animation: heart burst with particles
+  * Double tap: floating heart with trail
+- Category pills:
+  * Selected: gradient background
+  * Unselected: glass with border
+  * Smooth slide when selecting
+
+PROFILE SCREEN:
+- Cover photo/gradient banner at top
+- Profile photo: 
+  * Large circle
+  * Gradient ring border
+  * Subtle glow
+- Username: gradient text
+- Stats row:
+  * Each stat in glassmorphism card
+  * Number animates counting up on load
+- Buttons: glassmorphism with gradient border
+- Highlights: 
+  * Gradient ring on unviewed
+  * Smooth press animation
+- Posts grid:
+  * Slight rounded corners
+  * Play icon overlay on videos
+  * Smooth fade in on load
+
+FIND VIBE SCREEN:
+- Cards:
+  * Full rounded corners (24px)
+  * Gradient overlay at bottom
+  * Glassmorphism info section
+  * Smooth spring swipe physics
+  * Swipe right: green glow on card
+  * Swipe left: red glow on card
+  * Match: explosion of purple particles
+- Action buttons:
+  * Skip: glassmorphism circle, grey X
+  * Super Vibe: glassmorphism, gradient star
+  * Like: glassmorphism, gradient heart
+  * All three have press animations
+- Match animation:
+  * Full screen purple particle explosion
+  * Both photos zoom in from sides
+  * "It's a Vibe! 💜" with gradient text
+  * Confetti in brand colors
+
+MESSAGES/INBOX:
+- Conversation rows:
+  * Glassmorphism on hover/press
+  * Online dot pulsing animation
+  * Unread: gradient left border indicator
+- Chat screen:
+  * Dark background
+  * My messages: gradient bubble
+  * Their messages: glass bubble
+  * Smooth keyboard animation
+  * Message appear with spring animation
+  * Seen receipt with gradient checkmarks
+
+CREATE SCREEN:
+- Camera viewfinder: clean, no clutter
+- Bottom tools: glassmorphism pill
+- Record button:
+  * Gradient circle
+  * Outer ring that fills as recording
+  * Pulse animation while recording
+- Filters: horizontal scroll with preview
+- Effects: grid with gradient borders
+
+NOTIFICATIONS:
+- Each notification:
+  * Glassmorphism card
+  * Left color bar based on type:
+    - Like: red/pink
+    - Comment: blue
+    - Follow: purple
+    - Match: gold
+    - Message: green
+  * Smooth slide in animation
+  * Swipe to dismiss
+
+LOADING STATES:
+- Skeleton screens with shimmer effect
+- Shimmer uses gradient animation
+- Smooth fade from skeleton to content
+
+MICRO ANIMATIONS:
+- Like button: heart bounce + color fill
+- Follow button: smooth text change
+- Tab switch: spring slide
+- Pull to refresh: custom spinner with logo
+- Toast notifications: slide from top with blur
+
+SPECIAL EFFECTS:
+
+1. VIBE PULSE:
+   When someone likes your content:
+   - Screen edges briefly glow purple
+   - Subtle haptic feedback
+
+2. MATCH EXPLOSION:
+   When you match on Find Vibe:
+   - Purple/pink particles burst from center
+   - Screen briefly flashes gradient
+
+3. REEL TRANSITION:
+   Between reels:
+   - Current reel scales down slightly
+   - Next reel scales up from below
+   - Smooth parallax effect
+
+4. STORY RING:
+   Story circles:
+   - Gradient rotates slowly
+   - Pulsing glow on fresh stories
+
+5. LIVE INDICATOR:
+   Live badge:
+   - Pulsing red dot
+   - "LIVE" text with glow
+
+ICONS:
+- Use custom rounded icons throughout
+- Gradient fill on active states
+- Consistent 24px size
+- Smooth press scale animation (0.9x)
+
+FONTS:
+- Headlines: Extra Bold, tight tracking
+- Body: Regular, comfortable reading
+- Numbers/stats: Tabular figures
+- Monospace for codes (referral etc)
+
+EMPTY STATES:
+- Not just "No posts yet"
+- Beautiful illustrations using gradients
+- Animated (subtle float/pulse)
+- Clear CTA button
+
+ERROR STATES:
+- Friendly error messages
+- Retry button with gradient
+- Offline indicator at top
+
+OVERALL FEEL:
+- Premium, modern, youthful
+- Fast and responsive
+- Every tap feels satisfying
+- Dark enough to watch videos
+- Colorful enough to feel energetic
+- Unique - not a TikTok/Instagram clone
+
+Make EVERY screen beautiful.
+Make EVERY animation smooth.
+Make EVERY interaction satisfying.
+This is what makes Vibe unique! 🔥
