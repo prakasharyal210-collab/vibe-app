@@ -1,0 +1,81 @@
+Fix and improve these remaining issues:
+
+1. GOALS TAB - Vibe button improvement:
+Instead of alert confirmation after sending vibe:
+- Button changes instantly to "Sent ✓" (grey)
+- Small toast at bottom: "Vibe sent to {name}! 💜"
+- If it's a match → close sheet + show 
+  full match celebration animation
+- No more basic alert popups
+
+2. MATCHES TAB - Make it fully working:
+Load real matches from Supabase:
+const { data } = await supabase
+  .rpc('get_my_vibe_matches', {
+    p_user_id: userId
+  })
+
+Show each match:
+- Profile photo with online dot
+- Name and age
+- "💜 Vibe Match" purple badge
+- Last message preview if chatted
+- "Message 💬" button → opens chat
+- "View Profile 👤" button
+- Time matched "Matched 2 days ago"
+
+Empty state:
+- "No matches yet 💜"
+- "Keep swiping to find your vibe!"
+- Animated heart illustration
+
+3. ROOMS TAB - Make rooms joinable:
+Each room card shows:
+- Room emoji and name
+- Description
+- Members count
+- "LIVE" badge if active
+- "Join Room" button
+- Tapping joins room_members table
+- After joining opens room chat
+
+Room chat screen:
+- Group messages from vibe_room_messages
+- Real time using Supabase channel
+- Send message input at bottom
+- Member list button top right
+
+4. DAILY TAB - Make it work:
+Show ONE special daily match:
+- Gold/premium card design
+- Countdown timer to next daily match
+- "Today's Vibe ⭐" label
+- Profile card with:
+  * Photo
+  * Name, age
+  * Compatibility score
+  * Shared interests
+  * Shared goals
+- Two buttons:
+  * "💜 Vibe" → send request
+  * "Skip →" → get different person
+- "New match in: 08:45:23" countdown
+- Resets at midnight every day
+
+5. VIBE TAB - Same Vibe matching:
+Show users with most shared interests:
+- Load using get_vibe_matches(userId, 'same_vibe')
+- Sort by compatibility score DESC
+- Show compatibility % prominently
+- "You both love: Music, Travel, Coffee"
+- Same swipe card UI as Near tab
+
+6. NEAR TAB - Show distance properly:
+- Request location permission on load
+- Show actual distance on each card
+- "0.3 km away" or "2.1 km away"
+- Sort by distance ASC (closest first)
+- "No one nearby" if location denied
+
+Make sure all tabs load real data
+from Supabase and work properly!

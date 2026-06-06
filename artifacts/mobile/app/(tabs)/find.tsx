@@ -109,6 +109,40 @@ const DAILY_VIBE_CARD: VibeCard = {
   matchInterests: ["Photography", "Travel", "Music"],
 };
 
+const SKIP_CARDS: VibeCard[] = [
+  DAILY_VIBE_CARD,
+  {
+    id: "daily2",
+    name: "Sofia",
+    age: 26,
+    image: "https://picsum.photos/seed/daily2/400/600",
+    bio: "✨ Your vibes match on travel, art, and coffee culture.",
+    interests: ["Travel", "Art", "Coffee", "Photography"],
+    vibe: "Today's Vibe",
+    matchInterests: ["Travel", "Art", "Coffee"],
+  },
+  {
+    id: "daily3",
+    name: "Maya",
+    age: 23,
+    image: "https://picsum.photos/seed/daily3/400/600",
+    bio: "✨ Music and creativity bring you together perfectly.",
+    interests: ["Music", "Art", "Travel", "Coffee"],
+    vibe: "Today's Vibe",
+    matchInterests: ["Music", "Art"],
+  },
+  {
+    id: "daily4",
+    name: "Zara",
+    age: 25,
+    image: "https://picsum.photos/seed/daily4/400/600",
+    bio: "✨ Adventure seekers unite — hiking, coffee and good vibes.",
+    interests: ["Coffee", "Photography", "Travel", "Music"],
+    vibe: "Today's Vibe",
+    matchInterests: ["Coffee", "Photography"],
+  },
+];
+
 const THIS_OR_THAT = [
   { a: "🏖️ Beach", b: "⛰️ Mountains" },
   { a: "☕ Coffee", b: "🍵 Tea" },
@@ -310,7 +344,10 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
   const colors = useColors();
   const [countdown, setCountdown] = useState(getDailyCountdown());
   const [connected, setConnected] = useState(false);
+  const [skipIdx, setSkipIdx] = useState(0);
   const pulse = useSharedValue(1);
+
+  const activeCard = SKIP_CARDS[skipIdx % SKIP_CARDS.length];
 
   useEffect(() => {
     const timer = setInterval(() => setCountdown(getDailyCountdown()), 1000);
@@ -327,7 +364,8 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
   }, []);
 
   const cardAnim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
-  const match = calcMatch(DAILY_VIBE_CARD);
+  const match = calcMatch(activeCard);
+  const sharedInterests = activeCard.matchInterests ?? [];
 
   return (
     <View style={dailyStyles.container}>
@@ -338,20 +376,20 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
         </View>
         <View style={dailyStyles.countdownBox}>
           <Ionicons name="time-outline" size={12} color="#EAB308" />
-          <Text style={dailyStyles.countdown}>Next: {countdown}</Text>
+          <Text style={dailyStyles.countdown}>New in: {countdown}</Text>
         </View>
       </View>
 
       <Animated.View style={cardAnim}>
-        <TouchableOpacity onPress={() => onViewProfile(DAILY_VIBE_CARD)} activeOpacity={0.92} style={dailyStyles.card}>
-          <Image source={{ uri: DAILY_VIBE_CARD.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <TouchableOpacity onPress={() => onViewProfile(activeCard)} activeOpacity={0.92} style={dailyStyles.card}>
+          <Image source={{ uri: activeCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
           <LinearGradient colors={["rgba(234,179,8,0.3)", "transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
 
           <View style={dailyStyles.goldBorderOverlay} pointerEvents="none" />
 
           <View style={dailyStyles.sparkleRow} pointerEvents="none">
             <LinearGradient colors={["#EAB308", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dailyStyles.sparkleTag}>
-              <Text style={dailyStyles.sparkleText}>✨ Today's Vibe</Text>
+              <Text style={dailyStyles.sparkleText}>⭐ Today's Vibe</Text>
             </LinearGradient>
             <View style={dailyStyles.matchPill}>
               <Text style={dailyStyles.matchPillText}>{match}% Match</Text>
@@ -359,11 +397,13 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
           </View>
 
           <View style={dailyStyles.cardInfo} pointerEvents="none">
-            <Text style={dailyStyles.cardName}>{DAILY_VIBE_CARD.name}, {DAILY_VIBE_CARD.age}</Text>
-            <Text style={dailyStyles.cardBio} numberOfLines={2}>{DAILY_VIBE_CARD.bio}</Text>
+            <Text style={dailyStyles.cardName}>{activeCard.name}, {activeCard.age}</Text>
+            {sharedInterests.length > 0 && (
+              <Text style={dailyStyles.sharedText}>You both love: {sharedInterests.join(", ")}</Text>
+            )}
             <View style={dailyStyles.tagsRow}>
-              {DAILY_VIBE_CARD.interests.slice(0, 3).map((t) => (
-                <View key={t} style={[dailyStyles.tag, (DAILY_VIBE_CARD.matchInterests ?? []).includes(t) && dailyStyles.tagMatch]}>
+              {activeCard.interests.slice(0, 3).map((t) => (
+                <View key={t} style={[dailyStyles.tag, sharedInterests.includes(t) && dailyStyles.tagMatch]}>
                   <Text style={dailyStyles.tagText}>{t}</Text>
                 </View>
               ))}
@@ -374,26 +414,35 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
 
       {connected ? (
         <View style={dailyStyles.connectedRow}>
-          <Text style={dailyStyles.connectedText}>🎉 You vibed with {DAILY_VIBE_CARD.name}!</Text>
+          <Text style={dailyStyles.connectedText}>🎉 You vibed with {activeCard.name}!</Text>
           <TouchableOpacity
             style={dailyStyles.msgBtn}
-            onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: DAILY_VIBE_CARD.id, username: DAILY_VIBE_CARD.name, isVibeMatch: "true" } })}
+            onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: activeCard.id, username: activeCard.name, isVibeMatch: "true" } })}
           >
             <Text style={dailyStyles.msgBtnText}>💬 Message</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <TouchableOpacity
-          onPress={() => { setConnected(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onConnect(); }}
-          activeOpacity={0.9}
-          style={dailyStyles.connectBtn}
-        >
-          <LinearGradient colors={["#EAB308", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dailyStyles.connectGrad}>
-            <Text style={dailyStyles.connectText}>Connect ✨</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <View style={dailyStyles.actionRow}>
+          <TouchableOpacity
+            onPress={() => { setConnected(true); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); onConnect(); }}
+            activeOpacity={0.9}
+            style={{ flex: 1 }}
+          >
+            <LinearGradient colors={["#EAB308", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={dailyStyles.connectGrad}>
+              <Text style={dailyStyles.connectText}>💜 Vibe</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { setSkipIdx((i) => i + 1); setConnected(false); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+            activeOpacity={0.85}
+            style={dailyStyles.skipBtn}
+          >
+            <Text style={dailyStyles.skipText}>Skip →</Text>
+          </TouchableOpacity>
+        </View>
       )}
-      <Text style={dailyStyles.expireText}>⏳ Expires in 24 hours</Text>
+      <Text style={dailyStyles.expireText}>⏳ Resets at midnight</Text>
     </View>
   );
 }
@@ -419,14 +468,17 @@ const dailyStyles = StyleSheet.create({
   tag: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
   tagMatch: { backgroundColor: "rgba(234,179,8,0.5)" },
   tagText: { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 11 },
-  connectBtn: { marginTop: 12 },
-  connectGrad: { paddingVertical: 14, borderRadius: 24, alignItems: "center" },
-  connectText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
   connectedRow: { marginTop: 12, alignItems: "center", gap: 10 },
   connectedText: { color: "#EAB308", fontFamily: "Poppins_700Bold", fontSize: 15 },
   msgBtn: { backgroundColor: "rgba(124,58,237,0.3)", paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: "#7C3AED" },
   msgBtnText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   expireText: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center", marginTop: 8 },
+  actionRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  connectGrad: { paddingVertical: 15, borderRadius: 24, alignItems: "center" },
+  connectText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
+  skipBtn: { paddingHorizontal: 22, paddingVertical: 15, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  skipText: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  sharedText: { color: "rgba(234,179,8,0.9)", fontFamily: "Poppins_500Medium", fontSize: 12, lineHeight: 16 },
 });
 
 function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClose: () => void; onVibe: () => void; onSkip: () => void }) {
@@ -1099,6 +1151,9 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
   const [users, setUsers] = useState<VibeCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
+  const [sentVibes, setSentVibes] = useState<Set<string>>(new Set());
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const toastOpacity = useRef(new RNAnimated.Value(0)).current;
 
   const goalInfo = goalValue ? getGoalInfo(goalValue) : null;
 
@@ -1106,16 +1161,29 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
     if (!visible || !goalValue || !userId) return;
     setLoading(true);
     setUsers([]);
+    setSentVibes(new Set());
     getVibeMatches(userId, { lookingFor: goalValue })
       .then((matches) => setUsers(matches))
       .catch(() => setUsers([]))
       .finally(() => setLoading(false));
   }, [visible, goalValue]);
 
-  const handleVibe = async (targetId: string, name: string) => {
-    if (!userId) return;
-    await sendVibeRequest(userId, targetId).catch(() => {});
-    Alert.alert("💜 Vibe Sent!", `You sent a vibe to ${name}!`);
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    toastOpacity.setValue(0);
+    RNAnimated.sequence([
+      RNAnimated.timing(toastOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      RNAnimated.delay(1600),
+      RNAnimated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setToastMsg(null));
+  };
+
+  const handleVibe = (targetId: string, name: string) => {
+    if (!userId || sentVibes.has(targetId)) return;
+    setSentVibes((prev) => { const next = new Set(prev); next.add(targetId); return next; });
+    void sendVibeRequest(userId, targetId).catch(() => {});
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    showToast(`Vibe sent to ${name}! 💜`);
   };
 
   return (
@@ -1171,14 +1239,20 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
                     <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gusStyles.matchBadge}>
                       <Text style={gusStyles.matchText}>{matchPct}% match</Text>
                     </LinearGradient>
-                    <TouchableOpacity
-                      onPress={(e) => { e.stopPropagation(); void handleVibe(user.id, user.name); }}
-                      activeOpacity={0.85}
-                    >
-                      <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gusStyles.vibeBtn}>
-                        <Text style={gusStyles.vibeBtnText}>💜 Vibe</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    {sentVibes.has(user.id) ? (
+                      <View style={[gusStyles.vibeBtn, { backgroundColor: "rgba(124,58,237,0.15)" }]}>
+                        <Text style={[gusStyles.vibeBtnText, { color: "#A78BFA" }]}>Sent ✓</Text>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={(e) => { e.stopPropagation(); handleVibe(user.id, user.name); }}
+                        activeOpacity={0.85}
+                      >
+                        <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={gusStyles.vibeBtn}>
+                          <Text style={gusStyles.vibeBtnText}>💜 Vibe</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -1186,11 +1260,16 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
           </ScrollView>
         )}
       </View>
+      {toastMsg && (
+        <RNAnimated.View style={[gusStyles.toast, { opacity: toastOpacity }]} pointerEvents="none">
+          <Text style={gusStyles.toastText}>{toastMsg}</Text>
+        </RNAnimated.View>
+      )}
       {profileCard && (
         <ProfileModal
           card={profileCard}
           onClose={() => setProfileCard(null)}
-          onVibe={() => { void handleVibe(profileCard.id, profileCard.name); setProfileCard(null); }}
+          onVibe={() => { handleVibe(profileCard.id, profileCard.name); setProfileCard(null); }}
           onSkip={() => setProfileCard(null)}
         />
       )}
@@ -1217,12 +1296,15 @@ const gusStyles = StyleSheet.create({
   matchText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 11 },
   vibeBtn: { borderRadius: 12, paddingVertical: 8, alignItems: "center", marginTop: 2 },
   vibeBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
+  toast: { position: "absolute", bottom: 36, left: 20, right: 20, backgroundColor: "rgba(124,58,237,0.93)", borderRadius: 16, paddingVertical: 12, paddingHorizontal: 20, alignItems: "center", zIndex: 999 },
+  toastText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
 });
 
 function MatchesTab({ userId }: { userId: string }) {
   const colors = useColors();
   const [matches, setMatches] = useState<VibeMatchProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProfile, setSelectedProfile] = useState<VibeCard | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -1238,9 +1320,9 @@ function MatchesTab({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ color: "#7C3AED", fontSize: 28 }}>💜</Text>
-        <Text style={[styles.emptySub, { color: colors.mutedForeground, marginTop: 8 }]}>Loading your matches…</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
+        <Text style={{ fontSize: 36 }}>💜</Text>
+        <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>Loading your matches…</Text>
       </View>
     );
   }
@@ -1248,67 +1330,105 @@ function MatchesTab({ userId }: { userId: string }) {
   if (matches.length === 0) {
     return (
       <View style={styles.emptyDeck}>
-        <Text style={styles.emptyEmoji}>💜</Text>
-        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No matches yet!</Text>
+        <Text style={{ fontSize: 64, marginBottom: 8 }}>💜</Text>
+        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No matches yet 💜</Text>
         <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
-          Swipe right on people you vibe with — when they vibe back, you match! 🎉
+          Keep swiping to find your vibe!
         </Text>
         <Text style={[styles.emptySub, { color: "#7C3AED", marginTop: 4 }]}>
-          Start swiping on 📍 Near or ✨ Vibe tabs
+          Try 📍 Near or ✨ Vibe tabs
         </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-      <Text style={[styles.historyTitle, { color: colors.foreground, marginBottom: 4 }]}>
-        💜 {matches.length} Match{matches.length !== 1 ? "es" : ""}
-      </Text>
-      <Text style={[styles.emptySub, { color: colors.mutedForeground, marginBottom: 16, marginTop: 0 }]}>
-        These people vibed back with you ✨
-      </Text>
-      <View style={matchTabStyles.grid}>
-        {matches.map((m) => (
-          <TouchableOpacity
-            key={m.id}
-            activeOpacity={0.88}
-            onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, isVibeMatch: "true" } })}
-            style={[matchTabStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
-          >
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 12 }}>
+      <View style={{ gap: 2, marginBottom: 4 }}>
+        <Text style={[styles.historyTitle, { color: colors.foreground }]}>
+          💜 {matches.length} Match{matches.length !== 1 ? "es" : ""}
+        </Text>
+        <Text style={[styles.emptySub, { color: colors.mutedForeground, marginTop: 0 }]}>
+          These people vibed back with you ✨
+        </Text>
+      </View>
+
+      {matches.map((m) => (
+        <View key={m.id} style={[matchTabStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={matchTabStyles.cardRow}>
             <View>
               <Image source={{ uri: m.image }} style={matchTabStyles.photo} />
               {m.isOnline && <View style={matchTabStyles.onlineDot} />}
             </View>
-            <Text style={[matchTabStyles.name, { color: colors.foreground }]} numberOfLines={1}>
-              {m.name}, {m.age}
-            </Text>
-            <Text style={[matchTabStyles.bio, { color: colors.mutedForeground }]} numberOfLines={1}>
-              {m.bio}
-            </Text>
-            {m.goal && m.goal !== "all" && (
-              <View style={matchTabStyles.goalBadge}>
-                <Text style={matchTabStyles.goalText}>
-                  {m.goal === "friendship" ? "🤝" : m.goal === "dating" ? "💕" : m.goal === "networking" ? "💼" : "✨"}
+            <View style={matchTabStyles.info}>
+              <View style={matchTabStyles.topRow}>
+                <Text style={[matchTabStyles.name, { color: colors.foreground }]} numberOfLines={1}>
+                  {m.name}, {m.age}
                 </Text>
+                <View style={matchTabStyles.vibeBadge}>
+                  <Text style={matchTabStyles.vibeBadgeText}>💜 Vibe Match</Text>
+                </View>
               </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Text style={[matchTabStyles.time, { color: colors.mutedForeground }]} numberOfLines={1}>
+                {m.bio}
+              </Text>
+              {(m.interests ?? []).length > 0 && (
+                <Text style={[matchTabStyles.interests, { color: colors.mutedForeground }]} numberOfLines={1}>
+                  {(m.interests ?? []).slice(0, 3).join(" · ")}
+                </Text>
+              )}
+              <View style={matchTabStyles.btnRow}>
+                <TouchableOpacity
+                  onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, isVibeMatch: "true" } })}
+                  activeOpacity={0.85}
+                  style={{ flex: 1, borderRadius: 10, overflow: "hidden" }}
+                >
+                  <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchTabStyles.msgGrad}>
+                    <Text style={matchTabStyles.msgText}>Message 💬</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setSelectedProfile(m)}
+                  activeOpacity={0.85}
+                  style={[matchTabStyles.profileBtn, { borderColor: colors.border }]}
+                >
+                  <Text style={[matchTabStyles.profileText, { color: colors.mutedForeground }]}>View 👤</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      ))}
+
+      {selectedProfile && (
+        <ProfileModal
+          card={selectedProfile}
+          onClose={() => setSelectedProfile(null)}
+          onVibe={() => setSelectedProfile(null)}
+          onSkip={() => setSelectedProfile(null)}
+        />
+      )}
     </ScrollView>
   );
 }
 
 const matchTabStyles = StyleSheet.create({
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  card: { width: (W - 44) / 2, borderRadius: 20, overflow: "hidden", padding: 0, borderWidth: 0.5, paddingBottom: 12 },
-  photo: { width: "100%", height: 160, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  onlineDot: { position: "absolute", top: 10, right: 10, width: 12, height: 12, borderRadius: 6, backgroundColor: "#22C55E", borderWidth: 2, borderColor: "#fff" },
-  name: { fontFamily: "Poppins_700Bold", fontSize: 14, paddingHorizontal: 10, marginTop: 8 },
-  bio: { fontFamily: "Poppins_400Regular", fontSize: 11, paddingHorizontal: 10, marginTop: 2 },
-  goalBadge: { position: "absolute", top: 10, left: 10, backgroundColor: "rgba(0,0,0,0.55)", width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  goalText: { fontSize: 14 },
+  card: { borderRadius: 16, borderWidth: 0.5, padding: 12 },
+  cardRow: { flexDirection: "row", gap: 12 },
+  photo: { width: 82, height: 82, borderRadius: 12 },
+  onlineDot: { position: "absolute", bottom: 5, right: 5, width: 12, height: 12, borderRadius: 6, backgroundColor: "#22C55E", borderWidth: 2, borderColor: "#fff" },
+  info: { flex: 1, gap: 3 },
+  topRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  name: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  vibeBadge: { backgroundColor: "rgba(124,58,237,0.18)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: "rgba(124,58,237,0.35)" },
+  vibeBadgeText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
+  time: { fontFamily: "Poppins_400Regular", fontSize: 12 },
+  interests: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
+  btnRow: { flexDirection: "row", gap: 8, marginTop: 6 },
+  msgGrad: { paddingVertical: 8, alignItems: "center", borderRadius: 10 },
+  msgText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
+  profileBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  profileText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
 });
 
 export default function FindVibeScreen() {
@@ -1414,10 +1534,15 @@ export default function FindVibeScreen() {
         getVibeMatches(uid, filters).catch(() => [] as VibeMatchProfile[]),
       ]);
 
-      const nearbyCards: VibeMatchProfile[] = nearby.length > 0
+      const rawNearby: VibeMatchProfile[] = nearby.length > 0
         ? nearby.map((u) => ({ ...u, distance: u.distance ?? `${Math.floor(Math.random() * 15) + 1} km` }))
         : allVibe.filter((c) => c.distance !== undefined);
-      setNearbyCards(nearbyCards);
+      const sortedNearby = [...rawNearby].sort((a, b) => {
+        const da = parseFloat((a.distance ?? "999 km").replace(/[^0-9.]/g, ""));
+        const db = parseFloat((b.distance ?? "999 km").replace(/[^0-9.]/g, ""));
+        return (isNaN(da) ? 999 : da) - (isNaN(db) ? 999 : db);
+      });
+      setNearbyCards(sortedNearby);
       setSameVibeCards(allVibe.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
     } catch {
     } finally {

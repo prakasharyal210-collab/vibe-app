@@ -1754,3 +1754,42 @@ export async function getNearbyUsers(
     distance: `${(i + 1) * 2 + Math.floor(Math.random() * 3)} km away`,
   }));
 }
+
+export async function joinVibeRoom(userId: string, roomId: string): Promise<void> {
+  try {
+    void supabase.from("room_members").upsert(
+      { user_id: userId, room_id: roomId, joined_at: new Date().toISOString() },
+      { onConflict: "user_id,room_id" }
+    );
+  } catch {}
+}
+
+export interface VibeRoomMessage {
+  id: string;
+  room_id: string;
+  user_id: string;
+  text: string;
+  created_at: string;
+  profiles?: { display_name?: string; username?: string; avatar_url?: string };
+}
+
+export async function getRoomMessages(roomId: string): Promise<VibeRoomMessage[]> {
+  try {
+    const { data, error } = await supabase
+      .from("vibe_room_messages")
+      .select("id, room_id, user_id, text, created_at, profiles(display_name, username, avatar_url)")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (error || !data) return [];
+    return data as VibeRoomMessage[];
+  } catch {
+    return [];
+  }
+}
+
+export async function sendRoomMessage(userId: string, roomId: string, text: string): Promise<void> {
+  try {
+    void supabase.from("vibe_room_messages").insert({ user_id: userId, room_id: roomId, text, created_at: new Date().toISOString() });
+  } catch {}
+}

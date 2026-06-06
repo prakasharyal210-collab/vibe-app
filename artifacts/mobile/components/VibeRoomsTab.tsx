@@ -19,6 +19,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { joinVibeRoom, getRoomMessages, sendRoomMessage, VibeRoomMessage } from "@/lib/db";
 
 const { width: W, height: H } = Dimensions.get("window");
 
@@ -35,6 +38,7 @@ interface VibeRoom {
 
 interface RoomMessage {
   id: string;
+  userId: string;
   username: string;
   text: string;
   time: string;
@@ -93,29 +97,90 @@ const VIBE_ROOMS: VibeRoom[] = [
 ];
 
 const MOCK_ROOM_MESSAGES: RoomMessage[] = [
-  { id: "m1", username: "luna_sky", text: "Anyone else obsessed with Olivia Rodrigo's new album? 🎵", time: "2m", avatar: "seed/luna" },
-  { id: "m2", username: "marcus_vibe", text: "Just dropped a new beat if anyone wants to listen 🎧", time: "4m", avatar: "seed/marcus" },
-  { id: "m3", username: "kai_adventures", text: "This room is giving main character energy ✨", time: "6m", avatar: "seed/kai" },
-  { id: "m4", username: "zoe.creates", text: "Indie alternative all day every day 🎸", time: "8m", avatar: "seed/zoe" },
-  { id: "m5", username: "sofia_near", text: "Who's going to Coachella next year? 🌵", time: "12m", avatar: "seed/sofia" },
+  { id: "m1", userId: "u1", username: "luna_sky", text: "Anyone else obsessed with Olivia Rodrigo's new album? 🎵", time: "2m", avatar: "seed/luna" },
+  { id: "m2", userId: "u2", username: "marcus_vibe", text: "Just dropped a new beat if anyone wants to listen 🎧", time: "4m", avatar: "seed/marcus" },
+  { id: "m3", userId: "u3", username: "kai_adventures", text: "This room is giving main character energy ✨", time: "6m", avatar: "seed/kai" },
+  { id: "m4", userId: "u4", username: "zoe.creates", text: "Indie alternative all day every day 🎸", time: "8m", avatar: "seed/zoe" },
+  { id: "m5", userId: "u5", username: "sofia_near", text: "Who's going to Coachella next year? 🌵", time: "12m", avatar: "seed/sofia" },
 ];
 
-function RoomModal({ room, onClose }: { room: VibeRoom; onClose: () => void }) {
+function formatMsgTime(iso: string): string {
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60) return "now";
+  if (secs < 3600) return `${Math.floor(secs / 60)}m`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h`;
+  return `${Math.floor(secs / 86400)}d`;
+}
+
+function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string; onClose: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState(MOCK_ROOM_MESSAGES);
+  const [messages, setMessages] = useState<RoomMessage[]>(MOCK_ROOM_MESSAGES);
   const [text, setText] = useState("");
   const [joined, setJoined] = useState(false);
+  const [memberCount, setMemberCount] = useState(room.members);
   const listRef = useRef<FlatList>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const topPad = Platform.OS === "web" ? 16 : insets.top + 8;
   const botPad = Platform.OS === "web" ? 16 : insets.bottom;
+
+  useEffect(() => {
+    if (!joined || !userId) return;
+
+    getRoomMessages(room.id).then((rows) => {
+      if (rows.length > 0) {
+        const mapped: RoomMessage[] = rows.map((r) => ({
+          id: r.id,
+          userId: r.user_id,
+          username: r.profiles?.display_name ?? r.profiles?.username ?? "Vibe User",
+          text: r.text,
+          time: formatMsgTime(r.created_at),
+          avatar: `seed/${r.user_id.slice(0, 8)}`,
+        }));
+        setMessages(mapped);
+      }
+    }).catch(() => {});
+
+    const channel = supabase
+      .channel(`room:${room.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_room_messages", filter: `room_id=eq.${room.id}` }, (payload) => {
+        const row = payload.new as any;
+        const msg: RoomMessage = {
+          id: row.id ?? Date.now().toString(),
+          userId: row.user_id,
+          username: row.username ?? "Vibe User",
+          text: row.text,
+          time: "now",
+          avatar: `seed/${(row.user_id ?? "").slice(0, 8)}`,
+        };
+        setMessages((prev) => [...prev, msg]);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      })
+      .subscribe();
+    channelRef.current = channel;
+
+    return () => {
+      channel.unsubscribe();
+      channelRef.current = null;
+    };
+  }, [joined, room.id, userId]);
+
+  const handleJoin = () => {
+    setJoined(true);
+    setMemberCount((c) => c + 1);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (userId) {
+      void joinVibeRoom(userId, room.id);
+    }
+  };
 
   const sendMessage = () => {
     if (!text.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newMsg: RoomMessage = {
       id: Date.now().toString(),
+      userId: userId ?? "me",
       username: "you",
       text: text.trim(),
       time: "now",
@@ -124,6 +189,9 @@ function RoomModal({ room, onClose }: { room: VibeRoom; onClose: () => void }) {
     setMessages((m) => [...m, newMsg]);
     setText("");
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+    if (userId) {
+      void sendRoomMessage(userId, room.id, text.trim());
+    }
   };
 
   return (
@@ -143,12 +211,12 @@ function RoomModal({ room, onClose }: { room: VibeRoom; onClose: () => void }) {
                 <Text style={roomStyles.roomName}>{room.name}</Text>
                 <View style={roomStyles.liveRow}>
                   {room.isLive && <View style={roomStyles.liveDot} />}
-                  <Text style={roomStyles.memberCount}>{room.members.toLocaleString()} members</Text>
+                  <Text style={roomStyles.memberCount}>{memberCount.toLocaleString()} members</Text>
                 </View>
               </View>
             </View>
             <TouchableOpacity style={roomStyles.voiceBtn}>
-              <Ionicons name="mic-outline" size={20} color="#A78BFA" />
+              <Ionicons name="people-outline" size={20} color="#A78BFA" />
             </TouchableOpacity>
           </View>
 
@@ -159,18 +227,21 @@ function RoomModal({ room, onClose }: { room: VibeRoom; onClose: () => void }) {
               </TouchableOpacity>
             ))}
             <View style={[roomStyles.memberAvatar, { backgroundColor: "rgba(124,58,237,0.3)", alignItems: "center", justifyContent: "center" }]}>
-              <Text style={{ color: "#A78BFA", fontSize: 12, fontFamily: "Poppins_600SemiBold" }}>+{room.members - 6}</Text>
+              <Text style={{ color: "#A78BFA", fontSize: 12, fontFamily: "Poppins_600SemiBold" }}>+{memberCount - 6}</Text>
             </View>
           </ScrollView>
 
           <Text style={roomStyles.roomDesc}>{room.description}</Text>
 
           <TouchableOpacity
-            onPress={() => { setJoined((j) => !j); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); }}
+            onPress={joined ? undefined : handleJoin}
             style={[roomStyles.joinBtn, joined && roomStyles.joinBtnJoined]}
+            activeOpacity={joined ? 1 : 0.85}
           >
             {joined ? (
-              <Text style={[roomStyles.joinText, { color: "#A78BFA" }]}>✓ Joined</Text>
+              <View style={roomStyles.joinGrad}>
+                <Text style={[roomStyles.joinText, { color: "#A78BFA" }]}>✓ Joined</Text>
+              </View>
             ) : (
               <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={roomStyles.joinGrad}>
                 <Text style={roomStyles.joinText}>Join Room</Text>
@@ -179,52 +250,66 @@ function RoomModal({ room, onClose }: { room: VibeRoom; onClose: () => void }) {
           </TouchableOpacity>
         </LinearGradient>
 
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(m) => m.id}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ padding: 16, gap: 14 }}
-          renderItem={({ item }) => (
-            <View style={[roomStyles.msgRow, item.username === "you" && roomStyles.msgRowOwn]}>
-              {item.username !== "you" && (
-                <Image source={{ uri: `https://picsum.photos/${item.avatar}/60/60` }} style={roomStyles.msgAvatar} />
-              )}
-              <View style={[roomStyles.msgBubble, { backgroundColor: item.username === "you" ? "rgba(124,58,237,0.3)" : colors.card }]}>
-                {item.username !== "you" && (
-                  <Text style={roomStyles.msgUser}>{item.username}</Text>
-                )}
-                <Text style={[roomStyles.msgText, { color: colors.foreground }]}>{item.text}</Text>
-                <Text style={[roomStyles.msgTime, { color: colors.mutedForeground }]}>{item.time} ago</Text>
-              </View>
-            </View>
-          )}
-        />
-
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
-          <View style={[roomStyles.inputRow, { borderTopColor: colors.border, paddingBottom: botPad + 8, backgroundColor: colors.background }]}>
-            <TextInput
-              style={[roomStyles.input, { backgroundColor: colors.muted, color: colors.foreground }]}
-              value={text}
-              onChangeText={setText}
-              placeholder="Message the room..."
-              placeholderTextColor={colors.mutedForeground}
-              onSubmitEditing={sendMessage}
-              returnKeyType="send"
-            />
-            <TouchableOpacity onPress={sendMessage} style={roomStyles.sendBtn}>
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} style={roomStyles.sendGrad}>
-                <Ionicons name="send" size={16} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
+        {!joined ? (
+          <View style={roomStyles.preJoinHint}>
+            <Text style={[roomStyles.preJoinText, { color: colors.mutedForeground }]}>
+              Join the room to read messages and chat with members 💬
+            </Text>
           </View>
-        </KeyboardAvoidingView>
+        ) : (
+          <FlatList
+            ref={listRef}
+            data={messages}
+            keyExtractor={(m) => m.id}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 16, gap: 14 }}
+            onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+            renderItem={({ item }) => {
+              const isOwn = item.userId === userId || item.username === "you";
+              return (
+                <View style={[roomStyles.msgRow, isOwn && roomStyles.msgRowOwn]}>
+                  {!isOwn && (
+                    <Image source={{ uri: `https://picsum.photos/${item.avatar}/60/60` }} style={roomStyles.msgAvatar} />
+                  )}
+                  <View style={[roomStyles.msgBubble, { backgroundColor: isOwn ? "rgba(124,58,237,0.3)" : colors.card }]}>
+                    {!isOwn && (
+                      <Text style={roomStyles.msgUser}>{item.username}</Text>
+                    )}
+                    <Text style={[roomStyles.msgText, { color: colors.foreground }]}>{item.text}</Text>
+                    <Text style={[roomStyles.msgTime, { color: colors.mutedForeground }]}>{item.time}</Text>
+                  </View>
+                </View>
+              );
+            }}
+          />
+        )}
+
+        {joined && (
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+            <View style={[roomStyles.inputRow, { borderTopColor: colors.border, paddingBottom: botPad + 8, backgroundColor: colors.background }]}>
+              <TextInput
+                style={[roomStyles.input, { backgroundColor: colors.muted, color: colors.foreground }]}
+                value={text}
+                onChangeText={setText}
+                placeholder="Message the room..."
+                placeholderTextColor={colors.mutedForeground}
+                onSubmitEditing={sendMessage}
+                returnKeyType="send"
+              />
+              <TouchableOpacity onPress={sendMessage} style={roomStyles.sendBtn}>
+                <LinearGradient colors={["#7C3AED", "#EA580C"]} style={roomStyles.sendGrad}>
+                  <Ionicons name="send" size={16} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        )}
       </View>
     </Modal>
   );
 }
 
-function RoomCard({ room }: { room: VibeRoom }) {
+function RoomCard({ room, userId }: { room: VibeRoom; userId?: string }) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
 
@@ -257,17 +342,19 @@ function RoomCard({ room }: { room: VibeRoom }) {
           </Text>
         </View>
         <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={roomCardStyles.joinBtn}>
-          <Text style={roomCardStyles.joinText}>Enter Room →</Text>
+          <Text style={roomCardStyles.joinText}>Join Room →</Text>
         </LinearGradient>
       </TouchableOpacity>
 
-      {open && <RoomModal room={room} onClose={() => setOpen(false)} />}
+      {open && <RoomModal room={room} userId={userId} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
 export function VibeRoomsTab() {
   const colors = useColors();
+  const { session } = useAuth();
+  const userId = session?.user?.id;
 
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 14 }}>
@@ -277,7 +364,7 @@ export function VibeRoomsTab() {
       </View>
 
       {VIBE_ROOMS.map((room) => (
-        <RoomCard key={room.id} room={room} />
+        <RoomCard key={room.id} room={room} userId={userId} />
       ))}
     </ScrollView>
   );
@@ -299,9 +386,11 @@ const roomStyles = StyleSheet.create({
   memberAvatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#7C3AED" },
   roomDesc: { color: "rgba(255,255,255,0.65)", fontFamily: "Poppins_400Regular", fontSize: 13, paddingHorizontal: 16, lineHeight: 18, marginBottom: 12 },
   joinBtn: { marginHorizontal: 16, borderRadius: 14, overflow: "hidden" },
-  joinBtnJoined: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: "#7C3AED", borderRadius: 14 },
+  joinBtnJoined: { backgroundColor: "transparent", borderWidth: 1.5, borderColor: "#7C3AED", borderRadius: 14, marginHorizontal: 16 },
   joinGrad: { paddingVertical: 12, alignItems: "center" },
   joinText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  preJoinHint: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, gap: 12 },
+  preJoinText: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 },
   msgRow: { flexDirection: "row", gap: 10, alignItems: "flex-end" },
   msgRowOwn: { flexDirection: "row-reverse" },
   msgAvatar: { width: 32, height: 32, borderRadius: 16 },
