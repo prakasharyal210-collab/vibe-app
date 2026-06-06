@@ -181,6 +181,7 @@ export default function CreateScreen() {
   const isStartingRef = useRef(false);
   const recordPulse = useRef(new Animated.Value(1)).current;
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
 
   const [timerSecs, setTimerSecs] = useState<TimerValue>(0);
   const [timerCount, setTimerCount] = useState<number | null>(null);
@@ -223,6 +224,15 @@ export default function CreateScreen() {
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
     };
   }, []);
+
+  // Fade non-record controls while recording
+  useEffect(() => {
+    Animated.timing(controlsOpacity, {
+      toValue: recording ? 0 : 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [recording]);
 
   const panResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_, gs) =>
@@ -530,11 +540,11 @@ export default function CreateScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── RIGHT SIDE TOOLS (hidden during LIVE) ── */}
+        {/* ── RIGHT SIDE TOOLS (hidden during LIVE, fades during recording) ── */}
         {mode !== "Live" && (
-          <View style={[s.sideTools, { top: insets.top + 64 }]}>
+          <Animated.View style={[s.sideTools, { top: insets.top + 64 }, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
             <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
-              <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={23} color="#fff" /></View>
+              <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={22} color="#fff" /></View>
               <Text style={s.sideLabel}>Flip</Text>
             </TouchableOpacity>
 
@@ -575,53 +585,33 @@ export default function CreateScreen() {
               <Text style={s.sideLabel}>Beauty</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowGrid((g) => !g)}>
-              <View style={[s.sideCircle, showGrid && { backgroundColor: "#ffffff18" }]}>
-                <Ionicons name="grid-outline" size={22} color="#fff" />
-              </View>
-              <Text style={s.sideLabel}>Grid</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowTextModal(true)}>
-              <View style={[s.sideCircle, textOverlays.length > 0 && { backgroundColor: "#7C3AED30" }]}>
-                <Ionicons name="text-outline" size={22} color={textOverlays.length > 0 ? "#A78BFA" : "#fff"} />
-              </View>
-              <Text style={s.sideLabel}>Text</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowStickerModal(true)}>
-              <View style={[s.sideCircle, stickers.length > 0 && { backgroundColor: "#7C3AED30" }]}>
-                <Ionicons name="happy-outline" size={22} color={stickers.length > 0 ? "#A78BFA" : "#fff"} />
-              </View>
-              <Text style={s.sideLabel}>Sticker</Text>
-            </TouchableOpacity>
-          </View>
+          </Animated.View>
         )}
 
         {/* ── BOTTOM CONTROLS ── */}
         <View style={[s.bottomArea, { paddingBottom: insets.bottom + 12 }]}>
 
-          {/* Duration pills — POST + VIDEO only */}
+          {/* Duration pills — POST + VIDEO only, fades while recording */}
           {mode !== "Live" && (
-            <View style={s.durationRow}>
+            <Animated.View style={[s.durationRow, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
               {DURATIONS.map((d) => (
                 <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)}
                   style={[s.durationPill, selectedDuration === d && s.durationPillActive]}>
                   <Text style={[s.durationText, selectedDuration === d && s.durationTextActive]}>{d}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
+            </Animated.View>
           )}
 
-          {/* Mode tabs */}
-          <View style={s.modeTabs}>
+          {/* Mode tabs — fades while recording */}
+          <Animated.View style={[s.modeTabs, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
             {MODES.map((m, i) => (
               <TouchableOpacity key={m} onPress={() => setModeIdx(i)} style={s.modeTab}>
                 <Text style={[s.modeTabText, modeIdx === i && s.modeTabActive]}>{m.toUpperCase()}</Text>
               </TouchableOpacity>
             ))}
             <Animated.View style={[s.modeUnderline, { transform: [{ translateX: underlineX }] }]} />
-          </View>
+          </Animated.View>
 
           {/* LIVE mode bottom */}
           {mode === "Live" ? (
@@ -649,15 +639,17 @@ export default function CreateScreen() {
           ) : (
             /* POST + VIDEO record row */
             <View style={s.recordRow}>
-              {/* Gallery */}
-              <TouchableOpacity onPress={pickFromGallery} style={s.sideAction}>
-                <View style={s.sideActionCircle}>
-                  <Ionicons name="images-outline" size={26} color="#fff" />
-                </View>
-                <Text style={s.sideActionLabel}>Gallery</Text>
-              </TouchableOpacity>
+              {/* Gallery — fades while recording */}
+              <Animated.View style={{ opacity: controlsOpacity }}>
+                <TouchableOpacity onPress={pickFromGallery} style={s.sideAction} disabled={recording}>
+                  <View style={s.sideActionCircle}>
+                    <Ionicons name="images-outline" size={26} color="#fff" />
+                  </View>
+                  <Text style={s.sideActionLabel}>Gallery</Text>
+                </TouchableOpacity>
+              </Animated.View>
 
-              {/* Record button */}
+              {/* Record button — always visible */}
               <View style={s.recordWrap}>
                 <Animated.View style={[
                   s.recordRing,
@@ -671,26 +663,28 @@ export default function CreateScreen() {
                   style={s.recordBtn}
                 >
                   {recording ? (
-                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#EF4444" }}>
                       <View style={s.stopSquare} />
                     </View>
                   ) : (
                     <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
                   )}
                 </Pressable>
-                {/* Hint label */}
-                <Text style={s.recordHint}>
+                {/* Hint label fades while recording */}
+                <Animated.Text style={[s.recordHint, { opacity: controlsOpacity }]}>
                   {mode === "Post" ? "Tap · photo  Hold · video" : "Hold to record"}
-                </Text>
+                </Animated.Text>
               </View>
 
-              {/* Filters */}
-              <TouchableOpacity onPress={() => setShowEffectsPicker(true)} style={s.sideAction}>
-                <View style={s.sideActionCircle}>
-                  <Ionicons name="color-filter-outline" size={26} color="#fff" />
-                </View>
-                <Text style={s.sideActionLabel}>Filters</Text>
-              </TouchableOpacity>
+              {/* Flip — fades while recording */}
+              <Animated.View style={{ opacity: controlsOpacity }}>
+                <TouchableOpacity onPress={() => setFacing((f) => f === "back" ? "front" : "back")} style={s.sideAction} disabled={recording}>
+                  <View style={s.sideActionCircle}>
+                    <Ionicons name="camera-reverse-outline" size={26} color="#fff" />
+                  </View>
+                  <Text style={s.sideActionLabel}>Flip</Text>
+                </TouchableOpacity>
+              </Animated.View>
             </View>
           )}
         </View>
@@ -790,9 +784,9 @@ export default function CreateScreen() {
   );
 }
 
-const SIDE_CIRCLE_SIZE = 46;
-const RECORD_BTN_SIZE = 72;
-const RECORD_RING_SIZE = 88;
+const SIDE_CIRCLE_SIZE = 44;
+const RECORD_BTN_SIZE = 80;
+const RECORD_RING_SIZE = 98;
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
