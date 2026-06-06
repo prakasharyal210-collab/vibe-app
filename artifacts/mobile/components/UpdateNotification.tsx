@@ -219,20 +219,20 @@ export function UpdateBottomSheet({
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={onDismiss}
+      onRequestClose={() => {}}
     >
       <View style={sheetStyles.backdrop}>
-        <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onDismiss} activeOpacity={1} />
+        {/* No backdrop tap dismiss — only explicit buttons can close */}
         <Animated.View
           style={[
             sheetStyles.sheet,
-            { paddingBottom: insets.bottom + 24, transform: [{ translateY: slideY }] },
+            { paddingBottom: insets.bottom + 28, transform: [{ translateY: slideY }] },
           ]}
         >
           {/* Handle */}
           <View style={sheetStyles.handle} />
 
-          {/* Logo + sparkle */}
+          {/* Animated logo */}
           <View style={sheetStyles.logoRow}>
             <Animated.View style={{ transform: [{ scale: sparkleScale }, { rotate: rotation }] }}>
               <LinearGradient
@@ -241,12 +241,22 @@ export function UpdateBottomSheet({
                 end={{ x: 1, y: 1 }}
                 style={sheetStyles.logoBg}
               >
-                <Text style={{ fontSize: 32 }}>✨</Text>
+                <Text style={{ fontSize: 36 }}>💜</Text>
               </LinearGradient>
             </Animated.View>
+            <Text style={sheetStyles.appName}>Vibe</Text>
           </View>
 
-          <Text style={sheetStyles.title}>New Update Available! 🎉</Text>
+          <Text style={sheetStyles.title}>
+            {downloaded ? "Ready to Install! 🎉" : "New Update Available! ✨"}
+          </Text>
+          <Text style={sheetStyles.subtitle}>
+            {downloaded
+              ? "Tap Install Now to apply the update"
+              : downloading
+              ? "Downloading update in the background…"
+              : "A new version of Vibe is ready for you"}
+          </Text>
 
           {/* What's new */}
           <View style={sheetStyles.card}>
@@ -259,7 +269,7 @@ export function UpdateBottomSheet({
             ))}
           </View>
 
-          {/* Progress bar */}
+          {/* Download progress */}
           {downloading && (
             <View style={sheetStyles.progressWrap}>
               <View style={sheetStyles.progressRow}>
@@ -277,36 +287,40 @@ export function UpdateBottomSheet({
             </View>
           )}
 
-          {/* Update button */}
+          {/* Main action button */}
           <TouchableOpacity
             onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); onUpdate(); }}
             activeOpacity={0.88}
             disabled={downloading}
-            style={{ borderRadius: 24, overflow: "hidden", marginTop: 20 }}
+            style={{ borderRadius: 24, overflow: "hidden", marginTop: 22 }}
           >
             <LinearGradient
-              colors={downloading ? ["#374151", "#374151"] : ["#7C3AED", "#EC4899"]}
+              colors={downloading ? ["#1F2937", "#1F2937"] : downloaded ? ["#059669", "#10B981"] : ["#7C3AED", "#EC4899"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={sheetStyles.updateBtn}
             >
               {downloading ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <ActivityIndicator color="rgba(255,255,255,0.5)" size="small" />
+                  <Text style={[sheetStyles.updateBtnText, { color: "rgba(255,255,255,0.5)" }]}>Downloading…</Text>
+                </View>
+              ) : downloaded ? (
+                <Text style={sheetStyles.updateBtnText}>Install Now ✓</Text>
               ) : (
-                <Text style={sheetStyles.updateBtnText}>
-                  {downloaded ? "Install Now 🚀" : "Update Now →"}
-                </Text>
+                <Text style={sheetStyles.updateBtnText}>Update Now →</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
-          {!isForce && (
+          {/* Secondary options — hidden during download and for force updates */}
+          {!isForce && !downloading && (
             <>
-              <TouchableOpacity onPress={onDismiss} style={{ marginTop: 14, alignItems: "center" }}>
-                <Text style={sheetStyles.laterText}>Remind me later</Text>
+              <TouchableOpacity onPress={onDismiss} style={{ marginTop: 16, alignItems: "center" }}>
+                <Text style={sheetStyles.laterText}>Remind me in 30 mins</Text>
               </TouchableOpacity>
               {onSkipVersion && (
-                <TouchableOpacity onPress={onSkipVersion} style={{ marginTop: 10, alignItems: "center" }}>
+                <TouchableOpacity onPress={onSkipVersion} style={{ marginTop: 10, alignItems: "center", paddingVertical: 4 }}>
                   <Text style={sheetStyles.skipText}>Skip this version</Text>
                 </TouchableOpacity>
               )}
@@ -322,9 +336,11 @@ const sheetStyles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   sheet: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 12 },
   handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginBottom: 20 },
-  logoRow: { alignItems: "center", marginBottom: 16 },
+  logoRow: { alignItems: "center", marginBottom: 12, gap: 8 },
   logoBg: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22, textAlign: "center", marginBottom: 20 },
+  appName: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 20, letterSpacing: 1 },
+  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22, textAlign: "center", marginBottom: 6 },
+  subtitle: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginBottom: 18, lineHeight: 20 },
   card: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 18, padding: 18, borderWidth: 0.5, borderColor: "rgba(255,255,255,0.1)", gap: 12 },
   cardTitle: { color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 },
   newRow: { flexDirection: "row", alignItems: "center", gap: 10 },

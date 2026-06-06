@@ -171,13 +171,15 @@ export default function RootLayout() {
 
       setUpdateAvailable(true);
 
-      // Only show banner if user hasn't suppressed it for 24h
+      // Check suppress status (24h banner dismiss)
       const suppressed = await isBannerSuppressed();
+
+      // Show bottom sheet immediately so user sees progress while downloading
       if (!suppressed) {
-        setBannerVisible(true);
+        setSheetVisible(true);
       }
 
-      // Auto-download in background
+      // Download in background — progress shows inside the sheet
       setDownloading(true);
       setDownloadProgress(0);
       const progressInterval = setInterval(() => {
@@ -190,14 +192,6 @@ export default function RootLayout() {
       setDownloadProgress(1);
       setDownloading(false);
       setUpdateDownloaded(true);
-
-      // After 3s auto-hide banner and show full sheet (only if banner was shown)
-      if (!suppressed) {
-        bannerDismissTimer.current = setTimeout(() => {
-          setBannerVisible(false);
-          setSheetVisible(true);
-        }, 3000);
-      }
     } catch (err) {
       console.log("Update check failed:", err);
       setDownloading(false);

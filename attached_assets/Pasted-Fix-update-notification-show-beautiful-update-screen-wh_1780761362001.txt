@@ -1,0 +1,75 @@
+Fix update notification - show beautiful 
+update screen when new update arrives
+with skip option:
+
+WHEN UPDATE ARRIVES show this:
+
+FULL SCREEN BOTTOM SHEET (slides up):
+┌─────────────────────────────┐
+│  ✨ New Update Available!   │
+│                             │
+│  [Vibe Logo - animated]     │
+│                             │
+│  Version 1.0.2 is ready!   │
+│                             │
+│  What's New:                │
+│  ✅ Bug fixes               │
+│  ✅ Faster performance      │
+│  ✅ New features            │
+│  ✅ Better matching         │
+│                             │
+│  [████████████] 85%         │
+│   Downloading...            │
+│                             │
+│  [  Update Now  ] ← gradient│
+│                             │
+│  [Remind me in 30 mins]     │
+│  [Skip this version]        │
+└─────────────────────────────┘
+
+BEHAVIOR:
+- Shows automatically when update detected
+- Cannot be dismissed by back button
+  (only by buttons)
+- "Update Now" → downloads + installs
+- "Remind me in 30 mins" → hides 30 mins
+- "Skip this version" → never shows again
+  for this specific version
+
+SKIP BUTTON STYLE:
+- Small grey text at bottom
+- "Skip this version"
+- Not prominent - update is recommended
+- But user can skip if they want
+
+FORCE UPDATE (no skip):
+When force_update = true in Supabase:
+- Hide "Remind me later" button
+- Hide "Skip this version" button  
+- Only show "Update Now" button
+- Cannot dismiss at all
+
+NORMAL UPDATE (can skip):
+- Show all 3 options
+- Skip saves version to AsyncStorage
+- Remind later sets 30min timer
+
+DOWNLOAD PROGRESS:
+While downloading show:
+- Progress bar filling up
+- "Downloading... 85%"
+- Cannot skip while downloading
+- After download: "Ready to install!"
+
+AFTER DOWNLOAD:
+- Button changes to "Install Now ✓"
+- Green checkmark
+- "Tap to restart and apply update"
+
+Make sure:
+- Beautiful animations
+- Smooth slide up
+- Progress bar animated
+- Skip option clearly visible
+- Force update hides skip
+- Works on Android perfectly
