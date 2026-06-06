@@ -1300,28 +1300,93 @@ const gusStyles = StyleSheet.create({
   toastText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
 });
 
-function MatchesTab({ userId }: { userId: string }) {
+const INTEREST_EMOJI: Record<string, string> = {
+  Photography: "📸", Travel: "✈️", Music: "🎵", Art: "🎨", Coffee: "☕",
+  Gaming: "🎮", Fitness: "💪", Food: "🍕", Books: "📚", Dogs: "🐕",
+  Fashion: "👗", Running: "🏃", Yoga: "🧘", Hiking: "🏔️", Dancing: "💃",
+  Cooking: "🍳", Movies: "🎬", Sports: "⚽", Reading: "📖", Camping: "⛺",
+  Acting: "🎭", Networking: "💼", Tech: "💻", Nature: "🌿",
+};
+
+function vibeLevel(score: number = 0): { label: string; color: string } {
+  if (score >= 900) return { label: "⚡ Legend", color: "#EAB308" };
+  if (score >= 700) return { label: "🔥 Pro", color: "#F97316" };
+  if (score >= 400) return { label: "✨ Rising", color: "#A78BFA" };
+  return { label: "⭐ Starter", color: "#6B7280" };
+}
+
+function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear?: () => void }) {
   const colors = useColors();
   const [matches, setMatches] = useState<VibeMatchProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProfile, setSelectedProfile] = useState<VibeCard | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newMatchToast, setNewMatchToast] = useState<VibeMatchProfile | null>(null);
+  const toastY = useRef(new RNAnimated.Value(-110)).current;
+  const heartY1 = useRef(new RNAnimated.Value(0)).current;
+  const heartY2 = useRef(new RNAnimated.Value(0)).current;
+  const heartY3 = useRef(new RNAnimated.Value(0)).current;
 
+  const loadMatches = () => {
+    getMyVibeMatches(userId).then(setMatches).catch(() => {}).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { loadMatches(); }, [userId]);
+
+  // Realtime — new match arrives
   useEffect(() => {
-    (async () => {
-      try {
-        const data = await getMyVibeMatches(userId);
-        setMatches(data);
-      } catch {
-      } finally {
-        setLoading(false);
-      }
-    })();
+    const ch = supabase
+      .channel(`my-matches-${userId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_matches" }, async (payload) => {
+        const row = payload.new as any;
+        if (row.user_id === userId || row.matched_user_id === userId) {
+          const updated = await getMyVibeMatches(userId).catch(() => [] as VibeMatchProfile[]);
+          if (updated.length > 0) {
+            setMatches(updated);
+            // Show toast for the newest match
+            const newest = updated[0];
+            if (newest) showMatchToast(newest);
+          }
+        }
+      })
+      .subscribe();
+    return () => { ch.unsubscribe(); };
   }, [userId]);
+
+  // Float hearts animation for empty state
+  useEffect(() => {
+    if (loading || matches.length > 0) return;
+    const anim = (val: RNAnimated.Value, delay: number) =>
+      RNAnimated.loop(RNAnimated.sequence([
+        RNAnimated.delay(delay),
+        RNAnimated.timing(val, { toValue: -18, duration: 1300, useNativeDriver: true }),
+        RNAnimated.timing(val, { toValue: 0, duration: 1300, useNativeDriver: true }),
+      ]));
+    const a1 = anim(heartY1, 0);
+    const a2 = anim(heartY2, 400);
+    const a3 = anim(heartY3, 800);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
+  }, [loading, matches.length]);
+
+  const showMatchToast = (match: VibeMatchProfile) => {
+    setNewMatchToast(match);
+    toastY.setValue(-110);
+    RNAnimated.sequence([
+      RNAnimated.spring(toastY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
+      RNAnimated.delay(3500),
+      RNAnimated.timing(toastY, { toValue: -110, duration: 300, useNativeDriver: true }),
+    ]).start(() => setNewMatchToast(null));
+  };
+
+  const filtered = searchQuery.trim()
+    ? matches.filter((m) => m.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : matches;
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 10 }}>
-        <Text style={{ fontSize: 36 }}>💜</Text>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <Text style={{ fontSize: 40 }}>💜</Text>
         <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>Loading your matches…</Text>
       </View>
     );
@@ -1329,76 +1394,179 @@ function MatchesTab({ userId }: { userId: string }) {
 
   if (matches.length === 0) {
     return (
-      <View style={styles.emptyDeck}>
-        <Text style={{ fontSize: 64, marginBottom: 8 }}>💜</Text>
-        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No matches yet 💜</Text>
-        <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>
-          Keep swiping to find your vibe!
+      <View style={[styles.emptyDeck, { gap: 0 }]}>
+        <View style={{ flexDirection: "row", gap: 20, marginBottom: 24 }}>
+          {[heartY1, heartY2, heartY3].map((y, i) => (
+            <RNAnimated.Text key={i} style={{ fontSize: 36, transform: [{ translateY: y }] }}>
+              {i === 1 ? "💜" : i === 0 ? "🩷" : "💜"}
+            </RNAnimated.Text>
+          ))}
+        </View>
+        <Text style={[styles.emptyTitle, { color: colors.foreground, marginBottom: 8 }]}>No matches yet 💜</Text>
+        <Text style={[styles.emptySub, { color: colors.mutedForeground, marginBottom: 20 }]}>
+          Swipe right on people you vibe with.{"\n"}When they vibe back, you match! 🎉
         </Text>
-        <Text style={[styles.emptySub, { color: "#7C3AED", marginTop: 4 }]}>
-          Try 📍 Near or ✨ Vibe tabs
-        </Text>
+        <TouchableOpacity onPress={onSwitchToNear} activeOpacity={0.88} style={{ borderRadius: 24, overflow: "hidden" }}>
+          <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingHorizontal: 28, paddingVertical: 14, borderRadius: 24 }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>Start Swiping →</Text>
+          </LinearGradient>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 12 }}>
-      <View style={{ gap: 2, marginBottom: 4 }}>
-        <Text style={[styles.historyTitle, { color: colors.foreground }]}>
-          💜 {matches.length} Match{matches.length !== 1 ? "es" : ""}
-        </Text>
-        <Text style={[styles.emptySub, { color: colors.mutedForeground, marginTop: 0 }]}>
-          These people vibed back with you ✨
-        </Text>
-      </View>
+    <View style={{ flex: 1 }}>
+      {/* New match toast */}
+      {newMatchToast && (
+        <RNAnimated.View style={[matchTabStyles.newMatchToast, { transform: [{ translateY: toastY }] }]} pointerEvents="box-none">
+          <TouchableOpacity
+            onPress={() => { setNewMatchToast(null); router.push({ pathname: "/chat/[userId]", params: { userId: newMatchToast.id, username: newMatchToast.name, isVibeMatch: "true" } }); }}
+            style={matchTabStyles.newMatchToastInner}
+            activeOpacity={0.9}
+          >
+            <Image source={{ uri: newMatchToast.image }} style={matchTabStyles.toastPhoto} />
+            <View style={{ flex: 1 }}>
+              <Text style={matchTabStyles.toastTitle}>💜 New Vibe Match!</Text>
+              <Text style={matchTabStyles.toastName}>{newMatchToast.name}</Text>
+            </View>
+            <Text style={matchTabStyles.toastCta}>Chat →</Text>
+          </TouchableOpacity>
+        </RNAnimated.View>
+      )}
 
-      {matches.map((m) => (
-        <View key={m.id} style={[matchTabStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={matchTabStyles.cardRow}>
-            <View>
-              <Image source={{ uri: m.image }} style={matchTabStyles.photo} />
-              {m.isOnline && <View style={matchTabStyles.onlineDot} />}
-            </View>
-            <View style={matchTabStyles.info}>
-              <View style={matchTabStyles.topRow}>
-                <Text style={[matchTabStyles.name, { color: colors.foreground }]} numberOfLines={1}>
-                  {m.name}, {m.age}
-                </Text>
-                <View style={matchTabStyles.vibeBadge}>
-                  <Text style={matchTabStyles.vibeBadgeText}>💜 Vibe Match</Text>
-                </View>
-              </View>
-              <Text style={[matchTabStyles.time, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {m.bio}
-              </Text>
-              {(m.interests ?? []).length > 0 && (
-                <Text style={[matchTabStyles.interests, { color: colors.mutedForeground }]} numberOfLines={1}>
-                  {(m.interests ?? []).slice(0, 3).join(" · ")}
-                </Text>
-              )}
-              <View style={matchTabStyles.btnRow}>
-                <TouchableOpacity
-                  onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, isVibeMatch: "true" } })}
-                  activeOpacity={0.85}
-                  style={{ flex: 1, borderRadius: 10, overflow: "hidden" }}
-                >
-                  <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchTabStyles.msgGrad}>
-                    <Text style={matchTabStyles.msgText}>Message 💬</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setSelectedProfile(m)}
-                  activeOpacity={0.85}
-                  style={[matchTabStyles.profileBtn, { borderColor: colors.border }]}
-                >
-                  <Text style={[matchTabStyles.profileText, { color: colors.mutedForeground }]}>View 👤</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        {/* Header + Search */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, gap: 10 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={[styles.historyTitle, { color: colors.foreground }]}>
+              💜 {matches.length} Match{matches.length !== 1 ? "es" : ""}
+            </Text>
+            <Text style={[styles.emptySub, { color: colors.mutedForeground, marginTop: 0 }]}>
+              vibed back ✨
+            </Text>
+          </View>
+          {/* Search bar */}
+          <View style={[matchTabStyles.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+            <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search matches…"
+              placeholderTextColor={colors.mutedForeground}
+              style={[matchTabStyles.searchInput, { color: colors.foreground }]}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-      ))}
+
+        {filtered.length === 0 && searchQuery.length > 0 ? (
+          <View style={{ alignItems: "center", paddingTop: 40, gap: 8 }}>
+            <Text style={{ fontSize: 32 }}>🔍</Text>
+            <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>No results for "{searchQuery}"</Text>
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 16, gap: 12 }}>
+            {filtered.map((m) => {
+              const lvl = vibeLevel(m.vibeScore);
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  activeOpacity={0.93}
+                  onPress={() => setSelectedProfile(m)}
+                  style={[matchTabStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+                >
+                  <View style={matchTabStyles.cardRow}>
+                    {/* Gradient ring + photo */}
+                    <TouchableOpacity onPress={() => setSelectedProfile(m)} activeOpacity={0.85}>
+                      <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchTabStyles.photoRing}>
+                        <Image source={{ uri: m.image }} style={matchTabStyles.photo} />
+                      </LinearGradient>
+                      {m.isOnline && <View style={matchTabStyles.onlineDot} />}
+                    </TouchableOpacity>
+
+                    <View style={matchTabStyles.info}>
+                      {/* Name row */}
+                      <View style={matchTabStyles.nameRow}>
+                        <Text style={[matchTabStyles.name, { color: colors.foreground }]} numberOfLines={1}>
+                          {m.name}, {m.age}
+                        </Text>
+                        {m.isOnline && (
+                          <View style={matchTabStyles.onlinePill}>
+                            <Text style={matchTabStyles.onlinePillText}>● online</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Vibe Match badge + matched time */}
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <View style={matchTabStyles.vibeBadge}>
+                          <Text style={matchTabStyles.vibeBadgeText}>💜 Vibe Match</Text>
+                        </View>
+                        {m.matchedAt && (
+                          <Text style={[matchTabStyles.matchedTime, { color: colors.mutedForeground }]}>
+                            {m.matchedAt}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Bio */}
+                      {!!m.bio && (
+                        <Text style={[matchTabStyles.bio, { color: colors.mutedForeground }]} numberOfLines={2}>
+                          {m.bio}
+                        </Text>
+                      )}
+
+                      {/* Interest pills */}
+                      {m.interests.length > 0 && (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }} contentContainerStyle={{ gap: 5 }}>
+                          {m.interests.slice(0, 5).map((tag) => (
+                            <View key={tag} style={[matchTabStyles.interestPill, { backgroundColor: "rgba(124,58,237,0.12)", borderColor: "rgba(124,58,237,0.2)" }]}>
+                              <Text style={matchTabStyles.interestPillText}>
+                                {INTEREST_EMOJI[tag] ?? "•"} {tag}
+                              </Text>
+                            </View>
+                          ))}
+                        </ScrollView>
+                      )}
+
+                      {/* Vibe level */}
+                      <View style={matchTabStyles.levelRow}>
+                        <Text style={[matchTabStyles.levelText, { color: lvl.color }]}>{lvl.label}</Text>
+                        {m.vibeScore ? <Text style={[matchTabStyles.scoreText, { color: lvl.color }]}>{m.vibeScore}</Text> : null}
+                      </View>
+
+                      {/* Action buttons */}
+                      <View style={matchTabStyles.btnRow}>
+                        <TouchableOpacity
+                          onPress={(e) => { e.stopPropagation(); router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, isVibeMatch: "true" } }); }}
+                          activeOpacity={0.85}
+                          style={{ flex: 1, borderRadius: 10, overflow: "hidden" }}
+                        >
+                          <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchTabStyles.msgGrad}>
+                            <Text style={matchTabStyles.msgText}>💬 Message</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={(e) => { e.stopPropagation(); setSelectedProfile(m); }}
+                          activeOpacity={0.85}
+                          style={[matchTabStyles.profileBtn, { borderColor: colors.border }]}
+                        >
+                          <Text style={[matchTabStyles.profileText, { color: colors.foreground }]}>👤 View</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
 
       {selectedProfile && (
         <ProfileModal
@@ -1408,27 +1576,43 @@ function MatchesTab({ userId }: { userId: string }) {
           onSkip={() => setSelectedProfile(null)}
         />
       )}
-    </ScrollView>
+    </View>
   );
 }
 
 const matchTabStyles = StyleSheet.create({
-  card: { borderRadius: 16, borderWidth: 0.5, padding: 12 },
-  cardRow: { flexDirection: "row", gap: 12 },
-  photo: { width: 82, height: 82, borderRadius: 12 },
-  onlineDot: { position: "absolute", bottom: 5, right: 5, width: 12, height: 12, borderRadius: 6, backgroundColor: "#22C55E", borderWidth: 2, borderColor: "#fff" },
-  info: { flex: 1, gap: 3 },
-  topRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  card: { borderRadius: 18, borderWidth: 0.5, padding: 14 },
+  cardRow: { flexDirection: "row", gap: 14 },
+  photoRing: { width: 84, height: 84, borderRadius: 42, padding: 2.5, alignItems: "center", justifyContent: "center" },
+  photo: { width: 79, height: 79, borderRadius: 39.5 },
+  onlineDot: { position: "absolute", bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: "#22C55E", borderWidth: 2.5, borderColor: "#fff" },
+  info: { flex: 1, gap: 4 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   name: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  onlinePill: { backgroundColor: "rgba(34,197,94,0.15)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  onlinePillText: { color: "#22C55E", fontFamily: "Poppins_600SemiBold", fontSize: 10 },
   vibeBadge: { backgroundColor: "rgba(124,58,237,0.18)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: "rgba(124,58,237,0.35)" },
   vibeBadgeText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
-  time: { fontFamily: "Poppins_400Regular", fontSize: 12 },
-  interests: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
+  matchedTime: { fontFamily: "Poppins_400Regular", fontSize: 11 },
+  bio: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  interestPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
+  interestPillText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 11 },
+  levelRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  levelText: { fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  scoreText: { fontFamily: "Poppins_400Regular", fontSize: 11, opacity: 0.7 },
   btnRow: { flexDirection: "row", gap: 8, marginTop: 6 },
-  msgGrad: { paddingVertical: 9, paddingHorizontal: 8, alignItems: "center", borderRadius: 10, flexDirection: "row", justifyContent: "center", gap: 4 },
+  msgGrad: { paddingVertical: 9, alignItems: "center", borderRadius: 10 },
   msgText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
-  profileBtn: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  profileBtn: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   profileText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  searchBar: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 14, borderWidth: 1 },
+  searchInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 14, padding: 0 },
+  newMatchToast: { position: "absolute", top: 0, left: 12, right: 12, zIndex: 999 },
+  newMatchToastInner: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "rgba(124,58,237,0.95)", borderRadius: 18, padding: 14, shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 12 },
+  toastPhoto: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, borderColor: "#EC4899" },
+  toastTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
+  toastName: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_400Regular", fontSize: 12 },
+  toastCta: { color: "#EC4899", fontFamily: "Poppins_700Bold", fontSize: 13 },
 });
 
 export default function FindVibeScreen() {
@@ -1779,7 +1963,12 @@ export default function FindVibeScreen() {
 
         {/* Page 2 — Matches */}
         <View key="2" style={{ flex: 1 }}>
-          {userId ? <MatchesTab userId={userId} /> : <View />}
+          {userId ? (
+            <MatchesTab
+              userId={userId}
+              onSwitchToNear={() => { pagerRef.current?.setPage(0); setActiveTab("nearby"); }}
+            />
+          ) : <View />}
         </View>
 
         {/* Page 3 — Rooms */}

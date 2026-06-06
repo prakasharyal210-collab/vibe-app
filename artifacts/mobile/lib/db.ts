@@ -1386,6 +1386,8 @@ export interface VibeMatchProfile {
   goal?: string;
   isOnline?: boolean;
   isVerified?: boolean;
+  matchedAt?: string;
+  username?: string;
 }
 
 const MOCK_MATCH_PROFILES: VibeMatchProfile[] = [
@@ -1434,16 +1436,27 @@ export async function getVibeMatches(
 }
 
 const MOCK_MY_MATCHES: VibeMatchProfile[] = [
-  { id: "m1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/match1/200/200", bio: "Matched 2 hours ago", interests: ["Photography", "Travel"], isOnline: true, gender: "woman" },
-  { id: "m2", name: "Zoey", age: 23, image: "https://picsum.photos/seed/match2/200/200", bio: "Matched yesterday", interests: ["Art", "Music"], isOnline: false, gender: "woman" },
-  { id: "m3", name: "Kai", age: 28, image: "https://picsum.photos/seed/match3/200/200", bio: "Matched 3 days ago", interests: ["Travel", "Photography"], isOnline: true, gender: "man" },
+  { id: "m1", name: "Ariana", age: 24, image: "https://picsum.photos/seed/match1/400/400", bio: "Photographer & world traveler ✈️ Coffee addict.", interests: ["Photography", "Travel", "Coffee", "Yoga"], isOnline: true, gender: "woman", vibeScore: 847, goal: "dating", matchedAt: "2h ago", username: "ariana.vibes" },
+  { id: "m2", name: "Zoey", age: 23, image: "https://picsum.photos/seed/match2/400/400", bio: "Artist. Indie music, vintage fashion, late night drives.", interests: ["Art", "Music", "Fashion", "Coffee"], isOnline: false, gender: "woman", vibeScore: 931, goal: "vibing", matchedAt: "1d ago", username: "zoey.creates" },
+  { id: "m3", name: "Kai", age: 28, image: "https://picsum.photos/seed/match3/400/400", bio: "Adventure is my love language. Hiker, camper, dreamer.", interests: ["Travel", "Photography", "Camping", "Music"], isOnline: true, gender: "man", vibeScore: 712, goal: "friendship", matchedAt: "3d ago", username: "kai.adventures" },
 ];
+
+function matchTimeStr(isoOrNull: string | null | undefined): string {
+  if (!isoOrNull) return "recently";
+  try {
+    const secs = Math.floor((Date.now() - new Date(isoOrNull).getTime()) / 1000);
+    if (secs < 60) return "just now";
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    return `${Math.floor(secs / 86400)}d ago`;
+  } catch { return "recently"; }
+}
 
 export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile[]> {
   try {
     const { data, error } = await supabase
       .from('vibe_matches')
-      .select(`matched_user_id, matched_at, profiles!vibe_matches_matched_user_id_fkey(id, display_name, username, avatar_url, bio, age, gender, interests, is_online)`)
+      .select(`matched_user_id, matched_at, profiles!vibe_matches_matched_user_id_fkey(id, display_name, username, avatar_url, bio, age, gender, interests, is_online, vibe_score, looking_for)`)
       .eq('user_id', userId)
       .eq('status', 'matched')
       .order('matched_at', { ascending: false })
@@ -1453,18 +1466,19 @@ export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile
 
     return (data as any[]).map((row: any) => {
       const p = row.profiles ?? {};
-      const matchedAt = row.matched_at ? new Date(row.matched_at) : new Date();
-      const secs = Math.floor((Date.now() - matchedAt.getTime()) / 1000);
-      const timeStr = secs < 3600 ? `${Math.floor(secs / 60)}m ago` : secs < 86400 ? `${Math.floor(secs / 3600)}h ago` : `${Math.floor(secs / 86400)}d ago`;
       return {
         id: row.matched_user_id,
         name: p.display_name ?? p.username ?? 'Vibe User',
+        username: p.username,
         age: p.age ?? 25,
-        image: p.avatar_url ?? `https://picsum.photos/seed/${row.matched_user_id}/200/200`,
-        bio: `Matched ${timeStr}`,
-        interests: p.interests ?? [],
+        image: p.avatar_url ?? `https://picsum.photos/seed/${row.matched_user_id}/400/400`,
+        bio: p.bio ?? '',
+        interests: Array.isArray(p.interests) ? p.interests : [],
         gender: p.gender,
         isOnline: p.is_online ?? false,
+        vibeScore: p.vibe_score ?? 0,
+        goal: p.looking_for,
+        matchedAt: matchTimeStr(row.matched_at),
       };
     });
   } catch {

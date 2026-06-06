@@ -1,0 +1,147 @@
+Fix Matches tab - show real matched user 
+profiles with their actual Vibe data:
+
+MATCHES TAB - Load REAL profiles:
+
+1. Load real matches from Supabase:
+const loadMatches = async () => {
+  const { data } = await supabase
+    .rpc('get_my_vibe_matches', {
+      p_user_id: userId,
+      p_limit: 50
+    })
+  
+  // For each match load their full profile
+  const matchesWithProfiles = await Promise.all(
+    data.map(async (match) => {
+      const { data: profile } = await supabase
+        .rpc('get_full_profile', {
+          p_username: match.username,
+          p_viewer_id: userId
+        })
+      return {
+        ...match,
+        profile: profile?.[0]
+      }
+    })
+  )
+  setMatches(matchesWithProfiles)
+}
+
+2. MATCH CARD shows REAL data:
+- Real profile photo (avatar_url)
+- Real name (full_name or username)
+- Real age (age from profiles)
+- Real bio (first 60 chars)
+- Real interests as small pills
+- Real vibe score and level badge
+- Real online status (green dot)
+- Real "Matched X ago" time
+- "💜 Vibe Match" badge
+
+3. EXPANDED MATCH CARD:
+When user taps a match card:
+- Opens their FULL profile as bottom sheet
+- Shows:
+  * Cover photo/banner
+  * Profile photo (large)
+  * Username with verified badge
+  * Full name
+  * Age, gender
+  * Bio (full)
+  * Vibe score + level
+  * "💜 Vibe Match" special badge
+  * Interests tags (all of them)
+  * Relationship goal badge
+  * Posts grid (3 columns)
+    - Load from get_profile_posts()
+  * Reels grid
+  * "💬 Message" button (gradient)
+  * "👤 Full Profile" button
+
+4. MATCH CARD DESIGN (full width):
+
+┌─────────────────────────────────┐
+│  [Photo]  Name, Age  🟢 online  │
+│           💜 Vibe Match         │
+│           "Bio text here..."    │
+│           🎵 Music · ✈️ Travel  │
+│           ⭐ Vibe Starter       │
+│  [💬 Message]  [👤 View Profile]│
+└─────────────────────────────────┘
+
+5. PROFILE PHOTO in match card:
+- Large circle (80px)
+- Gradient ring border
+- Online green dot bottom right
+- Tap photo → opens full profile
+
+6. MESSAGE BUTTON:
+- Tapping creates/opens conversation
+- Calls get_or_create_conversation()
+- Opens ChatScreen with that user
+- Shows their profile photo in chat header
+
+7. VIEW PROFILE BUTTON:
+- Opens their complete Vibe profile
+- Same as visiting @username profile
+- Shows all their posts and reels
+- Can follow them from profile
+- Back button returns to Matches
+
+8. REAL TIME UPDATES:
+Subscribe to vibe_matches table:
+supabase.channel('my-matches')
+  .on('postgres_changes', {
+    event: 'UPDATE',
+    schema: 'public',
+    table: 'vibe_matches',
+    filter: `receiver_id=eq.${userId}`
+  }, (payload) => {
+    if (payload.new.status === 'accepted') {
+      // New match! Add to list
+      addNewMatch(payload.new)
+      // Show match notification
+      showMatchToast(payload.new)
+    }
+  })
+  .subscribe()
+
+9. NEW MATCH NOTIFICATION:
+When new match arrives while on app:
+- Toast slides from top:
+  * Match's profile photo
+  * "💜 New Vibe Match!"
+  * Their name
+  * "Tap to message"
+- Tapping opens chat with them
+
+10. MATCH HEADER COUNT:
+- Show total matches count
+- "💜 12 Matches" in tab label
+- Or badge on Matches tab icon
+
+11. EMPTY STATE:
+- Beautiful illustration
+- "No matches yet 💜"
+- "Keep swiping to find your vibe!"
+- Animated floating hearts
+- "Start Swiping →" gradient button
+  that navigates to Near tab
+
+12. SEARCH IN MATCHES:
+- Search bar at top of matches
+- Filter by name
+- Filter by online status
+- Filter by recent activity
+
+Make sure:
+- Real profile photos show
+- Real names and bios show
+- Real interests show as pills
+- Real online status shows
+- Message button opens real chat
+- View Profile opens real profile
+- New matches appear in real time
+- All data from Supabase
+- No mock/fake data anywhere
