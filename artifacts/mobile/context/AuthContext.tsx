@@ -20,10 +20,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    // Safety timeout — if Supabase never responds (no network at cold start),
+    // release the loading gate after 8 s so the app isn't permanently frozen.
+    const loadingTimeout = setTimeout(() => setLoading(false), 8000);
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+      })
+      .catch(() => {
+        // Network error on startup — continue as logged-out
+      })
+      .finally(() => {
+        clearTimeout(loadingTimeout);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
@@ -37,7 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(loadingTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {

@@ -106,36 +106,35 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           filter: `recipient_id=eq.${userId}`,
         },
         (payload: any) => {
-          const n = payload.new;
-          setNotifCount((c) => c + 1);
-
-          const typeMap: Record<string, ToastType> = {
-            like: "like",
-            comment: "comment",
-            follow: "follow",
-            vibe: "vibe",
-            mention: "mention",
-          };
-          const toastType: ToastType = typeMap[n.type] ?? "like";
-          const messages: Record<string, string> = {
-            like: "liked your post",
-            comment: "commented on your post",
-            follow: "started following you",
-            vibe: "matched your vibe ✨",
-            mention: "mentioned you in a comment",
-          };
-
-          addToast({
-            type: toastType,
-            username: n.actor_username ?? n.username ?? "someone",
-            message: n.text ?? messages[n.type] ?? "interacted with your post",
-            avatar_url: n.actor_avatar_url,
-            post_image: n.post_image,
-            navigateTo: n.type === "follow" ? `/profile/${n.actor_username}` : undefined,
-          });
+          try {
+            const n = payload.new;
+            if (!n) return;
+            setNotifCount((c) => c + 1);
+            const typeMap: Record<string, ToastType> = {
+              like: "like", comment: "comment", follow: "follow",
+              vibe: "vibe", mention: "mention",
+            };
+            const msgMap: Record<string, string> = {
+              like: "liked your post", comment: "commented on your post",
+              follow: "started following you", vibe: "matched your vibe ✨",
+              mention: "mentioned you in a comment",
+            };
+            addToast({
+              type: typeMap[n.type] ?? "like",
+              username: n.actor_username ?? n.username ?? "someone",
+              message: n.text ?? msgMap[n.type] ?? "interacted with your post",
+              avatar_url: n.actor_avatar_url,
+              post_image: n.post_image,
+              navigateTo: n.type === "follow" ? `/profile/${n.actor_username}` : undefined,
+            });
+          } catch { /* never crash on a realtime event */ }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          // Silently ignore — app works without realtime
+        }
+      });
 
     // ── Messages channel ───────────────────────────────────────────
     const msgChannel = supabase
@@ -149,19 +148,25 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           filter: `receiver_id=eq.${userId}`,
         },
         (payload: any) => {
-          const m = payload.new;
-          setMessageCount((c) => c + 1);
-
-          addToast({
-            type: "message",
-            username: m.sender_username ?? "Someone",
-            message: m.text?.slice(0, 60) ?? "sent you a message",
-            avatar_url: m.sender_avatar_url,
-            navigateTo: m.sender_id ? `/chat/${m.sender_id}` : "/inbox",
-          });
+          try {
+            const m = payload.new;
+            if (!m) return;
+            setMessageCount((c) => c + 1);
+            addToast({
+              type: "message",
+              username: m.sender_username ?? "Someone",
+              message: m.text?.slice(0, 60) ?? "sent you a message",
+              avatar_url: m.sender_avatar_url,
+              navigateTo: m.sender_id ? `/chat/${m.sender_id}` : "/inbox",
+            });
+          } catch { /* never crash on a realtime event */ }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          // Silently ignore — app works without realtime
+        }
+      });
 
     channelsRef.current = [notifChannel, msgChannel];
 
