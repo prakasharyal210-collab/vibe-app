@@ -1,0 +1,136 @@
+Fix these 3 Settings options that are not working:
+
+1. SWITCH ACCOUNTS:
+When user taps "Switch Accounts":
+- Opens SwitchAccountsScreen
+- Shows list of accounts user has logged into:
+  * Current account (highlighted with checkmark)
+  * Other saved accounts
+  * "Add Account" button at bottom
+- Each account row shows:
+  * Profile photo
+  * Username
+  * Email
+  * "Active" badge on current account
+- Tap another account → switches instantly
+- "Add Account" → goes to Login screen
+  without logging out current account
+- Long press account → option to remove it
+
+IMPLEMENTATION:
+Save accounts to AsyncStorage:
+const saveAccount = async (user) => {
+  const accounts = await getAccounts()
+  const updated = accounts.filter(
+    a => a.id !== user.id
+  )
+  updated.push({
+    id: user.id,
+    username: user.username,
+    avatar_url: user.avatar_url,
+    email: user.email,
+    access_token: session.access_token,
+    refresh_token: session.refresh_token
+  })
+  await AsyncStorage.setItem(
+    'saved_accounts',
+    JSON.stringify(updated)
+  )
+}
+
+const switchAccount = async (account) => {
+  // Set new session
+  await supabase.auth.setSession({
+    access_token: account.access_token,
+    refresh_token: account.refresh_token
+  })
+  // Reload app
+  navigation.reset({
+    index: 0,
+    routes: [{ name: 'Main' }]
+  })
+}
+
+2. BLOCKED ACCOUNTS:
+When user taps "Blocked Accounts":
+- Opens BlockedAccountsScreen
+- Shows list of blocked users:
+  * Profile photo
+  * Username
+  * "Unblock" button (red outline)
+- Load from blocked_users table:
+  SELECT p.* FROM blocked_users bu
+  JOIN profiles p ON p.id = bu.blocked_id
+  WHERE bu.blocker_id = userId
+- Tap "Unblock":
+  * Calls unblock_user(myId, theirId)
+  * Removes from list immediately
+  * Shows "Unblocked @username" toast
+- Empty state: "No blocked accounts"
+- Pull to refresh
+
+3. RESTRICTED ACCOUNTS:
+When user taps "Restricted Accounts":
+- Opens RestrictedAccountsScreen
+- Shows list of restricted users
+- Restricted = can see posts but 
+  comments are hidden from others
+- Load from restricted_users table:
+  (create if not exists)
+- Each row shows:
+  * Profile photo
+  * Username
+  * "Unrestrict" button
+- Tap "Unrestrict" → removes restriction
+- Empty state: "No restricted accounts"
+
+CREATE RESTRICTED ACCOUNTS TABLE:
+Since we need it run in Supabase:
+create table if not exists restricted_users (
+  id uuid default gen_random_uuid() primary key,
+  restrictor_id uuid references profiles(id),
+  restricted_id uuid references profiles(id),
+  created_at timestamp default now(),
+  unique(restrictor_id, restricted_id)
+);
+
+RESTRICT USER FUNCTION:
+Add to three dots menu on any profile:
+- "Restrict @username" option
+- Saves to restricted_users table
+- They can still see your posts
+- Their comments are hidden from others
+- They don't know they're restricted
+
+Also fix these settings options:
+- "Who can comment" → opens picker:
+  * Everyone
+  * People I follow
+  * Nobody
+  * Saves to user_settings table
+
+- "Who can message me" → opens picker:
+  * Everyone  
+  * People I follow
+  * My matches only
+  * Nobody
+
+- "Who can duet/remix" → opens picker:
+  * Everyone
+  * People I follow
+  * Nobody
+
+Each picker:
+- Bottom sheet with options
+- Radio buttons (one selection)
+- Current setting pre-selected
+- "Save" button → updates user_settings
+- Instant feedback toast
+
+Make sure:
+- All 3 settings open correct screens
+- Blocked accounts loads from Supabase
+- Unblock actually works
+- Switch accounts saves sessions
+- All pickers save to Supabase
+- Toast notifications show on actions

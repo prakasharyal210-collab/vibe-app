@@ -434,8 +434,8 @@ export async function fetchUnreadCount(userId: string): Promise<number> {
 export interface UserSettings {
   private_account: boolean;
   comment_permission: "everyone" | "friends" | "nobody";
-  message_permission: "everyone" | "friends" | "nobody";
-  duet_permission: boolean;
+  message_permission: "everyone" | "friends" | "matches" | "nobody";
+  duet_permission: "everyone" | "friends" | "nobody";
   liked_private: boolean;
   notif_likes: boolean;
   notif_comments: boolean;
@@ -449,7 +449,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   private_account: false,
   comment_permission: "everyone",
   message_permission: "everyone",
-  duet_permission: true,
+  duet_permission: "everyone",
   liked_private: false,
   notif_likes: true,
   notif_comments: true,
@@ -466,9 +466,73 @@ export async function fetchUserSettings(userId: string): Promise<UserSettings> {
       .select("*")
       .eq("user_id", userId)
       .maybeSingle();
-    if (!error && data) return { ...DEFAULT_SETTINGS, ...data } as UserSettings;
+    if (!error && data) {
+      const raw = data as any;
+      const duet = raw.duet_permission;
+      return {
+        ...DEFAULT_SETTINGS,
+        ...raw,
+        duet_permission: typeof duet === "boolean" ? (duet ? "everyone" : "nobody") : (duet ?? "everyone"),
+      } as UserSettings;
+    }
   } catch {}
   return DEFAULT_SETTINGS;
+}
+
+// ─── Blocked / Restricted Users ───────────────────────────────────────────────
+
+export interface BlockedUser {
+  id: string;
+  username: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
+export async function getBlockedUsers(userId: string): Promise<BlockedUser[]> {
+  try {
+    const { data, error } = await supabase
+      .from("blocks")
+      .select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, display_name, avatar_url)")
+      .eq("blocker_id", userId);
+    if (error || !data) return [];
+    return (data as any[]).map((row: any) => {
+      const p = row.profiles ?? {};
+      return { id: row.blocked_id, username: p.username ?? "user", display_name: p.display_name, avatar_url: p.avatar_url };
+    });
+  } catch { return []; }
+}
+
+export interface RestrictedUser {
+  id: string;
+  username: string;
+  display_name?: string;
+  avatar_url?: string;
+}
+
+export async function getRestrictedUsers(userId: string): Promise<RestrictedUser[]> {
+  try {
+    const { data, error } = await supabase
+      .from("restricted_users")
+      .select("restricted_id, profiles!restricted_users_restricted_id_fkey(id, username, display_name, avatar_url)")
+      .eq("restrictor_id", userId);
+    if (error || !data) return [];
+    return (data as any[]).map((row: any) => {
+      const p = row.profiles ?? {};
+      return { id: row.restricted_id, username: p.username ?? "user", display_name: p.display_name, avatar_url: p.avatar_url };
+    });
+  } catch { return []; }
+}
+
+export async function restrictUser(myId: string, theirId: string): Promise<void> {
+  try {
+    await supabase.from("restricted_users").upsert({ restrictor_id: myId, restricted_id: theirId }, { onConflict: "restrictor_id,restricted_id" });
+  } catch {}
+}
+
+export async function unrestrictUser(myId: string, theirId: string): Promise<void> {
+  try {
+    await supabase.from("restricted_users").delete().eq("restrictor_id", myId).eq("restricted_id", theirId);
+  } catch {}
 }
 
 export async function saveUserSettings(
