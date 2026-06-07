@@ -4,19 +4,16 @@ module.exports = function (api) {
     presets: ["babel-preset-expo"],
     overrides: [
       {
-        // react-native 0.81.5, react-native-reanimated 4.x, and
-        // react-native-worklets 0.5.x all ship JS files with private class
-        // fields (#x, #y, #registry, #listenerCount, etc.) that the hermesc
-        // version bundled with RN 0.81.5 cannot compile to bytecode.
-        // Both plugins must share loose:true or Babel throws a consistency error.
-        test: [
-          /node_modules.*react-native[^-].*Libraries[\\/]Animated/,
-          /node_modules.*react-native[^-].*Libraries[\\/]Debugging/,
-          /node_modules.*react-native[^-].*Libraries[\\/]vendor[\\/]emitter/,
-          /node_modules.*react-native[^-].*src[\\/]private/,
-          /node_modules.*react-native-reanimated/,
-          /node_modules.*react-native-worklets/,
-        ],
+        // Many packages (react-native 0.81.5, react-native-reanimated 4.x,
+        // react-native-worklets 0.5.x, @tanstack/query-core 5.x, etc.) ship
+        // JS with private class fields (#x, #focused, #provider, etc.) that
+        // the hermesc bundled with RN 0.81.5 cannot compile.
+        //
+        // Applying ONLY these two plugins (no preset) via overrides is safe:
+        // they transform #field syntax to plain assignments and never touch
+        // JSX, TypeScript, or any other transform babel-preset-expo owns.
+        // Both must use the same loose:true value or Babel throws.
+        test: /node_modules/,
         plugins: [
           ["@babel/plugin-transform-class-properties", { loose: true }],
           ["@babel/plugin-transform-private-methods", { loose: true }],
