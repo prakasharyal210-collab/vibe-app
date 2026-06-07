@@ -665,6 +665,8 @@ export default function SettingsScreen() {
   const [showInMatching, setShowInMatching] = useState(true);
   const [findGundrukMode, setFindGundrukMode] = useState("dating");
   const [vibeRequestPrivacy, setVibeRequestPrivacy] = useState("everyone");
+  // Guard: once the user has interacted, don't let the async initial DB load override their choice
+  const vibeInteracted = useRef(false);
 
   // Picker visibility
   const [showCommentPicker, setShowCommentPicker] = useState(false);
@@ -705,9 +707,13 @@ export default function SettingsScreen() {
     }).catch(() => {});
 
     getGundrukProfile(userId).then((p) => {
-      setShowInMatching(p.show_in_matching);
-      setFindGundrukMode(p.find_gundruk_mode);
-      setVibeRequestPrivacy(p.vibe_request_privacy);
+      // Only apply DB values if the user hasn't already touched these controls in
+      // this session — prevents a slow async response from overwriting a user tap.
+      if (!vibeInteracted.current) {
+        setShowInMatching(p.show_in_matching);
+        setFindGundrukMode(p.find_gundruk_mode);
+        setVibeRequestPrivacy(p.vibe_request_privacy);
+      }
     }).catch(() => {});
 
     // Persist the current account so SwitchAccounts can list it
@@ -878,6 +884,7 @@ export default function SettingsScreen() {
             sub={showInMatching ? "You appear in matching, nearby & goals" : "You're hidden from all discovery"}
             value={showInMatching}
             onToggle={(v) => {
+              vibeInteracted.current = true; // prevent async load from reverting this
               setShowInMatching(v);
               if (!v) setFindGundrukMode("hide");
               else if (findGundrukMode === "hide") setFindGundrukMode("dating");
@@ -990,10 +997,12 @@ export default function SettingsScreen() {
         options={FIND_GUNDRUK_MODE_OPTIONS}
         selected={findGundrukMode}
         onSelect={(v) => {
+          vibeInteracted.current = true; // prevent async load from reverting this
           setFindGundrukMode(v);
           const hidden = v === "hide";
           setShowInMatching(!hidden);
           saveGundrukProfile(userId, { find_gundruk_mode: v, show_in_matching: !hidden });
+          DeviceEventEmitter.emit("findVibeLockChanged", { locked: hidden });
           showToast("Preference saved ✅");
         }}
         onClose={() => setShowModePicker(false)}
