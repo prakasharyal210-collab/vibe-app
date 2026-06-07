@@ -1,6 +1,5 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -14,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { GradientButton } from "@/components/GradientButton";
+import { GundrukLogo } from "@/components/GundrukLogo";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
@@ -22,17 +22,17 @@ function BackgroundOrbs() {
   const anim2 = useRef(new Animated.Value(0)).current;
   const anim3 = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const loop = (val: Animated.Value, dur: number, dist: number) =>
+  React.useEffect(() => {
+    const loop = (val: Animated.Value, dur: number) =>
       Animated.loop(
         Animated.sequence([
           Animated.timing(val, { toValue: 1, duration: dur, useNativeDriver: true }),
           Animated.timing(val, { toValue: 0, duration: dur, useNativeDriver: true }),
         ])
       ).start();
-    loop(anim1, 4200, 30);
-    loop(anim2, 5800, 25);
-    loop(anim3, 7000, 20);
+    loop(anim1, 4200);
+    loop(anim2, 5800);
+    loop(anim3, 7000);
   }, []);
 
   const ty1 = anim1.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
@@ -49,33 +49,21 @@ function BackgroundOrbs() {
 }
 
 const orbStyles = StyleSheet.create({
-  orb: {
-    position: "absolute",
-    borderRadius: 999,
-  },
+  orb: { position: "absolute", borderRadius: 999 },
   orb1: {
-    width: 340,
-    height: 340,
-    top: -80,
-    left: -60,
-    backgroundColor: "rgba(139,92,246,0.18)",
-    ...Platform.select({ web: { filter: "blur(80px)" } as any }),
+    width: 340, height: 340, top: -80, left: -60,
+    backgroundColor: "rgba(139,92,246,0.16)",
+    ...Platform.select({ web: { filter: "blur(90px)" } as any }),
   },
   orb2: {
-    width: 280,
-    height: 280,
-    top: 200,
-    right: -80,
-    backgroundColor: "rgba(236,72,153,0.14)",
+    width: 280, height: 280, top: 220, right: -80,
+    backgroundColor: "rgba(236,72,153,0.12)",
     ...Platform.select({ web: { filter: "blur(80px)" } as any }),
   },
   orb3: {
-    width: 240,
-    height: 240,
-    bottom: 60,
-    left: 40,
-    backgroundColor: "rgba(249,115,22,0.12)",
-    ...Platform.select({ web: { filter: "blur(80px)" } as any }),
+    width: 240, height: 240, bottom: 60, left: 30,
+    backgroundColor: "rgba(249,115,22,0.10)",
+    ...Platform.select({ web: { filter: "blur(70px)" } as any }),
   },
 });
 
@@ -113,46 +101,13 @@ export default function LoginScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: topInset + 40,
+            paddingTop: topInset + 48,
             paddingBottom: (Platform.OS === "web" ? 34 : insets.bottom) + 24,
           },
         ]}
         bottomOffset={30}
       >
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoGlowWrap}>
-            <View style={styles.logoGlow} />
-            <View style={styles.logoBox}>
-              {Platform.OS === "web" ? (
-                <Text
-                  style={[styles.logoText, {
-                    // @ts-ignore web only
-                    background: "linear-gradient(135deg, #8B5CF6, #EC4899, #F97316)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    backgroundClip: "text",
-                  }]}
-                >
-                  GUNDRUK
-                </Text>
-              ) : (
-                <LinearGradient
-                  colors={["#8B5CF6", "#EC4899", "#F97316"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.logoGradientText}
-                >
-                  <Text style={styles.logoText}>GUNDRUK</Text>
-                </LinearGradient>
-              )}
-            </View>
-          </View>
-          <Text style={styles.headline}>Welcome back</Text>
-          <Text style={[styles.tagline, { color: colors.mutedForeground }]}>
-            Share your world, your way ✨
-          </Text>
-        </View>
+        <GundrukLogo subtitle="Welcome back" />
 
         {/* Glassmorphism form card */}
         <View style={styles.card}>
@@ -160,49 +115,34 @@ export default function LoginScreen() {
             value={email}
             onChangeText={setEmail}
             placeholder="Email address"
-            placeholderTextColor="rgba(156,163,175,0.6)"
+            placeholderTextColor="rgba(156,163,175,0.55)"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
             onFocus={() => setFocused("email")}
             onBlur={() => setFocused(null)}
-            style={[
-              styles.input,
-              focused === "email" && styles.inputFocused,
-            ]}
+            style={[styles.input, focused === "email" && styles.inputFocused]}
           />
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Password"
-            placeholderTextColor="rgba(156,163,175,0.6)"
+            placeholderTextColor="rgba(156,163,175,0.55)"
             secureTextEntry
             onFocus={() => setFocused("password")}
             onBlur={() => setFocused(null)}
-            style={[
-              styles.input,
-              focused === "password" && styles.inputFocused,
-            ]}
+            style={[styles.input, focused === "password" && styles.inputFocused]}
           />
 
-          <GradientButton
-            onPress={handleLogin}
-            title="Sign In"
-            loading={loading}
-            style={styles.btn}
-          />
+          <GradientButton onPress={handleLogin} title="Sign In" loading={loading} style={styles.btn} />
 
           <TouchableOpacity onPress={() => {}} style={styles.forgotBtn}>
-            <Text style={[styles.forgotText, { color: colors.mutedForeground }]}>
-              Forgot password?
-            </Text>
+            <Text style={[styles.forgotText, { color: colors.mutedForeground }]}>Forgot password?</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.signupRow}>
-          <Text style={[styles.signupText, { color: colors.mutedForeground }]}>
-            New to Gundruk?{" "}
-          </Text>
+          <Text style={[styles.signupText, { color: colors.mutedForeground }]}>New to Gundruk?{" "}</Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
             <Text style={styles.signupLink}>Create account →</Text>
           </TouchableOpacity>
@@ -220,49 +160,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 24,
   },
-  logoContainer: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  logoGlowWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  logoGlow: {
-    position: "absolute",
-    width: 120,
-    height: 60,
-    borderRadius: 60,
-    backgroundColor: "rgba(139,92,246,0.35)",
-    ...Platform.select({ web: { filter: "blur(30px)" } as any }),
-  },
-  logoBox: {
-    overflow: "hidden",
-    borderRadius: 12,
-  },
-  logoGradientText: {
-    paddingHorizontal: 20,
-    paddingVertical: 4,
-  },
-  logoText: {
-    fontSize: 48,
-    fontFamily: "Poppins_700Bold",
-    color: "#fff",
-    letterSpacing: 10,
-  },
-  headline: {
-    fontSize: 26,
-    fontFamily: "Poppins_700Bold",
-    color: "#fff",
-    letterSpacing: -0.5,
-    marginBottom: 6,
-  },
-  tagline: {
-    fontSize: 14,
-    fontFamily: "Poppins_400Regular",
-    textAlign: "center",
-  },
   card: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
@@ -271,9 +168,7 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 14,
     marginBottom: 24,
-    ...Platform.select({
-      web: { backdropFilter: "blur(20px)" } as any,
-    }),
+    ...Platform.select({ web: { backdropFilter: "blur(20px)" } as any }),
   },
   input: {
     height: 52,

@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
@@ -13,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { GradientButton } from "@/components/GradientButton";
+import { GundrukLogo } from "@/components/GundrukLogo";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
@@ -23,6 +23,7 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [focused, setFocused] = useState<"username" | "email" | "password" | null>(null);
 
   const handleSignup = async () => {
     if (!username || !email || !password) {
@@ -54,12 +55,7 @@ export default function SignupScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LinearGradient
-        colors={["transparent", "rgba(124,58,237,0.2)"]}
-        style={styles.bottomGlow}
-      />
-
+    <View style={styles.root}>
       <KeyboardAwareScrollViewCompat
         style={{ flex: 1 }}
         contentContainerStyle={[
@@ -72,68 +68,46 @@ export default function SignupScreen() {
         bottomOffset={30}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={[styles.backText, { color: colors.mutedForeground }]}>
-            ← Back
-          </Text>
+          <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
 
-        <View style={styles.header}>
-          <LinearGradient
-            colors={["#7C3AED", "#F97316"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.logoGradient}
-          >
-            <Text style={styles.logoText}>GUNDRUK</Text>
-          </LinearGradient>
-          <Text style={[styles.subtitle, { color: colors.foreground }]}>
-            Join the community
-          </Text>
-        </View>
+        <GundrukLogo subtitle="Join the community" />
 
-        <View style={styles.form}>
+        <View style={styles.card}>
           <TextInput
             value={username}
             onChangeText={setUsername}
             placeholder="Username"
-            placeholderTextColor={colors.mutedForeground}
+            placeholderTextColor="rgba(156,163,175,0.55)"
             autoCapitalize="none"
             autoCorrect={false}
-            style={[
-              styles.input,
-              { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
-            ]}
+            onFocus={() => setFocused("username")}
+            onBlur={() => setFocused(null)}
+            style={[styles.input, focused === "username" && styles.inputFocused]}
           />
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="Email"
-            placeholderTextColor={colors.mutedForeground}
+            placeholder="Email address"
+            placeholderTextColor="rgba(156,163,175,0.55)"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
-            style={[
-              styles.input,
-              { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
-            ]}
+            onFocus={() => setFocused("email")}
+            onBlur={() => setFocused(null)}
+            style={[styles.input, focused === "email" && styles.inputFocused]}
           />
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="Password (min 6 chars)"
-            placeholderTextColor={colors.mutedForeground}
+            placeholder="Password (min 6 characters)"
+            placeholderTextColor="rgba(156,163,175,0.55)"
             secureTextEntry
-            style={[
-              styles.input,
-              { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border },
-            ]}
+            onFocus={() => setFocused("password")}
+            onBlur={() => setFocused(null)}
+            style={[styles.input, focused === "password" && styles.inputFocused]}
           />
-          <GradientButton
-            onPress={handleSignup}
-            title="Create Account"
-            loading={loading}
-            style={styles.btn}
-          />
+          <GradientButton onPress={handleSignup} title="Create Account" loading={loading} style={styles.btn} />
         </View>
 
         <View style={styles.loginRow}>
@@ -141,7 +115,7 @@ export default function SignupScreen() {
             Already on Gundruk?{" "}
           </Text>
           <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
-            <Text style={styles.loginLink}>Sign in</Text>
+            <Text style={styles.loginLink}>Sign in →</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollViewCompat>
@@ -152,47 +126,28 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-  },
-  bottomGlow: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 300,
+    backgroundColor: "#080810",
   },
   content: {
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
   backBtn: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   backText: {
     fontSize: 15,
     fontFamily: "Poppins_500Medium",
+    color: "rgba(255,255,255,0.45)",
   },
-  header: {
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  logoGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  logoText: {
-    fontSize: 36,
-    fontFamily: "Poppins_700Bold",
-    color: "#fff",
-    letterSpacing: 8,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontFamily: "Poppins_600SemiBold",
-  },
-  form: {
+  card: {
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    borderRadius: 24,
+    padding: 24,
     gap: 14,
     marginBottom: 24,
+    ...Platform.select({ web: { backdropFilter: "blur(20px)" } as any }),
   },
   input: {
     height: 52,
@@ -201,9 +156,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Poppins_400Regular",
     borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    color: "#fff",
+  },
+  inputFocused: {
+    borderColor: "rgba(139,92,246,0.6)",
+    backgroundColor: "rgba(139,92,246,0.06)",
   },
   btn: {
-    marginTop: 6,
+    marginTop: 4,
   },
   loginRow: {
     flexDirection: "row",
@@ -217,6 +179,6 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 14,
     fontFamily: "Poppins_600SemiBold",
-    color: "#7C3AED",
+    color: "#A78BFA",
   },
 });
