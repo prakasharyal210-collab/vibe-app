@@ -24,6 +24,7 @@ import {
   fetchMessageRequests,
 } from "@/lib/db";
 import { Conversation, timeAgo } from "@/lib/supabase";
+import { isSnap } from "@/lib/snap";
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
@@ -57,6 +58,9 @@ const toastSt = StyleSheet.create({
 function ConversationItem({ convo }: { convo: Conversation }) {
   const colors = useColors();
   const hasUnread = convo.unread_count > 0;
+  const isSnapMsg = isSnap(convo.last_message ?? "");
+  const displayMessage = isSnapMsg ? "📷 Photo snap" : convo.last_message;
+
   return (
     <TouchableOpacity
       onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
@@ -72,9 +76,20 @@ function ConversationItem({ convo }: { convo: Conversation }) {
           <Text style={[styles.convoTime, { color: colors.mutedForeground }]}>{timeAgo(convo.last_message_at)}</Text>
         </View>
         <View style={styles.convoRow}>
-          <Text style={[styles.convoMessage, { color: hasUnread ? colors.foreground : colors.mutedForeground }, hasUnread && styles.convoMessageBold]} numberOfLines={1}>
-            {convo.last_message}
-          </Text>
+          {isSnapMsg ? (
+            <View style={snapPreviewStyles.row}>
+              <View style={snapPreviewStyles.iconWrap}>
+                <Ionicons name="camera" size={11} color="#EA580C" />
+              </View>
+              <Text style={[snapPreviewStyles.text, { color: hasUnread ? "#EA580C" : colors.mutedForeground }]} numberOfLines={1}>
+                {displayMessage}
+              </Text>
+            </View>
+          ) : (
+            <Text style={[styles.convoMessage, { color: hasUnread ? colors.foreground : colors.mutedForeground }, hasUnread && styles.convoMessageBold]} numberOfLines={1}>
+              {displayMessage}
+            </Text>
+          )}
           {hasUnread ? (
             <View style={styles.badge}><Text style={styles.badgeText}>{convo.unread_count}</Text></View>
           ) : null}
@@ -83,6 +98,19 @@ function ConversationItem({ convo }: { convo: Conversation }) {
     </TouchableOpacity>
   );
 }
+
+const snapPreviewStyles = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+  iconWrap: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(234,88,12,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  text: { fontFamily: "Poppins_500Medium", fontSize: 13, flex: 1 },
+});
 
 // ─── RequestItem ──────────────────────────────────────────────────────────────
 

@@ -1,3 +1,4 @@
 - [Vibe app mock-to-Supabase audit](vibe-supabase-audit.md) — all mock initial states removed; profile screen rewired to real DB lookups
 - [Vibe ads system](ads-system.md) — feed ads every 4 posts, reel ads every 3 reels; house ads fallback; AdCard + ReelAdCard + advertise screen all wired in.
 - [Vibe design system](vibe-design-system.md) — Dark Luxury palette and floating glass pill tab bar; never change AdCard/ReelAdCard/ads.ts colors.
+- [Snap message feature](snap-feature.md) — Snapchat-style snaps encoded in message text field as __SNAP__:{...}; no DB migration needed.
