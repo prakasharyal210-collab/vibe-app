@@ -27,10 +27,11 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Install EAS CLI
-        run: npm install -g eas-cli
+        run: npm install -g eas-cli@latest
 
       - name: Run EAS OTA update
         working-directory: artifacts/mobile
         run: eas update --branch production --message "Auto update" --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_NO_HERMES: 1
