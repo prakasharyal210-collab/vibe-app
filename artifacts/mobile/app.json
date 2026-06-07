@@ -17,7 +17,6 @@
     "scheme": "vibe",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "jsEngine": "jsc",
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
