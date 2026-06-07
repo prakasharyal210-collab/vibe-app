@@ -4,7 +4,15 @@ module.exports = function (api) {
     presets: ["babel-preset-expo"],
     overrides: [
       {
-        test: /react-native[\\/]src[\\/]private[\\/]webapis/,
+        test: /node_modules/,
+        presets: [
+          [
+            "babel-preset-expo",
+            {
+              unstable_transformProfile: "hermes-stable",
+            },
+          ],
+        ],
         plugins: [
           ["@babel/plugin-transform-class-properties", { loose: true }],
           ["@babel/plugin-transform-private-methods", { loose: true }],
