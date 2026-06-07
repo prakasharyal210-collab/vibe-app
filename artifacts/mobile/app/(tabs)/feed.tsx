@@ -370,6 +370,7 @@ export default function FeedScreen() {
   const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
+  const dragStartXRef = useRef(0);
 
   const activeTab = TABS[activeTabIndex].id;
 
@@ -641,7 +642,15 @@ export default function FeedScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScrollBeginDrag={() => { isScrollingPager.current = true; }}
+        onScrollBeginDrag={(e: any) => { isScrollingPager.current = true; dragStartXRef.current = e.nativeEvent.contentOffset.x; }}
+        onScrollEndDrag={(e: any) => {
+          const endX = e.nativeEvent.contentOffset.x;
+          const velX = e.nativeEvent.velocity?.x ?? 0;
+          // Left swipe past the Friends tab (last page) → open Inbox
+          if (activeTabIndex === 1 && (endX > W * 1.05 || velX > 0.3)) {
+            router.push("/inbox");
+          }
+        }}
         onMomentumScrollEnd={onPagerMomentumEnd}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
