@@ -343,6 +343,7 @@ function SuggestedCTA({ colors }: { colors: any }) {
 }
 
 export default function FeedScreen() {
+  "use no memo";
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();

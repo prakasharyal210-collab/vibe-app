@@ -327,7 +327,7 @@ export default function TabLayout() {
 
   return (
     <>
-      {isLiquidGlassAvailable() && Platform.OS === "ios" ? <NativeTabLayout /> : <ClassicTabLayout />}
+      {(Platform.OS === "ios" && (() => { try { return isLiquidGlassAvailable(); } catch { return false; } })()) ? <NativeTabLayout /> : <ClassicTabLayout />}
       <RewardToast coins={rewardCoins} visible={showToast} />
       <OnboardingInterestPicker
         visible={showOnboarding}
