@@ -12,7 +12,6 @@ import {
   DeviceEventEmitter,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,23 +21,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
-import { claimDailyReward, getGundrukProfile, needsOnboarding, saveGundrukProfile, saveOnboardingInterests } from "@/lib/db";
+import { claimDailyReward, getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
 import { useTheme } from "@/context/ThemeContext";
 
 const INACTIVE = "#6B7280";
 
-// ── Find Vibe lock event ──────────────────────────────────────────────────────
 // Fired by settings.tsx when "Show me in Find Vibe" toggle changes.
 export const FIND_VIBE_LOCK_EVENT = "findVibeLockChanged";
-
-// ── Vibe setup mode options ───────────────────────────────────────────────────
-const VIBE_MODES = [
-  { value: "dating",     emoji: "❤️",  label: "Dating",        desc: "Find romantic connections and your perfect match" },
-  { value: "friends",    emoji: "👫",  label: "Friends",       desc: "Meet new people and expand your social circle" },
-  { value: "networking", emoji: "🤝",  label: "Networking",    desc: "Connect with professionals and grow your network" },
-  { value: "browsing",   emoji: "👀",  label: "Just Browsing", desc: "Explore without any specific intention" },
-  { value: "hide",       emoji: "❌",  label: "Hide Me",       desc: "Don't show me in Find Vibe at all" },
-] as const;
 
 // ── RewardToast ───────────────────────────────────────────────────────────────
 function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
@@ -96,88 +85,9 @@ const toastStyles = StyleSheet.create({
   text: { color: "#fff", fontSize: 14, fontFamily: "Poppins_600SemiBold" },
 });
 
-// ── VibeSetupSheet — shown to brand-new users who haven't set a mode yet ──────
-function VibeSetupSheet({
-  visible,
-  userId,
-  onUnlocked,
-  onClose,
-}: {
-  visible: boolean;
-  userId: string;
-  onUnlocked: () => void;
-  onClose: () => void;
-}) {
-  const insets = useSafeAreaInsets();
-  const [saving, setSaving] = useState(false);
-
-  const handleSelect = async (mode: string) => {
-    if (saving) return;
-    setSaving(true);
-    const visible = mode !== "hide";
-    try {
-      await saveGundrukProfile(userId, {
-        show_in_matching: visible,
-        find_gundruk_mode: mode,
-      });
-      // Mark mode as selected so find.tsx doesn't re-show its own sheet
-      await AsyncStorage.setItem(`gundruk_mode_selected_${userId}`, "true").catch(() => {});
-      // Persist lock state
-      await AsyncStorage.setItem(`find_vibe_locked_${userId}`, visible ? "false" : "true").catch(() => {});
-    } catch {}
-    setSaving(false);
-    if (visible) {
-      DeviceEventEmitter.emit(FIND_VIBE_LOCK_EVENT, { locked: false });
-      onUnlocked();
-    }
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <TouchableOpacity style={sheetStyles.backdrop} activeOpacity={1} onPress={onClose} />
-      <View style={[sheetStyles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
-        <View style={sheetStyles.handle} />
-        <Text style={sheetStyles.emoji}>🔒</Text>
-        <Text style={sheetStyles.title}>Unlock Find Vibe</Text>
-        <Text style={sheetStyles.body}>
-          Set up your profile to start matching with people
-        </Text>
-
-        <ScrollView style={{ width: "100%" }} showsVerticalScrollIndicator={false}>
-          {VIBE_MODES.map((m, i) => (
-            <TouchableOpacity
-              key={m.value}
-              onPress={() => handleSelect(m.value)}
-              activeOpacity={0.75}
-              disabled={saving}
-              style={[
-                sheetStyles.modeRow,
-                i < VIBE_MODES.length - 1 && sheetStyles.modeRowBorder,
-                m.value === "hide" && sheetStyles.modeRowHide,
-              ]}
-            >
-              <Text style={sheetStyles.modeEmoji}>{m.emoji}</Text>
-              <View style={sheetStyles.modeText}>
-                <Text style={[sheetStyles.modeLabel, m.value === "hide" && { color: "#9CA3AF" }]}>
-                  {m.label}
-                </Text>
-                <Text style={sheetStyles.modeDesc}>{m.desc}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={m.value === "hide" ? "#4B5563" : "rgba(255,255,255,0.25)"} />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <TouchableOpacity onPress={onClose} style={sheetStyles.cancelBtn}>
-          <Text style={sheetStyles.cancelText}>Maybe later</Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
-  );
-}
-
-// ── FindVibeLockedSheet — shown when user explicitly turned off in settings ────
+// ── FindVibeLockedSheet ───────────────────────────────────────────────────────
+// Shown whenever the Find Vibe tab is tapped while locked, regardless of
+// whether the user is brand-new or has previously turned it off in settings.
 function FindVibeLockedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
 
@@ -205,8 +115,8 @@ function FindVibeLockedSheet({ visible, onClose }: { visible: boolean; onClose: 
             <Text style={sheetStyles.primaryText}>Go to Settings</Text>
           </LinearGradient>
         </TouchableOpacity>
-        <TouchableOpacity onPress={onClose} style={sheetStyles.cancelBtn}>
-          <Text style={sheetStyles.cancelText}>Dismiss</Text>
+        <TouchableOpacity onPress={onClose} style={sheetStyles.dismissBtn}>
+          <Text style={sheetStyles.dismissText}>Dismiss</Text>
         </TouchableOpacity>
       </View>
     </Modal>
@@ -222,44 +132,24 @@ const sheetStyles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 14,
     alignItems: "center",
-    maxHeight: "85%",
   },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", marginBottom: 22 },
-  emoji: { fontSize: 50, marginBottom: 12 },
-  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22, textAlign: "center", marginBottom: 8 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", marginBottom: 24 },
+  emoji: { fontSize: 52, marginBottom: 14 },
+  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22, textAlign: "center", marginBottom: 10 },
   body: {
     color: "rgba(255,255,255,0.5)",
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
     textAlign: "center",
     lineHeight: 22,
-    marginBottom: 22,
+    marginBottom: 28,
     paddingHorizontal: 8,
   },
-  // mode rows
-  modeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
-    gap: 14,
-  },
-  modeRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.07)",
-  },
-  modeRowHide: {
-    marginTop: 4,
-  },
-  modeEmoji: { fontSize: 26, width: 34, textAlign: "center" },
-  modeText: { flex: 1 },
-  modeLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
-  modeDesc: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
-  // buttons
-  primaryBtn: { width: "100%", borderRadius: 18, overflow: "hidden", marginTop: 8, marginBottom: 12 },
+  primaryBtn: { width: "100%", borderRadius: 18, overflow: "hidden", marginBottom: 12 },
   primaryGrad: { paddingVertical: 16, alignItems: "center" },
   primaryText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
-  cancelBtn: { paddingVertical: 12 },
-  cancelText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  dismissBtn: { paddingVertical: 12 },
+  dismissText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
 
 // ── NativeTabLayout ───────────────────────────────────────────────────────────
@@ -458,46 +348,33 @@ export default function TabLayout() {
   const [rewardCoins, setRewardCoins] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  // Default to locked (true) until we confirm from the user's profile
+  // Default to locked (true) until Supabase confirms show_in_matching = true
   const [findVibeLocked, setFindVibeLocked] = useState(true);
-  // Whether the user has ever chosen a mode (false = brand-new, show setup sheet)
-  const [findVibeSetupDone, setFindVibeSetupDone] = useState(false);
-  const [showSetupSheet, setShowSetupSheet] = useState(false);
   const [showLockedSheet, setShowLockedSheet] = useState(false);
   const claimedRef = useRef(false);
   const onboardingRef = useRef(false);
 
-  // Load initial state from Supabase profile + AsyncStorage
+  // Load lock state from Supabase on sign-in
   useEffect(() => {
     if (!userId) return;
-
-    (async () => {
-      try {
-        // Check if user has previously completed setup
-        const setupDone = await AsyncStorage.getItem(`gundruk_mode_selected_${userId}`).catch(() => null);
-        const isSetupDone = setupDone === "true";
-        setFindVibeSetupDone(isSetupDone);
-
-        // Get actual lock state from DB
-        const profile = await getGundrukProfile(userId);
-        const locked = !profile.show_in_matching;
+    getGundrukProfile(userId)
+      .then((p) => {
+        const locked = !p.show_in_matching;
         setFindVibeLocked(locked);
         AsyncStorage.setItem(`find_vibe_locked_${userId}`, locked ? "true" : "false").catch(() => {});
-      } catch {
-        // Fallback: read from AsyncStorage cache
-        const cached = await AsyncStorage.getItem(`find_vibe_locked_${userId}`).catch(() => null);
-        if (cached !== null) setFindVibeLocked(cached === "true");
-        // If no cache, stays locked (true) which is the safe default
-      }
-    })();
+      })
+      .catch(() => {
+        // Fallback to cached value; if nothing cached, stays locked (safe default)
+        AsyncStorage.getItem(`find_vibe_locked_${userId}`)
+          .then((val) => { if (val === "false") setFindVibeLocked(false); })
+          .catch(() => {});
+      });
   }, [userId]);
 
-  // Listen for real-time lock changes from settings screen (same session)
+  // Listen for real-time lock changes fired by settings.tsx
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener(FIND_VIBE_LOCK_EVENT, ({ locked }: { locked: boolean }) => {
       setFindVibeLocked(locked);
-      // When settings turns it back ON, mark setup as done (user has a profile now)
-      if (!locked) setFindVibeSetupDone(true);
       if (userId) {
         AsyncStorage.setItem(`find_vibe_locked_${userId}`, locked ? "true" : "false").catch(() => {});
       }
@@ -547,16 +424,6 @@ export default function TabLayout() {
     }
   };
 
-  const handleLockedTabPress = () => {
-    if (!findVibeSetupDone) {
-      // Brand-new user — show setup / mode picker
-      setShowSetupSheet(true);
-    } else {
-      // User previously set up but turned off in settings
-      setShowLockedSheet(true);
-    }
-  };
-
   const isNativeGlass =
     Platform.OS === "ios" &&
     (() => { try { return isLiquidGlassAvailable(); } catch { return false; } })();
@@ -568,26 +435,11 @@ export default function TabLayout() {
       ) : (
         <ClassicTabLayout
           findVibeLocked={findVibeLocked}
-          onLockedTabPress={handleLockedTabPress}
+          onLockedTabPress={() => setShowLockedSheet(true)}
         />
       )}
       <RewardToast coins={rewardCoins} visible={showToast} />
       <OnboardingInterestPicker visible={showOnboarding} onComplete={handleOnboardingComplete} />
-
-      {/* Setup sheet — brand-new users, choose their mode */}
-      {userId ? (
-        <VibeSetupSheet
-          visible={showSetupSheet}
-          userId={userId}
-          onUnlocked={() => {
-            setFindVibeLocked(false);
-            setFindVibeSetupDone(true);
-          }}
-          onClose={() => setShowSetupSheet(false)}
-        />
-      ) : null}
-
-      {/* Locked sheet — user explicitly turned off in settings */}
       <FindVibeLockedSheet
         visible={showLockedSheet}
         onClose={() => setShowLockedSheet(false)}
