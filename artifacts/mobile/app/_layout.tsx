@@ -6,7 +6,7 @@ import {
   useFonts,
 } from "@expo-google-fonts/poppins";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
@@ -17,7 +17,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastOverlay } from "@/components/ToastNotification";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 
@@ -29,6 +29,18 @@ const queryClient = new QueryClient();
 const OTA_READY_KEY = "ota_ready";
 
 function RootLayoutNav() {
+  const { session, loading } = useAuth();
+
+  // Auth guard: whenever session disappears (logout or token expiry),
+  // replace the entire navigation stack with the login screen so the
+  // back button cannot return to the authenticated app.
+  useEffect(() => {
+    if (loading) return;
+    if (!session) {
+      router.replace("/(auth)/login");
+    }
+  }, [session, loading]);
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />

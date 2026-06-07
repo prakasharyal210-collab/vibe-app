@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { ensureUserSetup } from "@/lib/db";
 
@@ -56,7 +57,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // 1. Wipe all cached user data from AsyncStorage (scores, lock state, rewards, etc.)
+    try {
+      await AsyncStorage.clear();
+    } catch {}
+    // 2. Sign out from Supabase — clears the stored session token
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    // 3. Force session to null immediately so the auth guard redirects right away
+    //    (the onAuthStateChange listener will also set this, but doing it now is instant)
+    setSession(null);
   };
 
   return (
