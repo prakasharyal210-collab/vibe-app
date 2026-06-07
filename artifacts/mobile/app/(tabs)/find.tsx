@@ -1747,6 +1747,8 @@ function FindVibeContent() {
   const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "goals" | "matches">("nearby");
   const [myGoals, setMyGoals] = useState<string[]>([]);
   const pagerRef = useRef<SwipeablePagerRef>(null);
+  const tabScrollRef = useRef<ScrollView>(null);
+  const tabBtnLayouts = useRef<{ x: number; width: number }[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
@@ -1982,8 +1984,6 @@ function FindVibeContent() {
     { id: "samevibe" as const, emoji: "✨", label: "Vibe" },
     { id: "daily"    as const, emoji: "⭐", label: "Daily" },
   ];
-  const tabScrollRef = useRef<ScrollView>(null);
-  const tabBtnLayouts = useRef<{ x: number; width: number }[]>([]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
