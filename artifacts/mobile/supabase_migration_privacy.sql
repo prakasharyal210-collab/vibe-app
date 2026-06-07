@@ -1,11 +1,11 @@
 -- ============================================================
--- Gundruk: Find Gundruk Privacy Settings Migration
+-- Gundruk: Find Vibe Privacy Settings Migration
 -- Run this in your Supabase Dashboard → SQL Editor
 -- ============================================================
 
 -- Step 1: Add 3 new columns to profiles table
 ALTER TABLE profiles
-  ADD COLUMN IF NOT EXISTS show_in_matching   boolean NOT NULL DEFAULT true,
+  ADD COLUMN IF NOT EXISTS show_in_matching   boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS find_gundruk_mode  text    NOT NULL DEFAULT 'dating',
   ADD COLUMN IF NOT EXISTS vibe_request_privacy text  NOT NULL DEFAULT 'everyone';
 

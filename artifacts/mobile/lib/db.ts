@@ -567,13 +567,14 @@ export async function getGundrukProfile(userId: string): Promise<GundrukProfile>
     if (!error && data) {
       const raw = data as any;
       return {
-        show_in_matching: raw.show_in_matching ?? true,
+        show_in_matching: raw.show_in_matching ?? false,
         find_gundruk_mode: raw.find_gundruk_mode ?? "dating",
         vibe_request_privacy: raw.vibe_request_privacy ?? "everyone",
       };
     }
   } catch {}
-  return { show_in_matching: true, find_gundruk_mode: "dating", vibe_request_privacy: "everyone" };
+  // Default: locked until user consciously sets up Find Vibe
+  return { show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone" };
 }
 
 export async function saveGundrukProfile(userId: string, patch: Partial<GundrukProfile>): Promise<void> {
