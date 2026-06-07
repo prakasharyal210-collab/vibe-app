@@ -40,7 +40,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { ReelAdCard } from "@/components/ReelAdCard";
 import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
-import { YouTubeShortItem, type YouTubeShort } from "@/components/YouTubeShortItem";
+import { PexelsReelItem, type PexelsReel } from "@/components/PexelsReelItem";
 import { useAuth } from "@/context/AuthContext";
 import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -471,17 +471,17 @@ export default function ReelsScreen() {
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
-  const [youtubeShorts, setYoutubeShorts] = useState<YouTubeShort[]>([]);
+  const [pexelsReels, setPexelsReels] = useState<PexelsReel[]>([]);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
-  const displayReels = useMemo<(Reel | AdItem | YouTubeShort)[]>(() => {
-    if (feedTab === "foryou" && reels.length === 0 && youtubeShorts.length > 0) {
-      return youtubeShorts;
+  const displayReels = useMemo<(Reel | AdItem | PexelsReel)[]>(() => {
+    if (feedTab === "foryou" && reels.length === 0 && pexelsReels.length > 0) {
+      return pexelsReels;
     }
     return insertAdsInReels(reels, reelAds) as (Reel | AdItem)[];
-  }, [reels, reelAds, feedTab, youtubeShorts]);
+  }, [reels, reelAds, feedTab, pexelsReels]);
 
   // Helper: map a posts-table row to the Reel shape
   const postToReel = (p: any): Reel => ({
@@ -546,18 +546,18 @@ export default function ReelsScreen() {
         } catch {}
       }
 
-      // Last resort: show YouTube Shorts when DB has no reels at all
+      // Last resort: show Pexels short videos when DB has no reels at all
       if (!fyLoaded && !postsFallbackLoaded) {
         try {
           const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
-          const res = await fetch(`${apiUrl}/api/youtube/shorts?maxResults=15`);
+          const res = await fetch(`${apiUrl}/api/pexels/videos/short?perPage=20`);
           if (res.ok) {
             const data = await res.json() as { videos: any[] };
-            const shorts: YouTubeShort[] = (data.videos ?? []).map((v) => ({
-              kind: "youtube-short" as const,
+            const reels: PexelsReel[] = (data.videos ?? []).map((v) => ({
+              kind: "pexels-reel" as const,
               video: v,
             }));
-            if (shorts.length > 0) setYoutubeShorts(shorts);
+            if (reels.length > 0) setPexelsReels(reels);
           }
         } catch {}
       }
@@ -637,7 +637,7 @@ export default function ReelsScreen() {
         ref={flatListRef}
         data={displayReels}
         keyExtractor={(item) => {
-          if ('kind' in item && (item as YouTubeShort).kind === 'youtube-short') return `yt-${(item as YouTubeShort).video.id}`;
+          if ('kind' in item && (item as PexelsReel).kind === 'pexels-reel') return `pexels-${(item as PexelsReel).video.id}`;
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
@@ -653,11 +653,13 @@ export default function ReelsScreen() {
         maxToRenderPerBatch={3}
         windowSize={5}
         renderItem={({ item, index }) => {
-          if ('kind' in item && (item as YouTubeShort).kind === 'youtube-short') {
+          if ('kind' in item && (item as PexelsReel).kind === 'pexels-reel') {
             return (
-              <YouTubeShortItem
-                item={item as YouTubeShort}
+              <PexelsReelItem
+                item={item as PexelsReel}
                 isActive={index === activeIndex}
+                soundOn={soundOn}
+                onToggleSound={() => setSoundOn((s) => !s)}
               />
             );
           }

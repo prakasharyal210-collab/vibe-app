@@ -11,17 +11,17 @@ import {
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { PexelsCard, PexelsPhoto } from "@/components/PexelsCard";
+import { PexelsVideoCard, PexelsVideo } from "@/components/PexelsVideoCard";
 import { YouTubeCard, YouTubeVideo } from "@/components/YouTubeCard";
 
 type CuratedItem =
   | { kind: "photo"; data: PexelsPhoto; key: string }
-  | { kind: "video"; data: YouTubeVideo; key: string };
+  | { kind: "video"; data: PexelsVideo; key: string };
 
-function interleave(photos: PexelsPhoto[], videos: YouTubeVideo[]): CuratedItem[] {
+function interleave(photos: PexelsPhoto[], videos: PexelsVideo[]): CuratedItem[] {
   const items: CuratedItem[] = [];
   let pi = 0;
   let vi = 0;
-  // Pattern: photo, photo, video, photo, photo, video, ...
   while (pi < photos.length || vi < videos.length) {
     for (let i = 0; i < 2 && pi < photos.length; i++, pi++) {
       items.push({ kind: "photo", data: photos[pi]!, key: `photo-${photos[pi]!.id}` });
@@ -35,89 +35,78 @@ function interleave(photos: PexelsPhoto[], videos: YouTubeVideo[]): CuratedItem[
 }
 
 interface Props {
-  /** "empty" = replacing empty feed, "footer" = appended after real posts */
   mode: "empty" | "footer";
   maxPhotos?: number;
   maxVideos?: number;
+  maxYouTube?: number;
 }
 
-export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) {
+export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5, maxYouTube = 4 }: Props) {
   const colors = useColors();
   const [photos, setPhotos] = useState<PexelsPhoto[]>([]);
-  const [videos, setVideos] = useState<YouTubeVideo[]>([]);
-  const [loadingPhotos, setLoadingPhotos] = useState(true);
-  const [loadingVideos, setLoadingVideos] = useState(true);
-  const [errorPhotos, setErrorPhotos] = useState(false);
-  const [errorVideos, setErrorVideos] = useState(false);
+  const [pexelsVideos, setPexelsVideos] = useState<PexelsVideo[]>([]);
+  const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
+  const [loadingMain, setLoadingMain] = useState(true);
+  const [errorMain, setErrorMain] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
 
   useEffect(() => {
     let cancelled = false;
-    setLoadingPhotos(true);
-    setLoadingVideos(true);
-    setErrorPhotos(false);
-    setErrorVideos(false);
+    setLoadingMain(true);
+    setErrorMain(false);
     fadeAnim.setValue(0);
 
-    fetch(`${apiUrl}/api/pexels/trending?perPage=${maxPhotos}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ photos: PexelsPhoto[] }>;
-      })
-      .then((d) => {
-        if (cancelled) return;
-        setPhotos(d.photos ?? []);
-        setLoadingPhotos(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setErrorPhotos(true);
-        setLoadingPhotos(false);
-      });
+    let photoDone = false;
+    let videoDone = false;
+    let ytDone = false;
 
-    fetch(`${apiUrl}/api/youtube/trending?maxResults=${maxVideos}&videoDuration=medium`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json() as Promise<{ videos: YouTubeVideo[] }>;
-      })
-      .then((d) => {
-        if (cancelled) return;
-        setVideos(d.videos ?? []);
-        setLoadingVideos(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setErrorVideos(true);
-        setLoadingVideos(false);
-      });
+    const checkDone = () => {
+      if (photoDone && videoDone && ytDone && !cancelled) {
+        setLoadingMain(false);
+      }
+    };
+
+    // Pexels photos
+    fetch(`${apiUrl}/api/pexels/trending?perPage=${maxPhotos}`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() as Promise<{ photos: PexelsPhoto[] }>; })
+      .then((d) => { if (!cancelled) setPhotos(d.photos ?? []); })
+      .catch(() => { if (!cancelled) setErrorMain(true); })
+      .finally(() => { photoDone = true; checkDone(); });
+
+    // Pexels popular videos (inline playback)
+    fetch(`${apiUrl}/api/pexels/videos/popular?perPage=${maxVideos}`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() as Promise<{ videos: PexelsVideo[] }>; })
+      .then((d) => { if (!cancelled) setPexelsVideos(d.videos ?? []); })
+      .catch(() => {})
+      .finally(() => { videoDone = true; checkDone(); });
+
+    // YouTube trending videos (opens browser — separate "Trending Videos" section)
+    fetch(`${apiUrl}/api/youtube/trending?maxResults=${maxYouTube}&videoDuration=medium`)
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() as Promise<{ videos: YouTubeVideo[] }>; })
+      .then((d) => { if (!cancelled) setYoutubeVideos(d.videos ?? []); })
+      .catch(() => {})
+      .finally(() => { ytDone = true; checkDone(); });
 
     return () => { cancelled = true; };
-  }, [maxPhotos, maxVideos, retryKey]);
-
-  const loading = loadingPhotos || loadingVideos;
+  }, [maxPhotos, maxVideos, maxYouTube, retryKey]);
 
   useEffect(() => {
-    if (!loading) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 420,
-        useNativeDriver: true,
-      }).start();
+    if (!loadingMain) {
+      Animated.timing(fadeAnim, { toValue: 1, duration: 420, useNativeDriver: true }).start();
     }
-  }, [loading]);
+  }, [loadingMain]);
 
-  const items = interleave(photos, videos);
+  const items = interleave(photos, pexelsVideos);
 
   return (
     <View>
-      {/* Section header */}
+      {/* ── Section header ── */}
       <View style={[styles.header, { borderTopColor: colors.border ?? "rgba(255,255,255,0.08)" }]}>
         <LinearGradient
-          colors={["#7C3AED", "#EC4899", "#FF0000"]}
+          colors={["#7C3AED", "#EC4899", "#EA580C"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.accentBar}
@@ -140,11 +129,11 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
         </View>
       </View>
 
-      {loading ? (
+      {loadingMain ? (
         <View style={styles.skeletons}>
           {[0, 1, 2].map((i) => <SkeletonCard key={i} colors={colors} />)}
         </View>
-      ) : (errorPhotos && errorVideos) ? (
+      ) : errorMain && items.length === 0 ? (
         <View style={[styles.errorWrap, { backgroundColor: colors.muted ?? "#0F0F1A" }]}>
           <Ionicons name="wifi-outline" size={28} color="rgba(255,255,255,0.3)" />
           <Text style={[styles.errorText, { color: colors.mutedForeground }]}>
@@ -156,14 +145,40 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
         </View>
       ) : (
         <Animated.View style={{ opacity: fadeAnim }}>
+          {/* ── Interleaved: Pexels photos + Pexels videos ── */}
           {items.map((item) =>
             item.kind === "photo" ? (
               <PexelsCard key={item.key} photo={item.data} />
             ) : (
-              <YouTubeCard key={item.key} video={item.data} />
+              <PexelsVideoCard key={item.key} video={item.data} />
             )
           )}
-          {items.length === 0 && (
+
+          {/* ── Trending Videos section (YouTube, opens browser) ── */}
+          {youtubeVideos.length > 0 && (
+            <View>
+              <View style={styles.ytSectionHeader}>
+                <LinearGradient
+                  colors={["#FF0000", "#CC0000"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.accentBar}
+                />
+                <View style={styles.headerContent}>
+                  <View style={styles.titleRow}>
+                    <Ionicons name="logo-youtube" size={16} color="#FF0000" />
+                    <Text style={[styles.headerTitle, { color: colors.foreground }]}>Trending Videos</Text>
+                  </View>
+                  <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
+                    Opens YouTube in browser
+                  </Text>
+                </View>
+              </View>
+              {youtubeVideos.map((v) => <YouTubeCard key={v.id} video={v} />)}
+            </View>
+          )}
+
+          {items.length === 0 && youtubeVideos.length === 0 && (
             <View style={styles.emptyWrap}>
               <Text style={{ fontSize: 32 }}>✨</Text>
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
@@ -171,18 +186,15 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
               </Text>
             </View>
           )}
-          {/* Footer attribution */}
+
+          {/* ── Attribution footer ── */}
           <View style={styles.attribution}>
             <View style={styles.attrRow}>
               <Ionicons name="aperture-outline" size={12} color="rgba(255,255,255,0.3)" />
-              <Text style={[styles.attrText, { color: colors.mutedForeground }]}>
-                Photos by Pexels
-              </Text>
+              <Text style={[styles.attrText, { color: colors.mutedForeground }]}>Photos & Videos by Pexels</Text>
               <Text style={[styles.attrDot, { color: colors.mutedForeground }]}>·</Text>
               <Ionicons name="logo-youtube" size={12} color="#FF0000" />
-              <Text style={[styles.attrText, { color: colors.mutedForeground }]}>
-                Videos by YouTube
-              </Text>
+              <Text style={[styles.attrText, { color: colors.mutedForeground }]}>Trending by YouTube</Text>
             </View>
           </View>
         </Animated.View>
@@ -205,15 +217,8 @@ function SkeletonCard({ colors }: { colors: any }) {
   }, []);
   const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.45] });
   const bg = "rgba(255,255,255,0.12)";
-
   return (
-    <View
-      style={[
-        styles.skelCard,
-        { backgroundColor: colors.card ?? "#0F0F1A", borderColor: "rgba(255,255,255,0.06)" },
-      ]}
-    >
-      {/* Header row */}
+    <View style={[styles.skelCard, { backgroundColor: colors.card ?? "#0F0F1A", borderColor: "rgba(255,255,255,0.06)" }]}>
       <View style={styles.skelHeader}>
         <Animated.View style={[styles.skelAvatar, { opacity, backgroundColor: bg }]} />
         <View style={{ flex: 1, gap: 6 }}>
@@ -221,9 +226,7 @@ function SkeletonCard({ colors }: { colors: any }) {
           <Animated.View style={[styles.skelLine, { width: "35%", opacity: shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.35] }), backgroundColor: bg }]} />
         </View>
       </View>
-      {/* Image placeholder */}
       <Animated.View style={[styles.skelImage, { opacity, backgroundColor: bg }]} />
-      {/* Actions row */}
       <View style={styles.skelActions}>
         {[0, 1, 2].map((i) => (
           <Animated.View key={i} style={[styles.skelActionBtn, { opacity, backgroundColor: bg }]} />
@@ -244,6 +247,17 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     marginTop: 8,
   },
+  ytSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 20,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.07)",
+    marginTop: 8,
+  },
   accentBar: { width: 3, height: 22, borderRadius: 2, flexShrink: 0 },
   headerContent: { flex: 1 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -262,7 +276,6 @@ const styles = StyleSheet.create({
   liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#7C3AED" },
   liveText: { color: "#8B5CF6", fontSize: 9, fontFamily: "Poppins_700Bold", letterSpacing: 1 },
   headerSub: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 2 },
-  // Loading skeletons
   skeletons: { paddingTop: 4 },
   skelCard: {
     marginHorizontal: 12,
@@ -275,10 +288,9 @@ const styles = StyleSheet.create({
   skelHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
   skelAvatar: { width: 42, height: 42, borderRadius: 21, flexShrink: 0 },
   skelLine: { height: 12, borderRadius: 6 },
-  skelImage: { height: 220, marginHorizontal: 0 },
+  skelImage: { height: 220 },
   skelActions: { flexDirection: "row", gap: 12, paddingHorizontal: 14, paddingTop: 10 },
   skelActionBtn: { width: 32, height: 14, borderRadius: 7 },
-  // Error
   errorWrap: {
     alignItems: "center",
     paddingVertical: 32,
@@ -290,10 +302,8 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 13, fontFamily: "Poppins_400Regular" },
   retryBtn: { backgroundColor: "#7C3AED", paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10 },
   retryText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
-  // Empty
   emptyWrap: { alignItems: "center", paddingVertical: 32, gap: 8 },
   emptyText: { fontSize: 13, fontFamily: "Poppins_400Regular" },
-  // Attribution footer
   attribution: { paddingVertical: 16, alignItems: "center" },
   attrRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   attrText: { fontSize: 11, fontFamily: "Poppins_400Regular" },
