@@ -200,13 +200,17 @@ const efStyles = StyleSheet.create({
 interface SettingRowProps {
   icon: string; iconColor?: string; label: string; sub?: string;
   value?: boolean; onToggle?: (v: boolean) => void;
-  onPress?: () => void; danger?: boolean; colors: any;
+  onPress?: () => void; danger?: boolean; disabled?: boolean; colors: any;
 }
 
-function SettingRow({ icon, iconColor = "#7C3AED", label, sub, value, onToggle, onPress, danger, colors }: SettingRowProps) {
+function SettingRow({ icon, iconColor = "#7C3AED", label, sub, value, onToggle, onPress, danger, disabled, colors }: SettingRowProps) {
   return (
-    <TouchableOpacity onPress={onPress} disabled={!onPress && onToggle === undefined} activeOpacity={0.75}
-      style={[styles.row, { borderBottomColor: colors.border }]}>
+    <TouchableOpacity
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled || (!onPress && onToggle === undefined)}
+      activeOpacity={0.75}
+      style={[styles.row, { borderBottomColor: colors.border }, disabled && { opacity: 0.4 }]}
+    >
       <View style={[styles.rowIcon, { backgroundColor: (danger ? "#EF4444" : iconColor) + "22" }]}>
         <Ionicons name={icon as any} size={18} color={danger ? "#EF4444" : iconColor} />
       </View>
@@ -216,6 +220,8 @@ function SettingRow({ icon, iconColor = "#7C3AED", label, sub, value, onToggle, 
       </View>
       {onToggle !== undefined ? (
         <Switch value={value} onValueChange={onToggle} trackColor={{ true: "#7C3AED" }} thumbColor="#fff" />
+      ) : disabled ? (
+        <Ionicons name="lock-closed" size={16} color={colors.mutedForeground} />
       ) : onPress ? (
         <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
       ) : null}
@@ -901,6 +907,7 @@ export default function SettingsScreen() {
             label="What am I looking for?"
             sub={FIND_GUNDRUK_MODE_OPTIONS.find((o) => o.value === findGundrukMode)?.label ?? "❤️  Dating"}
             onPress={() => setShowModePicker(true)}
+            disabled={!showInMatching}
             colors={colors}
           />
           <SettingRow
@@ -909,6 +916,7 @@ export default function SettingsScreen() {
             label="Who can send me Vibe Requests?"
             sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
             onPress={() => setShowVibePrivacyPicker(true)}
+            disabled={!showInMatching}
             colors={colors}
           />
         </View>
