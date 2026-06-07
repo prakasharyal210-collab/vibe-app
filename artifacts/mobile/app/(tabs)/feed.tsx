@@ -142,7 +142,7 @@ const pillStyles = StyleSheet.create({
   pillTextActive: { color: "#fff" },
 });
 
-// ─── Gradient VIBE logo ────────────────────────────────────────────────────────
+// ─── Gradient GUNDRUK logo ──────────────────────────────────────────────────────
 function VibeLogo() {
   const { theme } = useTheme();
   if (Platform.OS === "web") {
@@ -156,21 +156,21 @@ function VibeLogo() {
           backgroundClip: "text",
         }]}
       >
-        VIBE
+        GUNDRUK
       </Text>
     );
   }
   return (
     <View style={logoStyles.nativeWrap}>
-      <Text style={[logoStyles.text, { color: theme.gradient[0] }]}>V</Text>
-      <Text style={[logoStyles.text, { color: theme.gradient[1] }]}>I</Text>
-      <Text style={[logoStyles.text, { color: theme.gradient[2] }]}>BE</Text>
+      <Text style={[logoStyles.text, { color: theme.gradient[0] }]}>GUN</Text>
+      <Text style={[logoStyles.text, { color: theme.gradient[1] }]}>DR</Text>
+      <Text style={[logoStyles.text, { color: theme.gradient[2] }]}>UK</Text>
     </View>
   );
 }
 const logoStyles = StyleSheet.create({
   nativeWrap: { flexDirection: "row" },
-  text: { fontSize: 28, fontFamily: "Poppins_700Bold", letterSpacing: 4 },
+  text: { fontSize: 22, fontFamily: "Poppins_700Bold", letterSpacing: 2 },
 });
 
 interface TabState {
@@ -533,28 +533,12 @@ export default function FeedScreen() {
 
   const renderEmpty = useCallback((tabId: FeedTabId) => {
     const state = tabStates[tabId];
+    if (tabId === "foryou") {
+      // Always show Pexels content immediately — no empty-state message, no waiting
+      return <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />;
+    }
     if (state.loading) {
       return <View>{[1, 2].map((i) => <SkeletonPost key={i} />)}</View>;
-    }
-    if (tabId === "foryou") {
-      return (
-        <View>
-          <View style={[emptyStyles.wrap, { paddingBottom: 8 }]}>
-            <Text style={emptyStyles.emoji}>✨</Text>
-            <Text style={[emptyStyles.title, { color: colors.foreground }]}>Your feed is warming up</Text>
-            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>
-              Be the first to post! In the meantime, here's what's trending worldwide
-            </Text>
-            <TouchableOpacity
-              onPress={() => router.push("/suggested-users" as any)}
-              style={emptyStyles.actionBtn}
-            >
-              <Text style={emptyStyles.actionBtnText}>Find People to Follow →</Text>
-            </TouchableOpacity>
-          </View>
-          <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />
-        </View>
-      );
     }
     if (tabId === "friends") {
       return (
@@ -569,7 +553,7 @@ export default function FeedScreen() {
       );
     }
     return null;
-  }, [tabStates, colors, trendingPosts]);
+  }, [tabStates, colors]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
