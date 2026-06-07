@@ -534,8 +534,8 @@ export default function FeedScreen() {
   const renderEmpty = useCallback((tabId: FeedTabId) => {
     const state = tabStates[tabId];
     if (tabId === "foryou") {
-      // Always show Pexels content immediately — no empty-state message, no waiting
-      return <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />;
+      // Header always shows CuratedFeedList — nothing extra needed in empty slot
+      return null;
     }
     if (state.loading) {
       return <View>{[1, 2].map((i) => <SkeletonPost key={i} />)}</View>;
@@ -693,6 +693,11 @@ export default function FeedScreen() {
                   if (tab.id === "friends") {
                     return <FriendsStoriesBar stories={friendStories} colors={colors} />;
                   }
+                  if (tab.id === "foryou") {
+                    // Always show Pexels curated content — above user posts when they exist,
+                    // or as the full feed when the app is new and DB is empty
+                    return <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />;
+                  }
                   return null;
                 }}
                 ListEmptyComponent={() => renderEmpty(tab.id)}
@@ -706,17 +711,12 @@ export default function FeedScreen() {
                   }
                   if (!state.hasMore && state.posts.length > 0) {
                     return (
-                      <View>
-                        <View style={{ paddingVertical: 20, alignItems: "center", gap: 4 }}>
-                          <Text style={{ fontSize: 20 }}>🎉</Text>
-                          <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>You're all caught up!</Text>
-                          <TouchableOpacity onPress={onRefresh}>
-                            <Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 4 }}>Refresh for new posts ↑</Text>
-                          </TouchableOpacity>
-                        </View>
-                        {tab.id === "foryou" && (
-                          <CuratedFeedList mode="footer" maxPhotos={6} maxVideos={3} />
-                        )}
+                      <View style={{ paddingVertical: 20, alignItems: "center", gap: 4 }}>
+                        <Text style={{ fontSize: 20 }}>🎉</Text>
+                        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>You're all caught up!</Text>
+                        <TouchableOpacity onPress={onRefresh}>
+                          <Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 4 }}>Refresh for new posts ↑</Text>
+                        </TouchableOpacity>
                       </View>
                     );
                   }

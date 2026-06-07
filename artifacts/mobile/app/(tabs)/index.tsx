@@ -40,7 +40,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { ReelAdCard } from "@/components/ReelAdCard";
 import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
-import { PexelsReelItem, type PexelsReel } from "@/components/PexelsReelItem";
+
 import { useAuth } from "@/context/AuthContext";
 import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -472,17 +472,13 @@ export default function ReelsScreen() {
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
-  const [pexelsReels, setPexelsReels] = useState<PexelsReel[]>([]);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
-  const displayReels = useMemo<(Reel | AdItem | PexelsReel)[]>(() => {
-    if (feedTab === "foryou" && reels.length === 0 && pexelsReels.length > 0) {
-      return pexelsReels;
-    }
+  const displayReels = useMemo<(Reel | AdItem)[]>(() => {
     return insertAdsInReels(reels, reelAds) as (Reel | AdItem)[];
-  }, [reels, reelAds, feedTab, pexelsReels]);
+  }, [reels, reelAds]);
 
   // Helper: map a posts-table row to the Reel shape
   const postToReel = (p: any): Reel => ({
@@ -543,22 +539,6 @@ export default function ReelsScreen() {
           if (fallback.length > 0) {
             setForYouReels(fallback);
             postsFallbackLoaded = true;
-          }
-        } catch {}
-      }
-
-      // Last resort: show Pexels short videos when DB has no reels at all
-      if (!fyLoaded && !postsFallbackLoaded) {
-        try {
-          const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
-          const res = await fetch(`${apiUrl}/api/pexels/videos/short?perPage=20`);
-          if (res.ok) {
-            const data = await res.json() as { videos: any[] };
-            const reels: PexelsReel[] = (data.videos ?? []).map((v) => ({
-              kind: "pexels-reel" as const,
-              video: v,
-            }));
-            if (reels.length > 0) setPexelsReels(reels);
           }
         } catch {}
       }
@@ -638,7 +618,6 @@ export default function ReelsScreen() {
         ref={flatListRef}
         data={displayReels}
         keyExtractor={(item) => {
-          if ('kind' in item && (item as PexelsReel).kind === 'pexels-reel') return `pexels-${(item as PexelsReel).video.id}`;
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
@@ -654,16 +633,6 @@ export default function ReelsScreen() {
         maxToRenderPerBatch={3}
         windowSize={5}
         renderItem={({ item, index }) => {
-          if ('kind' in item && (item as PexelsReel).kind === 'pexels-reel') {
-            return (
-              <PexelsReelItem
-                item={item as PexelsReel}
-                isActive={index === activeIndex}
-                soundOn={soundOn}
-                onToggleSound={() => setSoundOn((s) => !s)}
-              />
-            );
-          }
           if ('isAd' in item && (item as AdItem).isAd) {
             return (
               <ReelAdCard
