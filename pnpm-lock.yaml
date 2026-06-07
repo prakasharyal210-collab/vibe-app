@@ -252,6 +252,9 @@ importers:
       '@babel/plugin-transform-private-methods':
         specifier: ^7.29.7
         version: 7.29.7(@babel/core@7.29.0)
+      '@babel/plugin-transform-typescript':
+        specifier: ^7.29.7
+        version: 7.29.7(@babel/core@7.29.0)
       '@expo-google-fonts/inter':
         specifier: ^0.4.0
         version: 0.4.2
