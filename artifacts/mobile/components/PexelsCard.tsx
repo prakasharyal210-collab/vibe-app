@@ -60,6 +60,7 @@ interface Props {
 }
 
 export function PexelsCard({ photo, category }: Props) {
+  "use no memo";
   const colors = useColors();
   const [liked, setLiked] = useState(false);
   const [likeCount] = useState(() => Math.floor(Math.random() * 8000) + 200);

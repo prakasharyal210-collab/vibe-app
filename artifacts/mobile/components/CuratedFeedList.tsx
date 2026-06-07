@@ -40,6 +40,7 @@ interface Props {
 }
 
 export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) {
+  "use no memo";
   const colors = useColors();
   const [photos, setPhotos] = useState<PexelsPhoto[]>([]);
   const [pexelsVideos, setPexelsVideos] = useState<PexelsVideo[]>([]);

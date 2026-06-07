@@ -45,6 +45,7 @@ function fmtDuration(s: number): string {
 }
 
 export function PexelsVideoCard({ video }: Props) {
+  "use no memo";
   const colors = useColors();
   const viewRef = useRef<View>(null);
   const [isVisible, setIsVisible] = useState(false);
