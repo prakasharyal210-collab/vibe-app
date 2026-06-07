@@ -13,7 +13,10 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  GestureResponderEvent,
   Image,
+  PanResponder,
+  PanResponderGestureState,
   Platform,
   RefreshControl,
   ScrollView,
@@ -370,7 +373,16 @@ export default function FeedScreen() {
   const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
-  const dragStartXRef = useRef(0);
+
+  const friendsSwipePan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_e: GestureResponderEvent, gs: PanResponderGestureState) =>
+        gs.dx < -20 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.5,
+      onPanResponderRelease: (_e: GestureResponderEvent, gs: PanResponderGestureState) => {
+        if (gs.dx < -50) router.push("/inbox");
+      },
+    })
+  ).current;
 
   const activeTab = TABS[activeTabIndex].id;
 
@@ -642,15 +654,7 @@ export default function FeedScreen() {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScrollBeginDrag={(e: any) => { isScrollingPager.current = true; dragStartXRef.current = e.nativeEvent.contentOffset.x; }}
-        onScrollEndDrag={(e: any) => {
-          const endX = e.nativeEvent.contentOffset.x;
-          const velX = e.nativeEvent.velocity?.x ?? 0;
-          // Left swipe past the Friends tab (last page) → open Inbox
-          if (activeTabIndex === 1 && (endX > W * 1.05 || velX > 0.3)) {
-            router.push("/inbox");
-          }
-        }}
+        onScrollBeginDrag={() => { isScrollingPager.current = true; }}
         onMomentumScrollEnd={onPagerMomentumEnd}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -671,7 +675,7 @@ export default function FeedScreen() {
               })
             : state.posts;
           return (
-            <View key={tab.id} style={{ width: W, flex: 1 }}>
+            <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
                 data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
