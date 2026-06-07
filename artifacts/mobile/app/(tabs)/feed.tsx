@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdCard } from "@/components/AdCard";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
+import { YouTubeFeedSection } from "@/components/YouTubeFeedSection";
 import { useRealtime } from "@/context/RealtimeContext";
 import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
@@ -541,9 +542,22 @@ export default function FeedScreen() {
           <View style={[emptyStyles.wrap, { paddingBottom: 8 }]}>
             <Text style={emptyStyles.emoji}>✨</Text>
             <Text style={[emptyStyles.title, { color: colors.foreground }]}>Your feed is warming up</Text>
-            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Interact with a few posts to personalise your For You feed</Text>
+            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>
+              Be the first to post! In the meantime, here's what's trending worldwide
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push("/suggested-users" as any)}
+              style={emptyStyles.actionBtn}
+            >
+              <Text style={emptyStyles.actionBtnText}>Find People to Follow →</Text>
+            </TouchableOpacity>
           </View>
-          {trendingPosts.length > 0 && <TrendingGrid posts={trendingPosts} colors={colors} />}
+          <YouTubeFeedSection
+            title="Trending on the Internet"
+            subtitle="Top videos while your feed fills up"
+            maxResults={10}
+            showHeader
+          />
         </View>
       );
     }
@@ -713,12 +727,22 @@ export default function FeedScreen() {
                   }
                   if (!state.hasMore && state.posts.length > 0) {
                     return (
-                      <View style={{ paddingVertical: 24, alignItems: "center", gap: 4 }}>
-                        <Text style={{ fontSize: 20 }}>🎉</Text>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>You're all caught up!</Text>
-                        <TouchableOpacity onPress={onRefresh}>
-                          <Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 4 }}>Refresh for new posts ↑</Text>
-                        </TouchableOpacity>
+                      <View>
+                        <View style={{ paddingVertical: 20, alignItems: "center", gap: 4 }}>
+                          <Text style={{ fontSize: 20 }}>🎉</Text>
+                          <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>You're all caught up!</Text>
+                          <TouchableOpacity onPress={onRefresh}>
+                            <Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 4 }}>Refresh for new posts ↑</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {tab.id === "foryou" && (
+                          <YouTubeFeedSection
+                            title="Trending on the Internet"
+                            subtitle="Top YouTube videos right now"
+                            maxResults={6}
+                            showHeader
+                          />
+                        )}
                       </View>
                     );
                   }
