@@ -29,7 +29,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AdCard } from "@/components/AdCard";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
-import { YouTubeFeedSection } from "@/components/YouTubeFeedSection";
+import { CuratedFeedList } from "@/components/CuratedFeedList";
 import { useRealtime } from "@/context/RealtimeContext";
 import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
@@ -552,12 +552,7 @@ export default function FeedScreen() {
               <Text style={emptyStyles.actionBtnText}>Find People to Follow →</Text>
             </TouchableOpacity>
           </View>
-          <YouTubeFeedSection
-            title="Trending on the Internet"
-            subtitle="Top videos while your feed fills up"
-            maxResults={10}
-            showHeader
-          />
+          <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />
         </View>
       );
     }
@@ -736,12 +731,7 @@ export default function FeedScreen() {
                           </TouchableOpacity>
                         </View>
                         {tab.id === "foryou" && (
-                          <YouTubeFeedSection
-                            title="Trending on the Internet"
-                            subtitle="Top YouTube videos right now"
-                            maxResults={6}
-                            showHeader
-                          />
+                          <CuratedFeedList mode="footer" maxPhotos={6} maxVideos={3} />
                         )}
                       </View>
                     );
