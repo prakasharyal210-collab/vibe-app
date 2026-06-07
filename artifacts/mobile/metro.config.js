@@ -15,4 +15,14 @@ config.resolver.nodeModulesPaths = [
 
 config.resolver.unstable_enableSymlinks = true;
 
+config.transformer = {
+  ...config.transformer,
+  unstable_allowRequireContext: true,
+};
+
+config.resolver = {
+  ...config.resolver,
+  unstable_enablePackageExports: true,
+};
+
 module.exports = config;
