@@ -79,7 +79,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
         setLoadingPhotos(false);
       });
 
-    fetch(`${apiUrl}/api/youtube/trending?maxResults=${maxVideos}`)
+    fetch(`${apiUrl}/api/youtube/trending?maxResults=${maxVideos}&videoDuration=medium`)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<{ videos: YouTubeVideo[] }>;
