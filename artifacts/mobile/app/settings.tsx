@@ -620,7 +620,6 @@ const FIND_GUNDRUK_MODE_OPTIONS = [
   { label: "👫  Friends", value: "friends", icon: "people-outline" },
   { label: "🤝  Networking", value: "networking", icon: "briefcase-outline" },
   { label: "👀  Just Browsing", value: "browsing", icon: "eye-outline" },
-  { label: "❌  Hide Me", value: "hide", icon: "eye-off-outline" },
 ];
 
 const VIBE_REQUEST_OPTIONS = [
@@ -886,14 +885,7 @@ export default function SettingsScreen() {
             onToggle={(v) => {
               vibeInteracted.current = true;
               setShowInMatching(v);
-              if (v && findGundrukMode === "hide") {
-                // Turning ON while mode is "Hide Me" → reset mode to Dating
-                setFindGundrukMode("dating");
-                saveGundrukProfile(userId, { show_in_matching: true, find_gundruk_mode: "dating" });
-              } else {
-                // Toggle only changes show_in_matching; mode is untouched
-                saveGundrukProfile(userId, { show_in_matching: v });
-              }
+              saveGundrukProfile(userId, { show_in_matching: v });
               DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
               showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
             }}
@@ -999,12 +991,9 @@ export default function SettingsScreen() {
         options={FIND_GUNDRUK_MODE_OPTIONS}
         selected={findGundrukMode}
         onSelect={(v) => {
-          vibeInteracted.current = true; // prevent async load from reverting this
+          vibeInteracted.current = true;
           setFindGundrukMode(v);
-          const hidden = v === "hide";
-          setShowInMatching(!hidden);
-          saveGundrukProfile(userId, { find_gundruk_mode: v, show_in_matching: !hidden });
-          DeviceEventEmitter.emit("findVibeLockChanged", { locked: hidden });
+          saveGundrukProfile(userId, { find_gundruk_mode: v });
           showToast("Preference saved ✅");
         }}
         onClose={() => setShowModePicker(false)}
