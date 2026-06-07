@@ -131,7 +131,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
       if (isPhoto) {
         try {
           const base64 = await FileSystem.readAsStringAsync(uri, {
-            encoding: FileSystem.EncodingType.Base64,
+            encoding: "base64",
           });
           imageBase64 = base64;
           const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";

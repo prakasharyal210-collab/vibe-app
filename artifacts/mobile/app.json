@@ -31,7 +31,8 @@
         "NSPhotoLibraryAddUsageDescription": "Vibe saves media to your photo library.",
         "NSLocationWhenInUseUsageDescription": "Vibe uses your location to find nearby Vibers.",
         "NSContactsUsageDescription": "Vibe uses your contacts to help you find friends on the app.",
-        "NSMicrophoneUsageDescription": "Vibe uses your microphone for live streams and video posts."
+        "NSMicrophoneUsageDescription": "Vibe uses your microphone for live streams and video posts.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

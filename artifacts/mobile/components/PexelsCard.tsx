@@ -159,8 +159,7 @@ export function PexelsCard({ photo, category }: Props) {
           {/* Subtle bottom gradient */}
           <LinearGradient
             colors={["transparent", "rgba(0,0,0,0.45)"]}
-            style={styles.imageGrad}
-            pointerEvents="none"
+            style={[styles.imageGrad, { pointerEvents: "none" }]}
           />
           {/* Pexels watermark */}
           <View style={styles.pexelsBadge}>

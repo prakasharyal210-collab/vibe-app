@@ -135,7 +135,7 @@ export function YouTubeShortItem({ item, isActive }: Props) {
       </LinearGradient>
 
       {/* Center play button */}
-      <View style={S.playCenter} pointerEvents="none">
+      <View style={[S.playCenter, { pointerEvents: "none" }]}>
         <LinearGradient
           colors={["rgba(255,0,0,0.9)", "rgba(180,0,0,0.9)"]}
           style={S.playCircle}
@@ -290,10 +290,7 @@ const S = StyleSheet.create({
     borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#FF0000",
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
+    elevation: 12,
   },
   tapToWatch: {
     color: "rgba(255,255,255,0.85)",

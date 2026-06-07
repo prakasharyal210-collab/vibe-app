@@ -65,7 +65,7 @@
     "expo-av": "^16.0.8",
     "expo-camera": "~17.0.10",
     "expo-contacts": "~15.0.11",
-    "expo-file-system": "^56.0.7",
+    "expo-file-system": "^19.0.23",
     "expo-updates": "~29.0.18",
     "react-native-pager-view": "^6.9.1",
     "react-native-qrcode-svg": "^6.3.21"

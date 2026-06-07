@@ -106,8 +106,7 @@ export function YouTubeCard({ video, compact = false }: Props) {
         {/* Dark gradient overlay bottom */}
         <LinearGradient
           colors={["transparent", "rgba(0,0,0,0.7)"]}
-          style={styles.thumbGrad}
-          pointerEvents="none"
+          style={[styles.thumbGrad, { pointerEvents: "none" }]}
         />
 
         {/* Duration badge */}
