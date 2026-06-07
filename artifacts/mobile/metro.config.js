@@ -15,20 +15,17 @@ config.resolver.nodeModulesPaths = [
 
 config.resolver.unstable_enableSymlinks = true;
 
+config.resolver = {
+  ...config.resolver,
+  blockList: [
+    /node_modules\/@react-native\/debugger-frontend\/.*/,
+  ],
+  unstable_enablePackageExports: true,
+};
+
 config.transformer = {
   ...config.transformer,
   unstable_allowRequireContext: true,
-  getTransformOptions: async () => ({
-    transform: {
-      experimentalImportSupport: false,
-      inlineRequires: true,
-    },
-  }),
-};
-
-config.resolver = {
-  ...config.resolver,
-  unstable_enablePackageExports: true,
 };
 
 module.exports = config;
