@@ -82,7 +82,7 @@ class FindVibeErrorBoundary extends Component<
         <View style={{ flex: 1, backgroundColor: "#080810", justifyContent: "center", alignItems: "center", padding: 24 }}>
           <Text style={{ fontSize: 52 }}>💜</Text>
           <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginTop: 16, textAlign: "center", fontFamily: "Poppins_700Bold" }}>
-            Find Gundruk needs a moment
+            Find Vibe needs a moment
           </Text>
           <Text style={{ color: "#9CA3AF", fontSize: 14, marginTop: 8, textAlign: "center", lineHeight: 22 }}>
             Something went wrong. Please try again.
@@ -107,7 +107,7 @@ const MODE_OPTIONS = [
   { value: "friends",    emoji: "👫",  label: "Friends",      desc: "Meet new people and expand your social circle" },
   { value: "networking", emoji: "🤝",  label: "Networking",   desc: "Connect with professionals and grow your network" },
   { value: "browsing",   emoji: "👀",  label: "Just Browsing",desc: "Explore without any specific intention" },
-  { value: "hide",       emoji: "❌",  label: "Hide Me",      desc: "Don't show me in Find Gundruk at all" },
+  { value: "hide",       emoji: "❌",  label: "Hide Me",      desc: "Don't show me in Find Vibe at all" },
 ];
 
 function ModeSelectionSheet({
@@ -2064,7 +2064,7 @@ function FindVibeContent() {
         <Text style={{ fontSize: 48 }}>😕</Text>
         <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 18 }}>Something went wrong</Text>
         <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", paddingHorizontal: 32 }}>
-          Couldn't load Find Gundruk. Check your connection and try again.
+          Couldn't load Find Vibe. Check your connection and try again.
         </Text>
         <TouchableOpacity
           onPress={() => { setScreenError(false); setCardsLoading(true); if (userId) loadCards(userId, vibePrefs); }}

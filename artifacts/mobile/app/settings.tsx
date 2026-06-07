@@ -660,7 +660,7 @@ export default function SettingsScreen() {
   const [language, setLanguage] = useState("en");
   const [screenTime, setScreenTime] = useState("none");
 
-  // Find Gundruk settings
+  // Find Vibe settings
   const [showInMatching, setShowInMatching] = useState(true);
   const [findGundrukMode, setFindGundrukMode] = useState("dating");
   const [vibeRequestPrivacy, setVibeRequestPrivacy] = useState("everyone");
@@ -868,12 +868,12 @@ export default function SettingsScreen() {
           <SettingRow icon="trash-outline" label="Clear Cache" sub={cacheCleared ? "✅ Cache cleared (48 MB freed)" : "Free up storage space · 48 MB used"} onPress={clearCache} colors={colors} iconColor="#EF4444" />
         </View>
 
-        <SectionHeader label="FIND GUNDRUK" colors={colors} />
+        <SectionHeader label="FIND VIBE" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SettingRow
             icon="heart-circle-outline"
             iconColor="#EC4899"
-            label="Show me in Find Gundruk"
+            label="Show me in Find Vibe"
             sub={showInMatching ? "You appear in matching, nearby & goals" : "You're hidden from all discovery"}
             value={showInMatching}
             onToggle={(v) => {
@@ -884,7 +884,7 @@ export default function SettingsScreen() {
                 show_in_matching: v,
                 find_gundruk_mode: v ? (findGundrukMode === "hide" ? "dating" : findGundrukMode) : "hide",
               });
-              showToast(v ? "You're visible in Find Gundruk ✅" : "Hidden from Find Gundruk 🔒");
+              showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
             }}
             colors={colors}
           />

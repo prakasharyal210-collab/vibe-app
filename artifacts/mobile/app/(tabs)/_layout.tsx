@@ -99,7 +99,7 @@ function NativeTabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="find">
         <Icon sf={{ default: "heart.circle", selected: "heart.circle.fill" }} />
-        <Label>Find Gundruk</Label>
+        <Label>Find Vibe</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
@@ -241,7 +241,7 @@ function ClassicTabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               iconName={focused ? "heart" : "heart-outline"}
-              label="Find Gundruk"
+              label="Find Vibe"
               focused={focused}
               color={color}
               isIOS={isIOS}
