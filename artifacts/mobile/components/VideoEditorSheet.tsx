@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as FileSystem from "expo-file-system";
 import React, { useRef, useState } from "react";
 import {
   Alert,
@@ -17,9 +18,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GradientButton } from "@/components/GradientButton";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
+import { AICaptionSheet } from "@/components/AICaptionSheet";
 import { FilterConfig, FILTERS } from "@/components/EffectsPickerSheet";
 import { useColors } from "@/hooks/useColors";
 import { Track, formatDuration } from "@/lib/music";
+import { supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 
@@ -96,6 +99,97 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const [newText, setNewText] = useState("");
   const [newTextColor, setNewTextColor] = useState("#ffffff");
   const [posting, setPosting] = useState(false);
+
+  const [showAISheet, setShowAISheet] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiCaptions, setAiCaptions] = useState<string[]>([]);
+  const [aiHashtags, setAiHashtags] = useState<string[]>([]);
+  const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
+
+  const sparkleAnim = useRef(new Animated.Value(1)).current;
+
+  const animateSparkle = () => {
+    Animated.sequence([
+      Animated.timing(sparkleAnim, { toValue: 1.18, duration: 180, useNativeDriver: true }),
+      Animated.timing(sparkleAnim, { toValue: 0.92, duration: 120, useNativeDriver: true }),
+      Animated.timing(sparkleAnim, { toValue: 1, duration: 140, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const generateAICaptions = async () => {
+    animateSparkle();
+    setAiCaptions([]);
+    setAiHashtags([]);
+    setSelectedHashtags([]);
+    setAiLoading(true);
+    setShowAISheet(true);
+
+    try {
+      let imageBase64: string | undefined;
+      let mimeType: string | undefined;
+
+      if (isPhoto) {
+        try {
+          const base64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          imageBase64 = base64;
+          const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
+          mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+        } catch {
+          // If we can't read the file, proceed without image
+        }
+      }
+
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
+      const res = await fetch(`${apiUrl}/api/ai/caption`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64,
+          mimeType,
+          mediaType: isPhoto ? "photo" : "video",
+        }),
+      });
+
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json() as { captions: string[]; hashtags: string[] };
+      setAiCaptions(data.captions ?? []);
+      setAiHashtags(data.hashtags ?? []);
+
+      // Store request in Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("ai_caption_requests").insert({
+          user_id: user.id,
+          media_type: isPhoto ? "photo" : "video",
+          captions_generated: data.captions?.length ?? 0,
+        });
+      }
+    } catch (err) {
+      setShowAISheet(false);
+      Alert.alert("AI Caption Error", "Could not generate captions. Please try again.");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSelectCaption = (cap: string) => {
+    if (cap === "__hashtags_only__") {
+      const tags = selectedHashtags.join(" ");
+      setCaption((prev) => (prev.trim() ? prev.trim() + " " + tags : tags));
+    } else {
+      const tags = selectedHashtags.length > 0 ? " " + selectedHashtags.join(" ") : "";
+      setCaption(cap + tags);
+    }
+    setSelectedHashtags([]);
+  };
+
+  const toggleHashtag = (tag: string) => {
+    setSelectedHashtags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
 
   const trimStartX = useRef(new Animated.Value(0)).current;
   const trimEndX = useRef(new Animated.Value(TRIM_W)).current;
@@ -318,7 +412,28 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 maxLength={300}
                 style={[styles.captionInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
               />
-              <Text style={[styles.captionCount, { color: colors.mutedForeground }]}>{caption.length}/300</Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                <Text style={[styles.captionCount, { color: colors.mutedForeground }]}>{caption.length}/300</Text>
+              </View>
+
+              <Animated.View style={{ transform: [{ scale: sparkleAnim }], marginTop: 10 }}>
+                <TouchableOpacity
+                  onPress={generateAICaptions}
+                  style={styles.aiCaptionBtn}
+                  activeOpacity={0.82}
+                >
+                  <LinearGradient
+                    colors={["#7C3AED", "#EC4899"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.aiCaptionGrad}
+                  >
+                    <Text style={{ fontSize: 16 }}>✨</Text>
+                    <Text style={styles.aiCaptionText}>Generate AI Caption</Text>
+                    <Ionicons name="sparkles-outline" size={16} color="rgba(255,255,255,0.8)" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Animated.View>
             </View>
 
             <View>
@@ -368,6 +483,17 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
         onClose={() => setShowMusicPicker(false)}
         onSelect={(t) => setMusic(t)}
         selectedTrack={music}
+      />
+
+      <AICaptionSheet
+        visible={showAISheet}
+        loading={aiLoading}
+        captions={aiCaptions}
+        hashtags={aiHashtags}
+        selectedHashtags={selectedHashtags}
+        onSelectCaption={handleSelectCaption}
+        onToggleHashtag={toggleHashtag}
+        onClose={() => setShowAISheet(false)}
       />
 
       <View style={{ display: showTextModal ? "flex" : "none" }}>
@@ -479,7 +605,10 @@ const styles = StyleSheet.create({
   overlayRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 10, borderRadius: 10, marginBottom: 4 },
   overlayPreview: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
   captionInput: { borderRadius: 12, padding: 12, fontSize: 14, fontFamily: "Poppins_400Regular", minHeight: 80, textAlignVertical: "top", borderWidth: 1 },
-  captionCount: { fontSize: 11, textAlign: "right", marginTop: 4, fontFamily: "Poppins_400Regular" },
+  captionCount: { fontSize: 11, fontFamily: "Poppins_400Regular" },
+  aiCaptionBtn: { borderRadius: 14, overflow: "hidden" },
+  aiCaptionGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13 },
+  aiCaptionText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_700Bold", letterSpacing: 0.2 },
   audienceRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   audiencePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.08)" },
   audienceText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },

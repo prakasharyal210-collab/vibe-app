@@ -3,3 +3,4 @@
 - [Vibe design system](vibe-design-system.md) — Dark Luxury palette and floating glass pill tab bar; never change AdCard/ReelAdCard/ads.ts colors.
 - [Snap message feature](snap-feature.md) — Snapchat-style snaps encoded in message text field as __SNAP__:{...}; no DB migration needed.
 - [Crash fixes: expo-glass-effect + React Compiler](crash-fixes.md) — two fixes that stopped the persistent "Invalid hook call" / "Something went wrong" crash.
+- [AI caption generator](ai-caption-feature.md) — API route at /api/ai/caption uses claude-sonnet-4-5; AICaptionSheet + VideoEditorSheet wired; ai_caption_requests Supabase table; EXPO_PUBLIC_API_URL="" (empty = relative URL, works via Replit proxy).
