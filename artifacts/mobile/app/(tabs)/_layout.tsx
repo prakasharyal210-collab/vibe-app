@@ -84,14 +84,14 @@ const toastStyles = StyleSheet.create({
 
 function NativeTabLayout() {
   return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "play.rectangle", selected: "play.rectangle.fill" }} />
-        <Label>Reels</Label>
-      </NativeTabs.Trigger>
+    <NativeTabs initialTab="feed">
       <NativeTabs.Trigger name="feed">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Feed</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="index">
+        <Icon sf={{ default: "play.rectangle", selected: "play.rectangle.fill" }} />
+        <Label>Reels</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="create">
         <Icon sf={{ default: "plus.app", selected: "plus.app.fill" }} />
@@ -166,6 +166,7 @@ function ClassicTabLayout() {
 
   return (
     <Tabs
+      initialRouteName="feed"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
