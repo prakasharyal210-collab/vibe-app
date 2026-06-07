@@ -18,6 +18,12 @@ config.resolver.unstable_enableSymlinks = true;
 config.transformer = {
   ...config.transformer,
   unstable_allowRequireContext: true,
+  getTransformOptions: async () => ({
+    transform: {
+      experimentalImportSupport: false,
+      inlineRequires: true,
+    },
+  }),
 };
 
 config.resolver = {
