@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated as RNAnimated,
+  DeviceEventEmitter,
   Image,
   Linking,
   Modal,
@@ -884,6 +885,7 @@ export default function SettingsScreen() {
                 show_in_matching: v,
                 find_gundruk_mode: v ? (findGundrukMode === "hide" ? "dating" : findGundrukMode) : "hide",
               });
+              DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
               showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
             }}
             colors={colors}

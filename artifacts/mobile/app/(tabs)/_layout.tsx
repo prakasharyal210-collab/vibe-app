@@ -1,22 +1,36 @@
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs } from "expo-router";
+import { router, Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  DeviceEventEmitter,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
-import { claimDailyReward, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
+import { claimDailyReward, getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
 import { useTheme } from "@/context/ThemeContext";
 
 const INACTIVE = "#6B7280";
 
+// ── Find Vibe lock event ─────────────────────────────────────────────────────
+// Fired by settings.tsx when "Show me in Find Vibe" toggle changes.
+export const FIND_VIBE_LOCK_EVENT = "findVibeLockChanged";
+
+// ── RewardToast ───────────────────────────────────────────────────────────────
 function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
   const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(80)).current;
@@ -82,6 +96,72 @@ const toastStyles = StyleSheet.create({
   },
 });
 
+// ── FindVibeLockedSheet ───────────────────────────────────────────────────────
+function FindVibeLockedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <TouchableOpacity style={lockedStyles.backdrop} activeOpacity={1} onPress={onClose} />
+      <View style={[lockedStyles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+        <View style={lockedStyles.handle} />
+        <Text style={lockedStyles.emoji}>🔒</Text>
+        <Text style={lockedStyles.title}>Find Vibe is locked</Text>
+        <Text style={lockedStyles.body}>
+          Turn on "Show me in Find Vibe" in Settings to access this feature.
+        </Text>
+        <TouchableOpacity
+          onPress={() => { onClose(); setTimeout(() => router.push("/settings" as any), 300); }}
+          activeOpacity={0.9}
+          style={lockedStyles.settingsBtn}
+        >
+          <LinearGradient
+            colors={["#7C3AED", "#EC4899"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={lockedStyles.settingsGrad}
+          >
+            <Text style={lockedStyles.settingsText}>Go to Settings</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClose} style={lockedStyles.dismissBtn}>
+          <Text style={lockedStyles.dismissText}>Dismiss</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
+const lockedStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)" },
+  sheet: {
+    backgroundColor: "#0F0F1A",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 14,
+    alignItems: "center",
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", marginBottom: 24 },
+  emoji: { fontSize: 52, marginBottom: 14 },
+  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22, textAlign: "center", marginBottom: 10 },
+  body: {
+    color: "rgba(255,255,255,0.5)",
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 28,
+    paddingHorizontal: 8,
+  },
+  settingsBtn: { width: "100%", borderRadius: 18, overflow: "hidden", marginBottom: 12 },
+  settingsGrad: { paddingVertical: 16, alignItems: "center" },
+  settingsText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
+  dismissBtn: { paddingVertical: 12 },
+  dismissText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+});
+
+// ── NativeTabLayout ───────────────────────────────────────────────────────────
 function NativeTabLayout() {
   return (
     <NativeTabs initialTab="feed">
@@ -109,6 +189,7 @@ function NativeTabLayout() {
   );
 }
 
+// ── TabIcon ───────────────────────────────────────────────────────────────────
 interface TabIconProps {
   iconName: string;
   label: string;
@@ -117,9 +198,18 @@ interface TabIconProps {
   isIOS: boolean;
   sfActive: string;
   sfDefault: string;
+  locked?: boolean;
 }
 
-function TabIcon({ iconName, label, focused, color, isIOS, sfActive, sfDefault }: TabIconProps) {
+function TabIcon({ iconName, label, focused, color, isIOS, sfActive, sfDefault, locked }: TabIconProps) {
+  if (locked) {
+    return (
+      <View style={tabIconStyles.wrap}>
+        <Ionicons name="lock-closed" size={21} color={INACTIVE} />
+        <Text style={[tabIconStyles.label, { color: INACTIVE }]}>Locked</Text>
+      </View>
+    );
+  }
   return (
     <View style={tabIconStyles.wrap}>
       {isIOS ? (
@@ -144,6 +234,7 @@ const tabIconStyles = StyleSheet.create({
   },
 });
 
+// ── CreateIcon ────────────────────────────────────────────────────────────────
 function CreateIcon() {
   const { theme } = useTheme();
   return (
@@ -160,7 +251,14 @@ function CreateIcon() {
   );
 }
 
-function ClassicTabLayout() {
+// ── ClassicTabLayout ──────────────────────────────────────────────────────────
+function ClassicTabLayout({
+  findVibeLocked,
+  onLockedTabPress,
+}: {
+  findVibeLocked: boolean;
+  onLockedTabPress: () => void;
+}) {
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
 
@@ -237,16 +335,25 @@ function ClassicTabLayout() {
       />
       <Tabs.Screen
         name="find"
+        listeners={{
+          tabPress: (e) => {
+            if (findVibeLocked) {
+              e.preventDefault();
+              onLockedTabPress();
+            }
+          },
+        }}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
               iconName={focused ? "heart" : "heart-outline"}
               label="Find Vibe"
-              focused={focused}
-              color={color}
+              focused={focused && !findVibeLocked}
+              color={findVibeLocked ? INACTIVE : color}
               isIOS={isIOS}
               sfActive="heart.fill"
               sfDefault="heart"
+              locked={findVibeLocked}
             />
           ),
         }}
@@ -274,14 +381,45 @@ function ClassicTabLayout() {
   );
 }
 
+// ── TabLayout (root) ──────────────────────────────────────────────────────────
 export default function TabLayout() {
   const { session } = useAuth();
   const userId = session?.user?.id;
   const [rewardCoins, setRewardCoins] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [findVibeLocked, setFindVibeLocked] = useState(false);
+  const [showLockedSheet, setShowLockedSheet] = useState(false);
   const claimedRef = useRef(false);
   const onboardingRef = useRef(false);
+
+  // Load initial lock state from Supabase profile
+  useEffect(() => {
+    if (!userId) return;
+    getGundrukProfile(userId)
+      .then((p) => {
+        const locked = !p.show_in_matching;
+        setFindVibeLocked(locked);
+        AsyncStorage.setItem(`find_vibe_locked_${userId}`, locked ? "true" : "false").catch(() => {});
+      })
+      .catch(() => {
+        // Fallback: read from AsyncStorage cache
+        AsyncStorage.getItem(`find_vibe_locked_${userId}`)
+          .then((val) => { if (val === "true") setFindVibeLocked(true); })
+          .catch(() => {});
+      });
+  }, [userId]);
+
+  // Listen for real-time lock changes from settings screen (same session)
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(FIND_VIBE_LOCK_EVENT, ({ locked }: { locked: boolean }) => {
+      setFindVibeLocked(locked);
+      if (userId) {
+        AsyncStorage.setItem(`find_vibe_locked_${userId}`, locked ? "true" : "false").catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, [userId]);
 
   useEffect(() => {
     if (!userId || claimedRef.current) return;
@@ -326,13 +464,34 @@ export default function TabLayout() {
     }
   };
 
+  const isNativeGlass =
+    Platform.OS === "ios" &&
+    (() => {
+      try {
+        return isLiquidGlassAvailable();
+      } catch {
+        return false;
+      }
+    })();
+
   return (
     <>
-      {(Platform.OS === "ios" && (() => { try { return isLiquidGlassAvailable(); } catch { return false; } })()) ? <NativeTabLayout /> : <ClassicTabLayout />}
+      {isNativeGlass ? (
+        <NativeTabLayout />
+      ) : (
+        <ClassicTabLayout
+          findVibeLocked={findVibeLocked}
+          onLockedTabPress={() => setShowLockedSheet(true)}
+        />
+      )}
       <RewardToast coins={rewardCoins} visible={showToast} />
       <OnboardingInterestPicker
         visible={showOnboarding}
         onComplete={handleOnboardingComplete}
+      />
+      <FindVibeLockedSheet
+        visible={showLockedSheet}
+        onClose={() => setShowLockedSheet(false)}
       />
     </>
   );
