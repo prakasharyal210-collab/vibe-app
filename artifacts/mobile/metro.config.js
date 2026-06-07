@@ -14,10 +14,6 @@ config.resolver = {
     path.resolve(projectRoot, "node_modules"),
     path.resolve(workspaceRoot, "node_modules"),
   ],
-  // pnpm uses a virtual store — disable hierarchical lookup so Metro only
-  // resolves packages from the explicit nodeModulesPaths above and never
-  // walks up the directory tree to find a wrong/duplicate version.
-  disableHierarchicalLookup: true,
   // Required for symlinked packages in the pnpm virtual store.
   unstable_enableSymlinks: true,
   // Required for packages that use the "exports" field in package.json
