@@ -12,7 +12,6 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { PexelsCard, PexelsPhoto } from "@/components/PexelsCard";
 import { PexelsVideoCard, PexelsVideo } from "@/components/PexelsVideoCard";
-import { YouTubeCard, YouTubeVideo } from "@/components/YouTubeCard";
 
 type CuratedItem =
   | { kind: "photo"; data: PexelsPhoto; key: string }
@@ -38,14 +37,12 @@ interface Props {
   mode: "empty" | "footer";
   maxPhotos?: number;
   maxVideos?: number;
-  maxYouTube?: number;
 }
 
-export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5, maxYouTube = 4 }: Props) {
+export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) {
   const colors = useColors();
   const [photos, setPhotos] = useState<PexelsPhoto[]>([]);
   const [pexelsVideos, setPexelsVideos] = useState<PexelsVideo[]>([]);
-  const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
   const [loadingMain, setLoadingMain] = useState(true);
   const [errorMain, setErrorMain] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -61,10 +58,9 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5, maxYouTub
 
     let photoDone = false;
     let videoDone = false;
-    let ytDone = false;
 
     const checkDone = () => {
-      if (photoDone && videoDone && ytDone && !cancelled) {
+      if (photoDone && videoDone && !cancelled) {
         setLoadingMain(false);
       }
     };
@@ -83,15 +79,8 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5, maxYouTub
       .catch(() => {})
       .finally(() => { videoDone = true; checkDone(); });
 
-    // YouTube trending videos (opens browser — separate "Trending Videos" section)
-    fetch(`${apiUrl}/api/youtube/trending?maxResults=${maxYouTube}&videoDuration=medium`)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() as Promise<{ videos: YouTubeVideo[] }>; })
-      .then((d) => { if (!cancelled) setYoutubeVideos(d.videos ?? []); })
-      .catch(() => {})
-      .finally(() => { ytDone = true; checkDone(); });
-
     return () => { cancelled = true; };
-  }, [maxPhotos, maxVideos, maxYouTube, retryKey]);
+  }, [maxPhotos, maxVideos, retryKey]);
 
   useEffect(() => {
     if (!loadingMain) {
@@ -154,31 +143,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5, maxYouTub
             )
           )}
 
-          {/* ── Trending Videos section (YouTube, opens browser) ── */}
-          {youtubeVideos.length > 0 && (
-            <View>
-              <View style={styles.ytSectionHeader}>
-                <LinearGradient
-                  colors={["#FF0000", "#CC0000"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.accentBar}
-                />
-                <View style={styles.headerContent}>
-                  <View style={styles.titleRow}>
-                    <Ionicons name="logo-youtube" size={16} color="#FF0000" />
-                    <Text style={[styles.headerTitle, { color: colors.foreground }]}>Trending Videos</Text>
-                  </View>
-                  <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-                    Opens YouTube in browser
-                  </Text>
-                </View>
-              </View>
-              {youtubeVideos.map((v) => <YouTubeCard key={v.id} video={v} />)}
-            </View>
-          )}
-
-          {items.length === 0 && youtubeVideos.length === 0 && (
+          {items.length === 0 && (
             <View style={styles.emptyWrap}>
               <Text style={{ fontSize: 32 }}>✨</Text>
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
@@ -192,9 +157,6 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5, maxYouTub
             <View style={styles.attrRow}>
               <Ionicons name="aperture-outline" size={12} color="rgba(255,255,255,0.3)" />
               <Text style={[styles.attrText, { color: colors.mutedForeground }]}>Photos & Videos by Pexels</Text>
-              <Text style={[styles.attrDot, { color: colors.mutedForeground }]}>·</Text>
-              <Ionicons name="logo-youtube" size={12} color="#FF0000" />
-              <Text style={[styles.attrText, { color: colors.mutedForeground }]}>Trending by YouTube</Text>
             </View>
           </View>
         </Animated.View>
@@ -247,17 +209,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     marginTop: 8,
   },
-  ytSectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingTop: 20,
-    paddingBottom: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.07)",
-    marginTop: 8,
-  },
   accentBar: { width: 3, height: 22, borderRadius: 2, flexShrink: 0 },
   headerContent: { flex: 1 },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -307,5 +258,4 @@ const styles = StyleSheet.create({
   attribution: { paddingVertical: 16, alignItems: "center" },
   attrRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   attrText: { fontSize: 11, fontFamily: "Poppins_400Regular" },
-  attrDot: { fontSize: 11 },
 });
