@@ -457,6 +457,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────────
 export default function ReelsScreen() {
+  "use no memo";
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const isLoggedIn = !!session;

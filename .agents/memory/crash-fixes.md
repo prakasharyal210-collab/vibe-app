@@ -19,12 +19,20 @@ Fix: wrap in an inline try-catch IIFE in the JSX:
 
 ---
 
-## Fix 2 — React Compiler opt-out for FeedScreen (`(tabs)/feed.tsx`)
+## Fix 2 — React Compiler opt-out for screen components
 
-The beta React Compiler (`babel-plugin-react-compiler ^19.0.0-beta-e993439-20250117`) is auto-enabled by `babel-preset-expo` when the package is installed. It was mis-transforming `FeedScreen`, causing intermittent "Invalid hook call" on initial render (confirmed: crash in web preview, consistent crash on Android/iOS).
+The beta React Compiler (`babel-plugin-react-compiler ^19.0.0-beta-e993439-20250117`) is auto-enabled by `babel-preset-expo` when the package is installed. It mis-transforms any screen component with many hooks, causing "Invalid hook call" / "Something went wrong" on Android/iOS (the web preview masks this bug and may appear fine while native crashes).
 
-Fix: add `"use no memo"` directive as the first statement inside `FeedScreen`.
+Confirmed affected: `FeedScreen` (`feed.tsx`), `ReelsScreen` (`index.tsx`).
 
-**Why:** Old React Compiler beta has known bugs with complex components. "use no memo" is the official opt-out directive.
+Fix: add `"use no memo"` as the **first statement inside the function body** of every screen component:
+```ts
+export default function ReelsScreen() {
+  "use no memo";
+  // ... hooks follow
+}
+```
 
-**How to apply:** If a new screen with many hooks/callbacks starts crashing with "Invalid hook call", add `"use no memo"` to that component as a first step.
+**Why:** Old React Compiler beta has known bugs with complex components. "use no memo" is the official opt-out directive. The web preview uses a different code path and does NOT reproduce native crashes — always test on Android/iOS Expo Go.
+
+**How to apply:** Any time a new screen (especially one with many hooks/callbacks/useMemo) shows "Something went wrong" on Android/iOS but looks fine on web, add `"use no memo"` as the fix. Also add it proactively to any new screen component at creation time.
