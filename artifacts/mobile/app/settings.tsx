@@ -828,7 +828,7 @@ export default function SettingsScreen() {
         <SectionHeader label="ACCESSIBILITY & DISPLAY" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SettingRow icon="text-outline" label="Text Size" sub={textSizeLabel} onPress={() => setShowTextSizePicker(true)} colors={colors} iconColor="#3B82F6" />
-          <SettingRow icon="contrast-outline" label="Display" sub="High contrast: Off · Dark mode: On" onPress={() => Alert.alert("Display", "Dark mode is always on in Vibe for the best experience.")} colors={colors} iconColor="#EC4899" />
+          <SettingRow icon="contrast-outline" label="Display" sub="High contrast: Off · Dark mode: On" onPress={() => Alert.alert("Display", "Dark mode is always on in Gundruk for the best experience.")} colors={colors} iconColor="#EC4899" />
           <SettingRow icon="volume-high-outline" label="Sound & Vibration" onPress={() => Alert.alert("Sound & Vibration", "Adjust haptic feedback and sound settings on your device.")} colors={colors} iconColor="#7C3AED" />
         </View>
 
@@ -841,14 +841,14 @@ export default function SettingsScreen() {
 
         <SectionHeader label="CREATOR TOOLS" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="megaphone-outline" label="Advertise on Vibe" sub="Reach millions of engaged users" onPress={() => router.push("/advertise" as any)} colors={colors} iconColor="#7C3AED" />
+          <SettingRow icon="megaphone-outline" label="Advertise on Gundruk" sub="Reach millions of engaged users" onPress={() => router.push("/advertise" as any)} colors={colors} iconColor="#7C3AED" />
         </View>
 
         <SectionHeader label="ABOUT" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="document-text-outline" label="Terms of Service" onPress={() => openLink("https://vibe.app/terms", "Terms of Service")} colors={colors} />
-          <SettingRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => openLink("https://vibe.app/privacy", "Privacy Policy")} colors={colors} iconColor="#10B981" />
-          <SettingRow icon="information-circle-outline" label="App Version" sub="Vibe v1.0.0 (build 1) · Up to date ✓" colors={colors} iconColor="#6B7280" />
+          <SettingRow icon="document-text-outline" label="Terms of Service" onPress={() => openLink("https://gundruk.app/terms", "Terms of Service")} colors={colors} />
+          <SettingRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => openLink("https://gundruk.app/privacy", "Privacy Policy")} colors={colors} iconColor="#10B981" />
+          <SettingRow icon="information-circle-outline" label="App Version" sub="Gundruk v1.0.0 (build 1) · Up to date ✓" colors={colors} iconColor="#6B7280" />
           <SettingRow icon="bug-outline" label="Report a Problem" onPress={() => Alert.alert("Report a Problem", "Please describe your issue:", [
             { text: "Cancel", style: "cancel" },
             { text: "Send Report", onPress: () => showToast("✅ Report sent — thank you!") },
@@ -861,7 +861,7 @@ export default function SettingsScreen() {
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
           <Text style={[styles.versionNote, { color: colors.mutedForeground }]}>
-            Vibe Social · v1.0.0 · Made with 💜
+            Gundruk · v1.0.0 · Made with 💜
           </Text>
         </View>
       </ScrollView>

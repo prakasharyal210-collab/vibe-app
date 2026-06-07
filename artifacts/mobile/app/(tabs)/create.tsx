@@ -134,7 +134,7 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
             <Ionicons name="checkmark" size={42} color="#10B981" />
           </Animated.View>
           <Animated.Text style={{ fontSize: 52, transform: [{ scale: fireScale }] }}>🔥</Animated.Text>
-          <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 12, textAlign: "center", lineHeight: 34 }}>Posted!{"\n"}You're live on Vibe!</Text>
+          <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 12, textAlign: "center", lineHeight: 34 }}>Posted!{"\n"}You're live on Gundruk!</Text>
           <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: 8 }}>Auto-closing in {countdown}s</Text>
           <View style={{ gap: 12, marginTop: 28, width: 270 }}>
             <TouchableOpacity onPress={onGoToProfile} style={{ borderRadius: 16, overflow: "hidden" }}>

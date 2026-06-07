@@ -77,7 +77,7 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
     if (!myId) { Alert.alert("Sign in to block users"); return; }
     Alert.alert(
       `Block @${username}?`,
-      `They won't be able to see your posts or find you on Vibe. They won't be notified.`,
+      `They won't be able to see your posts or find you on Gundruk. They won't be notified.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -138,7 +138,7 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
 
   const options: { icon: string; label: string; action: () => void; destructive?: boolean }[] = [
     { icon: "share-social-outline", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
-    { icon: "copy-outline", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `vibe.app/@${username} copied to clipboard`) },
+    { icon: "copy-outline", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `gundruk.app/@${username} copied to clipboard`) },
     { icon: "person-remove-outline", label: busy ? "Please wait…" : `Block @${username}`, action: handleBlock, destructive: true },
     { icon: "eye-off-outline", label: `Restrict @${username}`, action: handleRestrict, destructive: true },
     { icon: "flag-outline", label: "Report User", action: () => setShowReport(true), destructive: true },
@@ -321,7 +321,7 @@ export default function UserProfileScreen() {
       ]);
     } else {
       // result === "pending"
-      Alert.alert("💜 Vibe Sent!", `Your vibe was sent to ${userData.fullName}. If they vibe back, it's a match!`);
+      Alert.alert("💜 Sent!", `Your message was sent to ${userData.fullName}. If they respond, it's a match!`);
     }
     setTimeout(() => setVibeSent(false), 10000);
   };

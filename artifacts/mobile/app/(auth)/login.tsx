@@ -134,7 +134,7 @@ export default function LoginScreen() {
                     backgroundClip: "text",
                   }]}
                 >
-                  VIBE
+                  GUNDRUK
                 </Text>
               ) : (
                 <LinearGradient
@@ -143,7 +143,7 @@ export default function LoginScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.logoGradientText}
                 >
-                  <Text style={styles.logoText}>VIBE</Text>
+                  <Text style={styles.logoText}>GUNDRUK</Text>
                 </LinearGradient>
               )}
             </View>
@@ -201,7 +201,7 @@ export default function LoginScreen() {
 
         <View style={styles.signupRow}>
           <Text style={[styles.signupText, { color: colors.mutedForeground }]}>
-            New to Vibe?{" "}
+            New to Gundruk?{" "}
           </Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
             <Text style={styles.signupLink}>Create account →</Text>

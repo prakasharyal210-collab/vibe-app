@@ -244,7 +244,7 @@ export function UpdateBottomSheet({
                 <Text style={{ fontSize: 36 }}>💜</Text>
               </LinearGradient>
             </Animated.View>
-            <Text style={sheetStyles.appName}>Vibe</Text>
+            <Text style={sheetStyles.appName}>Gundruk</Text>
           </View>
 
           <Text style={sheetStyles.title}>
@@ -255,7 +255,7 @@ export function UpdateBottomSheet({
               ? "Tap Install Now to apply the update"
               : downloading
               ? "Downloading update in the background…"
-              : "A new version of Vibe is ready for you"}
+              : "A new version of Gundruk is ready for you"}
           </Text>
 
           {/* What's new */}
@@ -412,12 +412,12 @@ export function ForceUpdateScreen({
           >
             <Text style={{ fontSize: 48 }}>💜</Text>
           </LinearGradient>
-          <Text style={forceStyles.appName}>Vibe</Text>
+          <Text style={forceStyles.appName}>Gundruk</Text>
         </Animated.View>
 
         <Text style={forceStyles.title}>Update Required</Text>
         <Text style={forceStyles.sub}>
-          A critical update is available.{"\n"}Please update to continue using Vibe.
+          A critical update is available.{"\n"}Please update to continue using Gundruk.
         </Text>
 
         <View style={forceStyles.card}>
@@ -536,7 +536,7 @@ export function MaintenanceScreen({
 
         <Text style={maintStyles.title}>We'll be right back!</Text>
         <Text style={maintStyles.sub}>
-          {message ?? "Vibe is getting better for you.\nWe're making some improvements."}
+          {message ?? "Gundruk is getting better for you.\nWe're making some improvements."}
         </Text>
 
         {checkBackTime ? (

@@ -355,7 +355,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               ))}
             </View>
 
-            <GradientButton onPress={handlePost} title="Post to Vibe 🔥" loading={posting} />
+            <GradientButton onPress={handlePost} title="Post to Gundruk 🔥" loading={posting} />
             <TouchableOpacity onPress={onDiscard} style={styles.discardBtn}>
               <Text style={[styles.discardText, { color: colors.mutedForeground }]}>Discard & Retake</Text>
             </TouchableOpacity>

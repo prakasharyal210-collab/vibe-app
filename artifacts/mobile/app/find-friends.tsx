@@ -156,7 +156,7 @@ function InviteRow({
 
   const handleInvite = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const msg = `Hey ${name}! I'm using Vibe, the new social app 🔥\nJoin me: https://vibe.app/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
+    const msg = `Hey ${name}! I'm using Gundruk, the new social app 🔥\nJoin me: https://gundruk.app/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
     if (phone) {
       const waUrl = `whatsapp://send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(msg)}`;
       const waSupported = await Linking.canOpenURL(waUrl).catch(() => false);
@@ -177,7 +177,7 @@ function InviteRow({
       </View>
       <View style={invS.info}>
         <Text style={[invS.name, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
-        <Text style={[invS.sub, { color: colors.mutedForeground }]}>Not on Vibe yet</Text>
+        <Text style={[invS.sub, { color: colors.mutedForeground }]}>Not on Gundruk yet</Text>
       </View>
       <TouchableOpacity
         style={[invS.btn, invited && { opacity: 0.55 }]}
@@ -267,7 +267,7 @@ function QRModal({
           <TouchableOpacity onPress={onClose} style={qrS.closeBtn}>
             <Ionicons name="close" size={24} color={colors.foreground} />
           </TouchableOpacity>
-          <Text style={[qrS.title, { color: colors.foreground }]}>My Vibe QR Code</Text>
+          <Text style={[qrS.title, { color: colors.foreground }]}>My Gundruk QR Code</Text>
           <Text style={[qrS.sub, { color: colors.mutedForeground }]}>Friends scan this to follow you instantly</Text>
           <View style={qrS.qrWrap}>
             <LinearGradient
@@ -288,7 +288,7 @@ function QRModal({
           <TouchableOpacity
             style={qrS.shareBtn}
             onPress={() => {
-              Share.share({ message: `Follow me on Vibe! ${profileUrl}`, title: `@${username} on Vibe` }).catch(() => {});
+              Share.share({ message: `Follow me on Gundruk! ${profileUrl}`, title: `@${username} on Gundruk` }).catch(() => {});
             }}
           >
             <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={qrS.shareBtnGrad}>
@@ -358,10 +358,10 @@ export default function FindFriendsScreen() {
   const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
   const bottomPad = Platform.OS === "web" ? 84 : insets.bottom + 20;
 
-  const profileUrl = `https://vibe.app/@${username}`;
-  const shareMsg = `Hey! Follow me on Vibe 🔥\n${profileUrl}`;
+  const profileUrl = `https://gundruk.app/@${username}`;
+  const shareMsg = `Hey! Follow me on Gundruk 🔥\n${profileUrl}`;
   const referralCode = myId ? makeReferralCode(username, myId) : "—";
-  const inviteMsg = `Hey! I'm using Vibe, the new social app 🔥\nJoin me: https://vibe.app/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
+  const inviteMsg = `Hey! I'm using Gundruk, the new social app 🔥\nJoin me: https://gundruk.app/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
 
   const [qrVisible, setQrVisible] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);
@@ -395,7 +395,7 @@ export default function FindFriendsScreen() {
 
   const requestContacts = useCallback(async () => {
     if (Platform.OS === "web") {
-      Alert.alert("Not available", "Contact access is only available on the Vibe mobile app.");
+      Alert.alert("Not available", "Contact access is only available on the Gundruk mobile app.");
       return;
     }
     setContactsStatus("loading");
@@ -451,7 +451,7 @@ export default function FindFriendsScreen() {
 
   // ── Native share ─────────────────────────────────────────────────────────────
   const handleNativeShare = useCallback(() => {
-    Share.share({ message: shareMsg, title: `@${username} on Vibe` }).catch(() => {});
+    Share.share({ message: shareMsg, title: `@${username} on Gundruk` }).catch(() => {});
   }, [shareMsg, username]);
 
   // ── Platform sharing ─────────────────────────────────────────────────────────
@@ -471,7 +471,7 @@ export default function FindFriendsScreen() {
   }, [profileUrl]);
 
   const shareToTwitter = useCallback(() => {
-    const tweet = `Follow me on Vibe! 🔥 ${profileUrl}`;
+    const tweet = `Follow me on Gundruk! 🔥 ${profileUrl}`;
     openUrl(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweet)}`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
   }, [profileUrl]);
@@ -618,7 +618,7 @@ export default function FindFriendsScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
                   Share.share({
                     message: inviteMsg,
-                    title: "Join me on Vibe!",
+                    title: "Join me on Gundruk!",
                   }).catch(() => {});
                 }}
               >
@@ -632,7 +632,7 @@ export default function FindFriendsScreen() {
         </View>
 
         {/* ── Phone Contacts ────────────────────────────────────────── */}
-        <SectionCard emoji="📱" title="From Your Contacts" subtitle="Find friends already on Vibe" colors={colors}>
+        <SectionCard emoji="📱" title="From Your Contacts" subtitle="Find friends already on Gundruk" colors={colors}>
           {contactsStatus === "idle" && (
             <TouchableOpacity style={S.accessBtn} onPress={requestContacts}>
               <LinearGradient colors={["rgba(124,58,237,0.15)", "rgba(249,115,22,0.08)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={S.accessBtnInner}>
@@ -662,7 +662,7 @@ export default function FindFriendsScreen() {
             <>
               <View style={S.matchBanner}>
                 <Text style={S.matchBannerText}>
-                  🎉 {contactMatches.length} friend{contactMatches.length !== 1 ? "s" : ""} already on Vibe!
+                  🎉 {contactMatches.length} friend{contactMatches.length !== 1 ? "s" : ""} already on Gundruk!
                 </Text>
               </View>
               {contactMatches.map((u) => (
@@ -675,7 +675,7 @@ export default function FindFriendsScreen() {
             <View style={S.centeredPad}>
               <Text style={{ fontSize: 22, marginBottom: 6 }}>🔍</Text>
               <Text style={[S.centeredText, { color: colors.mutedForeground }]}>
-                None of your contacts are on Vibe yet.
+                None of your contacts are on Gundruk yet.
               </Text>
             </View>
           )}
@@ -692,7 +692,7 @@ export default function FindFriendsScreen() {
           <SectionCard
             emoji="✉️"
             title="Invite Friends"
-            subtitle={`${contactsToInvite.length} contacts not on Vibe yet`}
+            subtitle={`${contactsToInvite.length} contacts not on Gundruk yet`}
             colors={colors}
           >
             {invitesToShow.map((c, i) => (

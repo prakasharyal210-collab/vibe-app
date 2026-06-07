@@ -466,9 +466,9 @@ export default function ProfileScreen() {
           <UserAvatar username={displayUsername} url={profile.avatar_url} size={88} showBorder />
           <View style={styles.profileInfo}>
             {profile.bio ? <Text style={[styles.bio, { color: colors.mutedForeground }]}>{profile.bio}</Text> : null}
-            <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `vibe.app/${displayUsername}`)}>
+            <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `gundruk.app/${displayUsername}`)}>
               <Ionicons name="link-outline" size={13} color="#8B5CF6" />
-              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>vibe.app/{displayUsername}</Text>
+              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>gundruk.app/{displayUsername}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -495,7 +495,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => {
-              shareContent("profile", { username: displayUsername }, `Check out @${displayUsername} on Vibe!`);
+              shareContent("profile", { username: displayUsername }, `Check out @${displayUsername} on Gundruk!`);
             }}
             style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           >

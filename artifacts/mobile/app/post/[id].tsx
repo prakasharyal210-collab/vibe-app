@@ -56,7 +56,7 @@ export default function PostDetailScreen() {
     shareContent("post", {
       username: post.profiles?.username ?? "user",
       id: post.id,
-    }, post.caption ?? "Check out this post on Vibe!");
+    }, post.caption ?? "Check out this post on Gundruk!");
   };
 
   if (loading) {
@@ -158,7 +158,7 @@ export default function PostDetailScreen() {
         {/* Share link */}
         <TouchableOpacity style={styles.linkRow} onPress={handleShare}>
           <Ionicons name="link-outline" size={14} color="#7C3AED" />
-          <Text style={styles.linkText}>vibe.app/@{username}/post/{post.id.slice(0, 8)}</Text>
+          <Text style={styles.linkText}>gundruk.app/@{username}/post/{post.id.slice(0, 8)}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

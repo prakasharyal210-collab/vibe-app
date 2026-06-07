@@ -60,7 +60,7 @@ export default function ReelDetailScreen() {
     shareContent("reel", {
       username: (reel as any).profiles?.username ?? "user",
       id: reel.id,
-    }, reel.caption ?? "Watch this reel on Vibe!");
+    }, reel.caption ?? "Watch this reel on Gundruk!");
   };
 
   if (loading) {
@@ -144,7 +144,7 @@ export default function ReelDetailScreen() {
         ) : null}
         <TouchableOpacity style={styles.linkRow} onPress={handleShare}>
           <Ionicons name="link-outline" size={12} color="#A78BFA" />
-          <Text style={styles.linkText}>vibe.app/@{username}/reel/{reel.id.slice(0, 8)}</Text>
+          <Text style={styles.linkText}>gundruk.app/@{username}/reel/{reel.id.slice(0, 8)}</Text>
         </TouchableOpacity>
       </View>
 

@@ -4,16 +4,16 @@ export type VibeContentType = "profile" | "post" | "reel" | "story" | "highlight
 
 export function buildVibeUrl(type: VibeContentType, params: Record<string, string>): string {
   switch (type) {
-    case "profile":   return `https://vibe.app/@${params.username}`;
-    case "post":      return `https://vibe.app/@${params.username}/post/${params.id}`;
-    case "reel":      return `https://vibe.app/@${params.username}/reel/${params.id}`;
-    case "story":     return `https://vibe.app/@${params.username}/story/${params.id}`;
-    case "highlight": return `https://vibe.app/@${params.username}/highlight/${params.id}`;
-    case "hashtag":   return `https://vibe.app/hashtag/${params.tag}`;
-    case "sound":     return `https://vibe.app/sound/${params.id}`;
-    case "location":  return `https://vibe.app/location/${encodeURIComponent(params.name ?? params.id)}`;
-    case "live":      return `https://vibe.app/@${params.username}/live`;
-    default:          return "https://vibe.app";
+    case "profile":   return `https://gundruk.app/@${params.username}`;
+    case "post":      return `https://gundruk.app/@${params.username}/post/${params.id}`;
+    case "reel":      return `https://gundruk.app/@${params.username}/reel/${params.id}`;
+    case "story":     return `https://gundruk.app/@${params.username}/story/${params.id}`;
+    case "highlight": return `https://gundruk.app/@${params.username}/highlight/${params.id}`;
+    case "hashtag":   return `https://gundruk.app/hashtag/${params.tag}`;
+    case "sound":     return `https://gundruk.app/sound/${params.id}`;
+    case "location":  return `https://gundruk.app/location/${encodeURIComponent(params.name ?? params.id)}`;
+    case "live":      return `https://gundruk.app/@${params.username}/live`;
+    default:          return "https://gundruk.app";
   }
 }
 

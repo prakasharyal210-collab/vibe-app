@@ -80,7 +80,7 @@ class FindVibeErrorBoundary extends Component<
         <View style={{ flex: 1, backgroundColor: "#080810", justifyContent: "center", alignItems: "center", padding: 24 }}>
           <Text style={{ fontSize: 52 }}>💜</Text>
           <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", marginTop: 16, textAlign: "center", fontFamily: "Poppins_700Bold" }}>
-            Find Vibe needs a moment
+            Find Gundruk needs a moment
           </Text>
           <Text style={{ color: "#9CA3AF", fontSize: 14, marginTop: 8, textAlign: "center", lineHeight: 22 }}>
             Something went wrong. Please try again.
@@ -755,7 +755,7 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
       <Animated.View style={[matchStyles.content, contentStyle]}>
         <Text style={matchStyles.heartEmoji}>💜</Text>
         <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchStyles.badge}>
-          <Text style={matchStyles.badgeText}>It's a Vibe Match! ✨</Text>
+          <Text style={matchStyles.badgeText}>It's a Gundruk Match! ✨</Text>
         </LinearGradient>
         <View style={matchStyles.photos}>
           <View style={matchStyles.photoWrap}>
@@ -828,7 +828,7 @@ function IceBreakerSheet({ card, visible, onSend, onSkip }: {
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => onSkip(card)} />
         <View style={[ibStyles.sheet, { backgroundColor: colors.card }]}>
           <View style={[ibStyles.handle, { backgroundColor: colors.border }]} />
-          <Text style={[ibStyles.title, { color: colors.foreground }]}>Send a Vibe 💜</Text>
+          <Text style={[ibStyles.title, { color: colors.foreground }]}>Send a Message 💜</Text>
           <Text style={[ibStyles.sub, { color: colors.mutedForeground }]}>
             Break the ice with {card.name} before connecting
           </Text>
@@ -1094,7 +1094,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
           if (score >= 50 || Math.random() < 0.55) {
             setTimeout(() => setMatchCard(card), 500);
           } else {
-            Alert.alert("Vibe Sent! 💜", `You sent a vibe to ${card.name}`);
+            Alert.alert("Sent! 💜", `You sent a vibe to ${card.name}`);
           }
         }}
         onSkip={() => {
@@ -1478,7 +1478,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
           >
             <Image source={{ uri: newMatchToast.image }} style={matchTabStyles.toastPhoto} />
             <View style={{ flex: 1 }}>
-              <Text style={matchTabStyles.toastTitle}>💜 New Vibe Match!</Text>
+              <Text style={matchTabStyles.toastTitle}>💜 New Match!</Text>
               <Text style={matchTabStyles.toastName}>{newMatchToast.name}</Text>
             </View>
             <Text style={matchTabStyles.toastCta}>Chat →</Text>
@@ -1573,7 +1573,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
                       {/* Vibe Match badge + matched time + same goal */}
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                         <View style={matchTabStyles.vibeBadge}>
-                          <Text style={matchTabStyles.vibeBadgeText}>💜 Vibe Match</Text>
+                          <Text style={matchTabStyles.vibeBadgeText}>💜 Match</Text>
                         </View>
                         {m.matchedAt && (
                           <Text style={[matchTabStyles.matchedTime, { color: colors.mutedForeground }]}>
@@ -1947,7 +1947,7 @@ function FindVibeContent() {
         <Text style={{ fontSize: 48 }}>😕</Text>
         <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 18 }}>Something went wrong</Text>
         <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", paddingHorizontal: 32 }}>
-          Couldn't load Find Vibe. Check your connection and try again.
+          Couldn't load Find Gundruk. Check your connection and try again.
         </Text>
         <TouchableOpacity
           onPress={() => { setScreenError(false); setCardsLoading(true); if (userId) loadCards(userId, vibePrefs); }}
@@ -1981,7 +1981,7 @@ function FindVibeContent() {
     { id: "goals"    as const, emoji: "🎯", label: "Goals" },
     { id: "matches"  as const, emoji: "💜", label: "Matches" },
     { id: "rooms"    as const, emoji: "🏠", label: "Rooms" },
-    { id: "samevibe" as const, emoji: "✨", label: "Vibe" },
+    { id: "samevibe" as const, emoji: "✨", label: "Gundruk" },
     { id: "daily"    as const, emoji: "⭐", label: "Daily" },
   ];
 
@@ -2139,7 +2139,7 @@ function FindVibeContent() {
               onConnect={() => {}}
             />
             <View style={{ paddingHorizontal: 16, marginTop: 20 }}>
-              <Text style={[styles.historyTitle, { color: colors.foreground }]}>📅 Daily Vibe History</Text>
+              <Text style={[styles.historyTitle, { color: colors.foreground }]}>📅 Daily History</Text>
               {[
                 { name: "Zoey", date: "Yesterday", matched: true, image: "https://picsum.photos/seed/h1/100/100" },
                 { name: "Marcus", date: "2 days ago", matched: false, image: "https://picsum.photos/seed/h2/100/100" },

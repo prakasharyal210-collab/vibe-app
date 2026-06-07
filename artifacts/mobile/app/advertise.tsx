@@ -146,7 +146,7 @@ export default function AdvertiseScreen() {
           <Ionicons name="chevron-back" size={26} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Advertise on Vibe</Text>
+          <Text style={styles.headerTitle}>Advertise on Gundruk</Text>
           <Text style={styles.headerSub}>Reach millions of engaged users</Text>
         </View>
         <View style={styles.megaphoneWrap}>

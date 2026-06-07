@@ -40,7 +40,7 @@ export function LoginPrompt({ visible, onClose }: LoginPromptProps) {
         >
           <Text style={styles.emoji}>✨</Text>
           <Text style={[styles.title, { color: colors.foreground }]}>
-            Join the Vibe
+            Join Gundruk
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Sign in to like, comment, and connect with creators

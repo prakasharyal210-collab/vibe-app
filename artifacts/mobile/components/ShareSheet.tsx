@@ -91,7 +91,7 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
       color: "#F97316",
       onPress: async () => {
         try {
-          await Share.share({ message: `Check this out on Vibe! ${shareUrl}`, url: shareUrl });
+          await Share.share({ message: `Check this out on Gundruk! ${shareUrl}`, url: shareUrl });
         } catch {}
         onClose();
       },
@@ -100,7 +100,7 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
       icon: "flag-outline",
       label: "Report",
       color: "#EF4444",
-      onPress: () => { onClose(); Alert.alert("Reported", "Thanks for keeping Vibe safe."); },
+      onPress: () => { onClose(); Alert.alert("Reported", "Thanks for keeping Gundruk safe."); },
     },
   ];
 

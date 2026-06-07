@@ -256,7 +256,7 @@ const whyStyles = StyleSheet.create({
 });
 
 
-function TrendingGrid({ posts, colors, title = "Trending on Vibe" }: { posts: { id: string; image_url: string; likes_count: number }[]; colors: any; title?: string }) {
+function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts: { id: string; image_url: string; likes_count: number }[]; colors: any; title?: string }) {
   const ITEM = (W - 4) / 3;
   function fmt(n: number) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";

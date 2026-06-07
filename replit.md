@@ -1,6 +1,6 @@
-# [Project name]
+# Gundruk
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A dark-themed social mobile app (React Native + Expo, Supabase backend) for sharing posts, reels, and connecting with people.
 
 ## Run & Operate
 

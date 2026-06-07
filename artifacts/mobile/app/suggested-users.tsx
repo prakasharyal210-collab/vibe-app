@@ -33,7 +33,7 @@ const MOCK_SUGGESTED: SuggestedUser[] = [
   { id: "s3", username: "zoe.creates", bio: "Artist & content creator 🎨", followers_count: 204000, is_verified: true, reason: "Trending creator" },
   { id: "s4", username: "kai_adventures", bio: "Adventure is my middle name 🏔️", followers_count: 56000, reason: "Similar interests" },
   { id: "s5", username: "nadia.official", bio: "Actress & creator 🎬", followers_count: 432000, is_verified: true, reason: "You may know them" },
-  { id: "s6", username: "alex.w", bio: "Music & art 🎵", followers_count: 67800, reason: "New on Vibe" },
+  { id: "s6", username: "alex.w", bio: "Music & art 🎵", followers_count: 67800, reason: "New on Gundruk" },
   { id: "s7", username: "maya_art", bio: "Digital art & design 🎨", followers_count: 38400, reason: "Liked by people you follow" },
   { id: "s8", username: "jay_create", bio: "Content creator & traveler", followers_count: 92100, reason: "Followed by marcus_vibe" },
 ];

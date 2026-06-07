@@ -44,7 +44,7 @@ export default function SignupScreen() {
       Alert.alert("Sign Up Failed", error.message);
     } else {
       Alert.alert(
-        "Welcome to Vibe!",
+        "Welcome to Gundruk!",
         "Check your email to confirm your account, then sign in.",
         [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
       );
@@ -84,7 +84,7 @@ export default function SignupScreen() {
             end={{ x: 1, y: 0 }}
             style={styles.logoGradient}
           >
-            <Text style={styles.logoText}>VIBE</Text>
+            <Text style={styles.logoText}>GUNDRUK</Text>
           </LinearGradient>
           <Text style={[styles.subtitle, { color: colors.foreground }]}>
             Join the community
@@ -138,7 +138,7 @@ export default function SignupScreen() {
 
         <View style={styles.loginRow}>
           <Text style={[styles.loginText, { color: colors.mutedForeground }]}>
-            Already on Vibe?{" "}
+            Already on Gundruk?{" "}
           </Text>
           <TouchableOpacity onPress={() => router.replace("/(auth)/login")}>
             <Text style={styles.loginLink}>Sign in</Text>
