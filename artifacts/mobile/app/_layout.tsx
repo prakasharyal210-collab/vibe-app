@@ -9,8 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
-import * as Linking from "expo-linking";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -18,48 +17,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastOverlay } from "@/components/ToastNotification";
-import {
-  ForceUpdateScreen,
-  MaintenanceScreen,
-  UpdateBanner,
-  UpdateBottomSheet,
-} from "@/components/UpdateNotification";
 import { AuthProvider } from "@/context/AuthContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { supabase } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
-// ── Update persistence helpers ─────────────────────────────────────────────
-const BANNER_SUPPRESS_KEY = "update_banner_suppressed_until";
-const SKIPPED_VERSION_KEY = "skipped_version";
-
-async function isBannerSuppressed(): Promise<boolean> {
-  try {
-    const val = await AsyncStorage.getItem(BANNER_SUPPRESS_KEY);
-    if (!val) return false;
-    return Date.now() < parseInt(val, 10);
-  } catch { return false; }
-}
-
-async function suppressBannerFor24h(): Promise<void> {
-  const until = Date.now() + 24 * 60 * 60 * 1000;
-  await AsyncStorage.setItem(BANNER_SUPPRESS_KEY, String(until)).catch(() => {});
-}
-
-async function persistSkipVersion(version: string): Promise<void> {
-  await AsyncStorage.setItem(SKIPPED_VERSION_KEY, version).catch(() => {});
-}
-
-async function shouldShowUpdateVersion(version: string): Promise<boolean> {
-  try {
-    const skipped = await AsyncStorage.getItem(SKIPPED_VERSION_KEY);
-    return skipped !== version;
-  } catch { return true; }
-}
+// Key used to signal a downloaded update is ready to apply
+const OTA_READY_KEY = "ota_ready";
 
 function RootLayoutNav() {
   return (
@@ -131,183 +98,66 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
 
-  // ── Update state ──────────────────────────────────────────────────────────
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [updateDownloaded, setUpdateDownloaded] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState(0);
-  const [forceUpdate, setForceUpdate] = useState(false);
-  const [whatsNew, setWhatsNew] = useState<string[]>([]);
-  const [bannerVisible, setBannerVisible] = useState(false);
-  const [sheetVisible, setSheetVisible] = useState(false);
-  const [maintenance, setMaintenance] = useState(false);
-  const [maintenanceMsg, setMaintenanceMsg] = useState<string | undefined>();
-  const [maintenanceTime, setMaintenanceTime] = useState<string | undefined>();
-  const [pendingUpdateId, setPendingUpdateId] = useState<string | null>(null);
-  const bannerDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const bannerReshowTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks whether the "apply pending update?" check has completed.
+  // Splash stays up until this is true so the reload (if needed) is invisible.
+  const [updateCheckDone, setUpdateCheckDone] = useState(false);
 
-  // ── Splash ────────────────────────────────────────────────────────────────
+  // ── Step 1: on every cold start, check if a downloaded update is waiting ──
+  // This runs synchronously before the splash screen hides.  If an update is
+  // ready we clear the flag and call reloadAsync() — the user only ever sees
+  // the splash screen and wakes up in the new version.  If no update is ready
+  // we set updateCheckDone so the rest of the app can proceed normally.
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    if (__DEV__) {
+      setUpdateCheckDone(true);
+      return;
+    }
+
+    AsyncStorage.getItem(OTA_READY_KEY).then(async (val) => {
+      if (val === "1") {
+        try {
+          await AsyncStorage.removeItem(OTA_READY_KEY);
+          await Updates.reloadAsync(); // loads the new bundle; does not return
+        } catch {
+          // If reload fails for any reason just continue normally
+          setUpdateCheckDone(true);
+        }
+      } else {
+        setUpdateCheckDone(true);
+      }
+    }).catch(() => {
+      setUpdateCheckDone(true);
+    });
+  }, []);
+
+  // ── Step 2: hide splash once fonts + update-check are both done ───────────
+  useEffect(() => {
+    if (updateCheckDone && (fontsLoaded || fontError)) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, updateCheckDone]);
 
-  // ── OTA Update check ──────────────────────────────────────────────────────
-  const checkForUpdates = useCallback(async () => {
-    if (__DEV__) return;
-    try {
-      const update = await Updates.checkForUpdateAsync();
-      if (!update.isAvailable) return;
-
-      // Identify this update so we can check skip/suppress status
-      const updateId: string = (update.manifest as any)?.id ?? String(Date.now());
-      setPendingUpdateId(updateId);
-
-      // If user skipped this specific version, silently bail
-      const shouldShow = await shouldShowUpdateVersion(updateId);
-      if (!shouldShow) return;
-
-      setUpdateAvailable(true);
-
-      // Check suppress status (24h banner dismiss)
-      const suppressed = await isBannerSuppressed();
-
-      // Show bottom sheet immediately so user sees progress while downloading
-      if (!suppressed) {
-        setSheetVisible(true);
-      }
-
-      // Download in background — progress shows inside the sheet
-      setDownloading(true);
-      setDownloadProgress(0);
-      const progressInterval = setInterval(() => {
-        setDownloadProgress((prev) => Math.min(prev + 0.08, 0.92));
-      }, 400);
-
-      await Updates.fetchUpdateAsync();
-
-      clearInterval(progressInterval);
-      setDownloadProgress(1);
-      setDownloading(false);
-      setUpdateDownloaded(true);
-    } catch (err) {
-      console.log("Update check failed:", err);
-      setDownloading(false);
-    }
-  }, []);
-
-  // ── Server config check (force update / maintenance / whats new) ──────────
-  const checkServerConfig = useCallback(async () => {
-    try {
-      const { data } = await supabase.from("app_config").select("key, value");
-      if (!data) return;
-
-      const config: Record<string, string> = {};
-      data.forEach((r: any) => { config[r.key] = r.value; });
-
-      if (config.force_update === "true") {
-        setForceUpdate(true);
-      }
-
-      if (config.whats_new) {
-        try {
-          const parsed = JSON.parse(config.whats_new);
-          if (Array.isArray(parsed)) setWhatsNew(parsed);
-        } catch {}
-      }
-
-      if (config.maintenance_mode === "true") {
-        setMaintenance(true);
-        setMaintenanceMsg(config.maintenance_message ?? undefined);
-        setMaintenanceTime(config.maintenance_check_back ?? undefined);
-      }
-    } catch (err) {
-      console.log("Server config check failed:", err);
-    }
-  }, []);
-
+  // ── Step 3: background check 4 s after the app is running ─────────────────
+  // Silently fetches the update bundle if available, then sets the flag so it
+  // is applied on the next cold start.  Nothing is shown to the user.
   useEffect(() => {
-    checkForUpdates();
-    checkServerConfig();
+    if (__DEV__) return;
 
-    // Auto-retry maintenance check every 60 seconds
-    const maintenanceInterval = setInterval(checkServerConfig, 60_000);
-    return () => {
-      clearInterval(maintenanceInterval);
-      if (bannerDismissTimer.current) clearTimeout(bannerDismissTimer.current);
-      if (bannerReshowTimer.current) clearTimeout(bannerReshowTimer.current);
-    };
+    const t = setTimeout(async () => {
+      try {
+        const check = await Updates.checkForUpdateAsync();
+        if (!check.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        await AsyncStorage.setItem(OTA_READY_KEY, "1");
+      } catch {
+        // Network issues, no update channel configured, etc. — ignore silently
+      }
+    }, 4000);
+
+    return () => clearTimeout(t);
   }, []);
 
-  // ── Banner ✕ dismiss — suppresses for 24h via AsyncStorage ───────────────
-  const handleBannerDismiss = () => {
-    setBannerVisible(false);
-    if (bannerDismissTimer.current) clearTimeout(bannerDismissTimer.current);
-    if (bannerReshowTimer.current) clearTimeout(bannerReshowTimer.current);
-    suppressBannerFor24h();
-  };
-
-  // ── "Remind me later" in bottom sheet — re-shows banner after 30 min ──────
-  const handleRemindLater = () => {
-    setSheetVisible(false);
-    if (bannerReshowTimer.current) clearTimeout(bannerReshowTimer.current);
-    bannerReshowTimer.current = setTimeout(() => {
-      if (updateAvailable) setBannerVisible(true);
-    }, 30 * 60 * 1000);
-  };
-
-  // ── "Skip this version" — persists to AsyncStorage, hides everything ──────
-  const handleSkipVersion = async () => {
-    if (pendingUpdateId) await persistSkipVersion(pendingUpdateId);
-    setSheetVisible(false);
-    setBannerVisible(false);
-    setUpdateAvailable(false);
-    if (bannerReshowTimer.current) clearTimeout(bannerReshowTimer.current);
-    if (bannerDismissTimer.current) clearTimeout(bannerDismissTimer.current);
-  };
-
-  // ── Apply update handler ──────────────────────────────────────────────────
-  const handleUpdate = useCallback(async () => {
-    try {
-      if (updateDownloaded) {
-        await Updates.reloadAsync();
-        return;
-      }
-      setDownloading(true);
-      setDownloadProgress(0);
-      const progressInterval = setInterval(() => {
-        setDownloadProgress((prev) => Math.min(prev + 0.1, 0.92));
-      }, 350);
-      await Updates.fetchUpdateAsync();
-      clearInterval(progressInterval);
-      setDownloadProgress(1);
-      setDownloading(false);
-      await Updates.reloadAsync();
-    } catch (err) {
-      console.log("Apply update failed:", err);
-      setDownloading(false);
-      // Fall back to store
-      const storeUrl =
-        typeof Updates.updateId === "string"
-          ? "market://details?id=com.vibeapp.vibe"
-          : "https://play.google.com/store/apps/details?id=com.vibeapp.vibe";
-      Linking.openURL(storeUrl).catch(() => {});
-    }
-  }, [updateDownloaded]);
-
-  // ── Tap banner → show full sheet ─────────────────────────────────────────
-  const handleBannerPress = () => {
-    if (updateDownloaded) {
-      handleUpdate();
-    } else {
-      setBannerVisible(false);
-      setSheetVisible(true);
-    }
-  };
-
-  if (!fontsLoaded && !fontError) return null;
+  if (!updateCheckDone || (!fontsLoaded && !fontError)) return null;
 
   return (
     <SafeAreaProvider>
@@ -320,45 +170,6 @@ export default function RootLayout() {
                   <RealtimeProvider>
                     <RootLayoutNav />
                     <ToastOverlay />
-
-                    {/* ── Subtle banner at top of every screen ── */}
-                    <UpdateBanner
-                      visible={bannerVisible && !sheetVisible && !forceUpdate && !maintenance}
-                      downloaded={updateDownloaded}
-                      downloading={downloading}
-                      progress={downloadProgress}
-                      onPress={handleBannerPress}
-                      onDismiss={handleBannerDismiss}
-                    />
-
-                    {/* ── Full update bottom sheet ── */}
-                    <UpdateBottomSheet
-                      visible={sheetVisible && !forceUpdate && !maintenance}
-                      downloaded={updateDownloaded}
-                      downloading={downloading}
-                      progress={downloadProgress}
-                      whatsNew={whatsNew}
-                      isForce={false}
-                      onUpdate={() => { setSheetVisible(false); handleUpdate(); }}
-                      onDismiss={handleRemindLater}
-                      onSkipVersion={handleSkipVersion}
-                    />
-
-                    {/* ── Force update — blocking, skip softly dismisses ── */}
-                    <ForceUpdateScreen
-                      visible={forceUpdate}
-                      onUpdate={handleUpdate}
-                      onSkip={() => setForceUpdate(false)}
-                    />
-
-                    {/* ── Maintenance mode ── */}
-                    <MaintenanceScreen
-                      visible={maintenance && !forceUpdate}
-                      message={maintenanceMsg}
-                      checkBackTime={maintenanceTime}
-                      onRetry={() => { checkServerConfig(); }}
-                      onSkip={() => setMaintenance(false)}
-                    />
                   </RealtimeProvider>
                 </AuthProvider>
               </KeyboardProvider>
