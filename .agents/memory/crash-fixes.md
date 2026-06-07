@@ -19,20 +19,19 @@ Fix: wrap in an inline try-catch IIFE in the JSX:
 
 ---
 
-## Fix 2 — React Compiler opt-out for screen components
+## Fix 2 — React Compiler disabled (root cause: `app.json`)
 
-The beta React Compiler (`babel-plugin-react-compiler ^19.0.0-beta-e993439-20250117`) is auto-enabled by `babel-preset-expo` when the package is installed. It mis-transforms any screen component with many hooks, causing "Invalid hook call" / "Something went wrong" on Android/iOS (the web preview masks this bug and may appear fine while native crashes).
+The React Compiler was enabled via `"experiments": { "reactCompiler": true }` in `app.json`. This caused "Invalid hook call" / "Something went wrong" on Android/iOS (web preview masks the bug completely).
 
-Confirmed affected: `FeedScreen` (`feed.tsx`), `ReelsScreen` (`index.tsx`).
+**The real on/off switch is `app.json`, NOT `babel.config.js`.**
 
-Fix: add `"use no memo"` as the **first statement inside the function body** of every screen component:
-```ts
-export default function ReelsScreen() {
-  "use no memo";
-  // ... hooks follow
-}
-```
+- `babel-preset-expo` auto-enables the compiler when `app.json` has `"reactCompiler": true` — regardless of what babel.config.js says.
+- Setting `reactCompiler: false` in babel.config.js or `babel-plugin-react-compiler` options does NOT override it.
+- Removing `babel-plugin-react-compiler` from package.json also does NOT stop it if `app.json` still has `"reactCompiler": true`.
+- Confirmation: the log line "React Compiler enabled" only disappears when `app.json` experiments.reactCompiler is `false`.
 
-**Why:** Old React Compiler beta has known bugs with complex components. "use no memo" is the official opt-out directive. The web preview uses a different code path and does NOT reproduce native crashes — always test on Android/iOS Expo Go.
+Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-compiler` has been removed from devDependencies. The compiler is fully off.
 
-**How to apply:** Any time a new screen (especially one with many hooks/callbacks/useMemo) shows "Something went wrong" on Android/iOS but looks fine on web, add `"use no memo"` as the fix. Also add it proactively to any new screen component at creation time.
+**Why:** The beta React Compiler mis-transforms complex components with many hooks, causing native-only crashes. Web preview uses a different code path and does not reproduce the crash.
+
+**How to apply:** If "Something went wrong" appears on Android/iOS but web looks fine — first check `app.json` experiments.reactCompiler. Set it to `false`. Do NOT try to fix it with `"use no memo"` per component — that approach is incomplete and misses components.
