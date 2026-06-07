@@ -2035,3 +2035,41 @@ export async function sendRoomMessage(userId: string, roomId: string, text: stri
     void supabase.from("vibe_room_messages").insert({ user_id: userId, room_id: roomId, text, created_at: new Date().toISOString() });
   } catch {}
 }
+
+// ─── Snap Conversations ───────────────────────────────────────────────────────
+
+export interface SnapConversation {
+  other_user: Profile;
+  message_id: string;
+  message_text: string;
+  is_incoming: boolean;
+  created_at: string;
+}
+
+export async function fetchSnapConversations(userId: string): Promise<SnapConversation[]> {
+  try {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)")
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .like("text", "__SNAP__%")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error || !data) return [];
+    const seen = new Map<string, SnapConversation>();
+    for (const msg of data as any[]) {
+      const isIncoming = msg.receiver_id === userId;
+      const otherId = isIncoming ? msg.sender_id : msg.receiver_id;
+      const otherUser = isIncoming ? msg.sender : msg.receiver;
+      if (!otherUser || seen.has(otherId)) continue;
+      seen.set(otherId, {
+        other_user: { id: otherId, username: otherUser.username, avatar_url: otherUser.avatar_url },
+        message_id: msg.id,
+        message_text: msg.text,
+        is_incoming: isIncoming,
+        created_at: msg.created_at,
+      });
+    }
+    return Array.from(seen.values());
+  } catch { return []; }
+}
