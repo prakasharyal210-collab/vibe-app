@@ -27,7 +27,9 @@ import {
   RestrictedUser,
   fetchUserSettings,
   getBlockedUsers,
+  getGundrukProfile,
   getRestrictedUsers,
+  saveGundrukProfile,
   saveUserSettings,
   unblockUser,
   unrestrictUser,
@@ -612,6 +614,20 @@ const SCREEN_TIME_OPTIONS = [
   { label: "3 hours", value: "3h" },
 ];
 
+const FIND_GUNDRUK_MODE_OPTIONS = [
+  { label: "❤️  Dating", value: "dating", icon: "heart-outline" },
+  { label: "👫  Friends", value: "friends", icon: "people-outline" },
+  { label: "🤝  Networking", value: "networking", icon: "briefcase-outline" },
+  { label: "👀  Just Browsing", value: "browsing", icon: "eye-outline" },
+  { label: "❌  Hide Me", value: "hide", icon: "eye-off-outline" },
+];
+
+const VIBE_REQUEST_OPTIONS = [
+  { label: "Everyone", value: "everyone", icon: "earth-outline" },
+  { label: "People I follow", value: "following", icon: "people-outline" },
+  { label: "Nobody", value: "nobody", icon: "ban-outline" },
+];
+
 // ─── SettingsScreen ───────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -644,6 +660,11 @@ export default function SettingsScreen() {
   const [language, setLanguage] = useState("en");
   const [screenTime, setScreenTime] = useState("none");
 
+  // Find Gundruk settings
+  const [showInMatching, setShowInMatching] = useState(true);
+  const [findGundrukMode, setFindGundrukMode] = useState("dating");
+  const [vibeRequestPrivacy, setVibeRequestPrivacy] = useState("everyone");
+
   // Picker visibility
   const [showCommentPicker, setShowCommentPicker] = useState(false);
   const [showMessagePicker, setShowMessagePicker] = useState(false);
@@ -651,6 +672,8 @@ export default function SettingsScreen() {
   const [showTextSizePicker, setShowTextSizePicker] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showScreenTimePicker, setShowScreenTimePicker] = useState(false);
+  const [showModePicker, setShowModePicker] = useState(false);
+  const [showVibePrivacyPicker, setShowVibePrivacyPicker] = useState(false);
 
   // Modal screens
   const [showSwitchAccounts, setShowSwitchAccounts] = useState(false);
@@ -678,6 +701,12 @@ export default function SettingsScreen() {
       setNotifFollows(s.notif_follows);
       setNotifLive(s.notif_live);
       setNotifMentions(s.notif_mentions);
+    }).catch(() => {});
+
+    getGundrukProfile(userId).then((p) => {
+      setShowInMatching(p.show_in_matching);
+      setFindGundrukMode(p.find_gundruk_mode);
+      setVibeRequestPrivacy(p.vibe_request_privacy);
     }).catch(() => {});
 
     // Persist the current account so SwitchAccounts can list it
@@ -839,6 +868,44 @@ export default function SettingsScreen() {
           <SettingRow icon="trash-outline" label="Clear Cache" sub={cacheCleared ? "✅ Cache cleared (48 MB freed)" : "Free up storage space · 48 MB used"} onPress={clearCache} colors={colors} iconColor="#EF4444" />
         </View>
 
+        <SectionHeader label="FIND GUNDRUK" colors={colors} />
+        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <SettingRow
+            icon="heart-circle-outline"
+            iconColor="#EC4899"
+            label="Show me in Find Gundruk"
+            sub={showInMatching ? "You appear in matching, nearby & goals" : "You're hidden from all discovery"}
+            value={showInMatching}
+            onToggle={(v) => {
+              setShowInMatching(v);
+              if (!v) setFindGundrukMode("hide");
+              else if (findGundrukMode === "hide") setFindGundrukMode("dating");
+              saveGundrukProfile(userId, {
+                show_in_matching: v,
+                find_gundruk_mode: v ? (findGundrukMode === "hide" ? "dating" : findGundrukMode) : "hide",
+              });
+              showToast(v ? "You're visible in Find Gundruk ✅" : "Hidden from Find Gundruk 🔒");
+            }}
+            colors={colors}
+          />
+          <SettingRow
+            icon="compass-outline"
+            iconColor="#7C3AED"
+            label="What am I looking for?"
+            sub={FIND_GUNDRUK_MODE_OPTIONS.find((o) => o.value === findGundrukMode)?.label ?? "❤️  Dating"}
+            onPress={() => setShowModePicker(true)}
+            colors={colors}
+          />
+          <SettingRow
+            icon="flash-outline"
+            iconColor="#F97316"
+            label="Who can send me Vibe Requests?"
+            sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
+            onPress={() => setShowVibePrivacyPicker(true)}
+            colors={colors}
+          />
+        </View>
+
         <SectionHeader label="CREATOR TOOLS" colors={colors} />
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <SettingRow icon="megaphone-outline" label="Advertise on Gundruk" sub="Reach millions of engaged users" onPress={() => router.push("/advertise" as any)} colors={colors} iconColor="#7C3AED" />
@@ -914,6 +981,32 @@ export default function SettingsScreen() {
         selected={screenTime}
         onSelect={(v) => { setScreenTime(v); showToast("Screen time limit set ✅"); }}
         onClose={() => setShowScreenTimePicker(false)}
+      />
+      <OptionPicker
+        visible={showModePicker}
+        title="What are you looking for?"
+        options={FIND_GUNDRUK_MODE_OPTIONS}
+        selected={findGundrukMode}
+        onSelect={(v) => {
+          setFindGundrukMode(v);
+          const hidden = v === "hide";
+          setShowInMatching(!hidden);
+          saveGundrukProfile(userId, { find_gundruk_mode: v, show_in_matching: !hidden });
+          showToast("Preference saved ✅");
+        }}
+        onClose={() => setShowModePicker(false)}
+      />
+      <OptionPicker
+        visible={showVibePrivacyPicker}
+        title="Who can send Vibe Requests?"
+        options={VIBE_REQUEST_OPTIONS}
+        selected={vibeRequestPrivacy}
+        onSelect={(v) => {
+          setVibeRequestPrivacy(v);
+          saveGundrukProfile(userId, { vibe_request_privacy: v });
+          showToast(v === "nobody" ? "Vibe Requests paused ⏸" : "Privacy setting saved ✅");
+        }}
+        onClose={() => setShowVibePrivacyPicker(false)}
       />
 
       {/* ── Edit Field ── */}

@@ -35,6 +35,7 @@ import {
   Achievement,
   checkAchievements,
   getGoalInfo,
+  getGundrukProfile,
   getMyVibeMatches,
   getOrCreateConversation,
   getNearbyUsers,
@@ -42,6 +43,7 @@ import {
   getVibeMatches,
   getVibePreferences,
   RELATIONSHIP_GOALS,
+  saveGundrukProfile,
   saveUserGoals,
   sendVibeRequest,
   updateVibePreferences,
@@ -97,6 +99,106 @@ class FindVibeErrorBoundary extends Component<
     return this.props.children;
   }
 }
+
+// ── Mode selection sheet ─────────────────────────────────────────────────────
+
+const MODE_OPTIONS = [
+  { value: "dating",     emoji: "❤️",  label: "Dating",       desc: "Find romantic connections and your perfect match" },
+  { value: "friends",    emoji: "👫",  label: "Friends",      desc: "Meet new people and expand your social circle" },
+  { value: "networking", emoji: "🤝",  label: "Networking",   desc: "Connect with professionals and grow your network" },
+  { value: "browsing",   emoji: "👀",  label: "Just Browsing",desc: "Explore without any specific intention" },
+  { value: "hide",       emoji: "❌",  label: "Hide Me",      desc: "Don't show me in Find Gundruk at all" },
+];
+
+function ModeSelectionSheet({
+  visible,
+  userId,
+  onSave,
+}: {
+  visible: boolean;
+  userId: string;
+  onSave: (mode: string) => void;
+}) {
+  const [selected, setSelected] = useState("dating");
+  const slideY = useSharedValue(700);
+
+  useEffect(() => {
+    if (visible) {
+      slideY.value = 700;
+      slideY.value = withSpring(0, { damping: 22, stiffness: 220 });
+    }
+  }, [visible]);
+
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slideY.value }] }));
+
+  const handleSave = async () => {
+    const showInMatching = selected !== "hide";
+    try {
+      await saveGundrukProfile(userId, { find_gundruk_mode: selected, show_in_matching: showInMatching });
+      await AsyncStorage.setItem(`gundruk_mode_selected_${userId}`, new Date().toISOString());
+    } catch {}
+    onSave(selected);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      <View style={modeStyles.overlay}>
+        <Animated.View style={[modeStyles.sheet, sheetStyle]}>
+          <View style={modeStyles.handle} />
+          <View style={modeStyles.header}>
+            <Text style={modeStyles.title}>What are you looking for?</Text>
+            <Text style={modeStyles.subtitle}>This helps us show you the right people</Text>
+          </View>
+          <View style={modeStyles.optionsList}>
+            {MODE_OPTIONS.map((opt) => {
+              const active = selected === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  onPress={() => { setSelected(opt.value); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }}
+                  activeOpacity={0.82}
+                  style={[modeStyles.optionRow, active && modeStyles.optionRowActive]}
+                >
+                  <Text style={modeStyles.optionEmoji}>{opt.emoji}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[modeStyles.optionLabel, active && { color: "#A78BFA" }]}>{opt.label}</Text>
+                    <Text style={modeStyles.optionDesc}>{opt.desc}</Text>
+                  </View>
+                  {active && <Ionicons name="checkmark-circle" size={22} color="#7C3AED" />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity onPress={handleSave} activeOpacity={0.9} style={modeStyles.saveBtn}>
+            <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={modeStyles.saveGrad}>
+              <Text style={modeStyles.saveText}>Continue →</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
+const modeStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.88)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingBottom: 44 },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginTop: 14, marginBottom: 22 },
+  header: { paddingHorizontal: 24, marginBottom: 18 },
+  title: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22, marginBottom: 5 },
+  subtitle: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_400Regular", fontSize: 14 },
+  optionsList: { paddingHorizontal: 16, gap: 8 },
+  optionRow: { flexDirection: "row", alignItems: "center", gap: 14, padding: 15, borderRadius: 18, borderWidth: 1.5, backgroundColor: "rgba(255,255,255,0.04)", borderColor: "rgba(255,255,255,0.08)" },
+  optionRowActive: { backgroundColor: "rgba(124,58,237,0.18)", borderColor: "#7C3AED" },
+  optionEmoji: { fontSize: 24, width: 32, textAlign: "center" },
+  optionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15, marginBottom: 2 },
+  optionDesc: { color: "rgba(255,255,255,0.38)", fontFamily: "Poppins_400Regular", fontSize: 12 },
+  saveBtn: { marginHorizontal: 16, marginTop: 20, borderRadius: 18, overflow: "hidden" },
+  saveGrad: { paddingVertical: 16, alignItems: "center" },
+  saveText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
+});
 
 // ── Setup timing helpers ────────────────────────────────────────────────────
 const SETUP_INTERVAL_DAYS = 365;
@@ -1754,6 +1856,8 @@ function FindVibeContent() {
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showSpeedVibe, setShowSpeedVibe] = useState(false);
+  const [showModeSheet, setShowModeSheet] = useState(false);
+  const [vibePrivacy, setVibePrivacy] = useState("everyone");
   const [showSetup, setShowSetup] = useState(false);
   const [isReturningUser, setIsReturningUser] = useState(false);
   const [initialWizardPrefs, setInitialWizardPrefs] = useState<VibePreferences | undefined>(undefined);
@@ -1775,6 +1879,19 @@ function FindVibeContent() {
     verifiedOnly: false,
   });
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+
+  useEffect(() => {
+    if (!userId) return;
+    // First-time mode selection check
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem(`gundruk_mode_selected_${userId}`);
+        if (!stored) setShowModeSheet(true);
+      } catch {}
+      // Load vibe privacy setting
+      getGundrukProfile(userId).then((p) => setVibePrivacy(p.vibe_request_privacy)).catch(() => {});
+    })();
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) return;
@@ -2015,6 +2132,12 @@ function FindVibeContent() {
         </View>
       )}
 
+      {vibePrivacy === "nobody" && (
+        <TouchableOpacity onPress={() => router.push("/settings" as any)} style={styles.pauseBanner}>
+          <Text style={styles.pauseText}>⏸ Vibe Requests are paused · Tap to change in Settings</Text>
+        </TouchableOpacity>
+      )}
+
       {showUpdateBanner && (
         <TouchableOpacity onPress={handleOpenUpdateWizard} activeOpacity={0.85} style={styles.updateBanner}>
           <LinearGradient colors={["rgba(124,58,237,0.18)", "rgba(249,115,22,0.12)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.updateBannerGrad}>
@@ -2199,6 +2322,11 @@ function FindVibeContent() {
         initialPrefs={initialWizardPrefs}
         lastUpdatedLabel={updateBannerDays > 0 ? `Last updated ${updateBannerDays} days ago` : undefined}
       />
+      <ModeSelectionSheet
+        visible={showModeSheet && !showSetup}
+        userId={userId ?? ""}
+        onSave={() => setShowModeSheet(false)}
+      />
     </View>
   );
 }
@@ -2260,6 +2388,8 @@ const styles = StyleSheet.create({
   updateBannerClose: { padding: 4 },
   anonBanner: { backgroundColor: "rgba(124,58,237,0.2)", marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
   anonText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12, textAlign: "center" },
+  pauseBanner: { backgroundColor: "rgba(249,115,22,0.13)", marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: "rgba(249,115,22,0.28)" },
+  pauseText: { color: "#F97316", fontFamily: "Poppins_600SemiBold", fontSize: 12, textAlign: "center" },
   filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
   filterText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   scoreBadge: { position: "absolute", top: 16, right: 16, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
