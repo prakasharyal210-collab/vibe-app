@@ -1,0 +1,26 @@
+Bundle JavaScript
+
+24s
+
+
+Starting Metro Bundler
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓░░░░░░░░░░░░░ 22.4% ( 58/200)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓░░░░░░░░░░ 38.8% (375/620)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 59.8% (617/801)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 59.8% ( 861/1147)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 79.0% (1295/1457)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 91.9% (1718/1809)
+Android Bundling failed 21329ms node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js (2042 modules)
+SyntaxError: ../../node_modules/.pnpm/expo-file-system@19.0.23_expo@54.0.35_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0_/node_modules/expo-file-system/src/ExpoFileSystem.ts: /home/expo/workingdir/build/node_modules/.pnpm/expo-file-system@19.0.23_expo@54.0.35_react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0_/node_modules/expo-file-system/src/ExpoFileSystem.ts: TypeScript 'declare' fields must first be transformed by @babel/plugin-transform-typescript.
+If you have already enabled that plugin (or '@babel/preset-typescript'), make sure that it runs before any plugin related to additional class features:
+ - @babel/plugin-transform-class-properties
+ - @babel/plugin-transform-private-methods
+ - @babel/plugin-proposal-decorators
+  3 | import type { Directory, File, DownloadOptions } from './ExpoFileSystem.types';
+  4 |
+> 5 | declare class ExpoFileSystemModule extends NativeModule {
+    | ^
+  6 |   FileSystemDirectory: typeof Directory;
+  7 |   FileSystemFile: typeof File;
+  8 |   downloadFileAsync(
+pnpm expo export:embed --eager --platform android --dev false exited with non-zero code: 1
