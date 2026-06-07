@@ -884,14 +884,16 @@ export default function SettingsScreen() {
             sub={showInMatching ? "You appear in matching, nearby & goals" : "You're hidden from all discovery"}
             value={showInMatching}
             onToggle={(v) => {
-              vibeInteracted.current = true; // prevent async load from reverting this
+              vibeInteracted.current = true;
               setShowInMatching(v);
-              if (!v) setFindGundrukMode("hide");
-              else if (findGundrukMode === "hide") setFindGundrukMode("dating");
-              saveGundrukProfile(userId, {
-                show_in_matching: v,
-                find_gundruk_mode: v ? (findGundrukMode === "hide" ? "dating" : findGundrukMode) : "hide",
-              });
+              if (v && findGundrukMode === "hide") {
+                // Turning ON while mode is "Hide Me" → reset mode to Dating
+                setFindGundrukMode("dating");
+                saveGundrukProfile(userId, { show_in_matching: true, find_gundruk_mode: "dating" });
+              } else {
+                // Toggle only changes show_in_matching; mode is untouched
+                saveGundrukProfile(userId, { show_in_matching: v });
+              }
               DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
               showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
             }}
