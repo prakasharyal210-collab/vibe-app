@@ -96,9 +96,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "eas": {
-        "projectId": "d38613d6-8e11-4977-8572-7ca88697f852"
-      }
+      "eas": {}
     },
     "owner": "prakasharyal210"
   }
