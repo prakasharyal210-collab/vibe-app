@@ -706,6 +706,7 @@ export default function SettingsScreen() {
     }).catch(() => {});
 
     getGundrukProfile(userId).then((p) => {
+      console.log('[FindVibe Settings] Loaded from Supabase: show_in_matching =', p.show_in_matching);
       // Only apply DB values if the user hasn't already touched these controls in
       // this session — prevents a slow async response from overwriting a user tap.
       if (!vibeInteracted.current) {
@@ -885,7 +886,10 @@ export default function SettingsScreen() {
             onToggle={(v) => {
               vibeInteracted.current = true;
               setShowInMatching(v);
+              // Write to AsyncStorage immediately as the reliable source of truth
+              AsyncStorage.setItem(`find_vibe_locked_${userId}`, v ? "false" : "true").catch(() => {});
               saveGundrukProfile(userId, { show_in_matching: v });
+              console.log('[FindVibe Settings] Toggle changed: show_in_matching =', v, '→ emitting locked =', !v);
               DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
               showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
             }}

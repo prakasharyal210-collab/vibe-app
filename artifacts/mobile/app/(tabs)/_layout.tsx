@@ -9,6 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  AppState,
   DeviceEventEmitter,
   Modal,
   Platform,
@@ -86,8 +87,6 @@ const toastStyles = StyleSheet.create({
 });
 
 // ── FindVibeLockedSheet ───────────────────────────────────────────────────────
-// Shown whenever the Find Vibe tab is tapped while locked, regardless of
-// whether the user is brand-new or has previously turned it off in settings.
 function FindVibeLockedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
 
@@ -248,6 +247,14 @@ function ClassicTabLayout({
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
 
+  // Use a ref so the listeners function always reads the latest value without
+  // relying on React Navigation to re-subscribe on every prop change.
+  const lockedRef = useRef(findVibeLocked);
+  lockedRef.current = findVibeLocked;
+
+  const onLockedRef = useRef(onLockedTabPress);
+  onLockedRef.current = onLockedTabPress;
+
   return (
     <Tabs
       initialRouteName="feed"
@@ -303,14 +310,16 @@ function ClassicTabLayout({
       />
       <Tabs.Screen
         name="find"
-        listeners={{
+        listeners={({ navigation }) => ({
           tabPress: (e) => {
-            if (findVibeLocked) {
+            // Always reads the latest value via ref — no stale closure
+            console.log('[FindVibe Tab] tabPress fired, lockedRef.current =', lockedRef.current);
+            if (lockedRef.current) {
               e.preventDefault();
-              onLockedTabPress();
+              onLockedRef.current();
             }
           },
-        }}
+        })}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon
@@ -341,6 +350,29 @@ function ClassicTabLayout({
   );
 }
 
+// ── helpers ───────────────────────────────────────────────────────────────────
+async function readLockState(userId: string): Promise<boolean> {
+  // 1. Try AsyncStorage first — settings writes here instantly on toggle
+  try {
+    const cached = await AsyncStorage.getItem(`find_vibe_locked_${userId}`);
+    if (cached !== null) {
+      console.log('[FindVibe Tab] AsyncStorage cache =', cached, '→ locked =', cached === "true");
+      return cached === "true";
+    }
+  } catch {}
+
+  // 2. Fallback: ask Supabase (may return false-negative if migration not run)
+  try {
+    const profile = await getGundrukProfile(userId);
+    console.log('[FindVibe Tab] Supabase show_in_matching =', profile.show_in_matching, '→ locked =', !profile.show_in_matching);
+    return !profile.show_in_matching;
+  } catch {}
+
+  // 3. Safe default: locked
+  console.log('[FindVibe Tab] No source available, defaulting to locked');
+  return true;
+}
+
 // ── TabLayout (root) ──────────────────────────────────────────────────────────
 export default function TabLayout() {
   const { session } = useAuth();
@@ -348,39 +380,42 @@ export default function TabLayout() {
   const [rewardCoins, setRewardCoins] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  // Default to locked (true) until Supabase confirms show_in_matching = true
+  // Default to locked until we read the stored preference
   const [findVibeLocked, setFindVibeLocked] = useState(true);
   const [showLockedSheet, setShowLockedSheet] = useState(false);
   const claimedRef = useRef(false);
   const onboardingRef = useRef(false);
 
-  // Load lock state from Supabase on sign-in
+  // Load lock state: AsyncStorage first (instant, written by settings on toggle),
+  // then Supabase as authoritative override.
   useEffect(() => {
     if (!userId) return;
-    getGundrukProfile(userId)
-      .then((p) => {
-        const locked = !p.show_in_matching;
-        setFindVibeLocked(locked);
-        AsyncStorage.setItem(`find_vibe_locked_${userId}`, locked ? "true" : "false").catch(() => {});
-      })
-      .catch(() => {
-        // Fallback to cached value; if nothing cached, stays locked (safe default)
-        AsyncStorage.getItem(`find_vibe_locked_${userId}`)
-          .then((val) => { if (val === "false") setFindVibeLocked(false); })
-          .catch(() => {});
-      });
+    readLockState(userId).then(setFindVibeLocked).catch(() => {});
   }, [userId]);
 
-  // Listen for real-time lock changes fired by settings.tsx
+  // Re-read lock state whenever app comes back to foreground (e.g. after settings).
   useEffect(() => {
-    const sub = DeviceEventEmitter.addListener(FIND_VIBE_LOCK_EVENT, ({ locked }: { locked: boolean }) => {
-      setFindVibeLocked(locked);
-      if (userId) {
-        AsyncStorage.setItem(`find_vibe_locked_${userId}`, locked ? "true" : "false").catch(() => {});
+    if (!userId) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        console.log('[FindVibe Tab] AppState active → re-reading lock state');
+        readLockState(userId).then(setFindVibeLocked).catch(() => {});
       }
     });
     return () => sub.remove();
   }, [userId]);
+
+  // Listen for real-time lock changes fired by settings.tsx (same JS thread)
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(
+      FIND_VIBE_LOCK_EVENT,
+      ({ locked }: { locked: boolean }) => {
+        console.log('[FindVibe Tab] DeviceEventEmitter received → locked =', locked);
+        setFindVibeLocked(locked);
+      },
+    );
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!userId || claimedRef.current) return;
