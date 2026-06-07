@@ -4,7 +4,7 @@ module.exports = function (api) {
     presets: ["babel-preset-expo"],
     overrides: [
       {
-        test: /node_modules/,
+        test: /node_modules\/.pnpm\/(lru-cache|glob)@/,
         plugins: [
           ["@babel/plugin-transform-class-properties", { loose: true }],
           ["@babel/plugin-transform-private-methods", { loose: true }],
