@@ -1019,7 +1019,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
               </View>
               <View style={styles.cardGoalRow}>
                 {topCard.goal && <GoalPill goal={topCard.goal} />}
-                {myGoals?.length && topCard.goal && myGoals.includes(topCard.goal) && (
+                {!!myGoals?.length && topCard.goal && myGoals.includes(topCard.goal) && (
                   <View style={styles.sameGoalBadge}>
                     <Text style={styles.sameGoalText}>🎯 Same goals</Text>
                   </View>
