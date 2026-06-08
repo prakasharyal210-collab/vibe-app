@@ -4,6 +4,7 @@ module.exports = function (api) {
     presets: [['babel-preset-expo', { unstable_transformImportMeta: true }]],
     overrides: [
       {
+        test: /\.js$/,
         plugins: [
           ['@babel/plugin-transform-class-properties', { loose: true }],
           ['@babel/plugin-transform-private-methods', { loose: true }],
