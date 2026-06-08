@@ -1543,13 +1543,10 @@ export async function sendVibeRequest(
         .from('vibe_requests')
         .update({ status: 'matched', matched_at: new Date().toISOString() })
         .eq('id', (existing as any).id);
+      // vibe_matches uses sender_id / receiver_id (not user_id / matched_user_id)
       await supabase.from('vibe_matches').upsert(
-        { user_id: senderId, matched_user_id: receiverId, status: 'matched' },
-        { onConflict: 'user_id,matched_user_id' }
-      );
-      await supabase.from('vibe_matches').upsert(
-        { user_id: receiverId, matched_user_id: senderId, status: 'matched' },
-        { onConflict: 'user_id,matched_user_id' }
+        { sender_id: senderId, receiver_id: receiverId, status: 'matched' },
+        { onConflict: 'sender_id,receiver_id' }
       );
       return 'matched';
     }
@@ -1768,7 +1765,7 @@ export async function reportContent(
     await supabase.rpc("report_content", { p_reporter_id: myId, p_content_id: contentId, p_content_type: contentType, p_reason: reason });
   } catch {}
   try {
-    await supabase.from("reports").insert({ reporter_id: myId, content_id: contentId, content_type: contentType, reason });
+    await supabase.from("content_reports").insert({ reporter_id: myId, content_id: contentId, content_type: contentType, reason });
   } catch {}
 }
 
@@ -2068,7 +2065,7 @@ export async function getNearbyUsers(
 
 export async function joinVibeRoom(userId: string, roomId: string): Promise<void> {
   try {
-    void supabase.from("room_members").upsert(
+    void supabase.from("vibe_room_members").upsert(
       { user_id: userId, room_id: roomId, joined_at: new Date().toISOString() },
       { onConflict: "user_id,room_id" }
     );
