@@ -21,7 +21,8 @@
     },
     "production": {
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:assembleRelease"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
