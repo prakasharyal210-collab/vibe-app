@@ -2217,7 +2217,7 @@ export async function saveVibeScore(
   score: number,
 ): Promise<void> {
   try {
-    await supabase.from('vibe_scores').upsert(
+    await supabase.from('vibe_compat_scores').upsert(
       { user_id: userId, target_id: targetId, score, computed_at: new Date().toISOString() },
       { onConflict: 'user_id,target_id' },
     );
