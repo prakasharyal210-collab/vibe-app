@@ -6,7 +6,6 @@
   "build": {
     "preview": {
       "distribution": "internal",
-      "channel": "production",
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleRelease"
