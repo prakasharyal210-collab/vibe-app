@@ -12,6 +12,7 @@ import {
   Alert,
   Animated,
   Dimensions,
+  Easing,
   FlatList,
   GestureResponderEvent,
   Image,
@@ -712,7 +713,8 @@ export default function FeedScreen() {
                   if (Math.abs(dy) < 2) return;
                   Animated.timing(headerTranslateY, {
                     toValue: dy > 0 ? -headerHeight : 0,
-                    duration: 180,
+                    duration: 300,
+                    easing: Easing.out(Easing.ease),
                     useNativeDriver: true,
                   }).start();
                 }}
