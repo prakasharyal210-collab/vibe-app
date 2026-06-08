@@ -4,7 +4,13 @@ const path = require('path');
 function patchFile(full) {
   let content = fs.readFileSync(full, 'utf8');
   if (!content.includes('#')) return;
-  const patched = content.replace(/(\s+)#([a-zA-Z_][a-zA-Z0-9_]*)/g, '$1_$2');
+  let patched = content;
+  // Replace private field declarations: #fieldName; or #fieldName =
+  patched = patched.replace(/^(\s+)(#[a-zA-Z_][a-zA-Z0-9_]*)/gm, '$1_PRIV_$2');
+  // Replace this.#fieldName usage
+  patched = patched.replace(/this\.(#[a-zA-Z_][a-zA-Z0-9_]*)/g, 'this._PRIV_$1');
+  // Clean up double prefix from declaration lines that also matched this.#
+  patched = patched.replace(/_PRIV_#/g, '_PRIV_');
   if (patched !== content) {
     fs.writeFileSync(full, patched);
     console.log('Patched:', path.basename(full));
