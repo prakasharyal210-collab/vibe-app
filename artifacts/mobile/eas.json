@@ -6,11 +6,12 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "channel": "production",
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "buildType": "apk"
       },
       "env": {
+        "NODE_ENV": "production",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
@@ -20,11 +21,12 @@
       }
     },
     "production": {
+      "channel": "production",
       "android": {
-        "buildType": "app-bundle",
-        "gradleCommand": ":app:assembleRelease"
+        "buildType": "app-bundle"
       },
       "env": {
+        "NODE_ENV": "production",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
