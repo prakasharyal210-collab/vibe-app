@@ -5,9 +5,10 @@ function patchFile(full) {
   let content = fs.readFileSync(full, 'utf8');
   if (!content.includes('#')) return;
   let patched = content;
-  patched = patched.replace(/^(\s+)(#[a-zA-Z_][a-zA-Z0-9_]*)/gm, '$1_PRIV_$2');
-  patched = patched.replace(/this\.(#[a-zA-Z_][a-zA-Z0-9_]*)/g, 'this._PRIV_$1');
-  patched = patched.replace(/_PRIV_#/g, '_PRIV_');
+  // Handle: spaces + optional modifiers + #field
+  patched = patched.replace(/([ \t]+(?:readonly\s+|private\s+|public\s+|protected\s+|static\s+|abstract\s+)*)#([a-zA-Z_][a-zA-Z0-9_]*)/g, '$1_PRIV_$2');
+  // Handle: this.#field
+  patched = patched.replace(/this\.#([a-zA-Z_][a-zA-Z0-9_]*)/g, 'this._PRIV_$1');
   if (patched !== content) {
     fs.writeFileSync(full, patched);
     console.log('Patched:', path.basename(full));
