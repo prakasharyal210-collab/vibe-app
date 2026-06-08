@@ -580,7 +580,7 @@ export default function FeedScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       {/* Fixed Header */}
       <Animated.View
-        style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background, transform: [{ translateY: headerTranslateY }] }]}
+        style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background, transform: [{ translateY: headerTranslateY }], position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.headerTop}>
@@ -763,7 +763,7 @@ export default function FeedScreen() {
                   }
                   return null;
                 }}
-                contentContainerStyle={{ paddingBottom: 0 }}
+                contentContainerStyle={{ paddingBottom: 0, paddingTop: headerHeight }}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing && activeTab === tab.id}
