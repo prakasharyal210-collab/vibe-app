@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import {
@@ -386,6 +386,14 @@ export default function ProfileScreen() {
     setPostsLoading(true);
     loadMyPosts(session.user.id).finally(() => setPostsLoading(false));
   }, [session?.user?.id]);
+
+  // Re-fetch posts every time this tab is focused (catches posts created on other screens)
+  useFocusEffect(
+    useCallback(() => {
+      if (!session?.user?.id) return;
+      loadMyPosts(session.user.id);
+    }, [session?.user?.id, loadMyPosts])
+  );
 
   useEffect(() => {
     if (!session?.user?.id) return;
