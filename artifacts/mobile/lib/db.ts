@@ -2142,3 +2142,84 @@ export async function fetchSnapConversations(userId: string): Promise<SnapConver
     return Array.from(seen.values());
   } catch { return []; }
 }
+
+// ─── Vibe Swipe Tracking & Anti-Abuse ─────────────────────────────────────────
+
+export const FREE_DAILY_SWIPE_LIMIT = 100;
+export const COOLDOWN_CONSECUTIVE_LEFTS = 20;
+export const COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Record a swipe (left / right / super) in vibe_swipes.
+ * No-op if the table doesn't exist yet — app falls back gracefully.
+ */
+export async function recordVibeSwipe(
+  userId: string,
+  targetId: string,
+  direction: 'left' | 'right' | 'super',
+): Promise<void> {
+  try {
+    await supabase.from('vibe_swipes').upsert(
+      { user_id: userId, target_id: targetId, direction, created_at: new Date().toISOString() },
+      { onConflict: 'user_id,target_id' },
+    );
+  } catch {}
+}
+
+/**
+ * Return how many swipes this user has done in the last 24 hours.
+ */
+export async function getDailySwipeCount(userId: string): Promise<number> {
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await supabase
+      .from('vibe_swipes')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', since);
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Check whether the user is currently in a consecutive-left-swipe cooldown.
+ * Returns true when the last 20 swipes were all left AND the 20th happened
+ * less than COOLDOWN_DURATION_MS ago.
+ */
+export async function checkConsecutiveLeftCooldown(userId: string): Promise<boolean> {
+  try {
+    const { data } = await supabase
+      .from('vibe_swipes')
+      .select('direction, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(COOLDOWN_CONSECUTIVE_LEFTS);
+
+    if (!data || data.length < COOLDOWN_CONSECUTIVE_LEFTS) return false;
+    if (!data.every((s: any) => s.direction === 'left')) return false;
+
+    // 20th-most-recent swipe triggers the cooldown window
+    const oldest = new Date(data[COOLDOWN_CONSECUTIVE_LEFTS - 1].created_at).getTime();
+    return Date.now() - oldest < COOLDOWN_DURATION_MS;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Persist a computed compatibility score for a user–target pair.
+ */
+export async function saveVibeScore(
+  userId: string,
+  targetId: string,
+  score: number,
+): Promise<void> {
+  try {
+    await supabase.from('vibe_scores').upsert(
+      { user_id: userId, target_id: targetId, score, computed_at: new Date().toISOString() },
+      { onConflict: 'user_id,target_id' },
+    );
+  } catch {}
+}

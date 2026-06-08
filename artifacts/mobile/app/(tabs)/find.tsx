@@ -34,6 +34,10 @@ import * as Location from "expo-location";
 import {
   Achievement,
   checkAchievements,
+  COOLDOWN_CONSECUTIVE_LEFTS,
+  COOLDOWN_DURATION_MS,
+  FREE_DAILY_SWIPE_LIMIT,
+  getDailySwipeCount,
   getGoalInfo,
   getGundrukProfile,
   getMyVibeMatches,
@@ -42,6 +46,7 @@ import {
   getUserGoals,
   getVibeMatches,
   getVibePreferences,
+  recordVibeSwipe,
   RELATIONSHIP_GOALS,
   saveGundrukProfile,
   saveUserGoals,
@@ -979,6 +984,25 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
 
+  // ── Swipe limit + cooldown state ──────────────────────────────────────────
+  const [dailySwipeCount, setDailySwipeCount] = useState(0);
+  const [consecutiveLefts, setConsecutiveLefts] = useState(0);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+
+  // Load initial swipe count and any saved cooldown on mount
+  useEffect(() => {
+    if (!userId) return;
+    getDailySwipeCount(userId).then(setDailySwipeCount).catch(() => {});
+    AsyncStorage.getItem(`vibe_cooldown_until:${userId}`)
+      .then((val) => {
+        if (val) {
+          const until = parseInt(val, 10);
+          if (Date.now() < until) setCooldownUntil(until);
+        }
+      })
+      .catch(() => {});
+  }, [userId]);
+
   const proceedAfterIceBreaker = (card: VibeCard) => {
     setIceBreakerCard(null);
     setTimeout(() => setGameCard(card), 300);
@@ -986,10 +1010,63 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
 
   const handleSwipe = useCallback((direction: "left" | "right", isSuper = false) => {
     const card = cards[currentIndex];
+
+    // ── Anti-abuse: cooldown check ───────────────────────────────────────────
+    const isCoolingDown = cooldownUntil !== null && Date.now() < cooldownUntil;
+    if (isCoolingDown) {
+      const minsLeft = Math.ceil((cooldownUntil! - Date.now()) / 60_000);
+      Alert.alert(
+        "Take a breath 💜",
+        `You've been skipping a lot. Come back in ${minsLeft} min${minsLeft !== 1 ? "s" : ""} — the best vibes are worth waiting for!`,
+      );
+      return;
+    }
+
+    // ── Anti-abuse: daily limit check ────────────────────────────────────────
+    if (dailySwipeCount >= FREE_DAILY_SWIPE_LIMIT) {
+      Alert.alert(
+        "Daily vibes used up ✨",
+        `You've sent all ${FREE_DAILY_SWIPE_LIMIT} vibes for today. Come back tomorrow for fresh matches!`,
+      );
+      return;
+    }
+
+    // Advance card
     setCurrentIndex((i) => i + 1);
     translateX.value = 0;
     translateY.value = 0;
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+
+    // ── Update local counters ────────────────────────────────────────────────
+    setDailySwipeCount((c) => c + 1);
+
+    if (direction === "left") {
+      const newConsec = consecutiveLefts + 1;
+      setConsecutiveLefts(newConsec);
+
+      if (newConsec >= COOLDOWN_CONSECUTIVE_LEFTS && userId) {
+        // Trigger 1-hour cooldown
+        const cooldownEnd = Date.now() + COOLDOWN_DURATION_MS;
+        setCooldownUntil(cooldownEnd);
+        setConsecutiveLefts(0);
+        AsyncStorage.setItem(`vibe_cooldown_until:${userId}`, cooldownEnd.toString()).catch(() => {});
+        setTimeout(() => {
+          Alert.alert(
+            "Slow down 💜",
+            "You've been skipping many people in a row! Take a 1-hour break — your perfect vibe is worth the patience.",
+          );
+        }, 400);
+      }
+    } else {
+      setConsecutiveLefts(0);
+    }
+
+    // ── Record swipe in Supabase (fire-and-forget) ───────────────────────────
+    if (userId && card) {
+      recordVibeSwipe(userId, card.id, isSuper ? "super" : direction).catch(() => {});
+    }
+
+    // ── Right-swipe logic (unchanged) ────────────────────────────────────────
     if (direction === "right" && card) {
       if (userId) {
         sendVibeRequest(userId, card.id)
@@ -1015,7 +1092,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
         }
       }
     }
-  }, [cards, currentIndex, userId, translateX, translateY]);
+  }, [cards, currentIndex, userId, translateX, translateY, dailySwipeCount, consecutiveLefts, cooldownUntil]);
 
   const panGesture = useMemo(() => {
     // On web, RNGH tries to serialize worklet callbacks for a native UI thread
@@ -1172,6 +1249,37 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
           <Ionicons name="star" size={24} color="#EAB308" />
         </TouchableOpacity>
       </View>
+
+      {/* Daily swipe counter */}
+      {userId && (
+        <View style={styles.swipeCounterRow}>
+          {cooldownUntil && Date.now() < cooldownUntil ? (
+            <View style={styles.cooldownPill}>
+              <Ionicons name="timer-outline" size={12} color="#EAB308" />
+              <Text style={styles.cooldownText}>
+                Cooldown: {Math.ceil((cooldownUntil - Date.now()) / 60_000)}m
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.swipeBarBg}>
+                <View
+                  style={[
+                    styles.swipeBarFill,
+                    {
+                      width: `${Math.min((dailySwipeCount / FREE_DAILY_SWIPE_LIMIT) * 100, 100)}%` as any,
+                      backgroundColor: dailySwipeCount >= FREE_DAILY_SWIPE_LIMIT * 0.8 ? "#EF4444" : "#7C3AED",
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.swipeCountText}>
+                {Math.max(FREE_DAILY_SWIPE_LIMIT - dailySwipeCount, 0)} vibes left today
+              </Text>
+            </>
+          )}
+        </View>
+      )}
 
       {profileCard && (
         <ProfileModal
@@ -2452,6 +2560,12 @@ const styles = StyleSheet.create({
   historyName: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   historyDate: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   historyStatus: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
+  swipeCounterRow: { position: "absolute", bottom: Platform.OS === "web" ? 58 : 52, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8 },
+  swipeBarBg: { width: 90, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.12)", overflow: "hidden" },
+  swipeBarFill: { height: 3, borderRadius: 2 },
+  swipeCountText: { color: "rgba(255,255,255,0.38)", fontFamily: "Poppins_400Regular", fontSize: 11 },
+  cooldownPill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(234,179,8,0.12)", borderWidth: 1, borderColor: "rgba(234,179,8,0.3)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  cooldownText: { color: "#EAB308", fontFamily: "Poppins_500Medium", fontSize: 11 },
 });
 
 export default function FindVibeScreen() {

@@ -6,3 +6,4 @@
 - [AI caption generator](ai-caption-feature.md) — API route at /api/ai/caption uses claude-sonnet-4-5; AICaptionSheet + VideoEditorSheet wired; ai_caption_requests Supabase table; EXPO_PUBLIC_API_URL="" (empty = relative URL, works via Replit proxy).
 - [EAS Android build fixes](eas-android-build.md) — hermesc linux64-bin (HBC v96, RN 0.81.5) can't compile class declarations OR async arrow functions; babel preset-reversal pattern fixes both.
 - [Find Gundruk privacy settings](find-gundruk-privacy.md) — 3 profile columns (show_in_matching, find_gundruk_mode, vibe_request_privacy); profiles table lives in Supabase not local Drizzle DB; migration SQL at artifacts/mobile/supabase_migration_privacy.sql
+- [Vibe smart matching algorithm](vibe-smart-matching.md) — 100-pt scoring SQL in scripts/vibe-matching-migration.sql; new db.ts exports; find.tsx swipe limits wired in SwipeCardDeck.
