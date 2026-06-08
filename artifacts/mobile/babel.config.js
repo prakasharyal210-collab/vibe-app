@@ -5,10 +5,8 @@ module.exports = function (api) {
     overrides: [
       {
         test: /react-native[\\/]src[\\/]private/,
-        presets: [
-          ['@babel/preset-flow'],
-        ],
         plugins: [
+          require('@babel/plugin-transform-flow-strip-types'),
           ['@babel/plugin-transform-classes', { loose: true }],
           ['@babel/plugin-transform-class-properties', { loose: true }],
           ['@babel/plugin-transform-private-methods', { loose: true }],
