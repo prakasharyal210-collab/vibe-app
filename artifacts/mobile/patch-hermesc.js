@@ -15,11 +15,14 @@ function patchFile(full) {
 
 function patchDir(dir) {
   if (!fs.existsSync(dir)) return;
-  fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) patchDir(full);
-    else if (entry.name.match(/\.(js|ts|tsx)$/)) patchFile(full);
-  });
+    if (entry.isDirectory() && !['android','ios','__tests__','__mocks__'].includes(entry.name)) {
+      patchDir(full);
+    } else if (entry.isFile() && /\.(js|ts|tsx)$/.test(entry.name)) {
+      patchFile(full);
+    }
+  }
 }
 
 let dir = __dirname;
@@ -32,17 +35,23 @@ for (let i = 0; i < 6; i++) {
 if (!pnpmDir) { console.error('pnpm dir not found!'); process.exit(1); }
 console.log('Found pnpm at:', pnpmDir);
 
-fs.readdirSync(pnpmDir).forEach(entry => {
-  if (entry.startsWith('react-native-worklets')) {
-    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native-worklets/src'));
+const PATCH_SCOPES = ['react-native', '@react-native', '@tanstack'];
+
+for (const entry of fs.readdirSync(pnpmDir)) {
+  const pkgDir = path.join(pnpmDir, entry, 'node_modules');
+  if (!fs.existsSync(pkgDir)) continue;
+  for (const pkg of fs.readdirSync(pkgDir)) {
+    const matches = PATCH_SCOPES.some(s => pkg.startsWith(s));
+    if (!matches) continue;
+    const pkgPath = path.join(pkgDir, pkg);
+    // patch scoped packages like @tanstack/query-core
+    if (pkg.startsWith('@')) {
+      for (const sub of fs.readdirSync(pkgPath)) {
+        patchDir(path.join(pkgPath, sub));
+      }
+    } else {
+      patchDir(pkgPath);
+    }
   }
-  if (entry.startsWith('react-native-reanimated')) {
-    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native-reanimated/src'));
-  }
-  if (entry.startsWith('react-native@')) {
-    // Patch ALL of react-native source
-    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries'));
-    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/src'));
-  }
-});
+}
 console.log('Done!');
