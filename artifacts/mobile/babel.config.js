@@ -2,15 +2,5 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: [["babel-preset-expo", { unstable_transformImportMeta: true }]],
-    overrides: [
-      {
-        test: /node_modules.*\.js$/,
-        exclude: /node_modules.*\.(ts|tsx)$/,
-        plugins: [
-          ["@babel/plugin-transform-class-properties", { loose: true }],
-          ["@babel/plugin-transform-private-methods", { loose: true }],
-        ],
-      },
-    ],
   };
 };
