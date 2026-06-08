@@ -44,6 +44,7 @@ fs.readdirSync(pnpmDir).forEach(entry => {
   if (entry.startsWith('react-native@')) {
     patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries/WebPerformance'));
     patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries/DOM'));
+    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/src'));
   }
 });
 console.log('Done!');
