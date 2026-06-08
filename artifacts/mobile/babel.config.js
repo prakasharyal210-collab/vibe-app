@@ -4,7 +4,7 @@ module.exports = function (api) {
     presets: [["babel-preset-expo", { unstable_transformImportMeta: true }]],
     overrides: [
       {
-        test: /node_modules.*react-native.*DOMRectReadOnly\.js$/,
+        test: /node_modules\/.pnpm\/react-native@.*\/node_modules\/react-native\/.*\.js$/,
         plugins: [
           ["@babel/plugin-transform-class-properties", { loose: true }],
           ["@babel/plugin-transform-private-methods", { loose: true }],
