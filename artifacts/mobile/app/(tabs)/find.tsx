@@ -1017,19 +1017,25 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
     }
   }, [cards, currentIndex, userId, translateX, translateY]);
 
-  const panGesture = useMemo(() => Gesture.Pan()
-    .onUpdate((e) => { translateX.value = e.translationX; translateY.value = e.translationY * 0.2; })
-    .onEnd((e) => {
-      const shouldSwipe = Math.abs(translateX.value) > SWIPE_THRESHOLD || Math.abs(e.velocityX) > 600;
-      if (shouldSwipe) {
-        const dir = translateX.value > 0 ? 1 : -1;
-        translateX.value = withTiming(dir * W * 1.5, { duration: 300 });
-        runOnJS(handleSwipe)(dir > 0 ? "right" : "left");
-      } else {
-        translateX.value = withSpring(0, { damping: 15, stiffness: 120 });
-        translateY.value = withSpring(0, { damping: 15, stiffness: 120 });
-      }
-    }), [handleSwipe, translateX, translateY]);
+  const panGesture = useMemo(() => {
+    // On web, RNGH tries to serialize worklet callbacks for a native UI thread
+    // that doesn't exist (JSWorklets mode), throwing createSerializableObject errors.
+    // Skip worklet callbacks on web — the action buttons still work fine.
+    if (Platform.OS === "web") return Gesture.Pan();
+    return Gesture.Pan()
+      .onUpdate((e) => { translateX.value = e.translationX; translateY.value = e.translationY * 0.2; })
+      .onEnd((e) => {
+        const shouldSwipe = Math.abs(translateX.value) > SWIPE_THRESHOLD || Math.abs(e.velocityX) > 600;
+        if (shouldSwipe) {
+          const dir = translateX.value > 0 ? 1 : -1;
+          translateX.value = withTiming(dir * W * 1.5, { duration: 300 });
+          runOnJS(handleSwipe)(dir > 0 ? "right" : "left");
+        } else {
+          translateX.value = withSpring(0, { damping: 15, stiffness: 120 });
+          translateY.value = withSpring(0, { damping: 15, stiffness: 120 });
+        }
+      });
+  }, [handleSwipe, translateX, translateY]);
 
   const topCardStyle = useAnimatedStyle(() => {
     const rotate = interpolate(translateX.value, [-W, 0, W], [-20, 0, 20]);

@@ -10,6 +10,7 @@ import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
+import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -24,6 +25,44 @@ import { ThemeProvider } from "@/context/ThemeContext";
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+// ─── Web landing ─────────────────────────────────────────────────────────────
+// react-native-worklets@0.5.1 JSWorklets mode (web) throws
+// "createSerializableObject should never be called" whenever any
+// useAnimatedStyle / Gesture worklet is initialised.  Short-circuit the
+// entire native app tree on web and show a polished redirect page instead.
+function WebLanding() {
+  return (
+    <View style={wStyles.root}>
+      <View style={wStyles.card}>
+        <Text style={wStyles.logo}>⚡</Text>
+        <Text style={wStyles.appName}>Gundruk</Text>
+        <Text style={wStyles.tagline}>The dark social experience</Text>
+        <Text style={wStyles.body}>
+          Gundruk is a mobile-first app. Scan the QR code in Expo Go or download
+          from the app stores to get the full experience.
+        </Text>
+        <TouchableOpacity
+          style={wStyles.btn}
+          onPress={() => Linking.openURL("https://expo.dev/go")}
+        >
+          <Text style={wStyles.btnText}>Open in Expo Go →</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const wStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#09090B", alignItems: "center", justifyContent: "center", padding: 24 },
+  card: { backgroundColor: "#18181B", borderRadius: 24, padding: 36, alignItems: "center", maxWidth: 380, width: "100%", borderWidth: 1, borderColor: "#27272A" },
+  logo: { fontSize: 56, marginBottom: 12 },
+  appName: { color: "#FAFAFA", fontSize: 32, fontWeight: "700", marginBottom: 4 },
+  tagline: { color: "#7C3AED", fontSize: 15, fontWeight: "600", marginBottom: 20 },
+  body: { color: "#A1A1AA", fontSize: 14, lineHeight: 22, textAlign: "center", marginBottom: 28 },
+  btn: { backgroundColor: "#7C3AED", paddingVertical: 14, paddingHorizontal: 32, borderRadius: 50 },
+  btnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+});
 
 // Key used to signal a downloaded update is ready to apply
 const OTA_READY_KEY = "ota_ready";
@@ -103,6 +142,11 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  // Reanimated v4 + react-native-worklets@0.5.1 crashes on web (JSWorklets
+  // mode throws "createSerializableObject should never be called").
+  // Render a clean mobile-redirect page for web instead.
+  if (Platform.OS === "web") return <WebLanding />;
+
   const [fontsLoaded, fontError] = useFonts({
     Poppins_400Regular,
     Poppins_500Medium,
