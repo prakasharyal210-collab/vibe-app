@@ -41,5 +41,19 @@ Implemented in SQL function ordering boosts (not separate column):
 - new_user_boost: +15 if created_at within 48h
 - visibility_bonus: avatar +10, bio +5, is_online +5
 
+## Real profiles columns (not what old function assumed)
+- `relationship_goal` (not `looking_for`)
+- `last_active` (not `is_online` — compute is_online as last_active >= NOW()-10min)
+- `full_name` (display name, not `display_name`)
+- `location` (not `location_name`)
+- NO `vibe_score`, `vibe_level`, `is_online` columns in profiles
+- vibe_matches columns: id, sender_id, receiver_id, status, created_at (NOT matched_user_id/user_id)
+
+## Supabase remote execution
+- Management API (api.supabase.com) needs a Personal Access Token (PAT), NOT the service role key
+- Service role key works for REST API calls (/rest/v1/rpc/...) but NOT Management API
+- Direct Postgres TCP connections are blocked from Replit's IP range (both db.xxx.supabase.co and pooler)
+- Migration run via: POST api.supabase.com/v1/projects/{ref}/database/query with Bearer PAT
+
 ## Database note
-Supabase Postgres ≠ Replit-managed Postgres (DATABASE_URL). The migration SQL must be run in the Supabase dashboard, not via pnpm push.
+Supabase Postgres ≠ Replit-managed Postgres (DATABASE_URL). The migration SQL must be run via the Management API with a PAT, or pasted into the Supabase SQL Editor.
