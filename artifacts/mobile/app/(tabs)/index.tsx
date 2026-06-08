@@ -494,32 +494,65 @@ export default function ReelsScreen() {
     isVerified: p.profiles?.is_verified ?? false,
   });
 
-  // Helper: fetch posts table as a reel fallback (works for guests too)
-  const loadPostsFallback = async (): Promise<Reel[]> => {
-    const { data } = await supabase
-      .from("posts")
-      .select("*, profiles!user_id(username, avatar_url, is_verified)")
-      .order("created_at", { ascending: false })
-      .limit(30);
-    return (data ?? []).map(postToReel);
+  // Helper: map a reels-table row to the Reel shape
+  const reelRowToReel = (r: any): Reel => ({
+    id: `reel_${r.id}`,
+    image: r.thumbnail_url ?? r.video_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+    username: r.profiles?.username ?? "user",
+    caption: r.caption ?? "",
+    likes: r.likes_count ?? 0,
+    comments: r.comments_count ?? 0,
+    shares: r.shares_count ?? 0,
+    views: r.views_count ?? 0,
+    sound: r.sound_name ?? "Original Sound",
+    isVerified: r.profiles?.is_verified ?? false,
+  });
+
+  // Viral boost: interleave fresh items into a base feed every BOOST_EVERY slots
+  const BOOST_EVERY = 3;
+  const interleaveBoost = (base: Reel[], fresh: Reel[]): Reel[] => {
+    const seen = new Set(base.map((r) => r.id));
+    const queue = fresh.filter((r) => !seen.has(r.id));
+    const result: Reel[] = [];
+    let qi = 0;
+    for (let i = 0; i < base.length; i++) {
+      result.push(base[i]);
+      if ((i + 1) % BOOST_EVERY === 0 && qi < queue.length) {
+        result.push(queue[qi++]);
+      }
+    }
+    while (qi < queue.length) result.push(queue[qi++]);
+    return result;
   };
 
   const loadFeed = useCallback(async () => {
     const uid = session?.user?.id;
 
-    // ── Always fetch the user's own recent posts to prepend ──────────────────
-    let ownPosts: Reel[] = [];
-    if (uid) {
-      try {
-        const { data: mine } = await supabase
+    // ── Viral boost: fetch the 20 most recent posts + reels from ALL users ──
+    // These are interleaved into For You so new users' content goes viral.
+    let freshItems: Reel[] = [];
+    try {
+      const [postsRes, reelsRes] = await Promise.allSettled([
+        supabase
           .from("posts")
           .select("*, profiles!user_id(username, avatar_url, is_verified)")
-          .eq("user_id", uid)
           .order("created_at", { ascending: false })
-          .limit(10);
-        ownPosts = (mine ?? []).map(postToReel);
-      } catch {}
-    }
+          .limit(20),
+        supabase
+          .from("reels")
+          .select("*, profiles!user_id(username, avatar_url, is_verified)")
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+      const freshPosts =
+        postsRes.status === "fulfilled" ? (postsRes.value.data ?? []).map(postToReel) : [];
+      const freshReels =
+        reelsRes.status === "fulfilled" ? (reelsRes.value.data ?? []).map(reelRowToReel) : [];
+      // Merge and sort by recency — zip them together alternating post/reel
+      freshItems = freshPosts
+        .flatMap((p, i) => (freshReels[i] ? [p, freshReels[i]] : [p]))
+        .concat(freshReels.slice(freshPosts.length));
+    } catch {}
 
     // ── For You feed ────────────────────────────────────────────────────────
     let fyLoaded = false;
@@ -540,22 +573,17 @@ export default function ReelsScreen() {
             sound: r.sound_name ?? "Original Sound",
             isVerified: r.is_verified ?? false,
           }));
-          const rpcIds = new Set(rpcReels.map((r) => r.id));
-          const deduped = ownPosts.filter((p) => !rpcIds.has(p.id));
-          setForYouReels([...deduped, ...rpcReels]);
+          setForYouReels(interleaveBoost(rpcReels, freshItems));
         }
       } catch {}
     }
 
-    // Fallback for both guests and logged-in users with no RPC results
+    // Fallback for guests or logged-in users with no RPC results
     if (!fyLoaded) {
-      try {
-        const fallback = await loadPostsFallback();
-        const fallbackIds = new Set(fallback.map((r) => r.id));
-        const deduped = ownPosts.filter((p) => !fallbackIds.has(p.id));
-        const merged = [...deduped, ...fallback];
-        if (merged.length > 0) setForYouReels(merged);
-      } catch {}
+      // freshItems already contains the most recent content — use as feed
+      if (freshItems.length > 0) {
+        setForYouReels(freshItems);
+      }
     }
 
     // ── Following feed (logged-in only) ─────────────────────────────────────
@@ -563,7 +591,7 @@ export default function ReelsScreen() {
       try {
         const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
         if (flData && flData.length > 0) {
-          setFollowingReels(flData.map((r: any) => ({
+          const followingBase: Reel[] = flData.map((r: any) => ({
             id: r.id,
             image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
             username: r.username ?? r.profiles?.username ?? "user",
@@ -574,7 +602,8 @@ export default function ReelsScreen() {
             views: r.views_count ?? 0,
             sound: r.sound_name ?? "Original Sound",
             isVerified: r.is_verified ?? false,
-          })));
+          }));
+          setFollowingReels(interleaveBoost(followingBase, freshItems));
         }
       } catch {}
     }
