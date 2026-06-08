@@ -37,10 +37,10 @@
     },
     "android": {
       "package": "com.prakasharyal.gundruk",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
-        "backgroundColor": "#0A0A0F"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
       },
       "permissions": [
         "android.permission.CAMERA",

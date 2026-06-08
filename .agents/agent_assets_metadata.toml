@@ -5,7 +5,7 @@ outputs = []
 id = "F80vqSawGB6z1YKL6avtZ"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
-title = "generated_image"
+title = "gundruk-app-icon-G-dark-purple"
 
 [[generated]]
 id = "-PPzPN6GokYJbgoLTjjb6"
@@ -24,3 +24,9 @@ id = "3tw41hCJpiPoJDdxaxhtm"
 uri = "file://artifacts/mobile/assets/images/post3.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "dxme2ydbyJuJ6cPpO6NHb"
+uri = "file://artifacts/mobile/assets/images/adaptive-icon.png"
+type = "image"
+title = "gundruk-adaptive-icon-G-dark-purple"
