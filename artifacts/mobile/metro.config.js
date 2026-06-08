@@ -19,8 +19,4 @@ config.transformer = {
     },
   }),
 };
-// Transform react-native/src files through Babel (they use modern JS)
-config.transformer.transformIgnorePatterns = [
-  'node_modules/(?!(react-native/src|react-native/Libraries|react-native-reanimated|react-native-worklets|@react-native)/)',
-];
 module.exports = config;
