@@ -131,13 +131,13 @@ function ModeSelectionSheet({
 
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slideY.value }] }));
 
-  const handleSave = async () => {
+  const handleSave = () => {
     const showInMatching = selected !== "hide";
-    try {
-      await saveGundrukProfile(userId, { find_gundruk_mode: selected, show_in_matching: showInMatching });
-      await AsyncStorage.setItem(`gundruk_mode_selected_${userId}`, new Date().toISOString());
-    } catch {}
+    // Dismiss immediately — don't block on network
     onSave(selected);
+    // Persist in background (fire-and-forget)
+    AsyncStorage.setItem(`gundruk_mode_selected_${userId}`, new Date().toISOString()).catch(() => {});
+    saveGundrukProfile(userId, { find_gundruk_mode: selected, show_in_matching: showInMatching }).catch(() => {});
   };
 
   if (!visible) return null;
