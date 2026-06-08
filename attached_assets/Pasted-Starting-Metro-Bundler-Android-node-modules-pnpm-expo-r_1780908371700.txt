@@ -1,0 +1,90 @@
+Starting Metro Bundler
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓░░░░░░░░░░░░ 25.0% ( 57/160)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓░░░░░░░░░░░ 32.0% (289/536)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓░░░░░░░░░ 46.0% (502/834)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓░░░░░░░░ 50.1% ( 787/1126)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓░░░░ 76.2% (1176/1347)
+Android node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85.7% (1575/1702)
+Android Bundling failed 21224ms node_modules/.pnpm/expo-router@6.0.24_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17__4094ee48018c5b5c8f1246009fce9036/node_modules/expo-router/entry.js (1893 modules)
+SyntaxError: ../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.0_@types+react@19.1.17_react@19.1.0/node_modules/react-native/src/private/setup/setUpDefaultReactNativeEnvironment.js: Cannot find module '@babel/plugin-transform-private-fields'
+Require stack:
+- /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/plugins.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/index.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/index.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/metro-transform-worker.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/transform-worker.js
+- /home/expo/workingdir/build/node_modules/.pnpm/metro@0.83.3/node_modules/metro/src/DeltaBundler/Worker.flow.js
+- /home/expo/workingdir/build/node_modules/.pnpm/metro@0.83.3/node_modules/metro/src/DeltaBundler/Worker.js
+- /home/expo/workingdir/build/node_modules/.pnpm/jest-worker@29.7.0/node_modules/jest-worker/build/workers/processChild.js
+Make sure that all the Babel plugins and presets you are using
+are defined as dependencies or devDependencies in your package.json
+file. It's possible that the missing plugin is loaded by a preset
+you are using that forgot to add the plugin to its dependencies: you
+can workaround this problem by explicitly adding the missing package
+to your top-level package.json.
+Error: Cannot find module '@babel/plugin-transform-private-fields'
+Require stack:
+- /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/plugins.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/index.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/index.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/metro-transform-worker.js
+- /home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/transform-worker.js
+- /home/expo/workingdir/build/node_modules/.pnpm/metro@0.83.3/node_modules/metro/src/DeltaBundler/Worker.flow.js
+- /home/expo/workingdir/build/node_modules/.pnpm/metro@0.83.3/node_modules/metro/src/DeltaBundler/Worker.js
+- /home/expo/workingdir/build/node_modules/.pnpm/jest-worker@29.7.0/node_modules/jest-worker/build/workers/processChild.js
+Make sure that all the Babel plugins and presets you are using
+are defined as dependencies or devDependencies in your package.json
+file. It's possible that the missing plugin is loaded by a preset
+you are using that forgot to add the plugin to its dependencies: you
+can workaround this problem by explicitly adding the missing package
+to your top-level package.json.
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1212:15)
+    at resolve (node:internal/modules/helpers:193:19)
+    at tryRequireResolve (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/plugins.js:128:11)
+    at resolveStandardizedNameForRequire (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/plugins.js:162:19)
+    at resolveStandardizedName (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/plugins.js:183:12)
+    at loadPlugin (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/files/plugins.js:56:7)
+    at loadPlugin.next (<anonymous>)
+    at createDescriptor (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-descriptors.js:140:16)
+    at createDescriptor.next (<anonymous>)
+    at evaluateSync (/home/expo/workingdir/build/node_modules/.pnpm/gensync@1.0.0-beta.2/node_modules/gensync/index.js:251:28)
+    at /home/expo/workingdir/build/node_modules/.pnpm/gensync@1.0.0-beta.2/node_modules/gensync/index.js:31:34
+    at Array.map (<anonymous>)
+    at Function.sync (/home/expo/workingdir/build/node_modules/.pnpm/gensync@1.0.0-beta.2/node_modules/gensync/index.js:31:22)
+    at Function.all (/home/expo/workingdir/build/node_modules/.pnpm/gensync@1.0.0-beta.2/node_modules/gensync/index.js:210:24)
+    at Generator.next (<anonymous>)
+    at createDescriptors (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-descriptors.js:102:41)
+    at createDescriptors.next (<anonymous>)
+    at createPluginDescriptors (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-descriptors.js:99:17)
+    at createPluginDescriptors.next (<anonymous>)
+    at /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/gensync-utils/functional.js:22:27
+    at Generator.next (<anonymous>)
+    at mergeChainOpts (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-chain.js:349:34)
+    at mergeChainOpts.next (<anonymous>)
+    at chainWalker (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-chain.js:316:14)
+    at chainWalker.next (<anonymous>)
+    at loadFileChain (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-chain.js:191:24)
+    at loadFileChain.next (<anonymous>)
+    at mergeExtendsChain (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-chain.js:328:28)
+    at mergeExtendsChain.next (<anonymous>)
+    at chainWalker (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-chain.js:312:20)
+    at chainWalker.next (<anonymous>)
+    at buildRootChain (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/config-chain.js:56:36)
+    at buildRootChain.next (<anonymous>)
+    at loadPrivatePartialConfig (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/partial.js:72:62)
+    at loadPrivatePartialConfig.next (<anonymous>)
+    at loadFullConfig (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/config/full.js:36:46)
+    at loadFullConfig.next (<anonymous>)
+    at /home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/transform-ast.js:20:44
+    at Generator.next (<anonymous>)
+    at evaluateSync (/home/expo/workingdir/build/node_modules/.pnpm/gensync@1.0.0-beta.2/node_modules/gensync/index.js:251:28)
+    at sync (/home/expo/workingdir/build/node_modules/.pnpm/gensync@1.0.0-beta.2/node_modules/gensync/index.js:89:14)
+    at stopHiding - secret - don't use this - v1 (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/errors/rewrite-stack-trace.js:47:12)
+    at Object.transformFromAstSync (/home/expo/workingdir/build/node_modules/.pnpm/@babel+core@7.29.0/node_modules/@babel/core/lib/transform-ast.js:41:83)
+    at parseWithHermes (/home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transformSync.js:72:18)
+    at transformSync (/home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transformSync.js:62:16)
+    at Object.transform (/home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/babel-transformer.js:127:58)
+    at transformJSWithBabel (/home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/metro-transform-worker.js:468:47)
+    at Object.transform (/home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/metro-transform-worker.js:583:12)
+    at Object.transform (/home/expo/workingdir/build/node_modules/.pnpm/@expo+metro-config@54.0.16_expo@54.0.35/node_modules/@expo/metro-config/build/transform-worker/transform-worker.js:178:19)
+pnpm expo export:embed --eager --platform android --dev false exited with non-zero code: 1
