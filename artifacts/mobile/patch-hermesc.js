@@ -1,26 +1,33 @@
 const fs = require('fs');
 const path = require('path');
 
+function patchFile(full) {
+  let content = fs.readFileSync(full, 'utf8');
+  if (!content.includes('#')) return;
+  
+  // Only replace private class fields: must be inside class body
+  // Pattern: line starts with optional spaces, then # followed by identifier
+  const patched = content
+    .replace(/^(\s+)(#[a-zA-Z_][a-zA-Z0-9_]*)\s*;/gm, '$1_$2_PRIV;')
+    .replace(/^(\s+)(#[a-zA-Z_][a-zA-Z0-9_]*)\s*=/gm, '$1_$2_PRIV =')
+    .replace(/this\.(#[a-zA-Z_][a-zA-Z0-9_]*)/g, 'this._$1_PRIV')
+    .replace(/\._#([a-zA-Z_][a-zA-Z0-9_]*)_PRIV/g, '._$1_PRIV');
+  
+  if (patched !== content) {
+    fs.writeFileSync(full, patched);
+    console.log('Patched:', path.basename(full));
+  }
+}
+
 function patchDir(dir) {
   if (!fs.existsSync(dir)) return;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  entries.forEach(entry => {
+  fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) patchDir(full);
-    else if (entry.name.endsWith('.js')) {
-      let content = fs.readFileSync(full, 'utf8');
-      if (content.includes('#')) {
-        const patched = content.replace(/(\s+)#([a-zA-Z_][a-zA-Z0-9_]*)/g, '$1_$2');
-        if (patched !== content) {
-          fs.writeFileSync(full, patched);
-          console.log('Patched:', full);
-        }
-      }
-    }
+    else if (entry.name.endsWith('.js')) patchFile(full);
   });
 }
 
-// Find node_modules - search up from script location
 let dir = __dirname;
 let pnpmDir = null;
 for (let i = 0; i < 6; i++) {
