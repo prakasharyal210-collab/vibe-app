@@ -522,6 +522,26 @@ export default function InboxScreen() {
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <ConversationItem convo={item} />}
+            ListHeaderComponent={
+              <TouchableOpacity
+                onPress={() => router.push("/ai-chat" as any)}
+                style={[styles.convoItem, { borderBottomColor: colors.border }]}
+                activeOpacity={0.75}
+              >
+                <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(124,58,237,0.18)", borderWidth: 2, borderColor: "#7C3AED", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ fontSize: 22 }}>🤖</Text>
+                </View>
+                <View style={styles.convoText}>
+                  <View style={styles.convoHeader}>
+                    <Text style={[styles.convoName, styles.convoNameBold, { color: colors.foreground }]}>Gundruk AI</Text>
+                    <Text style={[styles.convoTime, { color: "#10B981" }]}>● Online</Text>
+                  </View>
+                  <Text style={[styles.convoMessage, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    Ask me anything — captions, bio, date ideas...
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            }
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Ionicons name="chatbubbles-outline" size={52} color={colors.mutedForeground} />

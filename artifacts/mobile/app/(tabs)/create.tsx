@@ -7,6 +7,7 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -31,6 +32,7 @@ import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { useAuth } from "@/context/AuthContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { Track } from "@/lib/music";
+import { callAI, parseAIJson } from "@/lib/ai";
 
 const { width: W, height: H } = Dimensions.get("window");
 
@@ -207,6 +209,8 @@ export default function CreateScreen() {
   const [liveTitle, setLiveTitle] = useState("");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
+  const [aiModal, setAiModal] = useState<{ type: "idea" | "script"; content: string[] } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const mode = MODES[modeIdx];
   const hasPermission = !!(camPermission?.granted && micPermission?.granted);
@@ -585,6 +589,44 @@ export default function CreateScreen() {
               <Text style={s.sideLabel}>Beauty</Text>
             </TouchableOpacity>
 
+            {mode === "Post" && (
+              <TouchableOpacity
+                style={s.sideTool}
+                disabled={aiLoading}
+                onPress={async () => {
+                  setAiLoading(true);
+                  const result = await callAI("story_idea", {});
+                  setAiLoading(false);
+                  const parsed = parseAIJson<{ ideas?: string[] }>(result, {});
+                  if (parsed.ideas) setAiModal({ type: "idea", content: parsed.ideas });
+                }}
+              >
+                <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
+                  {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="bulb-outline" size={22} color="#A78BFA" />}
+                </View>
+                <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
+              </TouchableOpacity>
+            )}
+
+            {mode === "Video" && (
+              <TouchableOpacity
+                style={s.sideTool}
+                disabled={aiLoading}
+                onPress={async () => {
+                  setAiLoading(true);
+                  const result = await callAI("reel_script", { topic: "my reel", duration: selectedDuration });
+                  setAiLoading(false);
+                  const parsed = parseAIJson<{ script?: string[] }>(result, {});
+                  if (parsed.script) setAiModal({ type: "script", content: parsed.script });
+                }}
+              >
+                <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
+                  {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="document-text-outline" size={22} color="#A78BFA" />}
+                </View>
+                <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Script</Text>
+              </TouchableOpacity>
+            )}
+
           </Animated.View>
         )}
 
@@ -782,6 +824,33 @@ export default function CreateScreen() {
         onGoToProfile={() => { setShowCelebration(false); router.navigate("/(tabs)/profile" as any); }}
         onClose={() => setShowCelebration(false)}
       />
+
+      {/* AI Content Modal */}
+      {aiModal && (
+        <Modal transparent animationType="slide" onRequestClose={() => setAiModal(null)}>
+          <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" }}>
+            <View style={{ backgroundColor: "#0F0F1A", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16, marginBottom: 16 }}>
+                {aiModal.type === "idea" ? "✨ Story Ideas" : "✨ Reel Script"}
+              </Text>
+              {aiModal.content.map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => setAiModal(null)}
+                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.3)", marginBottom: 10 }}
+                >
+                  <Text style={{ color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 20 }}>
+                    {aiModal.type === "script" ? `${i + 1}. ` : ""}{item}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => setAiModal(null)} style={{ marginTop: 8, alignItems: "center" }}>
+                <Text style={{ color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_500Medium", fontSize: 14 }}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </>
   );
 }

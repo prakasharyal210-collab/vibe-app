@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ScrollView,
   View,
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -33,6 +34,7 @@ import {
   uploadSnapToStorage,
 } from "@/lib/snap";
 import { Message, supabase, timeAgo } from "@/lib/supabase";
+import { callAI, parseAIJson } from "@/lib/ai";
 
 // ─── SnapBubble ────────────────────────────────────────────────────────────────
 
@@ -312,6 +314,7 @@ export default function ChatScreen() {
     messageId: string;
     msgText: string;
   } | null>(null);
+  const [smartReplies, setSmartReplies] = useState<string[]>([]);
 
   const flatRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -386,6 +389,22 @@ export default function ChatScreen() {
       supabase.removeChannel(channel);
     };
   }, [myId, otherId]);
+
+  // ── Smart reply suggestions ────────────────────────────────────────────────
+  useEffect(() => {
+    const lastFromThem = [...messages].reverse().find(
+      (m) => m.sender_id === otherId && !isSnap(m.text),
+    );
+    if (!lastFromThem) { setSmartReplies([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const result = await callAI("smart_reply", { lastMessage: lastFromThem.text }, { noCache: true });
+      if (cancelled) return;
+      const parsed = parseAIJson<{ replies?: string[] }>(result, {});
+      setSmartReplies(parsed.replies ?? []);
+    }, 700);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [messages.length, otherId]);
 
   // ── Send text ──────────────────────────────────────────────────────────────
   const send = useCallback(async () => {
@@ -586,6 +605,30 @@ export default function ChatScreen() {
             <Text style={chatStyles.vibeBannerText}>
               💜 You and {username} matched — say hi!
             </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+              <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 4 }}>
+                {[
+                  { label: "🎲 Icebreakers", type: "icebreakers" },
+                  { label: "💬 Starters", type: "conversation_starters" },
+                  { label: "💡 Date Ideas", type: "date_ideas" },
+                ].map((btn) => (
+                  <TouchableOpacity
+                    key={btn.type}
+                    onPress={async () => {
+                      const result = await callAI(btn.type, { theirName: username, sharedInterests: [] });
+                      const key = btn.type === "icebreakers" ? "questions" : btn.type === "conversation_starters" ? "starters" : "ideas";
+                      const parsed = parseAIJson<Record<string, unknown[]>>(result, {});
+                      const items = (parsed[key] ?? []) as Array<string | { title?: string }>;
+                      const first = typeof items[0] === "string" ? items[0] : (items[0] as any)?.title ?? "";
+                      if (first) setText(first);
+                    }}
+                    style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(124,58,237,0.5)" }}
+                  >
+                    <Text style={{ color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 11 }}>{btn.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
           </LinearGradient>
         </View>
       )}
@@ -660,6 +703,23 @@ export default function ChatScreen() {
               flatRef.current?.scrollToEnd({ animated: false });
           }}
         />
+
+        {/* Smart Reply Pills */}
+        {smartReplies.length > 0 && !text && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 8, paddingBottom: 4 }}>
+            <View style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
+              {smartReplies.map((r, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => { setText(r); setSmartReplies([]); }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.35)" }}
+                >
+                  <Text style={{ color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12 }}>{r}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        )}
 
         {/* Input bar */}
         <View

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { callAI, parseAIJson } from "@/lib/ai";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -846,6 +847,8 @@ interface FilterState {
 function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }) {
   const opacity = useSharedValue(0);
   const scale = useSharedValue(0.6);
+  const [icebreakers, setIcebreakers] = useState<string[]>([]);
+  const [ibLoading, setIbLoading] = useState(false);
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 350 });
@@ -888,6 +891,38 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
         >
           <Text style={matchStyles.messageBtnText}>💬 Send Message</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={async () => {
+            if (ibLoading) return;
+            setIbLoading(true);
+            const result = await callAI("icebreakers", {
+              sharedInterests: card.matchInterests ?? card.interests?.slice(0, 3) ?? [],
+              theirName: card.name,
+            });
+            setIbLoading(false);
+            const parsed = parseAIJson<{ questions?: string[] }>(result, {});
+            setIcebreakers(parsed.questions?.slice(0, 3) ?? []);
+          }}
+          style={matchStyles.ibBtn}
+        >
+          <Text style={matchStyles.ibBtnText}>{ibLoading ? "Thinking..." : "🎲 Get Icebreakers"}</Text>
+        </TouchableOpacity>
+        {icebreakers.length > 0 && (
+          <View style={matchStyles.ibList}>
+            {icebreakers.map((q, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => {
+                  onClose();
+                  router.push({ pathname: "/chat/[userId]", params: { userId: card.id, username: card.name, isVibeMatch: "true" } });
+                }}
+                style={matchStyles.ibItem}
+              >
+                <Text style={matchStyles.ibItemText}>"{q}"</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         <TouchableOpacity onPress={onClose} style={matchStyles.keepBtn}>
           <Text style={matchStyles.keepBtnText}>Keep Swiping ✨</Text>
         </TouchableOpacity>
@@ -911,6 +946,11 @@ const matchStyles = StyleSheet.create({
   messageBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
   keepBtn: { paddingVertical: 8 },
   keepBtnText: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  ibBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: "rgba(124,58,237,0.5)", backgroundColor: "rgba(124,58,237,0.15)", marginBottom: 12 },
+  ibBtnText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  ibList: { width: "100%", gap: 8, marginBottom: 12 },
+  ibItem: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" },
+  ibItemText: { color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 18, fontStyle: "italic" },
 });
 
 const ICE_BREAKERS = [

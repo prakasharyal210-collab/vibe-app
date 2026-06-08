@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { callAI } from "@/lib/ai";
 
 const PRONOUNS = ["he/him", "she/her", "they/them", "he/they", "she/they", "any/all", "prefer not to say"];
 
@@ -38,6 +39,7 @@ export default function EditProfileScreen() {
   const [location, setLocation] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [showPronouns, setShowPronouns] = useState(false);
+  const [writingBio, setWritingBio] = useState(false);
 
   useEffect(() => {
     if (!session?.user?.id) { setLoading(false); return; }
@@ -189,6 +191,20 @@ export default function EditProfileScreen() {
               />
             </View>
             <Text style={[styles.charCount, { color: colors.mutedForeground }]}>{bio.length}/150</Text>
+            <TouchableOpacity
+              onPress={async () => {
+                setWritingBio(true);
+                const result = await callAI("bio_writer", { fullName, username });
+                setWritingBio(false);
+                if (result) setBio(result.replace(/^["']|["']$/g, "").slice(0, 150));
+              }}
+              disabled={writingBio}
+              style={{ marginTop: 8, flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.4)" }}
+            >
+              {writingBio
+                ? <ActivityIndicator size="small" color="#A78BFA" />
+                : <Text style={{ color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>✨ Write My Bio</Text>}
+            </TouchableOpacity>
           </View>
 
           <Field label="Website" value={website} onChange={setWebsite} placeholder="https://" autoCapitalize="none" keyboardType="url" colors={colors} />

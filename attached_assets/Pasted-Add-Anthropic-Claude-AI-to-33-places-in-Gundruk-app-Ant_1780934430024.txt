@@ -1,0 +1,88 @@
+Add Anthropic Claude AI to 33 places in Gundruk app:
+Anthropic API Key: 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
+API Call template to use everywhere:
+javascriptconst callClaude = async (prompt) => {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  const data = await response.json();
+  return data.content[0].text;
+};
+
+CONTENT CREATION:
+
+Caption Generator — In post creation screen, add "✨ Generate Caption" button. Claude generates 3 caption options. User picks one.
+Hashtag Suggestions — Below caption input, add "✨ Suggest Hashtags" button. Claude returns 10 relevant hashtags.
+Bio Writer — In Edit Profile, add "✨ Write My Bio" button. Ask user 3 questions then Claude writes their bio.
+Story Ideas — In story creator, add "✨ Story Idea" button. Claude suggests what to post based on time of day.
+Reel Script Writer — In reel creator, add "✨ Write Script" button. Claude writes a short script for the reel topic.
+Post Title Suggestions — When creating a post, Claude suggests 3 title options.
+
+
+SEARCH & DISCOVERY:
+
+Smart Search — When user searches, send query to Claude to understand natural language and return relevant posts/users/hashtags.
+Auto Suggestions — As user types in search bar, Claude shows smart suggestions in a dropdown.
+Find Similar — On any post, add "Find Similar" option. Claude finds posts with similar content/vibe.
+Trending Topics — On explore page, Claude generates trending topic suggestions based on recent activity.
+
+
+CHAT & MESSAGING:
+
+Gundruk AI Chatbot — Add special "🤖 Gundruk AI" contact in messages list. Users can chat with Claude for help, ideas, and fun.
+Smart Reply Suggestions — In DMs, show 3 quick AI reply suggestions at bottom. One tap to send.
+Message Translation — In DMs, add translate button on each message. Claude translates to user's language.
+Tone Detector — Before sending a message, Claude warns if message sounds rude or aggressive. "This might sound harsh, rephrase?"
+
+
+FIND VIBE:
+
+Icebreaker Questions — After two users match, Claude generates 5 personalized icebreaker questions based on their shared interests.
+Compatibility Description — Show AI-written compatibility summary. "You both love music, travel and food — 87% compatible!"
+Conversation Starters — In match chat, show "💬 Conversation Starters" button. Claude suggests 3 openers.
+Date Ideas — In match chat, show "💡 Date Ideas" button. Claude suggests meetup ideas based on shared interests.
+
+
+SAFETY & MODERATION:
+
+Content Moderation — Before any post/comment goes live, Claude checks for hate speech, inappropriate content, spam. Auto-block if detected.
+Spam Detection — Claude detects spam accounts and fake profiles automatically.
+Hate Speech Detection — Claude scans all new content and flags anything harmful.
+Report Analysis — When user reports content, Claude analyzes if it actually violates rules and auto-resolves obvious cases.
+
+
+PERSONALIZATION:
+
+Feed Curation — Claude analyzes user behavior and personalizes their For You feed content.
+You Might Like — On profile and explore page, Claude recommends users to follow based on interests.
+Interest Detection — Claude detects user interests from their activity and updates their profile automatically.
+Best Time to Post — In post creation, Claude suggests the best time to post for maximum engagement.
+
+
+CREATOR TOOLS:
+
+Video Description Writer — In reel upload, add "✨ Write Description" button. Claude writes engaging description.
+Thumbnail Text — Claude suggests text to add on video thumbnails for more clicks.
+Engagement Tips — After posting, Claude gives creator tips. "Add more hashtags to reach more people!"
+Analytics Summary — Claude writes a plain English summary of post performance. "Your last 5 posts got 20% more likes than usual!"
+
+
+USER ONBOARDING:
+
+Welcome Guide — New users get an AI welcome message from Gundruk AI explaining how to use the app.
+Interest Setup Assistant — During signup, Claude asks questions and sets up user interests automatically.
+Profile Setup Tips — Claude gives new users tips to complete their profile. "Add a profile photo to get 3x more matches!"
+
+
+Important:
+
+Show a loading spinner while Claude is thinking
+If Claude API fails, silently fail and hide the AI button — don't crash the app
+Cache Claude responses for 1 hour to save API calls
+Don't change any existing features — only ADD these AI features on top
