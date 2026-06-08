@@ -377,6 +377,8 @@ export default function FeedScreen() {
   const isScrollingPager = useRef(false);
   const [headerHeight, setHeaderHeight] = useState(120);
   const snapH = H - headerHeight - (Platform.OS === "web" ? 84 : insets.bottom + 50);
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
 
   const friendsSwipePan = useRef(
     PanResponder.create({
@@ -577,8 +579,8 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       {/* Fixed Header */}
-      <View
-        style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background }]}
+      <Animated.View
+        style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background, transform: [{ translateY: headerTranslateY }] }]}
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.headerTop}>
@@ -661,7 +663,7 @@ export default function FeedScreen() {
           />
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
         </Animated.View>
-      </View>
+      </Animated.View>
 
       {/* Swipeable Tab Pages */}
       <Animated.ScrollView
@@ -701,6 +703,19 @@ export default function FeedScreen() {
                 decelerationRate="fast"
                 snapToAlignment="start"
                 getItemLayout={(_data, index) => ({ length: snapH, offset: snapH * index, index })}
+                scrollEventThrottle={16}
+                onScroll={(e) => {
+                  if (activeTabIndex !== tabIndex) return;
+                  const y = e.nativeEvent.contentOffset.y;
+                  const dy = y - lastScrollY.current;
+                  lastScrollY.current = y;
+                  if (Math.abs(dy) < 2) return;
+                  Animated.timing(headerTranslateY, {
+                    toValue: dy > 0 ? -headerHeight : 0,
+                    duration: 180,
+                    useNativeDriver: true,
+                  }).start();
+                }}
                 ListHeaderComponent={() => {
                   if (isTrending) {
                     return (
