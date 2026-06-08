@@ -195,48 +195,6 @@ const efStyles = StyleSheet.create({
   saveText: { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
 });
 
-// ─── SettingRow / SectionHeader ───────────────────────────────────────────────
-
-interface SettingRowProps {
-  icon: string; iconColor?: string; label: string; sub?: string;
-  value?: boolean; onToggle?: (v: boolean) => void;
-  onPress?: () => void; danger?: boolean; disabled?: boolean; colors: any;
-}
-
-function SettingRow({ icon, iconColor = "#7C3AED", label, sub, value, onToggle, onPress, danger, disabled, colors }: SettingRowProps) {
-  return (
-    <TouchableOpacity
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled || (!onPress && onToggle === undefined)}
-      activeOpacity={0.75}
-      style={[styles.row, { borderBottomColor: colors.border }, disabled && { opacity: 0.4 }]}
-    >
-      <View style={[styles.rowIcon, { backgroundColor: (danger ? "#EF4444" : iconColor) + "22" }]}>
-        <Ionicons name={icon as any} size={18} color={danger ? "#EF4444" : iconColor} />
-      </View>
-      <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: danger ? "#EF4444" : colors.foreground }]}>{label}</Text>
-        {sub ? <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{sub}</Text> : null}
-      </View>
-      {onToggle !== undefined ? (
-        <Switch value={value} onValueChange={onToggle} trackColor={{ true: "#7C3AED" }} thumbColor="#fff" />
-      ) : disabled ? (
-        <Ionicons name="lock-closed" size={16} color={colors.mutedForeground} />
-      ) : onPress ? (
-        <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-      ) : null}
-    </TouchableOpacity>
-  );
-}
-
-function SectionHeader({ label, colors }: { label: string; colors: any }) {
-  return (
-    <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
-      <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>{label}</Text>
-    </View>
-  );
-}
-
 // ─── SwitchAccountsModal ──────────────────────────────────────────────────────
 
 function SwitchAccountsModal({
@@ -662,7 +620,6 @@ export default function SettingsScreen() {
   const [notifMentions, setNotifMentions] = useState(true);
   const [restrictedMode, setRestrictedMode] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
-  const [textSize, setTextSize] = useState("medium");
   const [language, setLanguage] = useState("en");
   const [screenTime, setScreenTime] = useState("none");
 
@@ -670,24 +627,19 @@ export default function SettingsScreen() {
   const [showInMatching, setShowInMatching] = useState(true);
   const [findGundrukMode, setFindGundrukMode] = useState("dating");
   const [vibeRequestPrivacy, setVibeRequestPrivacy] = useState("everyone");
-  // Guard: once the user has interacted, don't let the async initial DB load override their choice
   const vibeInteracted = useRef(false);
 
-  // Picker visibility
+  // Picker / modal visibility
   const [showCommentPicker, setShowCommentPicker] = useState(false);
   const [showMessagePicker, setShowMessagePicker] = useState(false);
   const [showDuetPicker, setShowDuetPicker] = useState(false);
-  const [showTextSizePicker, setShowTextSizePicker] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showScreenTimePicker, setShowScreenTimePicker] = useState(false);
   const [showModePicker, setShowModePicker] = useState(false);
   const [showVibePrivacyPicker, setShowVibePrivacyPicker] = useState(false);
-
-  // Modal screens
   const [showSwitchAccounts, setShowSwitchAccounts] = useState(false);
   const [showBlockedAccounts, setShowBlockedAccounts] = useState(false);
   const [showRestrictedAccounts, setShowRestrictedAccounts] = useState(false);
-
   const [editField, setEditField] = useState<{ title: string; label: string; value?: string; isPassword?: boolean } | null>(null);
 
   const persistSetting = useCallback((patch: Partial<UserSettings>) => {
@@ -695,7 +647,6 @@ export default function SettingsScreen() {
     saveUserSettings(userId, patch);
   }, [userId]);
 
-  // Load settings + save current account to AsyncStorage
   useEffect(() => {
     if (!userId) return;
     fetchUserSettings(userId).then((s) => {
@@ -712,9 +663,6 @@ export default function SettingsScreen() {
     }).catch(() => {});
 
     getGundrukProfile(userId).then((p) => {
-      console.log('[FindVibe Settings] Loaded from Supabase: show_in_matching =', p.show_in_matching);
-      // Only apply DB values if the user hasn't already touched these controls in
-      // this session — prevents a slow async response from overwriting a user tap.
       if (!vibeInteracted.current) {
         setShowInMatching(p.show_in_matching);
         setFindGundrukMode(p.find_gundruk_mode);
@@ -722,7 +670,6 @@ export default function SettingsScreen() {
       }
     }).catch(() => {});
 
-    // Persist the current account so SwitchAccounts can list it
     if (session?.access_token && session?.refresh_token) {
       saveAccount({
         id: userId,
@@ -756,25 +703,70 @@ export default function SettingsScreen() {
     Linking.openURL(url).catch(() => Alert.alert(title, `Visit: ${url}`));
   };
 
-  const screenTimeLabel = SCREEN_TIME_OPTIONS.find((o) => o.value === screenTime)?.label ?? "No limit";
-  const textSizeLabel = TEXT_SIZE_OPTIONS.find((o) => o.value === textSize)?.label ?? "Medium";
   const langLabel = LANGUAGE_OPTIONS.find((o) => o.value === language)?.label ?? "English";
+
+  // ── Sub-component: section label ─────────────────────────────────────────────
+  const SecLabel = ({ label }: { label: string }) => (
+    <Text style={[styles.secLabel, { color: colors.mutedForeground }]}>{label}</Text>
+  );
+
+  // ── Sub-component: grouped card rows ─────────────────────────────────────────
+  const Card = ({ children }: { children: React.ReactNode }) => (
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {children}
+    </View>
+  );
+
+  // ── Sub-component: single row inside a Card ───────────────────────────────────
+  const Row = ({
+    icon, iconBg, label, sub, isLast = false,
+    onPress, rightEl,
+  }: {
+    icon: string; iconBg: string; label: string; sub?: string;
+    isLast?: boolean; onPress?: () => void; rightEl?: React.ReactNode;
+  }) => (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+      style={[styles.row, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+    >
+      <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon as any} size={17} color="#fff" />
+      </View>
+      <View style={styles.rowText}>
+        <Text style={[styles.rowLabel, { color: colors.foreground }]}>{label}</Text>
+        {sub ? <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{sub}</Text> : null}
+      </View>
+      {rightEl ?? (onPress ? <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} /> : null)}
+    </TouchableOpacity>
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()}>
+      {/* ── Header ── */}
+      <View style={[styles.header, { paddingTop: topInset + 6, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={26} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
         <View style={{ width: 26 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 72 }}>
+
+        {/* ── Profile card ── */}
         <TouchableOpacity
-          onPress={() => setEditField({ title: "Edit Profile", label: "Display name", value: emailUsername })}
-          style={[styles.profileRow, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <UserAvatar username={emailUsername} size={52} />
+          onPress={() => router.push("/edit-profile" as any)}
+          activeOpacity={0.8}
+          style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
+          <View style={styles.profileAvatarWrap}>
+            <UserAvatar username={emailUsername} size={56} />
+            <View style={styles.profileEditDot}>
+              <Ionicons name="pencil" size={10} color="#fff" />
+            </View>
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.profileName, { color: colors.foreground }]}>{emailUsername}</Text>
             <Text style={[styles.profileEmail, { color: colors.mutedForeground }]}>{userEmail || "Not signed in"}</Text>
@@ -782,163 +774,212 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
 
-        <SectionHeader label="APPEARANCE" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="color-palette-outline" iconColor={colors.primary} label="Theme" sub={`${theme.name} ${theme.emoji}`} onPress={() => router.push("/theme" as any)} colors={colors} />
+        {/* ════════════════════════════════════════════════════
+            ACCOUNT
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Account" />
+          <Card>
+            <Row icon="person-outline" iconBg="#7C3AED" label="Edit Profile"
+              sub="Update your photo, bio & name"
+              onPress={() => router.push("/edit-profile" as any)} />
+            <Row icon="lock-closed-outline" iconBg="#5B21B6" label="Change Password"
+              sub="Update your account password"
+              onPress={() => setEditField({ title: "Change Password", label: "New password", isPassword: true })} />
+            <Row icon="mail-outline" iconBg="#6D28D9" label="Email & Phone"
+              sub={userEmail || "Add email"}
+              onPress={() => setEditField({ title: "Change Email", label: "New email address", value: userEmail })}
+              isLast />
+          </Card>
         </View>
 
-        <SectionHeader label="ACCOUNT" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="person-outline" label="Username" sub={`@${emailUsername}`} onPress={() => setEditField({ title: "Change Username", label: "New username", value: emailUsername })} colors={colors} />
-          <SettingRow icon="mail-outline" label="Email" sub={userEmail || "—"} onPress={() => setEditField({ title: "Change Email", label: "New email address", value: userEmail })} colors={colors} />
-          <SettingRow icon="call-outline" label="Phone Number" sub="Add phone number" onPress={() => setEditField({ title: "Phone Number", label: "Phone number (+1 234 567 8900)" })} colors={colors} />
-          <SettingRow icon="lock-closed-outline" label="Password" sub="Change your password" onPress={() => setEditField({ title: "Change Password", label: "New password", isPassword: true })} colors={colors} />
-          <SettingRow
-            icon="people-outline"
-            label="Switch Accounts"
-            sub="Quickly switch between accounts"
+        {/* ════════════════════════════════════════════════════
+            CONTENT & ACTIVITY
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Content & Activity" />
+          <Card>
+            <Row icon="heart-outline" iconBg="#EC4899" label="Liked Posts"
+              sub={likedPrivate ? "Private — only you can see" : "Visible on your profile"}
+              rightEl={
+                <Switch
+                  value={!likedPrivate}
+                  onValueChange={(v) => { setLikedPrivate(!v); persistSetting({ liked_private: !v }); }}
+                  trackColor={{ false: colors.border, true: "#7C3AED" }}
+                  thumbColor="#fff"
+                />
+              } />
+            <Row icon="bookmark-outline" iconBg="#DB2777" label="Saved Posts"
+              sub="Posts you've bookmarked"
+              onPress={() => showToast("Saved posts coming soon 📌")} />
+            <Row icon="archive-outline" iconBg="#9D174D" label="Archive"
+              sub="Your archived content"
+              onPress={() => showToast("Archive coming soon 📦")}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
+            PRIVACY & SECURITY
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Privacy & Security" />
+          <Card>
+            <Row icon="shield-outline" iconBg="#0EA5E9" label="Privacy Settings"
+              sub={privateAccount ? "Private account" : "Public account"}
+              onPress={() => {
+                const next = !privateAccount;
+                Alert.alert(
+                  next ? "Switch to Private?" : "Switch to Public?",
+                  next
+                    ? "Only approved followers can see your posts."
+                    : "Anyone can see your content.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: next ? "Make Private" : "Make Public", onPress: () => { setPrivateAccount(next); persistSetting({ private_account: next }); showToast(next ? "Account is now private 🔒" : "Account is now public 🌍"); } },
+                  ]
+                );
+              }} />
+            <Row icon="ban-outline" iconBg="#EF4444" label="Blocked Users"
+              sub="Manage blocked accounts"
+              onPress={() => setShowBlockedAccounts(true)} />
+            <Row icon="finger-print-outline" iconBg="#F97316" label="Two-Factor Authentication"
+              sub="Extra layer of security"
+              onPress={() => Alert.alert("Two-Factor Authentication", "Set up 2FA via your email or authenticator app to protect your account.")}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
+            NOTIFICATIONS
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Notifications" />
+          <Card>
+            <Row icon="notifications-outline" iconBg="#8B5CF6" label="Push Notifications"
+              sub={[notifLikes && "Likes", notifComments && "Comments", notifFollows && "Follows"].filter(Boolean).join(" · ") || "All off"}
+              onPress={() => {
+                Alert.alert(
+                  "Push Notifications",
+                  "Manage which push notifications you receive.",
+                  [
+                    { text: "Likes", onPress: () => { const v = !notifLikes; setNotifLikes(v); persistSetting({ notif_likes: v }); showToast(v ? "Likes notifications on ✅" : "Likes notifications off"); } },
+                    { text: "Comments", onPress: () => { const v = !notifComments; setNotifComments(v); persistSetting({ notif_comments: v }); showToast(v ? "Comments notifications on ✅" : "Comments notifications off"); } },
+                    { text: "Done", style: "cancel" },
+                  ]
+                );
+              }} />
+            <Row icon="mail-unread-outline" iconBg="#7C3AED" label="Email Notifications"
+              sub="Digest, activity & security alerts"
+              onPress={() => Alert.alert("Email Notifications", "Manage email notification preferences in your account settings on web.")}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
+            APP SETTINGS
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="App Settings" />
+          <Card>
+            <Row icon="color-palette-outline" iconBg="#7C3AED" label="Theme"
+              sub={`${theme.name} ${theme.emoji}`}
+              onPress={() => router.push("/theme" as any)} />
+            <Row icon="language-outline" iconBg="#059669" label="Language"
+              sub={langLabel}
+              onPress={() => setShowLanguagePicker(true)} />
+            <Row icon="trash-outline" iconBg="#EF4444" label="Clear Cache"
+              sub={cacheCleared ? "✅ Cleared (48 MB freed)" : "Free up storage · 48 MB used"}
+              onPress={clearCache}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
+            FIND VIBE
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Find Vibe" />
+          <Card>
+            <Row icon="heart-circle-outline" iconBg="#EC4899" label="Show me in Find Vibe"
+              sub={showInMatching ? "Visible in matching & nearby" : "Hidden from all discovery"}
+              rightEl={
+                <Switch
+                  value={showInMatching}
+                  onValueChange={(v) => {
+                    vibeInteracted.current = true;
+                    setShowInMatching(v);
+                    AsyncStorage.setItem(`find_vibe_locked_${userId}`, v ? "false" : "true").catch(() => {});
+                    saveGundrukProfile(userId, { show_in_matching: v });
+                    DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
+                    showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
+                  }}
+                  trackColor={{ false: colors.border, true: "#EC4899" }}
+                  thumbColor="#fff"
+                />
+              } />
+            <Row icon="compass-outline" iconBg="#7C3AED" label="What am I looking for?"
+              sub={FIND_GUNDRUK_MODE_OPTIONS.find((o) => o.value === findGundrukMode)?.label ?? "❤️  Dating"}
+              onPress={showInMatching ? () => setShowModePicker(true) : undefined} />
+            <Row icon="flash-outline" iconBg="#F97316" label="Who can send Vibe Requests?"
+              sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
+              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
+            CREATOR TOOLS
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Creator Tools" />
+          <Card>
+            <Row icon="megaphone-outline" iconBg="#7C3AED" label="Advertise on Gundruk"
+              sub="Reach millions of engaged users"
+              onPress={() => router.push("/advertise" as any)}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
+            SUPPORT
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Support" />
+          <Card>
+            <Row icon="help-circle-outline" iconBg="#0EA5E9" label="Help Center"
+              sub="FAQs, guides & contact"
+              onPress={() => openLink("https://gundruk.app/help", "Help Center")} />
+            <Row icon="bug-outline" iconBg="#F97316" label="Report a Problem"
+              sub="Let us know about issues"
+              onPress={() => Alert.alert("Report a Problem", "Please describe your issue:", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Send Report", onPress: () => showToast("✅ Report sent — thank you!") },
+              ])} />
+            <Row icon="document-text-outline" iconBg="#6B7280" label="Terms of Service"
+              onPress={() => openLink("https://gundruk.app/terms", "Terms of Service")} />
+            <Row icon="shield-checkmark-outline" iconBg="#10B981" label="Privacy Policy"
+              onPress={() => openLink("https://gundruk.app/privacy", "Privacy Policy")}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ── Switch Accounts ── */}
+        <View style={{ paddingHorizontal: 16, marginBottom: 4 }}>
+          <TouchableOpacity
             onPress={() => setShowSwitchAccounts(true)}
-            colors={colors}
-          />
+            activeOpacity={0.8}
+            style={[styles.switchAccountsBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          >
+            <Ionicons name="people-outline" size={18} color="#7C3AED" />
+            <Text style={[styles.switchAccountsText, { color: colors.foreground }]}>Switch Accounts</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
         </View>
 
-        <SectionHeader label="PRIVACY" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="lock-closed-outline" label="Private Account" sub={privateAccount ? "Only followers can see your content" : "Anyone can see your content"} value={privateAccount} onToggle={(v) => {
-            const title = v ? "Switch to Private?" : "Switch to Public?";
-            const msg = v
-              ? "Your account will be private. Only approved followers can see your posts and stories."
-              : "Your account will be public. Anyone can see your content.";
-            Alert.alert(title, msg, [
-              { text: "Cancel", style: "cancel" },
-              { text: v ? "Make Private" : "Make Public", onPress: () => { setPrivateAccount(v); persistSetting({ private_account: v }); showToast(v ? "Account is now private 🔒" : "Account is now public 🌍"); } },
-            ]);
-          }} colors={colors} />
-          <SettingRow
-            icon="chatbubble-outline"
-            label="Who can comment"
-            sub={permLabel(COMMENT_OPTIONS, commentPermission)}
-            onPress={() => setShowCommentPicker(true)}
-            colors={colors}
-          />
-          <SettingRow
-            icon="repeat-outline"
-            label="Who can duet/remix"
-            sub={permLabel(DUET_OPTIONS, duetPermission)}
-            onPress={() => setShowDuetPicker(true)}
-            colors={colors}
-          />
-          <SettingRow
-            icon="paper-plane-outline"
-            label="Who can message me"
-            sub={permLabel(MESSAGE_OPTIONS, messagePermission)}
-            onPress={() => setShowMessagePicker(true)}
-            colors={colors}
-          />
-          <SettingRow icon="heart-outline" label="Liked videos" sub={likedPrivate ? "Private — only you" : "Public"} value={likedPrivate} onToggle={(v) => { setLikedPrivate(v); persistSetting({ liked_private: v }); }} colors={colors} />
-          <SettingRow
-            icon="ban-outline"
-            label="Blocked Accounts"
-            sub="Manage blocked users"
-            onPress={() => setShowBlockedAccounts(true)}
-            colors={colors}
-          />
-          <SettingRow
-            icon="eye-off-outline"
-            label="Restricted Accounts"
-            sub="Manage restricted users"
-            onPress={() => setShowRestrictedAccounts(true)}
-            colors={colors}
-          />
-        </View>
-
-        <SectionHeader label="NOTIFICATIONS" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="heart-outline" label="Likes" value={notifLikes} onToggle={(v) => { setNotifLikes(v); persistSetting({ notif_likes: v }); }} colors={colors} />
-          <SettingRow icon="chatbubble-outline" label="Comments" value={notifComments} onToggle={(v) => { setNotifComments(v); persistSetting({ notif_comments: v }); }} colors={colors} />
-          <SettingRow icon="person-add-outline" label="New Followers" value={notifFollows} onToggle={(v) => { setNotifFollows(v); persistSetting({ notif_follows: v }); }} colors={colors} />
-          <SettingRow icon="radio-outline" label="Live Streams" value={notifLive} onToggle={(v) => { setNotifLive(v); persistSetting({ notif_live: v }); }} colors={colors} />
-          <SettingRow icon="at-outline" label="Mentions" value={notifMentions} onToggle={(v) => { setNotifMentions(v); persistSetting({ notif_mentions: v }); }} colors={colors} />
-        </View>
-
-        <SectionHeader label="DIGITAL WELLBEING" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="timer-outline" label="Screen Time Management" sub={screenTimeLabel} onPress={() => setShowScreenTimePicker(true)} colors={colors} iconColor="#F97316" />
-          <SettingRow icon="shield-outline" label="Restricted Mode" sub="Filter mature content" value={restrictedMode} onToggle={setRestrictedMode} colors={colors} iconColor="#10B981" />
-        </View>
-
-        <SectionHeader label="ACCESSIBILITY & DISPLAY" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="text-outline" label="Text Size" sub={textSizeLabel} onPress={() => setShowTextSizePicker(true)} colors={colors} iconColor="#3B82F6" />
-          <SettingRow icon="contrast-outline" label="Display" sub="High contrast: Off · Dark mode: On" onPress={() => Alert.alert("Display", "Dark mode is always on in Gundruk for the best experience.")} colors={colors} iconColor="#EC4899" />
-          <SettingRow icon="volume-high-outline" label="Sound & Vibration" onPress={() => Alert.alert("Sound & Vibration", "Adjust haptic feedback and sound settings on your device.")} colors={colors} iconColor="#7C3AED" />
-        </View>
-
-        <SectionHeader label="LANGUAGE & DATA" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="language-outline" label="Language" sub={langLabel} onPress={() => setShowLanguagePicker(true)} colors={colors} iconColor="#8B5CF6" />
-          <SettingRow icon="server-outline" label="Data & Storage" sub="Auto-play on Wi-Fi only · Storage: 48 MB" onPress={() => Alert.alert("Data & Storage", "Manage video quality and storage:\n\n• Auto-play: Wi-Fi only\n• Video quality: High\n• Download quality: Medium")} colors={colors} iconColor="#059669" />
-          <SettingRow icon="trash-outline" label="Clear Cache" sub={cacheCleared ? "✅ Cache cleared (48 MB freed)" : "Free up storage space · 48 MB used"} onPress={clearCache} colors={colors} iconColor="#EF4444" />
-        </View>
-
-        <SectionHeader label="FIND VIBE" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow
-            icon="heart-circle-outline"
-            iconColor="#EC4899"
-            label="Show me in Find Vibe"
-            sub={showInMatching ? "You appear in matching, nearby & goals" : "You're hidden from all discovery"}
-            value={showInMatching}
-            onToggle={(v) => {
-              vibeInteracted.current = true;
-              setShowInMatching(v);
-              // Write to AsyncStorage immediately as the reliable source of truth
-              AsyncStorage.setItem(`find_vibe_locked_${userId}`, v ? "false" : "true").catch(() => {});
-              saveGundrukProfile(userId, { show_in_matching: v });
-              console.log('[FindVibe Settings] Toggle changed: show_in_matching =', v, '→ emitting locked =', !v);
-              DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
-              showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
-            }}
-            colors={colors}
-          />
-          <SettingRow
-            icon="compass-outline"
-            iconColor="#7C3AED"
-            label="What am I looking for?"
-            sub={FIND_GUNDRUK_MODE_OPTIONS.find((o) => o.value === findGundrukMode)?.label ?? "❤️  Dating"}
-            onPress={() => setShowModePicker(true)}
-            disabled={!showInMatching}
-            colors={colors}
-          />
-          <SettingRow
-            icon="flash-outline"
-            iconColor="#F97316"
-            label="Who can send me Vibe Requests?"
-            sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
-            onPress={() => setShowVibePrivacyPicker(true)}
-            disabled={!showInMatching}
-            colors={colors}
-          />
-        </View>
-
-        <SectionHeader label="CREATOR TOOLS" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="megaphone-outline" label="Advertise on Gundruk" sub="Reach millions of engaged users" onPress={() => router.push("/advertise" as any)} colors={colors} iconColor="#7C3AED" />
-        </View>
-
-        <SectionHeader label="ABOUT" colors={colors} />
-        <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <SettingRow icon="document-text-outline" label="Terms of Service" onPress={() => openLink("https://gundruk.app/terms", "Terms of Service")} colors={colors} />
-          <SettingRow icon="shield-checkmark-outline" label="Privacy Policy" onPress={() => openLink("https://gundruk.app/privacy", "Privacy Policy")} colors={colors} iconColor="#10B981" />
-          <SettingRow icon="information-circle-outline" label="App Version" sub="Gundruk v1.0.0 (build 1) · Up to date ✓" colors={colors} iconColor="#6B7280" />
-          <SettingRow icon="bug-outline" label="Report a Problem" onPress={() => Alert.alert("Report a Problem", "Please describe your issue:", [
-            { text: "Cancel", style: "cancel" },
-            { text: "Send Report", onPress: () => showToast("✅ Report sent — thank you!") },
-          ])} colors={colors} iconColor="#F97316" />
-        </View>
-
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 10 }}>
-          <TouchableOpacity onPress={handleSignOut} style={[styles.logoutBtn, { borderColor: "#EF4444" }]}>
+        {/* ── Log Out ── */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
+          <TouchableOpacity onPress={handleSignOut} activeOpacity={0.8} style={styles.logoutBtn}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
@@ -949,81 +990,29 @@ export default function SettingsScreen() {
       </ScrollView>
 
       {/* ── Pickers ── */}
-      <OptionPicker
-        visible={showCommentPicker}
-        title="Who can comment"
-        options={COMMENT_OPTIONS}
-        selected={commentPermission}
+      <OptionPicker visible={showCommentPicker} title="Who can comment" options={COMMENT_OPTIONS} selected={commentPermission}
         onSelect={(v) => { setCommentPermission(v); persistSetting({ comment_permission: v as any }); showToast("Saved ✅"); }}
-        onClose={() => setShowCommentPicker(false)}
-      />
-      <OptionPicker
-        visible={showMessagePicker}
-        title="Who can message me"
-        options={MESSAGE_OPTIONS}
-        selected={messagePermission}
+        onClose={() => setShowCommentPicker(false)} />
+      <OptionPicker visible={showMessagePicker} title="Who can message me" options={MESSAGE_OPTIONS} selected={messagePermission}
         onSelect={(v) => { setMessagePermission(v); persistSetting({ message_permission: v as any }); showToast("Saved ✅"); }}
-        onClose={() => setShowMessagePicker(false)}
-      />
-      <OptionPicker
-        visible={showDuetPicker}
-        title="Who can duet / remix"
-        options={DUET_OPTIONS}
-        selected={duetPermission}
+        onClose={() => setShowMessagePicker(false)} />
+      <OptionPicker visible={showDuetPicker} title="Who can duet / remix" options={DUET_OPTIONS} selected={duetPermission}
         onSelect={(v) => { setDuetPermission(v); persistSetting({ duet_permission: v as any }); showToast("Saved ✅"); }}
-        onClose={() => setShowDuetPicker(false)}
-      />
-      <OptionPicker
-        visible={showTextSizePicker}
-        title="Text Size"
-        options={TEXT_SIZE_OPTIONS}
-        selected={textSize}
-        onSelect={(v) => { setTextSize(v); showToast("Text size updated ✅"); }}
-        onClose={() => setShowTextSizePicker(false)}
-      />
-      <OptionPicker
-        visible={showLanguagePicker}
-        title="Language"
-        options={LANGUAGE_OPTIONS}
-        selected={language}
+        onClose={() => setShowDuetPicker(false)} />
+      <OptionPicker visible={showLanguagePicker} title="Language" options={LANGUAGE_OPTIONS} selected={language}
         onSelect={(v) => { setLanguage(v); showToast("Language updated ✅"); }}
-        onClose={() => setShowLanguagePicker(false)}
-      />
-      <OptionPicker
-        visible={showScreenTimePicker}
-        title="Daily Screen Time Limit"
-        options={SCREEN_TIME_OPTIONS}
-        selected={screenTime}
+        onClose={() => setShowLanguagePicker(false)} />
+      <OptionPicker visible={showScreenTimePicker} title="Daily Screen Time Limit" options={SCREEN_TIME_OPTIONS} selected={screenTime}
         onSelect={(v) => { setScreenTime(v); showToast("Screen time limit set ✅"); }}
-        onClose={() => setShowScreenTimePicker(false)}
-      />
-      <OptionPicker
-        visible={showModePicker}
-        title="What are you looking for?"
-        options={FIND_GUNDRUK_MODE_OPTIONS}
-        selected={findGundrukMode}
-        onSelect={(v) => {
-          vibeInteracted.current = true;
-          setFindGundrukMode(v);
-          saveGundrukProfile(userId, { find_gundruk_mode: v });
-          showToast("Preference saved ✅");
-        }}
-        onClose={() => setShowModePicker(false)}
-      />
-      <OptionPicker
-        visible={showVibePrivacyPicker}
-        title="Who can send Vibe Requests?"
-        options={VIBE_REQUEST_OPTIONS}
-        selected={vibeRequestPrivacy}
-        onSelect={(v) => {
-          setVibeRequestPrivacy(v);
-          saveGundrukProfile(userId, { vibe_request_privacy: v });
-          showToast(v === "nobody" ? "Vibe Requests paused ⏸" : "Privacy setting saved ✅");
-        }}
-        onClose={() => setShowVibePrivacyPicker(false)}
-      />
+        onClose={() => setShowScreenTimePicker(false)} />
+      <OptionPicker visible={showModePicker} title="What are you looking for?" options={FIND_GUNDRUK_MODE_OPTIONS} selected={findGundrukMode}
+        onSelect={(v) => { vibeInteracted.current = true; setFindGundrukMode(v); saveGundrukProfile(userId, { find_gundruk_mode: v }); showToast("Preference saved ✅"); }}
+        onClose={() => setShowModePicker(false)} />
+      <OptionPicker visible={showVibePrivacyPicker} title="Who can send Vibe Requests?" options={VIBE_REQUEST_OPTIONS} selected={vibeRequestPrivacy}
+        onSelect={(v) => { setVibeRequestPrivacy(v); saveGundrukProfile(userId, { vibe_request_privacy: v }); showToast(v === "nobody" ? "Vibe Requests paused ⏸" : "Privacy setting saved ✅"); }}
+        onClose={() => setShowVibePrivacyPicker(false)} />
 
-      {/* ── Edit Field ── */}
+      {/* ── Edit Field Modal ── */}
       {editField && (
         <EditFieldModal
           visible={!!editField}
@@ -1059,7 +1048,6 @@ export default function SettingsScreen() {
         onToast={showToast}
       />
 
-      {/* ── Toast ── */}
       {ToastView}
     </View>
   );
@@ -1067,20 +1055,65 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 12, borderBottomWidth: 0.5, gap: 10 },
-  title: { flex: 1, textAlign: "center", fontSize: 18, fontFamily: "Poppins_700Bold" },
-  profileRow: { flexDirection: "row", alignItems: "center", padding: 16, gap: 12, borderBottomWidth: 0.5 },
+  header: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, gap: 10,
+  },
+  title: { flex: 1, textAlign: "center", fontSize: 17, fontFamily: "Poppins_700Bold" },
+
+  // Profile card
+  profileCard: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    marginHorizontal: 16, marginTop: 18, marginBottom: 4,
+    padding: 14, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth,
+  },
+  profileAvatarWrap: { position: "relative" },
+  profileEditDot: {
+    position: "absolute", bottom: 0, right: 0,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center",
+  },
   profileName: { fontSize: 15, fontFamily: "Poppins_700Bold" },
-  profileEmail: { fontSize: 12, fontFamily: "Poppins_400Regular" },
-  sectionHeader: { paddingHorizontal: 16, paddingTop: 18, paddingBottom: 6 },
-  sectionLabel: { fontSize: 11, fontFamily: "Poppins_700Bold", letterSpacing: 1.2, textTransform: "uppercase" },
-  section: { borderTopWidth: 0.5, borderBottomWidth: 0.5 },
-  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 0.5, gap: 14 },
-  rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  rowText: { flex: 1, gap: 1 },
+  profileEmail: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 1 },
+
+  // Section wrapper
+  section: { paddingHorizontal: 16, marginTop: 20 },
+  secLabel: {
+    fontSize: 13, fontFamily: "Poppins_600SemiBold",
+    marginBottom: 8, paddingLeft: 2,
+  },
+
+  // Card group
+  card: {
+    borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden",
+  },
+
+  // Row inside card
+  row: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 14, paddingVertical: 13, gap: 13,
+  },
+  iconBox: {
+    width: 34, height: 34, borderRadius: 9,
+    alignItems: "center", justifyContent: "center",
+  },
+  rowText: { flex: 1 },
   rowLabel: { fontSize: 14, fontFamily: "Poppins_500Medium" },
-  rowSub: { fontSize: 12, fontFamily: "Poppins_400Regular" },
-  logoutBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 50, borderRadius: 14, borderWidth: 1.5 },
+  rowSub: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 1 },
+
+  // Switch accounts button
+  switchAccountsBtn: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    padding: 14, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth,
+  },
+  switchAccountsText: { flex: 1, fontSize: 14, fontFamily: "Poppins_500Medium" },
+
+  // Log out
+  logoutBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, height: 50, borderRadius: 14,
+    backgroundColor: "rgba(239,68,68,0.1)", borderWidth: 1.5, borderColor: "#EF4444",
+  },
   logoutText: { color: "#EF4444", fontSize: 15, fontFamily: "Poppins_700Bold" },
   versionNote: { textAlign: "center", fontSize: 12, fontFamily: "Poppins_400Regular", paddingBottom: 4 },
 });
