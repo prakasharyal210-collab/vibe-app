@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, {
   useCallback,
   useEffect,
@@ -504,67 +504,85 @@ export default function ReelsScreen() {
     return (data ?? []).map(postToReel);
   };
 
-  useEffect(() => {
-    (async () => {
-      const uid = session?.user?.id;
+  const loadFeed = useCallback(async () => {
+    const uid = session?.user?.id;
 
-      // ── For You feed ────────────────────────────────────────────────────────
-      let fyLoaded = false;
-      if (uid) {
-        try {
-          const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
-          if (fyData && fyData.length > 0) {
-            fyLoaded = true;
-            setForYouReels(fyData.map((r: any) => ({
-              id: r.id,
-              image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
-              username: r.username ?? r.profiles?.username ?? "user",
-              caption: r.caption ?? "",
-              likes: r.likes_count ?? 0,
-              comments: r.comments_count ?? 0,
-              shares: r.shares_count ?? 0,
-              views: r.views_count ?? 0,
-              sound: r.sound_name ?? "Original Sound",
-              isVerified: r.is_verified ?? false,
-            })));
-          }
-        } catch {}
-      }
+    // ── Always fetch the user's own recent posts to prepend ──────────────────
+    let ownPosts: Reel[] = [];
+    if (uid) {
+      try {
+        const { data: mine } = await supabase
+          .from("posts")
+          .select("*, profiles!user_id(username, avatar_url, is_verified)")
+          .eq("user_id", uid)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        ownPosts = (mine ?? []).map(postToReel);
+      } catch {}
+    }
 
-      // Fallback for both guests and logged-in users with no RPC results
-      let postsFallbackLoaded = false;
-      if (!fyLoaded) {
-        try {
-          const fallback = await loadPostsFallback();
-          if (fallback.length > 0) {
-            setForYouReels(fallback);
-            postsFallbackLoaded = true;
-          }
-        } catch {}
-      }
+    // ── For You feed ────────────────────────────────────────────────────────
+    let fyLoaded = false;
+    if (uid) {
+      try {
+        const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
+        if (fyData && fyData.length > 0) {
+          fyLoaded = true;
+          const rpcReels: Reel[] = fyData.map((r: any) => ({
+            id: r.id,
+            image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+            username: r.username ?? r.profiles?.username ?? "user",
+            caption: r.caption ?? "",
+            likes: r.likes_count ?? 0,
+            comments: r.comments_count ?? 0,
+            shares: r.shares_count ?? 0,
+            views: r.views_count ?? 0,
+            sound: r.sound_name ?? "Original Sound",
+            isVerified: r.is_verified ?? false,
+          }));
+          const rpcIds = new Set(rpcReels.map((r) => r.id));
+          const deduped = ownPosts.filter((p) => !rpcIds.has(p.id));
+          setForYouReels([...deduped, ...rpcReels]);
+        }
+      } catch {}
+    }
 
-      // ── Following feed (logged-in only) ─────────────────────────────────────
-      if (uid) {
-        try {
-          const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
-          if (flData && flData.length > 0) {
-            setFollowingReels(flData.map((r: any) => ({
-              id: r.id,
-              image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
-              username: r.username ?? r.profiles?.username ?? "user",
-              caption: r.caption ?? "",
-              likes: r.likes_count ?? 0,
-              comments: r.comments_count ?? 0,
-              shares: r.shares_count ?? 0,
-              views: r.views_count ?? 0,
-              sound: r.sound_name ?? "Original Sound",
-              isVerified: r.is_verified ?? false,
-            })));
-          }
-        } catch {}
-      }
-    })();
+    // Fallback for both guests and logged-in users with no RPC results
+    if (!fyLoaded) {
+      try {
+        const fallback = await loadPostsFallback();
+        const fallbackIds = new Set(fallback.map((r) => r.id));
+        const deduped = ownPosts.filter((p) => !fallbackIds.has(p.id));
+        const merged = [...deduped, ...fallback];
+        if (merged.length > 0) setForYouReels(merged);
+      } catch {}
+    }
+
+    // ── Following feed (logged-in only) ─────────────────────────────────────
+    if (uid) {
+      try {
+        const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
+        if (flData && flData.length > 0) {
+          setFollowingReels(flData.map((r: any) => ({
+            id: r.id,
+            image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+            username: r.username ?? r.profiles?.username ?? "user",
+            caption: r.caption ?? "",
+            likes: r.likes_count ?? 0,
+            comments: r.comments_count ?? 0,
+            shares: r.shares_count ?? 0,
+            views: r.views_count ?? 0,
+            sound: r.sound_name ?? "Original Sound",
+            isVerified: r.is_verified ?? false,
+          })));
+        }
+      } catch {}
+    }
   }, [session?.user?.id]);
+
+  useEffect(() => { loadFeed(); }, [loadFeed]);
+
+  useFocusEffect(useCallback(() => { loadFeed(); }, [loadFeed]));
 
   useEffect(() => {
     loadFeedAds(session?.user?.id, "reel").then(setReelAds).catch(() => setReelAds(HOUSE_REEL_ADS));
