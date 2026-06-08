@@ -1132,23 +1132,50 @@ export async function saveOnboardingInterests(userId: string, interests: string[
   } catch {}
 }
 
-export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  try {
-    const { data, error } = await supabase.rpc('get_for_you_feed', {
-      p_user_id: userId, p_limit: limit, p_offset: offset,
-    });
-    if (!error && data && data.length > 0) return data as Post[];
-  } catch {}
+// Interleave fresh recent posts into a base feed every N slots so new users go viral.
+function viralBoostFeed(base: Post[], fresh: Post[], everyN = 3): Post[] {
+  const seenIds = new Set(base.map((p) => p.id));
+  const queue = fresh.filter((p) => !seenIds.has(p.id));
+  const result: Post[] = [];
+  let qi = 0;
+  for (let i = 0; i < base.length; i++) {
+    result.push(base[i]);
+    if ((i + 1) % everyN === 0 && qi < queue.length) {
+      result.push(queue[qi++]);
+    }
+  }
+  while (qi < queue.length) result.push(queue[qi++]);
+  return result;
+}
+
+async function fetchFreshPosts(limit = 20): Promise<Post[]> {
   try {
     const { data } = await supabase
       .from('posts')
       .select('*, profiles!user_id(*)')
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(limit);
     return (data as Post[]) ?? [];
   } catch {
     return [];
   }
+}
+
+export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  // Fetch fresh posts in parallel with the RPC for viral boost
+  const [rpcResult, fresh] = await Promise.allSettled([
+    supabase.rpc('get_for_you_feed', { p_user_id: userId, p_limit: limit, p_offset: offset }),
+    fetchFreshPosts(limit),
+  ]);
+  const freshPosts = rpcResult.status === 'fulfilled' && !rpcResult.value.error && rpcResult.value.data?.length
+    ? rpcResult.value.data as Post[]
+    : null;
+  const freshFallback = fresh.status === 'fulfilled' ? fresh.value : [];
+  if (freshPosts && freshPosts.length > 0) {
+    return viralBoostFeed(freshPosts, freshFallback);
+  }
+  // Fallback: just return fresh recent posts sorted by date
+  return freshFallback;
 }
 
 export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
@@ -1162,13 +1189,21 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
 }
 
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  try {
-    const { data, error } = await supabase.rpc('get_friends_feed', {
-      p_user_id: userId, p_limit: limit, p_offset: offset,
-    });
-    if (!error && data && data.length > 0) return data as Post[];
-  } catch {}
-  return [];
+  // Fetch friends feed and fresh posts in parallel
+  const [rpcResult, fresh] = await Promise.allSettled([
+    supabase.rpc('get_friends_feed', { p_user_id: userId, p_limit: limit, p_offset: offset }),
+    fetchFreshPosts(limit),
+  ]);
+  const friendsPosts = rpcResult.status === 'fulfilled' && !rpcResult.value.error && rpcResult.value.data?.length
+    ? rpcResult.value.data as Post[]
+    : null;
+  const freshFallback = fresh.status === 'fulfilled' ? fresh.value : [];
+  if (friendsPosts && friendsPosts.length > 0) {
+    // Friends content + viral boost injection every 3rd slot
+    return viralBoostFeed(friendsPosts, freshFallback);
+  }
+  // No friends yet — show fresh content from everyone so the tab is never empty
+  return freshFallback;
 }
 
 export async function getNearbyFeed(lat: number, lng: number, userId: string, limit = 20, offset = 0): Promise<Post[]> {

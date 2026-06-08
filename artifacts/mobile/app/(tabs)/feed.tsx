@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, {
   useCallback,
@@ -426,6 +426,11 @@ export default function FeedScreen() {
   useEffect(() => {
     loadTabData("foryou", true);
   }, [userId]);
+
+  // Reload active tab whenever the user navigates back to this screen
+  useFocusEffect(useCallback(() => {
+    loadTabData(activeTab, true);
+  }, [activeTab, loadTabData]));
 
   useEffect(() => {
     loadFeedAds(userId || undefined, "feed_post").then(setFeedAds).catch(() => setFeedAds(HOUSE_ADS));
