@@ -5,11 +5,8 @@ function patchFile(full) {
   let content = fs.readFileSync(full, 'utf8');
   if (!content.includes('#')) return;
   let patched = content;
-  // Replace private field declarations: #fieldName; or #fieldName =
   patched = patched.replace(/^(\s+)(#[a-zA-Z_][a-zA-Z0-9_]*)/gm, '$1_PRIV_$2');
-  // Replace this.#fieldName usage
   patched = patched.replace(/this\.(#[a-zA-Z_][a-zA-Z0-9_]*)/g, 'this._PRIV_$1');
-  // Clean up double prefix from declaration lines that also matched this.#
   patched = patched.replace(/_PRIV_#/g, '_PRIV_');
   if (patched !== content) {
     fs.writeFileSync(full, patched);
@@ -39,6 +36,9 @@ console.log('Found pnpm at:', pnpmDir);
 fs.readdirSync(pnpmDir).forEach(entry => {
   if (entry.startsWith('react-native-worklets')) {
     patchDir(path.join(pnpmDir, entry, 'node_modules/react-native-worklets/src'));
+  }
+  if (entry.startsWith('react-native-reanimated')) {
+    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native-reanimated/src'));
   }
   if (entry.startsWith('react-native@')) {
     patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries/WebPerformance'));
