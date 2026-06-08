@@ -56,6 +56,9 @@ export default function EditProfileScreen() {
       .finally(() => setLoading(false));
   }, [session?.user?.id]);
 
+  // Tracks whether the user picked a new local image that needs uploading
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+
   const pickAvatar = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaType.Images,
@@ -63,7 +66,28 @@ export default function EditProfileScreen() {
       aspect: [1, 1],
       quality: 0.85,
     });
-    if (!res.canceled && res.assets[0]) setAvatarUrl(res.assets[0].uri);
+    if (!res.canceled && res.assets[0]) {
+      setAvatarUrl(res.assets[0].uri);
+      setLocalAvatarUri(res.assets[0].uri);
+    }
+  };
+
+  const uploadAvatar = async (userId: string, uri: string): Promise<string> => {
+    const ext = uri.split(".").pop()?.split("?")[0] || "jpg";
+    const contentType = ext === "png" ? "image/png" : "image/jpeg";
+    const path = `${userId}/avatar.${ext}`;
+
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(path, blob, { upsert: true, contentType });
+    if (error) throw error;
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    // Bust cache so the new image loads immediately
+    return `${data.publicUrl}?t=${Date.now()}`;
   };
 
   const handleSave = async () => {
@@ -71,6 +95,15 @@ export default function EditProfileScreen() {
     if (!username.trim()) { Alert.alert("Username required", "Please enter a username."); return; }
     setSaving(true);
     try {
+      let savedAvatarUrl = avatarUrl;
+
+      // Upload new avatar to Supabase Storage if user picked a new image
+      if (localAvatarUri) {
+        savedAvatarUrl = await uploadAvatar(session.user.id, localAvatarUri);
+        setAvatarUrl(savedAvatarUrl);
+        setLocalAvatarUri(null);
+      }
+
       const { error } = await supabase.from("profiles").update({
         full_name: fullName.trim() || null,
         username: username.trim().toLowerCase().replace(/[^a-z0-9_.]/g, ""),
@@ -78,6 +111,7 @@ export default function EditProfileScreen() {
         website: website.trim() || null,
         location: location.trim() || null,
         pronouns: pronouns || null,
+        avatar_url: savedAvatarUrl ?? null,
       }).eq("id", session.user.id);
       if (error) throw error;
       Alert.alert("Saved!", "Your profile has been updated.", [{ text: "Done", onPress: () => router.back() }]);
