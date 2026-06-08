@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
-import React, { Component, ErrorInfo, useEffect, useRef, useState } from "react";
+import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Animated as RNAnimated,
@@ -984,7 +984,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
     setTimeout(() => setGameCard(card), 300);
   };
 
-  const handleSwipe = (direction: "left" | "right", isSuper = false) => {
+  const handleSwipe = useCallback((direction: "left" | "right", isSuper = false) => {
     const card = cards[currentIndex];
     setCurrentIndex((i) => i + 1);
     translateX.value = 0;
@@ -1015,9 +1015,9 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
         }
       }
     }
-  };
+  }, [cards, currentIndex, userId, translateX, translateY]);
 
-  const panGesture = Gesture.Pan()
+  const panGesture = useMemo(() => Gesture.Pan()
     .onUpdate((e) => { translateX.value = e.translationX; translateY.value = e.translationY * 0.2; })
     .onEnd((e) => {
       const shouldSwipe = Math.abs(translateX.value) > SWIPE_THRESHOLD || Math.abs(e.velocityX) > 600;
@@ -1029,7 +1029,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
         translateX.value = withSpring(0, { damping: 15, stiffness: 120 });
         translateY.value = withSpring(0, { damping: 15, stiffness: 120 });
       }
-    });
+    }), [handleSwipe, translateX, translateY]);
 
   const topCardStyle = useAnimatedStyle(() => {
     const rotate = interpolate(translateX.value, [-W, 0, W], [-20, 0, 20]);

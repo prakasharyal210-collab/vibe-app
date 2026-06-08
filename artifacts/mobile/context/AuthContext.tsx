@@ -57,17 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    // 1. Wipe all cached user data from AsyncStorage (scores, lock state, rewards, etc.)
-    try {
-      await AsyncStorage.clear();
-    } catch {}
-    // 2. Sign out from Supabase — clears the stored session token
-    try {
-      await supabase.auth.signOut();
-    } catch {}
-    // 3. Force session to null immediately so the auth guard redirects right away
-    //    (the onAuthStateChange listener will also set this, but doing it now is instant)
+    // 1. Set session to null immediately — the auth guard in _layout.tsx fires right away
+    //    and sends the user to login without waiting for network calls.
     setSession(null);
+    // 2. Sign out from Supabase in the background (invalidates the server-side token).
+    //    Not awaited so a slow/offline network never blocks the user on the settings screen.
+    supabase.auth.signOut().catch(() => {});
+    // 3. Wipe app-specific cached data from AsyncStorage in the background.
+    AsyncStorage.clear().catch(() => {});
   };
 
   return (
