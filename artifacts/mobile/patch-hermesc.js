@@ -5,9 +5,7 @@ function patchFile(full) {
   let content = fs.readFileSync(full, 'utf8');
   if (!content.includes('#')) return;
   let patched = content;
-  // Handle: spaces + optional modifiers + #field
   patched = patched.replace(/([ \t]+(?:readonly\s+|private\s+|public\s+|protected\s+|static\s+|abstract\s+)*)#([a-zA-Z_][a-zA-Z0-9_]*)/g, '$1_PRIV_$2');
-  // Handle: this.#field
   patched = patched.replace(/this\.#([a-zA-Z_][a-zA-Z0-9_]*)/g, 'this._PRIV_$1');
   if (patched !== content) {
     fs.writeFileSync(full, patched);
@@ -42,8 +40,8 @@ fs.readdirSync(pnpmDir).forEach(entry => {
     patchDir(path.join(pnpmDir, entry, 'node_modules/react-native-reanimated/src'));
   }
   if (entry.startsWith('react-native@')) {
-    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries/WebPerformance'));
-    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries/DOM'));
+    // Patch ALL of react-native source
+    patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/Libraries'));
     patchDir(path.join(pnpmDir, entry, 'node_modules/react-native/src'));
   }
 });
