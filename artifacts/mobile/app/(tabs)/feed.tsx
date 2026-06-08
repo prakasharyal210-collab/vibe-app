@@ -48,7 +48,7 @@ import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { AdItem, HOUSE_ADS, insertAdsInFeed, loadFeedAds } from "@/lib/ads";
 
-const { width: W } = Dimensions.get("window");
+const { width: W, height: H } = Dimensions.get("window");
 const PAGE_SIZE = 20;
 const NUM_TABS = 2;
 const TAB_W = W / NUM_TABS;
@@ -375,6 +375,8 @@ export default function FeedScreen() {
   const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
+  const [headerHeight, setHeaderHeight] = useState(120);
+  const snapH = H - headerHeight - (Platform.OS === "web" ? 84 : insets.bottom + 50);
 
   const friendsSwipePan = useRef(
     PanResponder.create({
@@ -516,22 +518,34 @@ export default function FeedScreen() {
     extrapolate: "clamp",
   });
 
-  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item, index }: { item: Post | AdItem; index: number }) => {
+  const renderTabPost = useCallback((tabId: FeedTabId, snapHeight: number) => ({ item, index }: { item: Post | AdItem; index: number }) => {
     if ('isAd' in item && item.isAd) {
       return (
-        <AdCard
-          ad={item as AdItem}
-          userId={userId || undefined}
-          onHide={(adId) => setFeedAds((prev) => prev.filter((a) => a.ad_id !== adId))}
-        />
+        <View style={{ height: snapHeight, justifyContent: "center" }}>
+          <AdCard
+            ad={item as AdItem}
+            userId={userId || undefined}
+            onHide={(adId) => setFeedAds((prev) => prev.filter((a) => a.ad_id !== adId))}
+          />
+        </View>
       );
     }
     const post = item as Post;
     if (userId) markPostSeen(userId, post.id).catch(() => {});
     return (
-      <View>
-        <PostCard post={post} onRequireLogin={() => setShowLoginPrompt(true)} isLoggedIn={isLoggedIn} />
-        {tabId === "foryou" && <WhyThisButton index={index} />}
+      <View style={{ height: snapHeight }}>
+        <PostCard
+          post={post}
+          onRequireLogin={() => setShowLoginPrompt(true)}
+          isLoggedIn={isLoggedIn}
+          fullScreen
+          itemHeight={snapHeight}
+        />
+        {tabId === "foryou" && (
+          <View style={{ position: "absolute", bottom: 8, left: 0, right: 0, alignItems: "center", pointerEvents: "none" }}>
+            <WhyThisButton index={index} />
+          </View>
+        )}
       </View>
     );
   }, [isLoggedIn, userId]);
@@ -563,7 +577,10 @@ export default function FeedScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       {/* Fixed Header */}
-      <View style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background }]}>
+      <View
+        style={[styles.header, { paddingTop: topInset + 8, backgroundColor: colors.background }]}
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+      >
         <View style={styles.headerTop}>
           <VibeLogo />
           <View style={styles.headerRight}>
@@ -679,7 +696,11 @@ export default function FeedScreen() {
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
                 data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
                 keyExtractor={(item) => (('isAd' in item && (item as AdItem).isAd) ? `ad-${(item as AdItem).ad_id}` : (item as Post).id) + tab.id}
-                renderItem={renderTabPost(tab.id)}
+                renderItem={renderTabPost(tab.id, snapH)}
+                snapToInterval={snapH}
+                decelerationRate="fast"
+                snapToAlignment="start"
+                getItemLayout={(_data, index) => ({ length: snapH, offset: snapH * index, index })}
                 ListHeaderComponent={() => {
                   if (isTrending) {
                     return (
@@ -727,7 +748,7 @@ export default function FeedScreen() {
                   }
                   return null;
                 }}
-                contentContainerStyle={{ paddingBottom: bottomInset }}
+                contentContainerStyle={{ paddingBottom: 0 }}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing && activeTab === tab.id}
@@ -741,7 +762,6 @@ export default function FeedScreen() {
                 }}
                 onEndReachedThreshold={0.4}
                 showsVerticalScrollIndicator={false}
-                ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: colors.border }]} />}
                 nestedScrollEnabled
               />
             </View>

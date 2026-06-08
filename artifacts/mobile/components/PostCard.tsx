@@ -50,9 +50,11 @@ interface PostCardProps {
   post: Post;
   isLoggedIn?: boolean;
   onRequireLogin?: () => void;
+  fullScreen?: boolean;
+  itemHeight?: number;
 }
 
-export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardProps) {
+export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight }: PostCardProps) {
   const colors = useColors();
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -127,7 +129,118 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin }: PostCardP
     setActiveImg(page);
   };
 
+  // Full-screen derived dimensions
+  const fsImageH = itemHeight ? itemHeight - 62 - 50 : 0;
+
   if (hidden) return null;
+
+  if (fullScreen && itemHeight) {
+    return (
+      <View style={{ width: SCREEN_WIDTH, height: itemHeight, backgroundColor: "#000", overflow: "hidden" }}>
+        {/* Image fills from top, behind the header */}
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: fsImageH + 62 }}>
+          <FlatList
+            data={images}
+            keyExtractor={(_, i) => String(i)}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={16}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} resizeMode="cover" />
+            )}
+            scrollEnabled={images.length > 1}
+          />
+          {/* Dark gradient at top for header legibility */}
+          <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 90, backgroundColor: "rgba(0,0,0,0.45)" }} />
+          {/* Dots */}
+          {images.length > 1 && (
+            <View style={styles.dotsContainer}>
+              {images.map((_, i) => (
+                i === activeImg ? (
+                  <LinearGradient key={i} colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.dot, styles.dotActive]} />
+                ) : (
+                  <View key={i} style={[styles.dot, { backgroundColor: "rgba(255,255,255,0.5)" }]} />
+                )
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Header overlaid on top of image */}
+        <View style={[styles.header, { backgroundColor: "transparent" }]}>
+          <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.8}>
+            <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={38} />
+          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.7}>
+              <View style={styles.nameRow}>
+                <Text style={[styles.username, { color: "#fff" }]}>{post.profiles?.username ?? "user"}</Text>
+                {post.profiles?.is_verified && <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />}
+              </View>
+            </TouchableOpacity>
+            <Text style={[styles.time, { color: "rgba(255,255,255,0.7)" }]}>{timeAgo(post.created_at)}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setFollowing((f) => !f)} style={[styles.followBtn, following ? { borderWidth: 1, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "transparent" } : {}]}>
+            {following ? (
+              <Text style={[styles.followBtnText, { color: "#fff" }]}>Following</Text>
+            ) : (
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.followGradient}>
+                <Text style={[styles.followBtnText, { color: "#fff" }]}>Follow</Text>
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Caption + actions pinned to bottom */}
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.6)", paddingBottom: 8 }}>
+          {post.caption ? (
+            <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 }}>
+              <Text style={[styles.caption, { color: "#fff" }]} numberOfLines={2}>
+                <Text style={[styles.captionUsername, { color: "#fff" }]}>{post.profiles?.username ?? "user"} </Text>
+                {post.caption}
+              </Text>
+            </View>
+          ) : null}
+          <View style={[styles.actions, { backgroundColor: "transparent", borderTopWidth: 0 }]}>
+            <View style={styles.leftActions}>
+              <TouchableOpacity onPress={handleLike} style={styles.actionBtn}>
+                <Animated.View style={heartStyle}>
+                  <Ionicons name={liked ? "heart" : "heart-outline"} size={26} color={liked ? "#EC4899" : "#fff"} />
+                </Animated.View>
+              </TouchableOpacity>
+              <Text style={[styles.actionCount, { color: liked ? "#EC4899" : "rgba(255,255,255,0.85)" }]}>
+                {likesCount >= 1000 ? `${(likesCount / 1000).toFixed(1)}k` : likesCount}
+              </Text>
+              <TouchableOpacity onPress={() => { if (requireAuth()) return; setShowComments(true); }} style={styles.actionBtn}>
+                <Ionicons name="chatbubble-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+              <Text style={[styles.actionCount, { color: "rgba(255,255,255,0.85)" }]}>{commentsDisplay}</Text>
+              <TouchableOpacity onPress={() => { if (requireAuth()) return; setShowShare(true); }} style={styles.actionBtn}>
+                <Ionicons name="paper-plane-outline" size={24} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => { if (requireAuth()) return; const nowR = !reposted; setReposted(nowR); if (userId) toggleRepost(post.id, userId, nowR); }}>
+                <Ionicons name={reposted ? "repeat" : "repeat-outline"} size={24} color={reposted ? "#10B981" : "#fff"} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.rightIcons}>
+              <TouchableOpacity onPress={() => { if (requireAuth()) return; setFavourited((f) => !f); }}>
+                <Ionicons name={favourited ? "star" : "star-outline"} size={23} color={favourited ? "#EAB308" : "#fff"} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowB = !bookmarked; setBookmarked(nowB); if (userId) toggleFavourite(post.id, userId, nowB); }}>
+                <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={23} color={bookmarked ? "#8B5CF6" : "#fff"} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <CommentsSheet visible={showComments} onClose={() => setShowComments(false)} postId={post.id} isLoggedIn={isLoggedIn} onRequireLogin={() => { setShowComments(false); onRequireLogin?.(); }} />
+        <ShareSheet visible={showShare} onClose={() => setShowShare(false)} contentType="post" username={post.profiles?.username} />
+        <AchievementModal visible={!!achievement} achievement={achievement} onClose={() => setAchievement(null)} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card }]}>
