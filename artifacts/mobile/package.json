@@ -11,7 +11,8 @@
     "eas:login": "npx eas-cli@latest login",
     "eas:apk": "EAS_NO_VCS=1 npx eas-cli@latest build --platform android --profile preview",
     "eas:aab": "EAS_NO_VCS=1 npx eas-cli@latest build --platform android --profile production",
-    "eas:status": "npx eas-cli@latest build:list --platform android --limit 5"
+    "eas:status": "npx eas-cli@latest build:list --platform android --limit 5",
+    "postinstall": "node patch-hermesc.js"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
