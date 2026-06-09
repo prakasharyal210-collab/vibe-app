@@ -135,6 +135,32 @@ Topic: "${p.topic || "my reel"}" Duration: ${p.duration || "15"}s
 1-2 sentences, under 120 chars, ends with call to action, no hashtags.
 Return ONLY the description text.`;
 
+    case "astro_horoscope": {
+      const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      return `Generate a detailed daily horoscope for ${p.sign || "Aries"} for today, ${today}.
+Include exactly these 5 sections, each 2-3 sentences:
+- Love (💕): romantic energy, relationships, heart matters
+- Career (💼): work, ambitions, professional growth
+- Health (💪): physical energy, wellness, self-care
+- Money (💰): finances, opportunities, spending
+- Energy (🌙): overall daily spiritual energy and mood
+
+Make it mystical, positive, inspiring, and personal to the ${p.sign} personality.
+Return ONLY JSON: {"love":"...","career":"...","health":"...","money":"...","energy":"...","luckyNumber":${Math.floor(Math.random()*99)+1},"luckyColor":"color name"}`;
+    }
+
+    case "astro_compatibility": {
+      return `Analyze the romantic compatibility between ${p.sign1 || "Aries"} and ${p.sign2 || "Libra"}.
+Be a mystical astrologer. Give:
+- A score out of 100
+- 2 key strengths of this pairing (short, vivid phrases)
+- 2 challenges to navigate (honest but constructive)
+- A 2-sentence romantic verdict
+
+Fun, mystical, wise tone. Based on actual astrological traditions.
+Return ONLY JSON: {"score":85,"strengths":["strength1","strength2"],"challenges":["challenge1","challenge2"],"verdict":"2-sentence romantic verdict","emoji":"🔥"}`;
+    }
+
     default:
       return `You are Gundruk AI. ${p.message || "Hello!"}`;
   }
@@ -166,6 +192,22 @@ router.post("/chat", async (req, res) => {
 Help with: content ideas, captions, hashtags, bio writing, match tips, app help, creative writing, fun conversation.
 Keep responses concise (2-4 sentences). Friendly, slightly edgy Gen-Z tone. Use emojis occasionally.`;
       const result = await callClaude(apiKey, msgs, system, 512);
+      res.json({ result });
+      return;
+    }
+
+    if (type === "astro_chat") {
+      const msgs = history ?? [];
+      if (msgs.length === 0) {
+        res.status(400).json({ error: "No messages provided" });
+        return;
+      }
+      const zodiacSign = (p as Record<string, unknown>).zodiacSign as string | undefined;
+      const system = `You are a mystical astrologer and cosmic guide. You have deep knowledge of astrology, zodiac signs, planetary movements, birth charts, and cosmic energies.${zodiacSign ? ` The user is a ${zodiacSign}.` : ""}
+Answer questions about astrology with wisdom, mysticism, and warmth. Reference real astrological concepts (Mercury retrograde, Venus transits, moon phases, rising signs, etc.).
+Be encouraging, positive, and insightful. Use mystical language and occasional star/moon emojis ✨🌙⭐🔮.
+Keep responses concise (3-5 sentences). Never make harmful predictions.`;
+      const result = await callClaude(apiKey, msgs, system, 600);
       res.json({ result });
       return;
     }

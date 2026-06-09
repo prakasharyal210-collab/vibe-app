@@ -63,6 +63,7 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { SpeedVibeModal } from "@/components/SpeedVibeModal";
 import { VibeRoomsTab } from "@/components/VibeRoomsTab";
+import { AstrologyTab } from "@/components/AstrologyTab";
 import { VibeSetupWizard, VibePreferences } from "@/components/VibeSetupWizard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
@@ -2001,7 +2002,7 @@ function FindVibeContent() {
   const userId = session?.user?.id;
 
   const mainTabSwipe = useMainTabSwipe("find");
-  const [activeTab, setActiveTab] = useState<"nearby" | "samevibe" | "daily" | "rooms" | "goals" | "matches">("nearby");
+  const [activeTab, setActiveTab] = useState<"nearby" | "astrology" | "daily" | "rooms" | "goals" | "matches">("nearby");
   const [myGoals, setMyGoals] = useState<string[]>([]);
   const pagerRef = useRef<SwipeablePagerRef>(null);
   const tabScrollRef = useRef<ScrollView>(null);
@@ -2261,8 +2262,8 @@ function FindVibeContent() {
     { id: "goals"    as const, emoji: "🎯", label: "Goals" },
     { id: "matches"  as const, emoji: "💜", label: "Matches" },
     { id: "rooms"    as const, emoji: "🏠", label: "Rooms" },
-    { id: "samevibe" as const, emoji: "✨", label: "Gundruk" },
-    { id: "daily"    as const, emoji: "⭐", label: "Daily" },
+    { id: "astrology" as const, emoji: "⭐", label: "Astrology" },
+    { id: "daily"    as const, emoji: "🌟", label: "Daily" },
   ];
 
   return (
@@ -2425,9 +2426,9 @@ function FindVibeContent() {
           <VibeRoomsTab />
         </View>
 
-        {/* Page 4 — Vibe */}
+        {/* Page 4 — Astrology */}
         <View key="4" style={{ flex: 1 }}>
-          <SwipeCardDeck cards={sameVibeCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
+          <AstrologyTab userId={userId} />
         </View>
 
         {/* Page 5 — Daily */}
