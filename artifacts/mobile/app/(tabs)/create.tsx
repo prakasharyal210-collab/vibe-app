@@ -60,7 +60,7 @@ const DURATIONS = ["15s", "30s", "60s", "3min"] as const;
 const DURATION_SECS: Record<string, number> = { "15s": 15, "30s": 30, "60s": 60, "3min": 180 };
 const TEXT_COLORS = ["#ffffff", "#000000", "#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899"];
 
-interface TextOverlayItem { id: string; text: string; color: string; x: number; y: number; }
+interface TextOverlayItem { id: string; text: string; color: string; fontSize: number; x: number; y: number; }
 interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; y: number; }
 
 const CONFETTI_COLORS = ["#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899", "#A78BFA"];
@@ -191,6 +191,38 @@ const es = StyleSheet.create({
   stepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.35)" },
   stepDotActive: { backgroundColor: "#FBBF24" },
 });
+
+// ── Draggable text overlay ────────────────────────────────────────────────────
+function DraggableTextOverlay({ item, onMove }: { item: TextOverlayItem; onMove: (id: string, x: number, y: number) => void }) {
+  const lastPos = useRef({ x: item.x, y: item.y });
+  const pan = useRef(new Animated.ValueXY({ x: item.x, y: item.y })).current;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset(lastPos.current);
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: (_, { dx, dy }) => {
+        pan.flattenOffset();
+        const newX = Math.max(0, Math.min(W - 80, lastPos.current.x + dx));
+        const newY = Math.max(60, Math.min(H - 120, lastPos.current.y + dy));
+        lastPos.current = { x: newX, y: newY };
+        pan.setValue({ x: newX, y: newY });
+        onMove(item.id, newX, newY);
+      },
+    })
+  ).current;
+  return (
+    <Animated.View style={[{ position: "absolute" }, { transform: pan.getTranslateTransform() }]} {...panResponder.panHandlers}>
+      <Text style={{ color: item.color, fontSize: item.fontSize, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 }}>
+        {item.text}
+      </Text>
+    </Animated.View>
+  );
+}
 
 // ── Celebration modal (unchanged) ─────────────────────────────────────────────
 function CelebrationModal({ visible, onGoToProfile, onClose }: {
@@ -364,6 +396,9 @@ export default function CreateScreen() {
   const [showStickerModal, setShowStickerModal] = useState(false);
   const [newText, setNewText] = useState("");
   const [newTextColor, setNewTextColor] = useState("#ffffff");
+  const [newTextSize, setNewTextSize] = useState<"small" | "medium" | "large">("medium");
+  const [showAiTopicInput, setShowAiTopicInput] = useState(false);
+  const [aiTopic, setAiTopic] = useState("");
 
   // ── Post / AI ─────────────────────────────────────────────────────────────
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -381,6 +416,17 @@ export default function CreateScreen() {
   useEffect(() => {
     Animated.timing(controlsOpacity, { toValue: recording ? 0 : 1, duration: 220, useNativeDriver: true }).start();
   }, [recording]);
+
+  // ── Night mode: auto-boost exposure ────────────────────────────────────────
+  useEffect(() => {
+    if (captureMode === "Night") {
+      setExposureValue(0.75);
+      setShowExposure(true);
+    } else {
+      setExposureValue(0);
+      setShowExposure(false);
+    }
+  }, [captureMode]);
 
   useEffect(() => {
     return () => {
@@ -559,8 +605,13 @@ export default function CreateScreen() {
 
   const addTextOverlay = () => {
     if (!newText.trim()) return;
-    setTextOverlays((prev) => [...prev, { id: Date.now().toString(), text: newText.trim(), color: newTextColor, x: 60, y: 100 + prev.length * 50 }]);
+    const fs = newTextSize === "small" ? 14 : newTextSize === "large" ? 28 : 18;
+    setTextOverlays((prev) => [...prev, { id: Date.now().toString(), text: newText.trim(), color: newTextColor, fontSize: fs, x: 60, y: 100 + prev.length * 56 }]);
     setNewText(""); setShowTextModal(false);
+  };
+
+  const moveTextOverlay = (id: string, x: number, y: number) => {
+    setTextOverlays((prev) => prev.map((t) => t.id === id ? { ...t, x, y } : t));
   };
 
   const addSticker = (emoji?: string, gifUrl?: string) => {
@@ -714,13 +765,9 @@ export default function CreateScreen() {
           </View>
         )}
 
-        {/* ── TEXT OVERLAYS ── */}
+        {/* ── TEXT OVERLAYS (draggable) ── */}
         {textOverlays.map((t) => (
-          <View key={t.id} style={{ position: "absolute", top: t.y, left: t.x }} pointerEvents="none">
-            <Text style={{ color: t.color, fontSize: 18, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 }}>
-              {t.text}
-            </Text>
-          </View>
+          <DraggableTextOverlay key={t.id} item={t} onMove={moveTextOverlay} />
         ))}
 
         {/* ── STICKERS ── */}
@@ -756,9 +803,16 @@ export default function CreateScreen() {
             {isBoomerang && <Text style={s.modeHint}>Tap to record boomerang</Text>}
           </View>
           <View style={s.topRight}>
-            {/* Zoom tap shortcut */}
-            <TouchableOpacity style={s.topPill} onPress={() => { const next = zoom < 0.05 ? 0.12 : zoom < 0.2 ? 0.35 : 0; setZoom(next); }}>
-              <Text style={s.topPillText}>{zoom < 0.05 ? "1×" : zoom < 0.2 ? "2×" : "3×"}</Text>
+            {/* Zoom tap shortcut: Wide(0.5×) → 1× → 2× → 3× */}
+            <TouchableOpacity style={s.topPill} onPress={() => {
+              if (zoom < 0.03) setZoom(0.08);
+              else if (zoom < 0.18) setZoom(0.25);
+              else if (zoom < 0.38) setZoom(0);
+              else setZoom(0);
+            }}>
+              <Text style={s.topPillText}>
+                {zoom < 0.03 ? "0.5×" : zoom < 0.18 ? "1×" : zoom < 0.38 ? "2×" : "3×"}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -819,26 +873,14 @@ export default function CreateScreen() {
           </TouchableOpacity>
 
           {captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? (
-            <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={async () => {
-              setAiLoading(true);
-              const result = await callAI("story_idea", {});
-              setAiLoading(false);
-              const parsed = parseAIJson<{ ideas?: string[] }>(result, {});
-              if (parsed.ideas) setAiModal({ type: "idea", content: parsed.ideas });
-            }}>
+            <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
               <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
                 {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="bulb-outline" size={22} color="#A78BFA" />}
               </View>
               <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={async () => {
-              setAiLoading(true);
-              const result = await callAI("reel_script", { topic: "my reel", duration: selectedDuration });
-              setAiLoading(false);
-              const parsed = parseAIJson<{ script?: string[] }>(result, {});
-              if (parsed.script) setAiModal({ type: "script", content: parsed.script });
-            }}>
+            <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
               <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
                 {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="document-text-outline" size={22} color="#A78BFA" />}
               </View>
@@ -959,12 +1001,23 @@ export default function CreateScreen() {
           <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowTextModal(false)} />
           <View style={s.textCard}>
             <Text style={s.textCardTitle}>Add Text</Text>
-            <TextInput value={newText} onChangeText={setNewText} placeholder="Type something…" placeholderTextColor="rgba(255,255,255,0.35)" autoFocus maxLength={60} style={[s.textInput, { color: newTextColor }]} />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
+            <TextInput value={newText} onChangeText={setNewText} placeholder="Type something…" placeholderTextColor="rgba(255,255,255,0.35)" autoFocus maxLength={60} style={[s.textInput, { color: newTextColor, fontSize: newTextSize === "small" ? 14 : newTextSize === "large" ? 28 : 18 }]} />
+            {/* Font size */}
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {(["small", "medium", "large"] as const).map((sz) => (
+                <TouchableOpacity key={sz} onPress={() => setNewTextSize(sz)} style={[s.sizePill, newTextSize === sz && s.sizePillActive]}>
+                  <Text style={[s.sizePillText, { fontSize: sz === "small" ? 12 : sz === "medium" ? 16 : 22 }, newTextSize === sz && { color: "#fff" }]}>A</Text>
+                </TouchableOpacity>
+              ))}
+              <Text style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 12, alignSelf: "center", marginLeft: 4 }}>Size</Text>
+            </View>
+            {/* Colors */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
               {TEXT_COLORS.map((c) => (
                 <TouchableOpacity key={c} onPress={() => setNewTextColor(c)} style={[s.colorDot, { backgroundColor: c }, newTextColor === c && s.colorDotActive]} />
               ))}
             </ScrollView>
+            <Text style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: -4 }}>Drag the text anywhere on screen after adding</Text>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
               <TouchableOpacity onPress={() => { setShowTextModal(false); setNewText(""); }} style={s.cancelBtn}>
                 <Text style={{ color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_600SemiBold", fontSize: 15 }}>Cancel</Text>
@@ -1030,18 +1083,92 @@ export default function CreateScreen() {
         onClose={() => setShowCelebration(false)}
       />
 
+      {/* ── AI TOPIC INPUT MODAL ── */}
+      <Modal visible={showAiTopicInput} transparent animationType="slide" onRequestClose={() => setShowAiTopicInput(false)}>
+        <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowAiTopicInput(false)} />
+        <View style={s.textCard}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <Ionicons name="sparkles" size={18} color="#A78BFA" />
+            <Text style={s.textCardTitle}>{captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? "Story Idea Topic" : "Reel Script Topic"}</Text>
+          </View>
+          <Text style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginBottom: 8 }}>
+            {captureMode === "Video" || captureMode === "SlowMo" || captureMode === "Boomerang"
+              ? "What's your reel about? Claude will write 4-5 punchy lines."
+              : "What kind of story do you want to tell?"}
+          </Text>
+          <TextInput
+            value={aiTopic}
+            onChangeText={setAiTopic}
+            placeholder="e.g. morning skincare routine, travel in Japan…"
+            placeholderTextColor="rgba(255,255,255,0.25)"
+            autoFocus
+            maxLength={120}
+            style={[s.textInput, { color: "#fff" }]}
+          />
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+            <TouchableOpacity onPress={() => setShowAiTopicInput(false)} style={s.cancelBtn}>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_600SemiBold", fontSize: 15 }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              disabled={aiLoading}
+              onPress={async () => {
+                const topic = aiTopic.trim() || "my content";
+                setShowAiTopicInput(false);
+                setAiLoading(true);
+                const isIdea = captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night";
+                const result = await callAI(isIdea ? "story_idea" : "reel_script", { topic, duration: selectedDuration });
+                setAiLoading(false);
+                if (isIdea) {
+                  const parsed = parseAIJson<{ ideas?: string[] }>(result, {});
+                  if (parsed.ideas) setAiModal({ type: "idea", content: parsed.ideas });
+                } else {
+                  const parsed = parseAIJson<{ script?: string[] }>(result, {});
+                  if (parsed.script) setAiModal({ type: "script", content: parsed.script });
+                }
+              }}
+              style={{ flex: 2, borderRadius: 12, overflow: "hidden", opacity: aiLoading ? 0.6 : 1 }}
+            >
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 14, alignItems: "center" }}>
+                {aiLoading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" }}>✨ Generate</Text>
+                }
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {aiModal && (
         <Modal transparent animationType="slide" onRequestClose={() => setAiModal(null)}>
           <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" }}>
             <View style={{ backgroundColor: "#0F0F1A", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 }}>
-              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16, marginBottom: 16 }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16, marginBottom: 4 }}>
                 {aiModal.type === "idea" ? "✨ Story Ideas" : "✨ Reel Script"}
               </Text>
+              {aiModal.type === "script" && (
+                <Text style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginBottom: 14 }}>
+                  Read each line while recording — tap a line to use it as text overlay
+                </Text>
+              )}
               {aiModal.content.map((item, i) => (
-                <TouchableOpacity key={i} onPress={() => setAiModal(null)} style={{ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.3)", marginBottom: 10 }}>
-                  <Text style={{ color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 20 }}>
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => {
+                    if (aiModal.type === "script") {
+                      const fs = 18;
+                      setTextOverlays((prev) => [...prev, { id: Date.now().toString() + i, text: item, color: "#ffffff", fontSize: fs, x: 60, y: 100 + i * 60 }]);
+                    }
+                    setAiModal(null);
+                  }}
+                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.3)", marginBottom: 10 }}
+                >
+                  <Text style={{ color: "#fff", fontFamily: aiModal.type === "script" ? "Poppins_600SemiBold" : "Poppins_400Regular", fontSize: aiModal.type === "script" ? 15 : 14, lineHeight: 22 }}>
                     {aiModal.type === "script" ? `${i + 1}. ` : ""}{item}
                   </Text>
+                  {aiModal.type === "script" && (
+                    <Text style={{ color: "rgba(167,139,250,0.6)", fontFamily: "Poppins_400Regular", fontSize: 10, marginTop: 4 }}>Tap to add as text overlay</Text>
+                  )}
                 </TouchableOpacity>
               ))}
               <TouchableOpacity onPress={() => setAiModal(null)} style={{ marginTop: 8, alignItems: "center" }}>
@@ -1131,4 +1258,8 @@ const s = StyleSheet.create({
   colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.2)" },
   colorDotActive: { borderColor: "#fff", borderWidth: 3 },
   cancelBtn: { flex: 1, paddingVertical: 14, alignItems: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)" },
+
+  sizePill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10, backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center", minWidth: 44 },
+  sizePillActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
+  sizePillText: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_700Bold" },
 });

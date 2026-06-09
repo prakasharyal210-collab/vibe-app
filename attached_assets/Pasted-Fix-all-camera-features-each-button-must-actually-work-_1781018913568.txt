@@ -1,0 +1,173 @@
+Fix all camera features — each button must actually work:
+RIGHT SIDE BUTTONS — make each one functional:
+1. Timer (5s shown at top right):
+
+Tapping cycles through: Off → 3s → 5s → 10s
+When timer is set and user taps capture button:
+
+Show countdown on screen (big number: 3...2...1)
+Then take photo/start recording automatically
+
+
+
+2. Zoom (1x shown):
+
+Tapping cycles through: 1x → 2x → 3x → 0.5x
+Pinch gesture on camera preview also zooms in/out
+Use expo-camera zoom prop: zoom={zoomLevel} where 0=min, 1=max
+
+3. Grid:
+
+Tapping toggles grid lines on/off
+Show rule-of-thirds grid: 2 horizontal + 2 vertical lines
+Lines should be white with 30% opacity overlaid on camera preview
+Implemented as absolute positioned View with borders
+
+4. Filter:
+
+Tapping opens a horizontal scrollable filter strip at bottom
+Filters: Natural, Vivid, Warm, Cool, Vintage, Cinematic, B&W, Fade
+Each filter shows a small preview circle
+Selected filter highlighted with purple border
+Apply filter using StyleSheet with color matrix or tint overlay on the captured image
+
+5. Beauty:
+
+Already shows sliders (Smooth, Brighten, Slim, Eyes) ✅
+BUT sliders must actually DO something:
+
+Smooth: Apply blur effect on captured photo using expo-image-manipulator
+Brighten: Increase brightness on captured photo
+Slim: Apply subtle horizontal compression on face area
+Eyes: Increase contrast/saturation around eye area
+
+
+Sliders range 0-100, apply effect strength proportionally
+Effects apply AFTER capture, before posting
+
+6. Music:
+
+Tapping opens a music picker bottom sheet
+Show list of songs from your music library (Jamendo API or local)
+User picks a song → it plays in background while recording video
+Show currently playing song name at top of camera screen
+Use expo-av to play music while recording
+
+7. Text (Aa):
+
+Tapping opens text input overlay
+User types text
+Choose font size (small/medium/large)
+Choose color (white/black/yellow/red/purple)
+Text appears draggable on camera preview
+User can move it anywhere on screen
+Text gets burned into photo/video when captured
+
+8. AI Script:
+
+Tapping opens bottom sheet
+User types their video topic
+Claude AI generates a 4-5 line punchy reel script
+Script shown line by line on screen like a teleprompter
+User can scroll through lines while recording
+
+
+BOTTOM MODE SELECTOR — make each mode work:
+Video mode: ✅ Already works
+
+Record button turns red while recording
+Timer shows recording duration
+Stop button ends recording
+
+Portrait mode:
+
+Blur the background while keeping subject sharp
+Use expo-camera with depth effect if available
+OR apply gaussian blur to edges of captured photo using expo-image-manipulator
+Show "Portrait" badge on screen when active
+
+Night mode:
+
+Increase camera exposure for dark environments
+Use expo-camera autoFocus and increase zoom sensitivity
+Apply brightness/contrast boost to captured image
+Show moon icon indicator when active
+
+Slow Mo:
+
+Record video at high frame rate
+Use expo-camera video quality settings
+Play back at slower speed
+Show "Slow Mo" badge while recording
+
+Boomerang (add if missing):
+
+Record 2-3 seconds of video
+Reverse the clip and append to original
+Result: video plays forward then backward in loop
+Use expo-av to manipulate video frames
+
+
+BOTTOM CONTROLS:
+Gallery button (left):
+
+Opens phone gallery/photo library
+User picks existing photo or video
+Takes them to edit screen
+
+Capture button (center):
+
+Photo mode: tap to capture
+Video mode: tap to start/stop recording
+With timer: starts countdown then captures
+
+Flip button (right):
+
+Switches between front and back camera
+Smooth animation when flipping
+Use expo-camera type prop: CameraType.front / CameraType.back
+
+
+VIDEO DURATION SELECTOR (15s, 30s, 60s, 3min):
+
+These buttons set max recording duration
+When limit reached, recording stops automatically
+Show progress bar around capture button showing time remaining
+Currently visible in screenshot — make sure tapping actually sets the limit
+
+
+AFTER CAPTURE (edit screen before posting):
+
+Show captured photo/video
+Editing tools:
+
+Crop (free/square/4:3/9:16)
+Brightness slider
+Contrast slider
+Saturation slider
+Rotate/flip
+
+
+Add caption
+Add location tag
+Choose to post as: Post / Reel / Story
+Post button sends to Supabase
+
+
+Implementation notes:
+
+Use expo-camera for all camera functions
+Use expo-av for video and audio
+Use expo-image-manipulator for photo editing
+Use expo-media-library for gallery access
+Use react-native-gesture-handler for draggable text stickers
+All state managed with useState hooks
+Beauty effects apply after capture not in real-time (real-time is too slow on mobile)
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Anthropic API Key: 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
+Don't break any existing functionality.
