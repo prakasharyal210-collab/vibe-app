@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -2023,6 +2024,7 @@ function FindVibeContent() {
   const [sameVibeCards, setSameVibeCards] = useState<VibeCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
   const [screenError, setScreenError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     showGender: ["everyone"],
     goal: "all",
@@ -2083,6 +2085,13 @@ function FindVibeContent() {
       }
     })();
   }, [userId]);
+
+  const onRefresh = useCallback(async () => {
+    if (!userId) return;
+    setRefreshing(true);
+    await loadCards(userId, vibePrefs);
+    setRefreshing(false);
+  }, [userId, vibePrefs]);
 
   const loadCards = async (uid: string, prefs: VibePrefsRow | null) => {
     setCardsLoading(true);
@@ -2257,7 +2266,20 @@ function FindVibeContent() {
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
+    <ScrollView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      scrollEnabled={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor="#8B5CF6"
+          colors={["#8B5CF6"]}
+        />
+      }
+      contentContainerStyle={{ flex: 1 }}
+      {...mainTabSwipe.panHandlers}
+    >
       <View style={[styles.header, { paddingTop: topInset + 8 }]}>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
         <View style={styles.headerActions}>
@@ -2481,7 +2503,7 @@ function FindVibeContent() {
         userId={userId ?? ""}
         onSave={() => setShowModeSheet(false)}
       />
-    </View>
+    </ScrollView>
   );
 }
 

@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Image,
   Platform,
+  RefreshControl,
   SectionList,
   StyleSheet,
   Text,
@@ -107,6 +108,14 @@ export default function NotificationsScreen() {
   const { session } = useAuth();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    if (!session?.user?.id) return;
+    setRefreshing(true);
+    await fetchNotifications(session.user.id).then(setNotifications).catch(() => {});
+    setRefreshing(false);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -192,6 +201,14 @@ export default function NotificationsScreen() {
           <NotifItem notif={item} onRead={markRead} />
         )}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#8B5CF6"
+            colors={["#8B5CF6"]}
+          />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="notifications-off-outline" size={52} color={colors.mutedForeground} />

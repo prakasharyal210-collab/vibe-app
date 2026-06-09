@@ -10,6 +10,7 @@ import {
   FlatList,
   Image,
   Platform,
+  RefreshControl,
   StyleSheet,
   Text,
   TextInput,
@@ -353,12 +354,24 @@ export default function InboxScreen() {
   const [requests, setRequests] = useState<Conversation[]>([]);
   const [loadingReqs, setLoadingReqs] = useState(false);
   const [loadingSnaps, setLoadingSnaps] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [snapPreviewUri, setSnapPreviewUri] = useState<string | null>(null);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [snapViewer, setSnapViewer] = useState<{ uri: string; messageId: string; msgText: string } | null>(null);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const userId = session?.user?.id;
+
+  const onRefresh = useCallback(async () => {
+    if (!userId) return;
+    setRefreshing(true);
+    await Promise.all([
+      fetchConversations(userId).then(setConversations).catch(() => {}),
+      fetchSnapConversations(userId).then(setSnapConvos).catch(() => {}),
+      tab === "requests" ? fetchMessageRequests(userId).then(setRequests).catch(() => {}) : Promise.resolve(),
+    ]);
+    setRefreshing(false);
+  }, [userId, tab]);
 
   useEffect(() => {
     if (!userId) return;
@@ -522,6 +535,14 @@ export default function InboxScreen() {
             data={filtered}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <ConversationItem convo={item} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#8B5CF6"
+                colors={["#8B5CF6"]}
+              />
+            }
             ListHeaderComponent={
               <TouchableOpacity
                 onPress={() => router.push("/ai-chat" as any)}
@@ -560,6 +581,14 @@ export default function InboxScreen() {
           renderItem={({ item }) => (
             <SnapConvoItem convo={item} onView={() => handleViewSnap(item)} />
           )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#8B5CF6"
+              colors={["#8B5CF6"]}
+            />
+          }
           ListHeaderComponent={snapConvos.length > 0 ? (
             <View style={[styles.reqInfo, { backgroundColor: "rgba(234,88,12,0.08)", borderColor: "rgba(234,88,12,0.2)" }]}>
               <Ionicons name="camera" size={15} color="#EA580C" />
@@ -596,6 +625,14 @@ export default function InboxScreen() {
           data={requests}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <RequestItem convo={item} onAccept={handleAccept} onDelete={handleDelete} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#8B5CF6"
+              colors={["#8B5CF6"]}
+            />
+          }
           ListHeaderComponent={requests.length > 0 ? (
             <View style={[styles.reqInfo, { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.15)" }]}>
               <Ionicons name="information-circle-outline" size={16} color="#A78BFA" />

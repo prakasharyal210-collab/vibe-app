@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
   Image,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -39,6 +40,16 @@ export default function SearchScreen() {
   const [trendingHashtags, setTrendingHashtags] = useState<Hashtag[]>([]);
   const [suggestedAccounts, setSuggestedAccounts] = useState<Profile[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      searchProfiles(query).then(setSuggestedAccounts).catch(() => {}),
+      searchHashtags(query).then(setTrendingHashtags).catch(() => {}),
+    ]);
+    setRefreshing(false);
+  }, [query]);
 
   useEffect(() => {
     searchProfiles("").then(setSuggestedAccounts).catch(() => {});
@@ -140,7 +151,18 @@ export default function SearchScreen() {
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#8B5CF6"
+            colors={["#8B5CF6"]}
+          />
+        }
+      >
         {query.length === 0 ? (
           <>
             {searchHistory.length > 0 && (

@@ -16,6 +16,7 @@ import {
   PanResponder,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -472,6 +473,7 @@ export default function ReelsScreen() {
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
+  const [refreshing, setRefreshing] = useState(false);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
@@ -613,6 +615,12 @@ export default function ReelsScreen() {
 
   useFocusEffect(useCallback(() => { loadFeed(); }, [loadFeed]));
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadFeed();
+    setRefreshing(false);
+  }, [loadFeed]);
+
   useEffect(() => {
     loadFeedAds(session?.user?.id, "reel").then(setReelAds).catch(() => setReelAds(HOUSE_REEL_ADS));
   }, [session?.user?.id]);
@@ -679,6 +687,14 @@ export default function ReelsScreen() {
         initialNumToRender={2}
         maxToRenderPerBatch={3}
         windowSize={5}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#8B5CF6"
+            colors={["#8B5CF6"]}
+          />
+        }
         renderItem={({ item, index }) => {
           if ('isAd' in item && (item as AdItem).isAd) {
             return (
