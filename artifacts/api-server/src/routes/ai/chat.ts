@@ -36,6 +36,60 @@ async function callClaude(
   return data?.content?.[0]?.text ?? "";
 }
 
+const JYOTISHA_KNOWLEDGE = `VEDIC JYOTISHA KNOWLEDGE BASE:
+
+RASHIS (12 Signs) — Ruler — Element:
+Mesha/Aries(Mars/Fire), Vrishabha/Taurus(Venus/Earth), Mithuna/Gemini(Mercury/Air), Karka/Cancer(Moon/Water), Simha/Leo(Sun/Fire), Kanya/Virgo(Mercury/Earth), Tula/Libra(Venus/Air), Vrishchika/Scorpio(Mars+Ketu/Water), Dhanu/Sagittarius(Jupiter/Fire), Makara/Capricorn(Saturn/Earth), Kumbha/Aquarius(Saturn+Rahu/Air), Meena/Pisces(Jupiter+Ketu/Water).
+
+NAVAGRAHA — Domain — Exaltation — Debilitation:
+Surya(Sun): soul/father/authority/health/government — exalted Mesha — debilitated Tula
+Chandra(Moon): mind/mother/emotions/public — exalted Vrishabha — debilitated Vrishchika
+Mangal(Mars): energy/courage/brothers/surgery/land — exalted Makara — debilitated Karka
+Budha(Mercury): intellect/trade/communication/nerves — exalted Kanya — debilitated Meena
+Guru/Brihaspati(Jupiter): dharma/children/wealth/wisdom — exalted Karka — debilitated Makara
+Shukra(Venus): love/beauty/marriage/arts/luxury — exalted Meena — debilitated Kanya
+Shani(Saturn): karma/discipline/delays/longevity/service — exalted Tula — debilitated Mesha
+Rahu(North Node): desire/illusion/foreigners/technology/amplifier — shadow planet
+Ketu(South Node): past karma/liberation/mysticism/detachment — always opposite Rahu
+
+12 BHAVAS (Houses): 1=Self/Body, 2=Wealth/Speech/Family, 3=Siblings/Communication/Courage, 4=Home/Mother/Happiness, 5=Children/Creativity/Intelligence/Past karma, 6=Enemies/Health/Debts, 7=Marriage/Partnerships/Business, 8=Death/Transformation/Secrets/Inheritance, 9=Dharma/Father/Fortune/Higher learning, 10=Career/Karma/Status/Government, 11=Gains/Aspirations/Friends/Elder siblings, 12=Liberation/Loss/Foreign lands/Spirituality.
+Kendras(1,4,7,10)=strongest houses. Trikonas(1,5,9)=fortune and dharma. Dusthanas(6,8,12)=difficult but transformative.
+
+27 NAKSHATRAS — Ruling Planet — Key theme:
+Ashwini(Ketu/healing), Bharani(Venus/death-rebirth), Krittika(Sun/sharpness), Rohini(Moon/fertility), Mrigashira(Mars/seeking), Ardra(Rahu/storms), Punarvasu(Jupiter/renewal), Pushya(Saturn/nourishment), Ashlesha(Mercury/serpent wisdom), Magha(Ketu/ancestors), Purva Phalguni(Venus/pleasure), Uttara Phalguni(Sun/service), Hasta(Moon/crafts), Chitra(Mars/beauty), Swati(Rahu/independence), Vishakha(Jupiter/determination), Anuradha(Saturn/devotion), Jyeshtha(Mercury/authority), Mula(Ketu/roots/destruction), Purva Ashadha(Venus/invincibility), Uttara Ashadha(Sun/victory), Shravana(Moon/listening), Dhanishtha(Mars/wealth), Shatabhisha(Rahu/healing waters), Purva Bhadrapada(Jupiter/passion), Uttara Bhadrapada(Saturn/depth), Revati(Mercury/completion).
+
+VIMSHOTTARI DASHA (120-year cycle — starting planet = ruling planet of birth Moon's Nakshatra):
+Ketu(7yr)→Venus(20yr)→Sun(6yr)→Moon(10yr)→Mars(7yr)→Rahu(18yr)→Jupiter(16yr)→Saturn(19yr)→Mercury(17yr)→repeat.
+During a Dasha, that planet's themes, strengths, and weaknesses dominate life events.
+
+SADE SATI: Saturn transiting 12th, 1st, 2nd from Moon sign = 7.5 years of karmic testing and growth.
+3 phases: Rising/Udaya(12th from Moon — pressure begins), Peak/Madhya(Moon sign — maximum intensity), Setting/Asta(2nd from Moon — results manifest).
+
+PANCHANG (5 daily elements): Tithi(lunar day 1-30/30), Vara(weekday+ruling deity), Nakshatra(Moon's current star), Yoga(planetary combination 1-27), Karana(half-tithi).
+Auspicious: Brahma Muhurta(1.5hr before sunrise), Abhijit Muhurta(midday 48 min), Choghadiya.
+Inauspicious: Rahu Kaal(1.5hr varies by day), Gulika Kaal, Yamaganda.
+
+KEY YOGAS: Raj Yoga(kendra+trikona lords unite=power), Dhana Yoga(2nd+11th lords=wealth), Gaja Kesari(Jupiter in kendra from Moon=fame), Budhaditya(Sun+Mercury=intelligence), Viparita Raja Yoga(dusthana lord in dusthana=rise from adversity), Neecha Bhanga(cancelled debilitation=unexpected rise), Kaal Sarpa Dosha(all planets hemmed Rahu-Ketu=obstacles), Mangal Dosha(Mars in 1/4/7/8/12=marriage challenges).
+
+THREE TYPES OF KARMA: Sanchita(total accumulated from all past lives — the storehouse), Prarabdha(portion ripening THIS life — shown in birth chart — must be experienced), Kriyamana/Agami(karma created NOW by current actions — fully within our control).
+
+FOUR YOGA PATHS: Bhakti Yoga(devotion — strong Moon/Venus/12th house), Karma Yoga(selfless action — strong Sun/Mars/10th house), Jnana Yoga(knowledge/discrimination — strong Mercury/Jupiter/5th-9th), Raja Yoga(meditation/pranayama — strong Saturn/Ketu/12th house).
+
+ISHTA DEVATA (Personal Deity via Atmakaraka — planet at highest degree in natal chart):
+Sun→Shiva/Rama, Moon→Parvati/Krishna, Mars→Kartikeya/Narasimha, Mercury→Vishnu/Saraswati, Jupiter→Brahma/Dattatreya, Venus→Lakshmi/Radha, Saturn→Shiva/Hanuman, Rahu→Durga/Saraswati, Ketu→Ganesha/Shiva.
+
+BEEJ MANTRAS: Surya(Om Hraam Hreem Hraum Sah Suryaya Namah), Chandra(Om Shraam Shreem Shraum Sah Chandraya Namah), Mangal(Om Kraam Kreem Kraum Sah Bhaumaya Namah), Budha(Om Braam Breem Braum Sah Budhaya Namah), Guru(Om Graam Greem Graum Sah Gurave Namah), Shukra(Om Draam Dreem Draum Sah Shukraya Namah), Shani(Om Praam Preem Praum Sah Shanaischaraya Namah), Rahu(Om Bhraam Bhreem Bhraum Sah Rahave Namah), Ketu(Om Sraam Sreem Sraum Sah Ketave Namah).
+
+GEMSTONES BY PLANET: Ruby(Sun), Pearl(Moon), Red Coral(Mars), Emerald(Mercury), Yellow Sapphire(Jupiter), Diamond/White Sapphire(Venus), Blue Sapphire(Saturn), Hessonite/Gomed(Rahu), Cat's Eye/Lehsunia(Ketu).
+
+PRASHNA KUNDALI (Horary): Chart cast for the exact moment a question is asked. Lagna lord's condition, Moon's applying aspects, and planets in houses determine the answer. Strong 1st/5th/9th/11th = favorable. Strong 6th/8th/12th = obstacles or delay. Void-of-course Moon = nothing happens.
+
+NAVAMSA (D9): Divisional chart showing soul's nature and spouse's true qualities. Vargottama = planet in same sign in D1 and D9 = exceptionally strong.
+
+MUHURTA: Auspicious timing. Vivaha Muhurta(marriage), Griha Pravesh(entering new home), Naamkaran(naming ceremony). Key factors: Tara Balam, Chandra Balam, Panchaka, avoiding Rahu Kaal and Gulika.
+
+REMEDIES (UPAYAS): Mantras(108x daily at prescribed time), Gemstones(worn in correct metal on correct finger), Fasting(planet's day), Daan/Charity(donate items linked to planet — gold for Sun, milk for Moon, red cloth for Mars), Puja/Homa, Rudraksha beads(1-mukhi=Shiva, 2-mukhi=Moon, etc.), Colors, Pilgrimage, Seva(selfless service).`.trim();
+
 function buildPrompt(type: string, payload: Record<string, unknown>): string {
   const p = payload;
   switch (type) {
@@ -434,6 +488,184 @@ Return ONLY JSON:
 }`;
     }
 
+    case "jyotisha_prashna": {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      const dateStr = now.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      return `${JYOTISHA_KNOWLEDGE}
+
+You are a Prashna (Horary Astrology) Jyotishi. The seeker asks:
+"${p.question || "Will this matter be resolved favorably?"}"
+
+Time of question: ${timeStr} on ${dateStr}
+Seeker's natal Rashi: ${p.rashi || "unknown"}, Nakshatra: ${p.nakshatra || "unknown"}
+
+Using classical Prashna Kundali principles, analyze and give a traditional Vedic answer.
+Return ONLY JSON:
+{
+  "answer": "Direct answer to the question — favorable/unfavorable/mixed with reason (2 sentences)",
+  "timing": "When the matter may resolve — be specific (days/weeks/months/season)",
+  "keyPlanet": "The planet most affecting this question and why (1 sentence)",
+  "advice": "What the seeker should do or avoid right now (1-2 sentences)",
+  "signFromUniverse": "A spiritual sign or synchronicity to watch for",
+  "moonIndication": "What today's Moon position and Nakshatra indicate about the outcome",
+  "upaya": "A specific remedy to support a favorable outcome",
+  "scriptureWisdom": "A relevant Sanskrit verse or Vedic wisdom about this life matter"
+}`;
+    }
+
+    case "jyotisha_spiritual_path": {
+      return `${JYOTISHA_KNOWLEDGE}
+
+You are a Vedic spiritual guide. Based on this person's birth chart, determine their primary spiritual path (Yoga Marga).
+- Rashi: ${p.rashi || "Mesha"}
+- Lagna: ${p.lagna || "Karka"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+- Current Dasha: ${p.dasha || "unknown"}
+
+Analyze which of the 4 Yoga paths is most aligned with their soul's nature and current karma.
+Return ONLY JSON:
+{
+  "primaryPath": "Bhakti Yoga | Karma Yoga | Jnana Yoga | Raja Yoga",
+  "pathEmoji": "🙏 or ⚡ or 📚 or 🧘",
+  "pathSanskrit": "Sanskrit name and meaning",
+  "whyThisPath": "3 sentences explaining why this path fits their Rashi, Nakshatra, and Dasha",
+  "dailyPractice": ["practice 1", "practice 2", "practice 3", "practice 4"],
+  "spiritualObstacle": "1-2 sentences on the main spiritual challenge for this person to overcome",
+  "secondaryPath": "Secondary complementary path and why",
+  "idealSadhnaTime": "Best time of day for spiritual practice based on their chart and why",
+  "sacredText": "The scripture most aligned with their path (e.g. Bhagavad Gita, Yoga Sutras, Upanishads) and why",
+  "mantra": "The most powerful mantra for their spiritual path",
+  "soulPurpose": "2 sentences on their soul's purpose this incarnation based on Nakshatra and Lagna"
+}`;
+    }
+
+    case "jyotisha_past_life": {
+      return `${JYOTISHA_KNOWLEDGE}
+
+You are a Vedic past-life reader using Ketu (South Node), 12th house, and Purva Janma principles.
+Birth chart:
+- Rashi: ${p.rashi || "Mesha"}
+- Lagna: ${p.lagna || "Karka"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+- Current Dasha: ${p.dasha || "unknown"}
+
+Ketu and the 12th house reveal accumulated wisdom and karma from past lives.
+Return ONLY JSON:
+{
+  "pastLifeTheme": "The dominant theme/mission of their most recent significant past life (2 sentences)",
+  "pastLifeRole": "What role, profession, or spiritual position they held",
+  "pastLifeLocation": "Region of the world and time period (based on Nakshatra and Lagna indicators)",
+  "ketuLesson": "What Ketu's placement in their Nakshatra reveals about past life mastery",
+  "karmaCarriedForward": "Main karma, skill, or soul wisdom brought into this incarnation",
+  "pastLifeChallenge": "The unresolved challenge or regret this soul is healing in THIS life",
+  "birthGifts": ["natural gift 1", "natural gift 2", "natural gift 3"],
+  "soulsJourney": "2 sentences on the soul's evolutionary arc from past to present life",
+  "rahuDirection": "What Rahu (opposite Ketu) indicates this soul MUST develop and face in this life",
+  "liberationPath": "How this person can transcend past karma and move toward Moksha (1-2 sentences)"
+}`;
+    }
+
+    case "jyotisha_karma_types": {
+      return `${JYOTISHA_KNOWLEDGE}
+
+You are a Vedic karma guru. Explain the three types of karma as they apply specifically to this person's chart.
+- Rashi: ${p.rashi || "Mesha"}
+- Lagna: ${p.lagna || "Karka"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+- Current Dasha: ${p.dasha || "unknown"}
+
+Return ONLY JSON:
+{
+  "sanchita": {
+    "title": "Sanchita Karma",
+    "titleSa": "सञ्चित कर्म",
+    "meaning": "The storehouse of accumulated karma from all past lives",
+    "forThisPerson": "2-3 sentences on what their total karmic storehouse looks like based on their Rashi and Lagna",
+    "magnitude": "Vast | Large | Moderate"
+  },
+  "prarabdha": {
+    "title": "Prarabdha Karma",
+    "titleSa": "प्रारब्ध कर्म",
+    "meaning": "The portion of karma destined to ripen in this lifetime — shown by birth chart",
+    "forThisPerson": "2-3 sentences on the specific karma currently manifesting based on Rashi, Lagna, and current Dasha",
+    "mainThemes": ["karma theme 1", "karma theme 2", "karma theme 3"],
+    "canItChange": "No — it must be experienced, but conscious awareness softens its impact"
+  },
+  "kriyamana": {
+    "title": "Kriyamana Karma",
+    "titleSa": "क्रियमाण कर्म",
+    "meaning": "Karma being created right now by current actions — fully within your control",
+    "forThisPerson": "2 sentences on where this person has the most free will based on current Dasha",
+    "powerActions": ["powerful good action 1", "action 2", "action 3"]
+  },
+  "overallMessage": "A profound Vedic wisdom message about karma and free will personalized to this person",
+  "gitaVerse": "A relevant verse or teaching from the Bhagavad Gita about karma"
+}`;
+    }
+
+    case "jyotisha_ishta_devata": {
+      return `${JYOTISHA_KNOWLEDGE}
+
+You are a Vedic Jyotishi specializing in Ishta Devata (personal deity) determination using Atmakaraka and Nakshatra methods.
+Birth chart:
+- Rashi: ${p.rashi || "Mesha"}
+- Lagna: ${p.lagna || "Karka"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+- Current Dasha: ${p.dasha || "unknown"}
+
+Determine the Ishta Devata — the personal deity most aligned with this soul's path.
+Return ONLY JSON:
+{
+  "ishtaDevata": "Name of their primary personal deity",
+  "devataSanskrit": "Sanskrit/Devanagari name",
+  "devataEmoji": "relevant emoji",
+  "whyThisDeity": "2-3 sentences explaining why this deity is theirs based on chart indicators",
+  "form": "The specific form/aspect of this deity most auspicious for them",
+  "worship": {
+    "day": "Most auspicious day for worship",
+    "time": "Best time of day",
+    "mantra": "Primary mantra for this deity",
+    "offering": "Traditional offering (flowers, food, etc.)",
+    "prayer": "A short invocation — Sanskrit transliteration + English meaning"
+  },
+  "story": "A brief Puranic story about this deity that resonates with this person's karma (2 sentences)",
+  "blessing": "The specific blessings this deity grants for this person's chart",
+  "nakshatraDeity": "The deity ruling their Nakshatra and how it relates to their Ishta Devata",
+  "pilgrimage": "A sacred site or temple associated with this deity worth visiting"
+}`;
+    }
+
+    case "jyotisha_navamsa": {
+      return `${JYOTISHA_KNOWLEDGE}
+
+You are a Vedic astrologer specializing in the Navamsa (D9) — the chart of the soul and marriage.
+Birth chart:
+- Rashi: ${p.rashi || "Mesha"}
+- Lagna: ${p.lagna || "Karka"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+- Current Dasha: ${p.dasha || "unknown"}
+
+Analyze the Navamsa chart which reveals the soul's deeper nature, spiritual evolution, and marriage partner's true qualities.
+Return ONLY JSON:
+{
+  "navamsaLagna": "Likely Navamsa Lagna sign based on natal Lagna",
+  "soulNature": "3 sentences on the soul's deeper nature revealed by Navamsa indicators",
+  "vargottama": "Whether any key planets may be Vargottama and what that means for this person",
+  "spiritualMaturity": "Advanced | Developing | Growing — with a 1-sentence explanation",
+  "marriagePartner": {
+    "nature": "True personality traits of their destined life partner (2 sentences)",
+    "appearance": "Physical and personality description",
+    "background": "Cultural/family background indicated"
+  },
+  "latentTalents": ["hidden talent revealed by D9 — 1", "talent 2", "talent 3"],
+  "soulLesson": "The primary spiritual lesson the soul chose to learn this incarnation",
+  "pastLifeStrengths": "Strengths and virtues carried forward from past lives (1-2 sentences)",
+  "divineGrace": "Where this soul has special divine protection or blessings",
+  "dharmaPath": "Their soul's specific dharma — the unique contribution they came to make"
+}`;
+    }
+
     default:
       return `You are Gundruk AI. ${p.message || "Hello!"}`;
   }
@@ -476,16 +708,19 @@ Keep responses concise (2-4 sentences). Friendly, slightly edgy Gen-Z tone. Use 
         return;
       }
       const pp = p as Record<string, unknown>;
-      const system = `You are a wise and deeply learned Vedic astrologer (Jyotishi) well versed in Hindu Jyotisha shastra, Hindu philosophy, karma, dharma, and the spiritual science of light.
+      const system = `${JYOTISHA_KNOWLEDGE}
+
+You are a wise and deeply learned Vedic astrologer (Jyotishi) well versed in all aspects of Jyotisha shastra, Hindu philosophy, karma, dharma, and the spiritual science of light.
 ${pp.rashi ? `The seeker's Rashi (Moon/Solar sign): ${pp.rashi}` : ""}
 ${pp.nakshatra ? `Their Nakshatra (birth star): ${pp.nakshatra}` : ""}
 ${pp.lagna ? `Their Lagna (Ascendant): ${pp.lagna}` : ""}
 ${pp.dasha ? `Their current Dasha period: ${pp.dasha}` : ""}
 
-Answer their question with deep Vedic wisdom, referencing karma, dharma, the Navagraha, the 12 houses, and Hindu philosophy where relevant.
-Use Sanskrit terms naturally (Rashi, Graha, Lagna, Dasha, Nakshatra, Upaya, etc.).
+Answer their question with precise, authentic Vedic wisdom — use the knowledge base above to give accurate, specific answers.
+Reference karma, dharma, the Navagraha, the 12 houses, Dasha system, and Hindu philosophy as appropriate.
+Use Sanskrit terms naturally (Rashi, Graha, Lagna, Dasha, Nakshatra, Upaya, Yoga, Bhava, etc.).
 Be respectful, wise, spiritually grounded, and practically helpful.
-Keep responses concise (3-5 sentences). Include a relevant Sanskrit proverb or Vedic insight when appropriate.`;
+Keep responses concise (3-5 sentences). Include a relevant Sanskrit proverb, shloka, or Vedic insight when appropriate.`;
       const result = await callClaude(apiKey, msgs, system, 700);
       res.json({ result });
       return;

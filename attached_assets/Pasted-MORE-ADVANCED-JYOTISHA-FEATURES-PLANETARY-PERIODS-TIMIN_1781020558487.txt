@@ -1,0 +1,412 @@
+MORE ADVANCED JYOTISHA FEATURES:
+
+PLANETARY PERIODS & TIMING:
+1. Antardasha Calendar
+
+Show complete Dasha/Antardasha timeline as a beautiful calendar
+Current main period + sub period highlighted
+Next 10 years mapped out month by month
+Color coded:
+
+Green = benefic period (Jupiter, Venus, Mercury Dasha)
+Yellow = neutral (Moon, Sun)
+Red = challenging (Saturn, Rahu, Ketu, Mars)
+
+
+Tap any period to get AI prediction for that time
+
+2. Pratyantar Dasha (Sub-sub period)
+
+Even more precise timing
+3 levels deep: Mahadasha → Antardasha → Pratyantar
+Shows exact dates of each micro period
+Useful for predicting exact months of important events
+
+3. Transit Alert Notifications
+
+Real time alerts when important planets change signs
+"🪐 Jupiter has entered Gemini — excellent period for education and travel for Sagittarius rising!"
+"⚠️ Saturn enters Pisces — Pisces Moon sign enters Sade Sati"
+Daily Rahu Kaal notification every morning
+Brahma Muhurta wake up notification
+
+
+RELATIONSHIP FEATURES:
+4. Synastry Chart (Relationship Chart)
+
+Overlay two people's charts
+See how their planets interact
+House overlays: "Your Venus falls in their 7th house — strong romantic attraction"
+Aspects between charts: "Your Jupiter trines their Moon — emotional harmony"
+Composite chart: combined chart showing relationship energy
+AI relationship reading based on synastry
+
+5. Family Kundali Vault
+
+Save birth charts of family members
+Parents, siblings, children, spouse
+Compare charts with each other
+See karma connections between family members
+"Your Saturn conjuncts your father's Sun — karmic father-son relationship"
+
+6. Enemy/Friend Analysis
+
+Based on 6th house (enemies) and 11th house (friends)
+What type of enemies are indicated
+How to handle enemies (planetary remedies)
+What type of friends will support you
+Best and worst signs to befriend
+
+
+HEALTH FEATURES:
+7. Medical Astrology (Ayurjyotisha)
+
+Each planet rules specific body parts and diseases
+Show user's vulnerable health areas based on chart
+Weak planet → vulnerable body part
+Preventive remedies for each health area
+Best diet based on Ayurvedic body type (Prakriti)
+Planetary periods when health needs extra attention
+
+8. Mental Health Reading
+
+Moon's condition shows mental health
+Afflicted Moon = anxiety, depression tendency
+Rahu with Moon = overthinking, illusions
+Saturn with Moon = depression, pessimism
+Mars with Moon = anger, impulsiveness
+Remedies: specific mantras, Chandra puja, moonlight meditation
+
+9. Longevity Analysis (Ayurdaya)
+
+Classical calculation of life span indicators
+Strength of Lagna lord
+8th house condition
+Saturn's position (karaka of longevity)
+Not shown as exact years (too sensitive) but as:
+
+Short life indicators present/absent
+Health challenges to be aware of
+Remedies to strengthen longevity
+
+
+
+
+FINANCIAL FEATURES:
+10. Wealth Timing (Dhana Yoga)
+
+When will major wealth come
+Which Dasha periods bring financial growth
+Dhana Yogas present in chart (wealth combinations)
+2nd and 11th house analysis
+Jupiter transit effects on wealth
+Best investment timing based on chart
+Lucky numbers and days for financial decisions
+
+11. Business vs Job Analysis
+
+Should you do business or job based on chart?
+7th house (business partnerships) vs 10th house (career/job)
+Self employment indicators
+Best business type based on ruling planets
+Partnership compatibility for business
+
+12. Property and Real Estate
+
+4th house (home and land) analysis
+When to buy property (auspicious timing)
+Which direction home should face based on chart
+Vastu connection with birth chart
+Favorable locations to live based on planetary positions
+
+
+SPIRITUAL DEPTH:
+13. Ishta Devata Finder
+
+Most important deity for each person
+Based on Atmakaraka and 12th house
+Atmakaraka in each sign shows Ishta Devata:
+
+Sun → Shiva or Rama
+Moon → Krishna or Parvati
+Mars → Kartikeya or Narasimha
+Mercury → Vishnu or Saraswati
+Jupiter → Brahma or Dattatreya
+Venus → Lakshmi or Radha
+Saturn → Shiva or Hanuman
+Rahu → Durga or Saraswati
+Ketu → Ganesha or Shiva
+
+
+Complete puja guide for your Ishta Devata
+Mantras, festivals, stories of the deity
+
+14. Pitru Dosha (Ancestral Karma)
+
+Analysis of 9th house (father/ancestors)
+Sun affliction = Pitru Dosha
+Symptoms: obstacles in life, health issues, no children
+Remedies:
+
+Pitru Tarpan (water offering to ancestors)
+Shraddha ceremony
+Feeding crows on Amavasya
+Gaya pilgrimage
+Chanting Pitru Stotram
+
+
+
+15. Kaal Sarp Dosha
+
+When all 7 planets are between Rahu and Ketu
+Creates major life obstacles and delays
+12 types of Kaal Sarp Dosha (Anant, Kulik, Vasuki etc.)
+Each type has different effects
+Remedies:
+
+Kaal Sarp Puja at Tryambakeshwar
+Nag Panchami worship
+Rahu/Ketu mantras
+Nag Pratima (snake idol) worship
+
+
+
+16. Grahan Dosha (Eclipse Karma)
+
+Sun or Moon with Rahu or Ketu
+Creates confusion about identity and purpose
+Different effects for Sun Grahan vs Moon Grahan
+Remedies to clarify purpose and remove confusion
+
+
+VEDIC CALENDAR FEATURES:
+17. Festival Calendar
+
+All Hindu festivals with Jyotisha significance
+Diwali, Holi, Navratri, Maha Shivratri etc.
+Why each festival is astrologically important
+Best practices for each festival
+Personalized: which festivals are most important for YOUR chart
+
+18. Ekadashi Tracker
+
+Ekadashi = 11th day of lunar fortnight
+Most important fasting day in Hinduism
+24 Ekadashis per year each with different names and significance
+Notification reminder before each Ekadashi
+What to do and avoid on Ekadashi
+Which Ekadashi is most important for your chart
+
+19. Amavasya and Purnima Tracker
+
+New Moon (Amavasya) — ancestor worship day
+Full Moon (Purnima) — most auspicious, Satya Narayan Puja
+What to do on each
+Personalized rituals based on chart
+Moonrise and moonset times
+
+20. Solar and Lunar Eclipse Tracker
+
+Upcoming eclipses worldwide
+Effect on each Rashi
+What to do during eclipse:
+
+Chant mantras
+Avoid eating
+Take holy bath after eclipse
+Donate after eclipse
+
+
+Amplified mantra chanting during eclipse
+
+
+LEARNING FEATURES:
+21. Jyotisha Course (Step by Step)
+Level 1 — Beginner:
+
+What is Jyotisha
+12 Rashis
+9 Planets
+12 Houses
+How to read a birth chart basics
+
+Level 2 — Intermediate:
+
+Planetary strengths
+Aspects (Drishti)
+Conjunctions
+Yogas
+Dasha system
+
+Level 3 — Advanced:
+
+Divisional charts
+Ashtakavarga
+Shadbala
+Advanced yogas
+Timing techniques
+Each lesson has text + quiz
+Complete lesson = earn coins
+Certificate of completion for each level
+AI tutor answers questions about each lesson
+
+22. Sanskrit Mantra Library
+
+Complete library of all planetary mantras
+Beej mantras (seed mantras) for each planet:
+
+Sun: Om Hraam Hreem Hraum Sah Suryaya Namah
+Moon: Om Shraam Shreem Shraum Sah Chandraya Namah
+Mars: Om Kraam Kreem Kraum Sah Bhaumaya Namah
+Mercury: Om Braam Breem Braum Sah Budhaya Namah
+Jupiter: Om Graam Greem Graum Sah Gurave Namah
+Venus: Om Draam Dreem Draum Sah Shukraya Namah
+Saturn: Om Praam Preem Praum Sah Shanaischaraya Namah
+Rahu: Om Bhraam Bhreem Bhraum Sah Rahave Namah
+Ketu: Om Sraam Sreem Sraum Sah Ketave Namah
+
+
+Audio pronunciation for each mantra
+Japa counter (count 108 repetitions)
+Mantra completion tracking
+Best time to chant each mantra
+
+23. Famous Birth Charts
+
+Analyze charts of famous people
+Spiritual masters: Ramana Maharshi, Swami Vivekananda, Sri Aurobindo
+Historical figures: Chandragupta Maurya, Ashoka, Akbar
+Modern legends: show chart patterns without naming living people
+"This chart has the same Raj Yoga as..."
+Learn Jyotisha by studying real charts
+
+
+GAMIFICATION:
+24. Karma Points System
+
+Earn Karma Points (different from coins) through spiritual activities:
+
+Complete daily mantra: +10 karma
+Fast on recommended day: +25 karma
+Complete Jyotisha lesson: +15 karma
+Win astrology quiz: +50 karma
+Help someone in Nakshatra group: +5 karma
+Share birth chart: +10 karma
+
+
+Karma Points show spiritual progress
+Levels: Seeker → Student → Practitioner → Scholar → Jyotishi → Guru
+Special badges for each level
+
+25. Spiritual Streak
+
+Track daily spiritual practice streak
+Chanted mantra today? ✅
+Observed fast? ✅
+Meditated? ✅
+Longest streak shown on profile
+Reminder notifications to maintain streak
+"🔥 You're on a 21-day spiritual streak!"
+
+
+DATABASE TABLES:
+sql-- Dasha calendar
+CREATE TABLE dasha_periods (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  mahadasha TEXT,
+  antardasha TEXT,
+  pratyantar TEXT,
+  start_date DATE,
+  end_date DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Transit alerts
+CREATE TABLE transit_alerts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  planet TEXT,
+  from_sign TEXT,
+  to_sign TEXT,
+  transit_date DATE,
+  alert_sent BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Family charts
+CREATE TABLE family_charts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id UUID REFERENCES profiles(id),
+  member_name TEXT,
+  relationship TEXT,
+  birth_date DATE,
+  birth_time TIME,
+  birth_place TEXT,
+  rashi TEXT,
+  lagna TEXT,
+  nakshatra TEXT,
+  chart_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Mantra tracker
+CREATE TABLE mantra_tracker (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  planet TEXT,
+  mantra TEXT,
+  count INTEGER DEFAULT 0,
+  date DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Karma points
+CREATE TABLE karma_points (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  activity TEXT,
+  points INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Spiritual streak
+CREATE TABLE spiritual_streaks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  streak_type TEXT,
+  current_streak INTEGER DEFAULT 0,
+  longest_streak INTEGER DEFAULT 0,
+  last_activity DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Jyotisha courses
+CREATE TABLE jyotisha_course_progress (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  course_level TEXT,
+  lesson_number INTEGER,
+  completed BOOLEAN DEFAULT FALSE,
+  score INTEGER,
+  completed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Eclipse tracker
+CREATE TABLE eclipse_events (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  eclipse_type TEXT, -- solar/lunar
+  date DATE,
+  affected_rashis TEXT[],
+  description TEXT,
+  remedies TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Anthropic API Key: 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

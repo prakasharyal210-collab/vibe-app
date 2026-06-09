@@ -1,0 +1,273 @@
+Here is the complete knowledge base about Jyotisha (Vedic Astrology) that the AI in our app must know and use when generating readings:
+
+WHAT IS JYOTISHA:
+Jyotisha (ज्योतिष) is one of the six Vedangas — the six limbs of the Vedas, the oldest scriptures of Hinduism. The word Jyotisha comes from Sanskrit "Jyoti" meaning light — it is literally the science of light and cosmic time. It is considered a divine gift from the gods to help humans understand their karma and dharma.
+Jyotisha is NOT fortune telling. It is a spiritual science that maps the exact position of planets and stars at the moment of a person's birth to reveal:
+
+Their past karma (actions from previous lives)
+Their current dharma (life purpose and duties)
+The timing of major life events
+Their innate nature, strengths and weaknesses
+The path to moksha (spiritual liberation)
+
+ORIGIN OF JYOTISHA:
+Jyotisha originated in ancient India over 5,000 years ago. Its roots are in the Rigveda, the oldest of the four Vedas. The sage Lagadha wrote the first systematic text on Jyotisha called "Vedanga Jyotisha" around 1400 BCE.
+The classical texts of Jyotisha include:
+
+Brihat Parashara Hora Shastra — the most important text, written by sage Parashara, father of Vyasa (author of Mahabharata). This is the foundation of all Vedic astrology.
+Brihat Jataka — written by Varahamihira (505-587 CE), one of the nine gems of Vikramaditya's court
+Saravali — written by Kalyanvarma
+Phaladeepika — written by Mantreswara
+Jataka Parijata — written by Vaidyanatha Dikshita
+Hora Sara — written by Prithuyasas
+
+The knowledge was passed from the gods to sages in meditation. Lord Brahma (creator) gave this knowledge to sage Narada, who gave it to sage Parashara, who compiled it into Brihat Parashara Hora Shastra.
+
+HOW THE JYOTISHA ALGORITHM WORKS:
+STEP 1 — THE BIRTH CHART (KUNDALI/JANMA PATRIKA):
+The birth chart is calculated using:
+
+Exact date of birth
+Exact time of birth (accurate to the minute)
+Exact place of birth (latitude and longitude)
+
+The chart is a map of the sky at the exact moment of birth. It shows where each of the 9 planets (Navagraha) was positioned in the 12 zodiac signs (Rashis) and 12 houses (Bhavas).
+STEP 2 — THE 12 RASHIS (ZODIAC SIGNS):
+Unlike Western astrology which uses the Sun sign, Vedic astrology primarily uses the Moon sign (Chandra Rashi) and the Ascendant (Lagna).
+The 12 Rashis are:
+
+Mesha (Aries) — Mars ruled — fire sign — courage, leadership
+Vrishabha (Taurus) — Venus ruled — earth sign — stability, wealth
+Mithuna (Gemini) — Mercury ruled — air sign — intelligence, communication
+Karka (Cancer) — Moon ruled — water sign — emotions, home, mother
+Simha (Leo) — Sun ruled — fire sign — royalty, authority, ego
+Kanya (Virgo) — Mercury ruled — earth sign — service, analysis, health
+Tula (Libra) — Venus ruled — air sign — balance, relationships, beauty
+Vrishchika (Scorpio) — Mars/Ketu ruled — water sign — transformation, secrets
+Dhanu (Sagittarius) — Jupiter ruled — fire sign — wisdom, philosophy, travel
+Makara (Capricorn) — Saturn ruled — earth sign — discipline, karma, career
+Kumbha (Aquarius) — Saturn/Rahu ruled — air sign — innovation, humanity
+Meena (Pisces) — Jupiter/Ketu ruled — water sign — spirituality, dreams, moksha
+
+STEP 3 — THE LAGNA (ASCENDANT):
+The Lagna is the zodiac sign rising on the eastern horizon at the exact moment of birth. It changes every 2 hours, which is why birth time must be exact. The Lagna represents:
+
+The physical body and appearance
+Personality and how others see you
+Overall life direction
+The filter through which all planets express themselves
+
+The Lagna is considered more important than the Sun sign in Vedic astrology.
+STEP 4 — THE 27 NAKSHATRAS (LUNAR MANSIONS):
+The Moon travels through 27 Nakshatras (star clusters) in its monthly cycle. Each Nakshatra spans 13°20' of the zodiac. The Nakshatra where the Moon is placed at birth is called the Janma Nakshatra and is extremely important.
+The 27 Nakshatras are:
+
+Ashwini — Ketu — healing, speed, new beginnings
+Bharani — Venus — transformation, creativity, sexuality
+Krittika — Sun — purification, sharp intellect, fire
+Rohini — Moon — beauty, fertility, sensuality, abundance
+Mrigashira — Mars — searching, curiosity, gentle nature
+Ardra — Rahu — storm, intensity, destruction and renewal
+Punarvasu — Jupiter — return, renewal, home
+Pushya — Saturn — nourishment, wisdom, devotion
+Ashlesha — Mercury — mysticism, cunning, serpent energy
+Magha — Ketu — royalty, ancestors, pride
+Purva Phalguni — Venus — pleasure, relaxation, creativity
+Uttara Phalguni — Sun — service, reliability, partnership
+Hasta — Moon — skill with hands, healing, craftsmanship
+Chitra — Mars — beauty, architecture, creativity
+Swati — Rahu — independence, flexibility, wind
+Vishakha — Jupiter — determination, ambition, purpose
+Anuradha — Saturn — devotion, friendship, loyalty
+Jyeshtha — Mercury — seniority, protection, eldest
+Mula — Ketu — roots, research, destruction of illusion
+Purva Ashadha — Venus — invincibility, water, purification
+Uttara Ashadha — Sun — final victory, righteousness
+Shravana — Moon — listening, learning, connection
+Dhanishtha — Mars — wealth, music, ambition
+Shatabhisha — Rahu — healing, mysticism, 100 healers
+Purva Bhadrapada — Jupiter — intensity, transformation, fire
+Uttara Bhadrapada — Saturn — depth, wisdom, cosmic serpent
+Revati — Mercury — journey's end, nourishment, final liberation
+
+STEP 5 — THE 9 NAVAGRAHA (PLANETS):
+Vedic astrology uses 9 celestial bodies called Grahas (seizers). Each Graha represents a specific type of karma:
+
+Surya (Sun) — Soul, father, authority, government, health, ego. King of planets. Represents the Atma (soul). Day: Sunday. Color: Red/Orange. Gemstone: Ruby.
+Chandra (Moon) — Mind, mother, emotions, water, fertility, public. Queen of planets. Represents Manas (mind). Changes sign every 2.5 days. Day: Monday. Color: White. Gemstone: Pearl.
+Mangal (Mars) — Energy, courage, aggression, brothers, land, military, accidents. Commander of planets. Day: Tuesday. Color: Red. Gemstone: Red Coral.
+Budha (Mercury) — Intelligence, communication, commerce, nervous system, skin. Prince of planets. Day: Wednesday. Color: Green. Gemstone: Emerald.
+Guru/Brihaspati (Jupiter) — Wisdom, dharma, children, wealth, spirituality, teacher, expansion. Teacher of the gods (Devaguru). Day: Thursday. Color: Yellow. Gemstone: Yellow Sapphire.
+Shukra (Venus) — Love, beauty, luxury, arts, marriage, vehicles, eyes. Teacher of demons (Asura Guru). Day: Friday. Color: White/Pink. Gemstone: Diamond.
+Shani (Saturn) — Karma, discipline, obstacles, delays, longevity, servants, old age. Slowest planet — stays 2.5 years in each sign. Son of Sun. Day: Saturday. Color: Blue/Black. Gemstone: Blue Sapphire.
+Rahu (North Node) — Desire, illusion, foreigners, technology, obsession, worldly ambition. Shadow planet — no physical body. Causes solar/lunar eclipses. Represents material desire and Maya (illusion).
+Ketu (South Node) — Past life karma, spirituality, liberation, mysticism, isolation. Shadow planet — opposite to Rahu. Represents spiritual liberation and detachment. Always exactly opposite Rahu.
+
+STEP 6 — THE 12 BHAVAS (HOUSES):
+The 12 houses represent different areas of life:
+
+Lagna/Tanu Bhava — Self, body, personality, appearance, health, beginnings
+Dhana Bhava — Wealth, family, speech, food, early childhood, values
+Sahaja Bhava — Siblings, courage, short travel, communication, hands, skills
+Sukha Bhava — Mother, home, land, vehicles, education, inner happiness
+Putra Bhava — Children, creativity, intelligence, romance, past life merit, speculation
+Ari Bhava — Enemies, disease, debt, service, daily work, obstacles
+Yuvati Bhava — Marriage, partnerships, business partners, open enemies, foreign travel
+Ayur Bhava — Death, transformation, secrets, occult, inheritance, sudden events
+Dharma Bhava — Father, dharma, luck, higher education, spirituality, long travel
+Karma Bhava — Career, status, government, public life, actions, father
+Labha Bhava — Gains, income, elder siblings, social networks, hopes, wishes
+Vyaya Bhava — Loss, liberation, foreign lands, bed pleasures, expenses, moksha
+
+STEP 7 — PLANETARY RELATIONSHIPS:
+Planets have natural friendships and enmities:
+Sun is friends with: Moon, Mars, Jupiter
+Sun is enemies with: Saturn, Venus
+Moon is friends with: Sun, Mercury
+Moon is enemies with: None (neutral with most)
+Mars is friends with: Sun, Moon, Jupiter
+Mars is enemies with: Mercury
+Mercury is friends with: Sun, Venus
+Mercury is enemies with: Moon
+Jupiter is friends with: Sun, Moon, Mars
+Jupiter is enemies with: Mercury, Venus
+Venus is friends with: Mercury, Saturn
+Venus is enemies with: Sun, Moon
+Saturn is friends with: Mercury, Venus
+Saturn is enemies with: Sun, Moon, Mars
+STEP 8 — PLANETARY STRENGTH (SHADBALA):
+Planets gain or lose strength based on:
+
+Exaltation (Uchcha) — Planet at maximum strength
+
+Sun exalted in Aries
+Moon exalted in Taurus
+Mars exalted in Capricorn
+Mercury exalted in Virgo
+Jupiter exalted in Cancer
+Venus exalted in Pisces
+Saturn exalted in Libra
+Rahu exalted in Gemini/Taurus
+Ketu exalted in Sagittarius/Scorpio
+
+
+Debilitation (Neecha) — Planet at minimum strength (opposite sign from exaltation)
+Own Sign (Swakshetra) — Planet in its own sign, very strong
+Moolatrikona — Special powerful position for each planet
+
+STEP 9 — DASHA SYSTEM (PLANETARY PERIODS):
+The Vimshottari Dasha system is the most important timing system in Jyotisha. Total cycle = 120 years.
+Each planet rules a period:
+
+Ketu Dasha — 7 years
+Venus Dasha — 20 years
+Sun Dasha — 6 years
+Moon Dasha — 10 years
+Mars Dasha — 7 years
+Rahu Dasha — 18 years
+Jupiter Dasha — 16 years
+Saturn Dasha — 19 years
+Mercury Dasha — 17 years
+
+The starting Dasha is determined by the Moon's Nakshatra at birth. Each main Dasha (Mahadasha) is divided into sub-periods (Antardasha) of each planet.
+During a planet's Dasha, that planet's energy dominates life events. A strong benefic planet's Dasha brings growth and blessings. A weak or malefic planet's Dasha brings challenges and lessons.
+STEP 10 — TRANSITS (GOCHAR):
+Planetary transits show current planetary positions and their effect on the birth chart. Most important transits:
+
+Shani (Saturn) transit — stays 2.5 years per sign, most impactful
+Guru (Jupiter) transit — stays 1 year per sign, brings expansion
+Rahu/Ketu transit — stays 18 months per sign, causes major changes
+
+SADE SATI — Saturn's 7.5 year transit through the 12th, 1st, and 2nd houses from Moon sign. Most challenging period in life. Tests karma. Teaches humility and discipline.
+STEP 11 — YOGAS (SPECIAL COMBINATIONS):
+Yogas are special planetary combinations that give unique results:
+Benefic Yogas (bring good results):
+
+Raj Yoga — planets in kendras (1,4,7,10) or trikonas (1,5,9) forming conjunction or exchange. Gives power, status, success.
+Dhana Yoga — 2nd and 11th house lords connected. Gives great wealth.
+Gaja Kesari Yoga — Jupiter in kendra from Moon. Gives wisdom, fame, respect.
+Budhaditya Yoga — Sun and Mercury together. Gives intelligence and communication skills.
+Hamsa Yoga — Jupiter in own/exalted sign in kendra. Makes person wise, spiritual, respected.
+Malavya Yoga — Venus in own/exalted sign in kendra. Gives beauty, luxury, artistic talent.
+Ruchaka Yoga — Mars in own/exalted sign in kendra. Gives courage, military success.
+Bhadra Yoga — Mercury in own/exalted sign in kendra. Gives sharp intellect, business success.
+Shasha Yoga — Saturn in own/exalted sign in kendra. Gives discipline, leadership, longevity.
+
+Challenging Yogas:
+
+Kemadruma Yoga — No planets adjacent to Moon. Causes mental instability, loneliness.
+Grahan Yoga — Sun or Moon with Rahu/Ketu. Causes confusion, identity issues.
+Shakata Yoga — Jupiter and Moon in 6/8 relationship. Causes fluctuating fortune.
+Vish Yoga — Saturn and Moon together. Causes depression, pessimism.
+
+STEP 12 — REMEDIES (UPAYA):
+When planets are weak or malefic, Jyotisha prescribes remedies:
+Mantras — Chanting specific mantras for each planet:
+
+Sun: Om Suryaya Namah (108 times on Sunday morning)
+Moon: Om Chandraya Namah (108 times on Monday)
+Mars: Om Mangalaya Namah (108 times on Tuesday)
+Mercury: Om Budhaya Namah (108 times on Wednesday)
+Jupiter: Om Gurave Namah (108 times on Thursday)
+Venus: Om Shukraya Namah (108 times on Friday)
+Saturn: Om Shanaischaraya Namah (108 times on Saturday)
+Rahu: Om Rahave Namah (108 times on Saturday/Wednesday)
+Ketu: Om Ketave Namah (108 times on Tuesday/Saturday)
+
+Gemstones — Wearing planetary gemstones strengthens weak planets
+Fasting — Each planet has a fasting day:
+
+Sun: Sunday
+Moon: Monday
+Mars: Tuesday
+Mercury: Wednesday
+Jupiter: Thursday
+Venus: Friday
+Saturn: Saturday
+
+Dana (Charity) — Donating items associated with troubled planets:
+
+Saturn: Black sesame seeds, iron, black cloth on Saturday
+Rahu: Coconut, black items on Saturday
+Mars: Red items, lentils on Tuesday
+Sun: Wheat, jaggery on Sunday
+
+Puja (Worship) — Worshipping the deity of the troubled planet
+Yantra — Sacred geometric diagrams for each planet
+STEP 13 — KUNDALI MATCHING (GUNA MILAN):
+For marriage compatibility, 36 qualities (Gunas) are matched:
+
+Varna (1 point) — spiritual compatibility, caste of soul
+Vashya (2 points) — control and attraction between partners
+Tara (3 points) — birth star compatibility, health and longevity
+Yoni (4 points) — sexual and physical compatibility (14 animal symbols)
+Graha Maitri (5 points) — mental compatibility, planetary friendship
+Gana (6 points) — temperament match (Deva/Manushya/Rakshasa)
+Bhakoot (7 points) — emotional and financial compatibility
+Nadi (8 points) — health and genetic compatibility (most important)
+
+Scoring:
+
+0-17 points: Not recommended for marriage
+18-24 points: Average match, marriage possible
+25-32 points: Good match, happy marriage likely
+33-36 points: Excellent match, very auspicious
+
+NADI DOSHA — If both partners have same Nadi, it scores 0/8 and is considered a serious dosha (flaw). Remedies required.
+MANGAL DOSHA — If Mars is in 1st, 2nd, 4th, 7th, 8th or 12th house, the person is "Manglik." Marriage to non-Manglik can cause problems. Both being Manglik cancels the dosha.
+
+HOW TO USE THIS IN THE APP:
+When Claude generates any Jyotisha reading in the app, it must:
+
+Always reference the correct classical texts (Brihat Parashara Hora Shastra, Brihat Jataka etc.)
+Use proper Sanskrit terminology with English explanation
+Connect everything back to karma and dharma philosophy
+Be respectful of Hindu spiritual tradition
+Give practical remedies from classical texts
+Never contradict classical Jyotisha principles
+Acknowledge uncertainty — astrology shows tendencies, not fixed fate
+Always mention that free will (Purushartha) can modify karma
+Be encouraging and spiritually uplifting
+Reference relevant Hindu deities, festivals and sacred days
+
+The app's Jyotisha AI should feel like consulting a wise, learned Jyotishi (Vedic astrologer) who deeply respects the tradition and helps users understand their karma with compassion and wisdom.

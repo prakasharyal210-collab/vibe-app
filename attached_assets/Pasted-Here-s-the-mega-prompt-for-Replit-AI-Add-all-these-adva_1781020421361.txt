@@ -1,0 +1,500 @@
+Here's the mega prompt for Replit AI:
+
+Add all these advanced Jyotisha features to the Gundruk app:
+Anthropic API Key: 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
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+
+SECTION 1 — DIVISIONAL CHARTS (Varga Charts):
+1. Hora Chart (D2) — Wealth Analysis:
+
+Split each sign into 2 parts (15° each)
+Odd signs: 1st hora ruled by Sun, 2nd by Moon
+Even signs: 1st hora ruled by Moon, 2nd by Sun
+Show which planets fall in Sun hora (wealth through self effort) vs Moon hora (wealth through others/inheritance)
+Lucky hours of the day based on Hora lord
+Every day has 24 Horas (1 hour each) ruled by planets in sequence
+Show today's Hora schedule: which hour is ruled by which planet
+Best hour for business, love, travel, spiritual work
+
+2. Navamsa Chart (D9) — Soul and Marriage Chart:
+
+Most important divisional chart after birth chart
+Each sign divided into 9 parts (3°20' each)
+Shows TRUE strength of planets (a planet weak in D1 but strong in D9 still gives good results)
+Marriage partner's nature shown by 7th house in D9
+Spiritual destiny shown by D9 overall
+Atmakaraka (planet at highest degree) shows soul's deepest desire
+Display as full chart with all 9 planets placed
+AI reading: "Your Navamsa shows your true nature is..."
+Compare D1 and D9 to show which planets are truly strong
+
+3. Dashamsa Chart (D10) — Career Chart:
+
+Each sign divided into 10 parts (3° each)
+Shows destined career path
+10th house in D10 = career destiny
+Display career analysis:
+
+Best career fields based on D10
+Peak career period timing
+Government job vs private vs business vs creative
+Foreign career possibilities
+
+
+AI prompt: Analyze the D10 Dashamsa chart for ${lagna} lagna person. Their 10th lord is ${tenthLord} placed in ${tenthLordPosition}. What career path is destined? When will career peak?
+
+4. Saptamsa Chart (D7) — Children Chart:
+
+Each sign divided into 7 parts
+Shows children destiny
+Number of children, their nature, timing of children
+Putra Bhava (5th house) analysis
+AI reading about children destiny
+
+5. Drekkana Chart (D3) — Siblings Chart:
+
+Each sign divided into 3 parts (10° each)
+Shows relationship with siblings
+Courage and short journeys
+3rd house analysis in D3
+
+
+SECTION 2 — ADVANCED REMEDIES:
+6. Navagraha Puja Guide:
+
+Complete worship guide for all 9 planets
+For each planet show:
+
+Which day to do puja
+Which deity to worship
+Puja items needed (flowers, incense, prasad)
+Mantra to chant and how many times
+Famous temples in India for each planet:
+
+Sun → Konark Sun Temple, Suryanar Kovil
+Moon → Thingalur, Kailasanathar
+Mars → Vaitheeswaran Kovil
+Mercury → Thiruvenkadu
+Jupiter → Alangudi
+Venus → Kanjanur
+Saturn → Thirunallar (most famous Shani temple)
+Rahu → Thirunageswaram
+Ketu → Keezhperumpallam
+
+
+Online puja booking option (link to temple websites)
+
+
+
+7. Rudraksha Guide:
+
+Complete guide to all 21 Mukhi Rudrakshas
+For each Rudraksha:
+
+Which planet it represents
+Which deity blesses it
+Benefits for health, wealth, spiritual growth
+Which finger/which part of body to wear
+How to energize (Prana Pratishtha process):
+
+Wash with Ganga water or raw milk
+Chant specific mantra 108 times
+Wear on auspicious day/time
+
+
+Cautions and restrictions
+
+
+My Recommended Rudraksha based on birth chart weak planets
+Most important ones:
+
+1 Mukhi — Shiva — Sun — ultimate consciousness
+2 Mukhi — Ardhanarishvara — Moon — relationships
+3 Mukhi — Agni — Mars — removes past karma
+4 Mukhi — Brahma — Mercury — knowledge
+5 Mukhi — Rudra — Jupiter — most common, safe for all
+6 Mukhi — Kartikeya — Venus — willpower
+7 Mukhi — Mahalakshmi — Saturn — wealth
+8 Mukhi — Ganesha — Rahu — removes obstacles
+9 Mukhi — Durga — Ketu — fearlessness
+14 Mukhi — Hanuman — Saturn — most powerful protection
+
+
+
+8. Kavach (Planetary Protection Mantras):
+
+Sacred armor mantras for each planet
+Surya Kavach — protection from Sun related problems
+Chandra Kavach — emotional protection
+Mangal Kavach — protection from accidents
+Budha Kavach — protection from enemies
+Guru Kavach — wisdom and protection
+Shukra Kavach — relationship protection
+Shani Kavach — most important, protection from Saturn
+Rahu Kavach — protection from illusion and enemies
+Ketu Kavach — spiritual protection
+Show full kavach text in Sanskrit and transliteration
+Audio pronunciation guide
+
+
+SECTION 3 — ADVANCED CALCULATIONS:
+9. Ashtakavarga System:
+
+Each planet casts benefic points (0 or 1) into each sign
+8 contributors: 7 planets + Lagna
+Each sign gets 0-8 points from each planet
+Sarvashtakavarga = total points in each sign (0-56)
+Signs with 28+ points are strong, below 28 are weak
+Show for each planet: Bhinnashtakavarga (planet's own chart)
+Show Sarvashtakavarga (combined chart)
+Use for transit predictions:
+
+When Saturn transits a sign with high points = good results
+When Saturn transits low point sign = difficult period
+
+
+Display as colorful grid/table
+AI interpretation: "Your 7th house has 32 points — excellent for marriage and partnerships"
+
+10. Shadbala (6 Planetary Strengths):
+Calculate all 6 types of strength for each planet:
+
+Sthana Bala — positional strength (own sign, exaltation etc.)
+Dig Bala — directional strength (Jupiter/Mercury strong in East/1st house, Saturn strong in West/7th, Mars/Sun strong in South/10th, Moon/Venus strong in North/4th)
+Kala Bala — temporal strength (day/night, hora, etc.)
+Chesta Bala — motional strength (retrograde planets get more strength)
+Naisargika Bala — natural strength (Sun strongest, Moon, Venus, Jupiter, Mercury, Mars, Saturn weakest)
+Drik Bala — aspectual strength
+Show total Shadbala score for each planet
+Minimum required strength to give good results
+Which planets are strong vs weak in your chart
+Visualization: strength meter for each planet
+
+11. Sarvashtakavarga:
+
+Combined points of all planets in each house
+Houses with 25-30+ points = strong areas of life
+Houses with less than 25 points = weak areas needing attention
+Show as circular chart with house strengths
+Color code: green (strong 30+), yellow (average 25-29), red (weak below 25)
+AI reading: "Your 2nd house of wealth has only 20 points — financial challenges indicated. Remedy: worship Lakshmi every Friday"
+
+
+SECTION 4 — SPIRITUAL CONTENT:
+12. Three Types of Karma:
+Dedicated screen explaining karma philosophy:
+Sanchita Karma (Accumulated Karma):
+
+Total karma accumulated from ALL past lives
+Like a vast storehouse of seeds
+Cannot be changed but can be burned through spiritual practice
+Shown by: South Node (Ketu), 12th house, hidden planets
+How to burn Sanchita: Meditation, selfless service, devotion
+
+Prarabdha Karma (Current Life Karma):
+
+The portion of Sanchita karma being experienced in THIS life
+Like seeds already planted and sprouting
+Cannot be avoided — must be experienced
+Shown by: The entire birth chart
+How to navigate: Accept with equanimity, do your dharma
+
+Kriyamana Karma (Future Karma):
+
+Karma being created RIGHT NOW through current actions
+The only karma fully in your control
+Thoughts, words and actions create future karma
+How to create good karma: Follow dharma, be truthful, serve others, practice devotion
+
+Free Will vs Destiny:
+
+70% destiny (Prarabdha) + 30% free will (Purushartha)
+Remedies work by activating free will to modify karma
+Goal is not to escape karma but to exhaust it and attain moksha
+
+13. Past Life Reading:
+
+Analyze 12th house (past life environment)
+Analyze Ketu (past life skills and karma brought forward)
+Analyze South Node nakshatra (past life personality)
+Analyze Saturn (karmic debts from past life)
+AI generates past life story:
+
+javascript`Based on this Vedic birth chart:
+- Ketu is in ${ketuSign} in ${ketuHouse} house
+- 12th house lord is ${twelfthLord} in ${twelfthLordPosition}
+- Saturn is in ${saturnSign}
+
+Generate a past life reading. What did this person do in their past life?
+What karma are they carrying forward? What gifts did they bring?
+What karmic debts must they repay in this life?
+Write it as a mystical but psychologically insightful narrative.
+Reference Hindu concepts of karma, reincarnation and dharma.`
+14. Spiritual Path Finder:
+Based on birth chart determine which of the 4 yogic paths suits best:
+
+Bhakti Yoga (Path of Devotion) — strong Moon, Venus, Jupiter, 5th house
+
+Suitable for: Emotional, devotional, artistic people
+Practices: Kirtan, prayer, worship, loving service
+Deity: Personal God (Vishnu, Shiva, Devi, Ganesha)
+
+
+Karma Yoga (Path of Action) — strong Mars, Sun, 10th house
+
+Suitable for: Active, driven, leadership personalities
+Practices: Selfless service, duty without attachment
+Teaching: Bhagavad Gita Chapter 3
+
+
+Jnana Yoga (Path of Knowledge) — strong Mercury, Jupiter, 5th/9th house
+
+Suitable for: Intellectual, philosophical personalities
+Practices: Self-inquiry (Atma Vichara), study of scriptures
+Texts: Upanishads, Advaita Vedanta
+
+
+Raja Yoga (Path of Meditation) — strong Saturn, Ketu, 12th house
+
+Suitable for: Disciplined, introverted, spiritual personalities
+Practices: Pranayama, Meditation, Samadhi
+System: Patanjali's Ashtanga Yoga (8 limbs)
+
+
+
+Show user their primary spiritual path with AI explanation
+15. Moksha Indicators:
+
+Analyze 12th house (liberation house)
+Ketu position (spiritual liberation indicator)
+Jupiter's role (divine grace)
+Any planets in Pisces (12th sign = moksha sign)
+Atmakaraka planet's nature
+Show "Moksha Score" — how strongly liberation is indicated
+What spiritual practices will accelerate moksha
+Famous people with strong moksha indicators (Ramana Maharshi, Ramakrishna)
+AI moksha reading:
+
+javascript`Analyze the moksha indicators in this birth chart:
+- 12th house: ${twelfthHouseDetails}
+- Ketu position: ${ketuDetails}
+- Atmakaraka: ${atmakaraka}
+
+Is this person's chart showing strong spiritual liberation tendencies?
+What is their spiritual potential? What practices will help them progress
+toward moksha? Reference Advaita Vedanta, Bhagavad Gita and classical Jyotisha.`
+
+SECTION 5 — COMMUNITY FEATURES:
+16. Nakshatra Groups:
+
+After user sets up Kundali, auto-join their Nakshatra group
+27 groups total (one per Nakshatra)
+Each group shows:
+
+Group name: "🌟 Rohini Nakshatra"
+Member count: "143 members"
+Famous people with this Nakshatra
+Nakshatra traits and personality
+Members grid (profile photos)
+
+
+Inside group:
+
+Group chat
+Share daily mantra
+Today's collective horoscope
+Members can post and comment
+
+
+"X people with your Nakshatra near you" on Find Vibe
+
+17. Rashi Compatibility Feed:
+
+In the Feed tab, show compatibility indicator on each user's posts
+Small zodiac icon + compatibility % next to username
+Sort option: "Show most compatible Rashis first"
+Compatible Rashis (general Vedic compatibility):
+
+Aries: Leo, Sagittarius, Gemini, Aquarius
+Taurus: Virgo, Capricorn, Cancer, Pisces
+Gemini: Libra, Aquarius, Aries, Leo
+Cancer: Scorpio, Pisces, Taurus, Virgo
+Leo: Aries, Sagittarius, Gemini, Libra
+Virgo: Taurus, Capricorn, Cancer, Scorpio
+Libra: Gemini, Aquarius, Leo, Sagittarius
+Scorpio: Cancer, Pisces, Virgo, Capricorn
+Sagittarius: Aries, Leo, Libra, Aquarius
+Capricorn: Taurus, Virgo, Scorpio, Pisces
+Aquarius: Gemini, Libra, Aries, Sagittarius
+Pisces: Cancer, Scorpio, Taurus, Capricorn
+
+
+
+18. Jyotishi Connect (Astrologer Marketplace):
+
+Special verified "Jyotishi" badge for astrology experts
+Astrologers create profile showing:
+
+Specialization (marriage, career, health, spiritual)
+Years of experience
+Languages spoken
+Consultation price per hour
+Rating and reviews
+Sample readings
+
+
+Users can:
+
+Browse verified Jyotishis
+Book 30/60 minute consultation
+Chat or video call through app
+Pay through in-app coins
+Rate and review after session
+
+
+Revenue: App takes 20% commission on consultations
+Save to Supabase: jyotishi_profiles, consultations, jyotishi_reviews
+
+19. Astrology Knowledge Quiz:
+
+Weekly quiz with 10 questions about Vedic astrology
+Questions generated by Claude AI:
+
+"Which planet is the Karaka (significator) of marriage?"
+"How many Nakshatras are there in Vedic astrology?"
+"What does Sade Sati mean?"
+"Which house represents career in Jyotisha?"
+
+
+Difficulty levels: Beginner, Intermediate, Advanced
+Time limit: 60 seconds per question
+Rewards:
+
+Complete quiz: 50 coins
+Perfect score: 200 coins
+Weekly champion: Special Jyotisha badge
+
+
+Leaderboard showing top Jyotisha scholars
+Save scores to Supabase: astrology_quiz_scores
+
+20. Birth Chart Profile Badge:
+
+Users can add their Kundali summary to their profile
+Shows as a beautiful card below bio:
+
+Rashi symbol + name
+Lagna symbol + name
+Nakshatra name
+Current Dasha
+Dominant planet
+
+
+Other users can tap it to see compatibility
+"This person is a Scorpio Lagna with Moon in Rohini Nakshatra"
+Toggle: public or private (some people don't want to share)
+In Find Vibe, shows Guna Milan score (out of 36) on each card
+
+
+DATABASE TABLES NEEDED:
+sql-- Divisional charts
+CREATE TABLE kundali_divisional_charts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  chart_type TEXT, -- D1, D2, D7, D9, D10 etc
+  chart_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Ashtakavarga scores
+CREATE TABLE ashtakavarga_scores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  planet TEXT,
+  house_scores JSONB, -- scores for each house
+  sarvashtakavarga JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Shadbala scores
+CREATE TABLE shadbala_scores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  planet_strengths JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Past life readings
+CREATE TABLE past_life_readings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  reading_text TEXT,
+  karma_type TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Nakshatra groups
+CREATE TABLE nakshatra_groups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nakshatra_name TEXT UNIQUE,
+  member_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE nakshatra_group_members (
+  user_id UUID REFERENCES profiles(id),
+  nakshatra_name TEXT,
+  joined_at TIMESTAMP DEFAULT NOW(),
+  PRIMARY KEY (user_id, nakshatra_name)
+);
+
+-- Jyotishi marketplace
+CREATE TABLE jyotishi_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  specialization TEXT[],
+  experience_years INTEGER,
+  price_per_hour INTEGER,
+  languages TEXT[],
+  rating DECIMAL(3,2),
+  is_verified BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE jyotishi_consultations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES profiles(id),
+  jyotishi_id UUID REFERENCES profiles(id),
+  duration_minutes INTEGER,
+  status TEXT, -- pending, confirmed, completed, cancelled
+  price_coins INTEGER,
+  scheduled_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Quiz scores
+CREATE TABLE astrology_quiz_scores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  score INTEGER,
+  total_questions INTEGER,
+  difficulty TEXT,
+  coins_earned INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+UI GUIDELINES FOR ALL NEW FEATURES:
+
+Deep midnight blue/black background
+Gold and saffron accent colors
+Sanskrit text where appropriate
+Mandala and lotus design elements
+Smooth mystical animations
+Sacred geometry patterns
+Feels like a divine spiritual app
+
+Don't break any existing features.

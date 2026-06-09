@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
@@ -155,6 +155,57 @@ function getNakshatraData(name: string) {
 const KUNDALI_KEY = "gundruk_kundali_v1";
 const PANCHANG_KEY = `gundruk_panchang_v1:${new Date().toDateString()}`;
 const READINGS_KEY = (rashi: string, nk: string) => `gundruk_readings_v1:${rashi}:${nk}:${new Date().toDateString()}`;
+const SPIRITUAL_PATH_KEY = (rashi: string, nk: string) => `gundruk_spiritual_path_v2:${rashi}:${nk}`;
+const PAST_LIFE_KEY = (rashi: string, nk: string) => `gundruk_past_life_v2:${rashi}:${nk}`;
+const KARMA_TYPES_KEY = (rashi: string, nk: string) => `gundruk_karma_types_v2:${rashi}:${nk}`;
+const ISHTA_KEY = (rashi: string, nk: string) => `gundruk_ishta_devata_v2:${rashi}:${nk}`;
+const NAVAMSA_KEY = (rashi: string, nk: string) => `gundruk_navamsa_v2:${rashi}:${nk}`;
+const JAPA_COUNTS_KEY = "gundruk_japa_counts_v1";
+
+// ─── Dasha Calendar Helpers ───────────────────────────────────────────────────
+
+const DASHA_ORDER = ["Ketu","Venus","Sun","Moon","Mars","Rahu","Jupiter","Saturn","Mercury"] as const;
+const DASHA_YEARS: Record<string, number> = { Ketu:7, Venus:20, Sun:6, Moon:10, Mars:7, Rahu:18, Jupiter:16, Saturn:19, Mercury:17 };
+const DASHA_COLORS: Record<string, string> = { Ketu:"#7C3AED", Venus:"#EC4899", Sun:"#F97316", Moon:"#3B82F6", Mars:"#EF4444", Rahu:"#6B7280", Jupiter:"#FBBF24", Saturn:"#1D4ED8", Mercury:"#10B981" };
+const NAKSHATRA_DASHA: Record<string, string> = {
+  "Ashwini":"Ketu","Bharani":"Venus","Krittika":"Sun","Rohini":"Moon","Mrigashira":"Mars","Ardra":"Rahu",
+  "Punarvasu":"Jupiter","Pushya":"Saturn","Ashlesha":"Mercury","Magha":"Ketu","Purva Phalguni":"Venus",
+  "Uttara Phalguni":"Sun","Hasta":"Moon","Chitra":"Mars","Swati":"Rahu","Vishakha":"Jupiter",
+  "Anuradha":"Saturn","Jyeshtha":"Mercury","Mula":"Ketu","Purva Ashadha":"Venus","Uttara Ashadha":"Sun",
+  "Shravana":"Moon","Dhanishtha":"Mars","Shatabhisha":"Rahu","Purva Bhadrapada":"Jupiter",
+  "Uttara Bhadrapada":"Saturn","Revati":"Mercury",
+};
+
+function calcDashas(nakshatra: string, birthDateStr: string) {
+  const startPlanet = NAKSHATRA_DASHA[nakshatra] ?? "Ketu";
+  const startIdx = DASHA_ORDER.indexOf(startPlanet as (typeof DASHA_ORDER)[number]);
+  const birthDate = new Date(birthDateStr);
+  const results: Array<{ planet: string; start: Date; end: Date; years: number; color: string }> = [];
+  let cur = new Date(birthDate);
+  for (let i = 0; i < DASHA_ORDER.length; i++) {
+    const planet = DASHA_ORDER[(startIdx + i) % DASHA_ORDER.length];
+    const years = DASHA_YEARS[planet] ?? 7;
+    const end = new Date(cur);
+    end.setFullYear(end.getFullYear() + years);
+    results.push({ planet, start: new Date(cur), end, years, color: DASHA_COLORS[planet] ?? "#6B7280" });
+    cur = end;
+  }
+  return results;
+}
+
+// ─── Mantra Library Data ──────────────────────────────────────────────────────
+
+const MANTRA_LIBRARY = [
+  { planet: "Surya", emoji: "☀️", color: "#F97316", mantra: "ॐ ह्रां ह्रीं ह्रौं सः सूर्याय नमः", transliteration: "Om Hraam Hreem Hraum Sah Suryaya Namah", deity: "Surya Dev", benefit: "Health, vitality, leadership, father's blessings", day: "Sunday", count: 108 },
+  { planet: "Chandra", emoji: "🌙", color: "#3B82F6", mantra: "ॐ श्रां श्रीं श्रौं सः चन्द्राय नमः", transliteration: "Om Shraam Shreem Shraum Sah Chandraya Namah", deity: "Chandra Dev", benefit: "Peace of mind, emotions, intuition, mother's blessings", day: "Monday", count: 108 },
+  { planet: "Mangal", emoji: "🔴", color: "#EF4444", mantra: "ॐ क्रां क्रीं क्रौं सः भौमाय नमः", transliteration: "Om Kraam Kreem Kraum Sah Bhaumaya Namah", deity: "Mangal Dev", benefit: "Courage, energy, victory over enemies, property", day: "Tuesday", count: 108 },
+  { planet: "Budha", emoji: "💚", color: "#10B981", mantra: "ॐ ब्रां ब्रीं ब्रौं सः बुधाय नमः", transliteration: "Om Braam Breem Braum Sah Budhaya Namah", deity: "Budha Dev", benefit: "Intelligence, clarity, communication, business", day: "Wednesday", count: 108 },
+  { planet: "Guru", emoji: "🌟", color: "#FBBF24", mantra: "ॐ ग्रां ग्रीं ग्रौं सः गुरवे नमः", transliteration: "Om Graam Greem Graum Sah Gurave Namah", deity: "Brihaspati Dev", benefit: "Wisdom, dharma, children, wealth, expansion, guru's grace", day: "Thursday", count: 108 },
+  { planet: "Shukra", emoji: "💎", color: "#EC4899", mantra: "ॐ द्रां द्रीं द्रौं सः शुक्राय नमः", transliteration: "Om Draam Dreem Draum Sah Shukraya Namah", deity: "Shukra Dev", benefit: "Love, beauty, luxury, marriage harmony, artistic success", day: "Friday", count: 108 },
+  { planet: "Shani", emoji: "⚫", color: "#9CA3AF", mantra: "ॐ प्रां प्रीं प्रौं सः शनैश्चराय नमः", transliteration: "Om Praam Preem Praum Sah Shanaischaraya Namah", deity: "Shani Dev", benefit: "Remove obstacles, karma clearing, discipline, longevity", day: "Saturday", count: 108 },
+  { planet: "Rahu", emoji: "🌑", color: "#7C3AED", mantra: "ॐ भ्रां भ्रीं भ्रौं सः राहवे नमः", transliteration: "Om Bhraam Bhreem Bhraum Sah Rahave Namah", deity: "Rahu", benefit: "Protection from illusion, foreign gains, technical success", day: "Saturday", count: 108 },
+  { planet: "Ketu", emoji: "☄️", color: "#D97706", mantra: "ॐ स्रां स्रीं स्रौं सः केतवे नमः", transliteration: "Om Sraam Sreem Sraum Sah Ketave Namah", deity: "Ketu", benefit: "Liberation, past karma healing, mysticism, moksha path", day: "Tuesday", count: 108 },
+] as const;
 
 interface KundaliProfile {
   birthDate: string;
@@ -1671,9 +1722,747 @@ function TwelveHousesSection({ profile }: { profile: KundaliProfile }) {
   );
 }
 
+// ─── Prashna Section ──────────────────────────────────────────────────────────
+
+function PrashnaSection({ profile }: { profile: KundaliProfile }) {
+  const [question, setQuestion] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<Record<string, string> | null>(null);
+  const [error, setError] = useState(false);
+
+  const ask = async () => {
+    if (!question.trim()) return;
+    setLoading(true); setError(false);
+    try {
+      const raw = await callAI("jyotisha_prashna", { question, rashi: profile.rashi, nakshatra: profile.nakshatra, lagna: profile.lagna });
+      const d = parseAIJson<Record<string, string> | null>(raw, null);
+      if (d) setData(d);
+    } catch { setError(true); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>🔮 Prashna Kundali</Text>
+        <Text style={S.sectionSub}>प्रश्न — Horary Astrology</Text>
+        <Text style={S.sectionSub2}>Ask anything · Chart cast for this exact moment</Text>
+      </View>
+      <View style={S.prashnaInputCard}>
+        <Text style={{ color: DIM, fontFamily: "Poppins_600SemiBold", fontSize: 12, marginBottom: 8 }}>YOUR QUESTION</Text>
+        <TextInput
+          value={question} onChangeText={setQuestion} multiline
+          placeholder="e.g. Will I get this job? Should I move cities? When will I marry?"
+          placeholderTextColor="rgba(255,255,255,0.18)"
+          style={S.prashnaInput}
+        />
+        <TouchableOpacity onPress={ask} disabled={!question.trim() || loading} style={{ marginTop: 12 }}>
+          <LinearGradient colors={[GOLD, "#92400E"]} style={{ borderRadius: 22, paddingVertical: 13, alignItems: "center" }}>
+            {loading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>🔮 Ask the Stars</Text>}
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+      {error && <Text style={S.errorText}>The stars are silent. Please try again.</Text>}
+      {!data && !loading && !error && (
+        <View style={{ alignItems: "center", paddingTop: 28 }}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>🌌</Text>
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 }}>
+            Prashna is Horary Astrology — the Jyotishi casts a chart for the exact moment you ask your question. No birth details needed.
+          </Text>
+        </View>
+      )}
+      {data && (
+        <>
+          <View style={S.prashnaAnswerCard}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_600SemiBold", fontSize: 11, marginBottom: 6 }}>PRASHNA ANSWER</Text>
+            <Text style={{ color: CREAM, fontFamily: "Poppins_600SemiBold", fontSize: 15, lineHeight: 24 }}>{data.answer}</Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>⏱️ Timing</Text>
+              <Text style={S.grahaCardText}>{data.timing}</Text>
+            </View>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>🪐 Key Planet</Text>
+              <Text style={S.grahaCardText}>{data.keyPlanet}</Text>
+            </View>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🌙 Moon's Indication</Text>
+            <Text style={S.grahaCardText}>{data.moonIndication}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>💡 Advice</Text>
+            <Text style={S.grahaCardText}>{data.advice}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>✨ Sign from the Universe</Text>
+            <Text style={S.grahaCardText}>{data.signFromUniverse}</Text>
+          </View>
+          <View style={S.adviceBox}>
+            <Text style={S.adviceTitle}>🙏 Upaya — Remedy</Text>
+            <Text style={S.adviceText}>{data.upaya}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>📿 Vedic Wisdom</Text>
+            <Text style={[S.grahaCardText, { fontStyle: "italic" }]}>{data.scriptureWisdom}</Text>
+          </View>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Spiritual Path Section ───────────────────────────────────────────────────
+
+function SpiritualPathSection({ profile }: { profile: KundaliProfile }) {
+  const cacheKey = SPIRITUAL_PATH_KEY(profile.rashi, profile.nakshatra);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(cacheKey).then(raw => { if (raw) setData(JSON.parse(raw)); }).catch(() => {});
+  }, [cacheKey]);
+
+  const load = async () => {
+    setLoading(true); setError(false);
+    try {
+      const raw = await callAI("jyotisha_spiritual_path", { rashi: profile.rashi, lagna: profile.lagna, nakshatra: profile.nakshatra, dasha: profile.dasha });
+      const d = parseAIJson<Record<string, unknown> | null>(raw, null);
+      if (d) { setData(d); await AsyncStorage.setItem(cacheKey, JSON.stringify(d)).catch(() => {}); }
+    } catch { setError(true); }
+    finally { setLoading(false); }
+  };
+
+  const pathColors: Record<string, string> = { "Bhakti Yoga": "#EC4899", "Karma Yoga": "#F97316", "Jnana Yoga": "#3B82F6", "Raja Yoga": "#7C3AED" };
+  const primaryPath = (data?.primaryPath as string) ?? "";
+  const pathColor = pathColors[primaryPath] ?? GOLD;
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>🧘 Yoga Marga</Text>
+        <Text style={S.sectionSub}>योग मार्ग — Your Spiritual Path</Text>
+        <Text style={S.sectionSub2}>Bhakti · Karma · Jnana · Raja — which suits your soul?</Text>
+      </View>
+      {!data && !loading && (
+        <TouchableOpacity onPress={load} style={{ marginBottom: 16 }}>
+          <LinearGradient colors={[GOLD, "#92400E"]} style={{ borderRadius: 22, paddingVertical: 14, alignItems: "center" }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>🧘 Reveal My Spiritual Path</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      {loading && <ActivityIndicator color={SAFFRON} size="large" style={{ marginTop: 32 }} />}
+      {error && <Text style={S.errorText}>Could not load. Please try again.</Text>}
+      {data && (
+        <>
+          <LinearGradient colors={[pathColor + "30", pathColor + "08"]} style={{ borderRadius: 20, borderWidth: 1, borderColor: pathColor + "60", padding: 20, marginBottom: 14, alignItems: "center" }}>
+            <Text style={{ fontSize: 48, marginBottom: 8 }}>{data.pathEmoji as string}</Text>
+            <Text style={{ color: pathColor, fontFamily: "Poppins_700Bold", fontSize: 24 }}>{primaryPath}</Text>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 4 }}>{data.pathSanskrit as string}</Text>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 12, textAlign: "center", lineHeight: 21 }}>{data.whyThisPath as string}</Text>
+          </LinearGradient>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>📿 Daily Sadhana Practice</Text>
+            {Array.isArray(data.dailyPractice) && (data.dailyPractice as string[]).map((p2: string, i: number) => (
+              <Text key={i} style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 22, marginTop: 4 }}>• {p2}</Text>
+            ))}
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🌟 Soul Purpose this Incarnation</Text>
+            <Text style={S.grahaCardText}>{data.soulPurpose as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>⚠️ Spiritual Obstacle to Overcome</Text>
+            <Text style={S.grahaCardText}>{data.spiritualObstacle as string}</Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>📚 Sacred Text</Text>
+              <Text style={S.grahaCardText}>{data.sacredText as string}</Text>
+            </View>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>⏰ Best Sadhna Time</Text>
+              <Text style={S.grahaCardText}>{data.idealSadhnaTime as string}</Text>
+            </View>
+          </View>
+          <View style={S.adviceBox}>
+            <Text style={S.adviceTitle}>🕉️ Path Mantra</Text>
+            <Text style={[S.adviceText, { fontSize: 14, fontWeight: "600" }]}>{data.mantra as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🔄 Secondary Path</Text>
+            <Text style={S.grahaCardText}>{data.secondaryPath as string}</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setData(null); AsyncStorage.removeItem(cacheKey).catch(() => {}); }} style={{ marginTop: 8 }}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center" }}>↺ Refresh Reading</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Past Life Section ────────────────────────────────────────────────────────
+
+function PastLifeSection({ profile }: { profile: KundaliProfile }) {
+  const cacheKey = PAST_LIFE_KEY(profile.rashi, profile.nakshatra);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(cacheKey).then(raw => { if (raw) setData(JSON.parse(raw)); }).catch(() => {});
+  }, [cacheKey]);
+
+  const load = async () => {
+    setLoading(true); setError(false);
+    try {
+      const raw = await callAI("jyotisha_past_life", { rashi: profile.rashi, lagna: profile.lagna, nakshatra: profile.nakshatra, dasha: profile.dasha });
+      const d = parseAIJson<Record<string, unknown> | null>(raw, null);
+      if (d) { setData(d); await AsyncStorage.setItem(cacheKey, JSON.stringify(d)).catch(() => {}); }
+    } catch { setError(true); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>🌀 Purva Janma</Text>
+        <Text style={S.sectionSub}>पूर्व जन्म — Past Life Reading</Text>
+        <Text style={S.sectionSub2}>Ketu reveals your soul's ancient memories and past incarnations</Text>
+      </View>
+      {!data && !loading && (
+        <TouchableOpacity onPress={load} style={{ marginBottom: 16 }}>
+          <LinearGradient colors={["#7C3AED", "#4C1D95"]} style={{ borderRadius: 22, paddingVertical: 14, alignItems: "center" }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>🌀 Reveal Past Life</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      {loading && <ActivityIndicator color="#7C3AED" size="large" style={{ marginTop: 32 }} />}
+      {error && <Text style={S.errorText}>Could not load. Please try again.</Text>}
+      {data && (
+        <>
+          <LinearGradient colors={["#7C3AED30", "#4C1D9508"]} style={{ borderRadius: 20, borderWidth: 1, borderColor: "#7C3AED60", padding: 20, marginBottom: 14 }}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, marginBottom: 6 }}>PAST LIFE THEME</Text>
+            <Text style={{ color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 16, lineHeight: 24 }}>{data.pastLifeTheme as string}</Text>
+          </LinearGradient>
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>👤 Past Life Role</Text>
+              <Text style={S.grahaCardText}>{data.pastLifeRole as string}</Text>
+            </View>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>🌍 Location & Era</Text>
+              <Text style={S.grahaCardText}>{data.pastLifeLocation as string}</Text>
+            </View>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>☄️ Ketu's Revelation</Text>
+            <Text style={S.grahaCardText}>{data.ketuLesson as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🎁 Karma Carried Forward</Text>
+            <Text style={S.grahaCardText}>{data.karmaCarriedForward as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🩹 Past Life Challenge Healing Now</Text>
+            <Text style={S.grahaCardText}>{data.pastLifeChallenge as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>✨ Soul Gifts Brought from Past Life</Text>
+            {Array.isArray(data.birthGifts) && (data.birthGifts as string[]).map((g: string, i: number) => (
+              <Text key={i} style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 22, marginTop: 4 }}>🌟 {g}</Text>
+            ))}
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🔮 Soul's Journey: Past → Present</Text>
+            <Text style={S.grahaCardText}>{data.soulsJourney as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🧭 Rahu — What This Life Demands</Text>
+            <Text style={S.grahaCardText}>{data.rahuDirection as string}</Text>
+          </View>
+          <View style={S.adviceBox}>
+            <Text style={S.adviceTitle}>🙏 Path to Moksha</Text>
+            <Text style={S.adviceText}>{data.liberationPath as string}</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setData(null); AsyncStorage.removeItem(cacheKey).catch(() => {}); }} style={{ marginTop: 8 }}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center" }}>↺ Refresh Reading</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Karma Types Section ──────────────────────────────────────────────────────
+
+function KarmaTypesSection({ profile }: { profile: KundaliProfile }) {
+  const cacheKey = KARMA_TYPES_KEY(profile.rashi, profile.nakshatra);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(cacheKey).then(raw => { if (raw) setData(JSON.parse(raw)); }).catch(() => {});
+  }, [cacheKey]);
+
+  const load = async () => {
+    setLoading(true); setError(false);
+    try {
+      const raw = await callAI("jyotisha_karma_types", { rashi: profile.rashi, lagna: profile.lagna, nakshatra: profile.nakshatra, dasha: profile.dasha });
+      const d = parseAIJson<Record<string, unknown> | null>(raw, null);
+      if (d) { setData(d); await AsyncStorage.setItem(cacheKey, JSON.stringify(d)).catch(() => {}); }
+    } catch { setError(true); }
+    finally { setLoading(false); }
+  };
+
+  const karmaCards = [
+    { key: "sanchita", color: "#6B7280", emoji: "🌌" },
+    { key: "prarabdha", color: "#F97316", emoji: "📜" },
+    { key: "kriyamana", color: "#10B981", emoji: "⚡" },
+  ];
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>⚖️ Tri-Karma</Text>
+        <Text style={S.sectionSub}>तीन कर्म — The Three Karmas</Text>
+        <Text style={S.sectionSub2}>Sanchita · Prarabdha · Kriyamana — your karmic blueprint</Text>
+      </View>
+      {!data && !loading && (
+        <TouchableOpacity onPress={load} style={{ marginBottom: 16 }}>
+          <LinearGradient colors={[GOLD, "#92400E"]} style={{ borderRadius: 22, paddingVertical: 14, alignItems: "center" }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>⚖️ Reveal My Karma Map</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      {loading && <ActivityIndicator color={SAFFRON} size="large" style={{ marginTop: 32 }} />}
+      {error && <Text style={S.errorText}>Could not load. Please try again.</Text>}
+      {data && (
+        <>
+          {karmaCards.map(({ key, color, emoji }) => {
+            const k = data[key] as Record<string, unknown> | undefined;
+            if (!k) return null;
+            return (
+              <View key={key} style={{ backgroundColor: color + "15", borderRadius: 18, borderWidth: 1, borderColor: color + "50", padding: 18, marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8 }}>
+                  <Text style={{ fontSize: 28, marginRight: 10 }}>{emoji}</Text>
+                  <View>
+                    <Text style={{ color, fontFamily: "Poppins_700Bold", fontSize: 18 }}>{k.title as string}</Text>
+                    <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12 }}>{k.titleSa as string}</Text>
+                  </View>
+                </View>
+                <Text style={{ color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 12, fontStyle: "italic", marginBottom: 8 }}>{k.meaning as string}</Text>
+                <Text style={{ color: CREAM, fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 22 }}>{k.forThisPerson as string}</Text>
+                {key === "prarabdha" && Array.isArray(k.mainThemes) && (
+                  <View style={{ marginTop: 10, flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {(k.mainThemes as string[]).map((t: string, i: number) => (
+                      <View key={i} style={{ backgroundColor: color + "30", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 4 }}>
+                        <Text style={{ color: color, fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>{t}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {key === "kriyamana" && Array.isArray(k.powerActions) && (
+                  <View style={{ marginTop: 10 }}>
+                    {(k.powerActions as string[]).map((a: string, i: number) => (
+                      <Text key={i} style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 22 }}>✅ {a}</Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+          <View style={S.adviceBox}>
+            <Text style={S.adviceTitle}>🌟 Message for You</Text>
+            <Text style={S.adviceText}>{data.overallMessage as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>📿 Bhagavad Gita Teaching</Text>
+            <Text style={[S.grahaCardText, { fontStyle: "italic" }]}>{data.gitaVerse as string}</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setData(null); AsyncStorage.removeItem(cacheKey).catch(() => {}); }} style={{ marginTop: 8 }}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center" }}>↺ Refresh Reading</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Ishta Devata Section ─────────────────────────────────────────────────────
+
+function IshtaDevataSection({ profile }: { profile: KundaliProfile }) {
+  const cacheKey = ISHTA_KEY(profile.rashi, profile.nakshatra);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(cacheKey).then(raw => { if (raw) setData(JSON.parse(raw)); }).catch(() => {});
+  }, [cacheKey]);
+
+  const load = async () => {
+    setLoading(true); setError(false);
+    try {
+      const raw = await callAI("jyotisha_ishta_devata", { rashi: profile.rashi, lagna: profile.lagna, nakshatra: profile.nakshatra, dasha: profile.dasha });
+      const d = parseAIJson<Record<string, unknown> | null>(raw, null);
+      if (d) { setData(d); await AsyncStorage.setItem(cacheKey, JSON.stringify(d)).catch(() => {}); }
+    } catch { setError(true); }
+    finally { setLoading(false); }
+  };
+
+  const worship = data?.worship as Record<string, string> | undefined;
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>🙏 Ishta Devata</Text>
+        <Text style={S.sectionSub}>इष्ट देवता — Your Personal Deity</Text>
+        <Text style={S.sectionSub2}>The divine form most aligned with your soul's path</Text>
+      </View>
+      {!data && !loading && (
+        <TouchableOpacity onPress={load} style={{ marginBottom: 16 }}>
+          <LinearGradient colors={[GOLD, "#92400E"]} style={{ borderRadius: 22, paddingVertical: 14, alignItems: "center" }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>🙏 Find My Ishta Devata</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      {loading && <ActivityIndicator color={SAFFRON} size="large" style={{ marginTop: 32 }} />}
+      {error && <Text style={S.errorText}>Could not load. Please try again.</Text>}
+      {data && (
+        <>
+          <LinearGradient colors={[GOLD + "30", GOLD + "06"]} style={{ borderRadius: 22, borderWidth: 1, borderColor: GOLD + "60", padding: 22, marginBottom: 14, alignItems: "center" }}>
+            <Text style={{ fontSize: 52, marginBottom: 8 }}>{data.devataEmoji as string}</Text>
+            <Text style={{ color: GOLD, fontFamily: "Poppins_700Bold", fontSize: 26 }}>{data.ishtaDevata as string}</Text>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 16, marginTop: 4 }}>{data.devataSanskrit as string}</Text>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 12, textAlign: "center", lineHeight: 22 }}>{data.whyThisDeity as string}</Text>
+          </LinearGradient>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🌺 Sacred Form</Text>
+            <Text style={S.grahaCardText}>{data.form as string}</Text>
+          </View>
+          {worship && (
+            <View style={{ backgroundColor: CARD_BG, borderRadius: 16, borderWidth: 1, borderColor: "rgba(253,230,138,0.1)", padding: 16, marginBottom: 8 }}>
+              <Text style={S.grahaCardTitle}>🕯️ How to Worship</Text>
+              <View style={{ gap: 6, marginTop: 6 }}>
+                {[["📅", "Day", worship.day],["⏰","Time",worship.time],["🌸","Offering",worship.offering]].map(([icon, label, val]) => (
+                  <View key={label} style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+                    <Text style={{ fontSize: 16 }}>{icon}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11 }}>{label}</Text>
+                      <Text style={{ color: CREAM, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>{val}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+              <View style={{ marginTop: 12, backgroundColor: GOLD + "15", borderRadius: 12, padding: 12 }}>
+                <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, marginBottom: 4 }}>MANTRA</Text>
+                <Text style={{ color: SAFFRON, fontFamily: "Poppins_600SemiBold", fontSize: 14, lineHeight: 22 }}>{worship.mantra}</Text>
+              </View>
+              <View style={{ marginTop: 10, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 10, padding: 12 }}>
+                <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, marginBottom: 4 }}>INVOCATION PRAYER</Text>
+                <Text style={{ color: CREAM, fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 21, fontStyle: "italic" }}>{worship.prayer}</Text>
+              </View>
+            </View>
+          )}
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>📖 Sacred Story</Text>
+            <Text style={S.grahaCardText}>{data.story as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🌟 Divine Blessing for You</Text>
+            <Text style={S.grahaCardText}>{data.blessing as string}</Text>
+          </View>
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>⭐ Nakshatra Deity</Text>
+              <Text style={S.grahaCardText}>{data.nakshatraDeity as string}</Text>
+            </View>
+            <View style={[S.grahaCard, { flex: 1 }]}>
+              <Text style={S.grahaCardTitle}>🕌 Sacred Pilgrimage</Text>
+              <Text style={S.grahaCardText}>{data.pilgrimage as string}</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={() => { setData(null); AsyncStorage.removeItem(cacheKey).catch(() => {}); }} style={{ marginTop: 8 }}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center" }}>↺ Refresh Reading</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+// ─── Dasha Calendar Section ───────────────────────────────────────────────────
+
+function DashaCalendarSection({ profile }: { profile: KundaliProfile }) {
+  const dashas = useMemo(() => calcDashas(profile.nakshatra, profile.birthDate), [profile.nakshatra, profile.birthDate]);
+  const today = useMemo(() => new Date(), []);
+  const currentDasha = dashas.find(d => today >= d.start && today < d.end);
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>📅 Vimshottari Dasha</Text>
+        <Text style={S.sectionSub}>दशा — Planetary Period Calendar</Text>
+        <Text style={S.sectionSub2}>120-year cycle based on birth Nakshatra: {profile.nakshatra}</Text>
+      </View>
+
+      {currentDasha && (
+        <LinearGradient colors={[currentDasha.color + "35", currentDasha.color + "08"]} style={{ borderRadius: 20, borderWidth: 1, borderColor: currentDasha.color + "70", padding: 20, marginBottom: 16 }}>
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, letterSpacing: 1 }}>CURRENT DASHA PERIOD</Text>
+          <Text style={{ color: currentDasha.color, fontFamily: "Poppins_700Bold", fontSize: 30, marginTop: 4 }}>{currentDasha.planet} Dasha</Text>
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 14, marginTop: 6 }}>
+            {currentDasha.start.getFullYear()} — {currentDasha.end.getFullYear()}
+            <Text style={{ color: "rgba(255,255,255,0.4)" }}> · {currentDasha.years} year period</Text>
+          </Text>
+          <View style={{ marginTop: 12, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <View style={{
+              height: 6, borderRadius: 3, backgroundColor: currentDasha.color,
+              width: `${Math.min(100, Math.max(0, ((today.getTime() - currentDasha.start.getTime()) / (currentDasha.end.getTime() - currentDasha.start.getTime())) * 100))}%`,
+            }} />
+          </View>
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 4 }}>Progress through current Dasha</Text>
+        </LinearGradient>
+      )}
+
+      <Text style={{ color: CREAM, fontFamily: "Poppins_700Bold", fontSize: 15, marginBottom: 12 }}>Complete 9-Period Timeline</Text>
+
+      {dashas.map((d, i) => {
+        const isActive = today >= d.start && today < d.end;
+        const isPast = today >= d.end;
+        return (
+          <View key={i} style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 6 }}>
+            <View style={{ width: 3, borderRadius: 2, backgroundColor: d.color, marginTop: 8, marginBottom: 8, marginRight: 12, alignSelf: "stretch", opacity: isPast ? 0.25 : 1 }} />
+            <View style={{ flex: 1, backgroundColor: isActive ? d.color + "18" : CARD_BG, borderRadius: 14, borderWidth: isActive ? 1 : 0, borderColor: d.color + "60", padding: 12, opacity: isPast ? 0.4 : 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: d.color }} />
+                  <Text style={{ color: isActive ? d.color : CREAM, fontFamily: "Poppins_700Bold", fontSize: 15 }}>{d.planet} Dasha</Text>
+                  {isActive && <View style={{ backgroundColor: d.color + "30", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}><Text style={{ color: d.color, fontFamily: "Poppins_600SemiBold", fontSize: 10 }}>NOW</Text></View>}
+                </View>
+                <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12 }}>{d.years}y</Text>
+              </View>
+              <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 3 }}>{d.start.getFullYear()} – {d.end.getFullYear()}</Text>
+            </View>
+          </View>
+        );
+      })}
+
+      <View style={[S.adviceBox, { marginTop: 16 }]}>
+        <Text style={S.adviceTitle}>📿 About Vimshottari Dasha</Text>
+        <Text style={S.adviceText}>The 120-year Vimshottari Dasha system is based on your birth Moon's Nakshatra. Each planetary period powerfully colors life themes, events, and karma ripening. The Dasha lord becomes your most influential planet during its period. Sub-periods (Antardasha) within each Dasha further refine the timing of events.</Text>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ─── Mantra Library Section ───────────────────────────────────────────────────
+
+function MantraLibrarySection() {
+  const [japaCounts, setJapaCounts] = useState<Record<string, number>>({});
+  const [selectedIdx, setSelectedIdx] = useState(0);
+
+  useEffect(() => {
+    AsyncStorage.getItem(JAPA_COUNTS_KEY)
+      .then(raw => { if (raw) setJapaCounts(JSON.parse(raw)); })
+      .catch(() => {});
+  }, []);
+
+  const saveJapa = async (counts: Record<string, number>) => {
+    setJapaCounts(counts);
+    await AsyncStorage.setItem(JAPA_COUNTS_KEY, JSON.stringify(counts)).catch(() => {});
+  };
+
+  const m = MANTRA_LIBRARY[selectedIdx];
+  const count = japaCounts[m.planet] ?? 0;
+  const malas = Math.floor(count / 108);
+  const totalCounts = MANTRA_LIBRARY.reduce((sum, ml) => sum + (japaCounts[ml.planet] ?? 0), 0);
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>📿 Mantra Kosha</Text>
+        <Text style={S.sectionSub}>मंत्र कोश — Sacred Mantra Library</Text>
+        <Text style={S.sectionSub2}>Select a Graha · Chant the mantra · Track your japa</Text>
+      </View>
+
+      {totalCounts > 0 && (
+        <View style={{ backgroundColor: GOLD + "15", borderRadius: 14, borderWidth: 1, borderColor: GOLD + "40", padding: 12, marginBottom: 14, flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: GOLD, fontFamily: "Poppins_700Bold", fontSize: 18 }}>🕉️ {totalCounts.toLocaleString()}</Text>
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, marginLeft: 8 }}>total mantras chanted</Text>
+        </View>
+      )}
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+        <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 2, paddingBottom: 4 }}>
+          {MANTRA_LIBRARY.map((ml, i) => (
+            <TouchableOpacity key={ml.planet} onPress={() => setSelectedIdx(i)} activeOpacity={0.8}>
+              <LinearGradient
+                colors={selectedIdx === i ? [ml.color + "80", ml.color + "30"] : [CARD_BG, CARD_BG]}
+                style={{ borderRadius: 16, borderWidth: 1, borderColor: selectedIdx === i ? ml.color : "rgba(253,230,138,0.1)", padding: 10, alignItems: "center", minWidth: 64 }}
+              >
+                <Text style={{ fontSize: 20 }}>{ml.emoji}</Text>
+                <Text style={{ color: selectedIdx === i ? ml.color : DIM, fontFamily: "Poppins_600SemiBold", fontSize: 10, marginTop: 3 }}>{ml.planet}</Text>
+                {(japaCounts[ml.planet] ?? 0) > 0 && (
+                  <Text style={{ color: ml.color, fontFamily: "Poppins_400Regular", fontSize: 9, marginTop: 1 }}>{japaCounts[ml.planet]}</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+
+      <LinearGradient colors={[m.color + "28", m.color + "08"]} style={{ borderRadius: 22, borderWidth: 1, borderColor: m.color + "55", padding: 20, marginBottom: 14 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 14 }}>
+          <Text style={{ fontSize: 36, marginRight: 12 }}>{m.emoji}</Text>
+          <View>
+            <Text style={{ color: m.color, fontFamily: "Poppins_700Bold", fontSize: 20 }}>{m.planet}</Text>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12 }}>{m.deity}</Text>
+          </View>
+        </View>
+        <Text style={{ color: CREAM, fontFamily: "Poppins_700Bold", fontSize: 16, lineHeight: 28, textAlign: "center", marginBottom: 8 }}>{m.mantra}</Text>
+        <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center", fontStyle: "italic", marginBottom: 12 }}>{m.transliteration}</Text>
+        <View style={{ backgroundColor: "rgba(0,0,0,0.25)", borderRadius: 12, padding: 12 }}>
+          <Text style={{ color: SAFFRON, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>✨ {m.benefit}</Text>
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 4 }}>📅 Best day: {m.day} · {m.count} repetitions per session</Text>
+        </View>
+      </LinearGradient>
+
+      <View style={{ backgroundColor: CARD_BG, borderRadius: 20, borderWidth: 1, borderColor: m.color + "40", padding: 20, alignItems: "center", marginBottom: 14 }}>
+        <Text style={{ color: DIM, fontFamily: "Poppins_600SemiBold", fontSize: 11, letterSpacing: 1, marginBottom: 8 }}>JAPA COUNTER</Text>
+        <Text style={{ color: m.color, fontFamily: "Poppins_700Bold", fontSize: 60, lineHeight: 72 }}>{count.toLocaleString()}</Text>
+        {malas > 0 && (
+          <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, marginBottom: 4 }}>
+            {malas} mala{malas > 1 ? "s" : ""} completed 🌸
+          </Text>
+        )}
+        <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, marginBottom: 20, textAlign: "center" }}>
+          {count === 0 ? "Begin your japa practice · OM" : `${108 - (count % 108)} more to complete this mala`}
+        </Text>
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          <TouchableOpacity onPress={() => saveJapa({ ...japaCounts, [m.planet]: count + 1 })}>
+            <LinearGradient colors={[m.color, m.color + "90"]} style={{ borderRadius: 50, width: 72, height: 72, justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 22 }}>+1</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => saveJapa({ ...japaCounts, [m.planet]: count + 108 })}>
+            <LinearGradient colors={[GOLD, "#92400E"]} style={{ borderRadius: 50, width: 72, height: 72, justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14, textAlign: "center" }}>+108</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => saveJapa({ ...japaCounts, [m.planet]: 0 })} style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", justifyContent: "center", alignItems: "center" }}>
+            <Text style={{ color: DIM, fontSize: 24 }}>↺</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ─── Navamsa Section ──────────────────────────────────────────────────────────
+
+function NavamsaSection({ profile }: { profile: KundaliProfile }) {
+  const cacheKey = NAVAMSA_KEY(profile.rashi, profile.nakshatra);
+  const [data, setData] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(cacheKey).then(raw => { if (raw) setData(JSON.parse(raw)); }).catch(() => {});
+  }, [cacheKey]);
+
+  const load = async () => {
+    setLoading(true); setError(false);
+    try {
+      const raw = await callAI("jyotisha_navamsa", { rashi: profile.rashi, lagna: profile.lagna, nakshatra: profile.nakshatra, dasha: profile.dasha });
+      const d = parseAIJson<Record<string, unknown> | null>(raw, null);
+      if (d) { setData(d); await AsyncStorage.setItem(cacheKey, JSON.stringify(d)).catch(() => {}); }
+    } catch { setError(true); }
+    finally { setLoading(false); }
+  };
+
+  const partner = data?.marriagePartner as Record<string, string> | undefined;
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+      <View style={S.sectionHeaderPad}>
+        <Text style={S.sectionTitle}>💫 Navamsa D9</Text>
+        <Text style={S.sectionSub}>नवांश — Soul & Marriage Chart</Text>
+        <Text style={S.sectionSub2}>The 9th divisional chart reveals your soul's deepest truth</Text>
+      </View>
+      {!data && !loading && (
+        <TouchableOpacity onPress={load} style={{ marginBottom: 16 }}>
+          <LinearGradient colors={["#EC4899", "#9D174D"]} style={{ borderRadius: 22, paddingVertical: 14, alignItems: "center" }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 }}>💫 Read My Soul Chart (D9)</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      )}
+      {loading && <ActivityIndicator color="#EC4899" size="large" style={{ marginTop: 32 }} />}
+      {error && <Text style={S.errorText}>Could not load. Please try again.</Text>}
+      {data && (
+        <>
+          <LinearGradient colors={["#EC489930", "#EC489906"]} style={{ borderRadius: 20, borderWidth: 1, borderColor: "#EC489960", padding: 20, marginBottom: 14 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <View>
+                <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11 }}>NAVAMSA LAGNA</Text>
+                <Text style={{ color: "#F9A8D4", fontFamily: "Poppins_700Bold", fontSize: 20 }}>{data.navamsaLagna as string}</Text>
+              </View>
+              <View style={{ alignItems: "flex-end" }}>
+                <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11 }}>SPIRITUAL MATURITY</Text>
+                <Text style={{ color: "#F9A8D4", fontFamily: "Poppins_700Bold", fontSize: 16 }}>{data.spiritualMaturity as string}</Text>
+              </View>
+            </View>
+            <Text style={{ color: CREAM, fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 22 }}>{data.soulNature as string}</Text>
+          </LinearGradient>
+          {partner && (
+            <View style={S.grahaCard}>
+              <Text style={S.grahaCardTitle}>💕 Marriage Partner — True Nature (D9)</Text>
+              <Text style={{ color: CREAM, fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 22, marginTop: 6 }}>{partner.nature}</Text>
+              <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 21, marginTop: 8 }}>🌸 {partner.appearance}</Text>
+              <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 21, marginTop: 4 }}>🏡 {partner.background}</Text>
+            </View>
+          )}
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🌟 Vargottama — Soul's Strength</Text>
+            <Text style={S.grahaCardText}>{data.vargottama as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>✨ Latent Soul Talents</Text>
+            {Array.isArray(data.latentTalents) && (data.latentTalents as string[]).map((t: string, i: number) => (
+              <Text key={i} style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 22, marginTop: 4 }}>💎 {t}</Text>
+            ))}
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>📜 Soul Lesson This Incarnation</Text>
+            <Text style={S.grahaCardText}>{data.soulLesson as string}</Text>
+          </View>
+          <View style={S.grahaCard}>
+            <Text style={S.grahaCardTitle}>🏆 Strengths from Past Lives</Text>
+            <Text style={S.grahaCardText}>{data.pastLifeStrengths as string}</Text>
+          </View>
+          <View style={S.adviceBox}>
+            <Text style={S.adviceTitle}>🙏 Divine Grace & Dharma Path</Text>
+            <Text style={S.adviceText}>{data.divineGrace as string}</Text>
+            <Text style={[S.adviceText, { marginTop: 8 }]}>{data.dharmaPath as string}</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setData(null); AsyncStorage.removeItem(cacheKey).catch(() => {}); }} style={{ marginTop: 8 }}>
+            <Text style={{ color: DIM, fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center" }}>↺ Refresh Reading</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
 // ─── Main Tab ─────────────────────────────────────────────────────────────────
 
-type Section = "panchang" | "readings" | "navagraha" | "matching" | "chat" | "upaya" | "nakshatra" | "mantra" | "sadesati" | "gemstone" | "marriage" | "houses";
+type Section = "panchang" | "readings" | "navagraha" | "matching" | "chat" | "upaya" | "nakshatra" | "mantra" | "sadesati" | "gemstone" | "marriage" | "houses" | "prashna" | "spiritual" | "pastlife" | "karma" | "ishta" | "dasha" | "mantras" | "navamsa";
 
 const NAV: { id: Section; emoji: string; label: string; labelSa: string }[] = [
   { id: "panchang",  emoji: "📅", label: "Panchang",  labelSa: "पञ्चाङ्ग" },
@@ -1688,6 +2477,14 @@ const NAV: { id: Section; emoji: string; label: string; labelSa: string }[] = [
   { id: "chat",      emoji: "🙏", label: "Jyotishi",  labelSa: "ज्योतिषी"  },
   { id: "upaya",     emoji: "✨", label: "Upaya",     labelSa: "उपाय"      },
   { id: "nakshatra", emoji: "⭐", label: "Nakshatra", labelSa: "नक्षत्र"   },
+  { id: "prashna",   emoji: "🔮", label: "Prashna",   labelSa: "प्रश्न"    },
+  { id: "spiritual", emoji: "🧘", label: "Yoga Path", labelSa: "योग मार्ग" },
+  { id: "pastlife",  emoji: "🌀", label: "Past Life",  labelSa: "पूर्व जन्म"},
+  { id: "karma",     emoji: "⚖️", label: "Karma",     labelSa: "त्रि-कर्म" },
+  { id: "ishta",     emoji: "🙏", label: "Ishta",     labelSa: "इष्ट देवता"},
+  { id: "dasha",     emoji: "📅", label: "Dasha",     labelSa: "दशा काल"   },
+  { id: "mantras",   emoji: "📿", label: "Mantras",   labelSa: "मंत्र कोश" },
+  { id: "navamsa",   emoji: "💫", label: "Navamsa",   labelSa: "नवांश D9"  },
 ];
 
 export function JyotishaTab({ userId }: { userId?: string }) {
@@ -1787,6 +2584,14 @@ export function JyotishaTab({ userId }: { userId?: string }) {
         {section === "chat"      && <JyotishiChat profile={profile} />}
         {section === "upaya"     && <UpaayaSection profile={profile} />}
         {section === "nakshatra" && <NakshatraSection profile={profile} />}
+        {section === "prashna"   && <PrashnaSection profile={profile} />}
+        {section === "spiritual" && <SpiritualPathSection profile={profile} />}
+        {section === "pastlife"  && <PastLifeSection profile={profile} />}
+        {section === "karma"     && <KarmaTypesSection profile={profile} />}
+        {section === "ishta"     && <IshtaDevataSection profile={profile} />}
+        {section === "dasha"     && <DashaCalendarSection profile={profile} />}
+        {section === "mantras"   && <MantraLibrarySection />}
+        {section === "navamsa"   && <NavamsaSection profile={profile} />}
       </View>
     </View>
   );
@@ -2029,4 +2834,9 @@ const S = StyleSheet.create({
   houseCardArea: { color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 2 },
   houseCardArrow: { position: "absolute", bottom: 10, right: 12 },
   refreshText: { color: GOLD, fontFamily: "Poppins_400Regular", fontSize: 13 },
+
+  // Prashna
+  prashnaInputCard: { backgroundColor: CARD_BG, borderRadius: 18, borderWidth: 1, borderColor: "rgba(253,230,138,0.15)", padding: 16, marginBottom: 16 },
+  prashnaInput: { color: CREAM, fontFamily: "Poppins_400Regular", fontSize: 14, borderWidth: 1, borderColor: "rgba(253,230,138,0.2)", borderRadius: 14, padding: 14, minHeight: 80, textAlignVertical: "top" },
+  prashnaAnswerCard: { backgroundColor: "rgba(217,119,6,0.12)", borderRadius: 18, borderWidth: 1, borderColor: GOLD + "50", padding: 18, marginBottom: 10 },
 });

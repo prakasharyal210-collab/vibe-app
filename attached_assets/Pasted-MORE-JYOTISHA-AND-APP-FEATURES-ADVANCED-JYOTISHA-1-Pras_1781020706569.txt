@@ -1,0 +1,456 @@
+MORE JYOTISHA AND APP FEATURES:
+
+ADVANCED JYOTISHA:
+1. Prashna Kundali (Horary Astrology)
+
+User asks a specific question right now
+Chart is cast for the exact moment the question is asked
+No birth details needed — just the question
+AI analyzes the Prashna chart and answers:
+
+"Will I get this job?"
+"Should I move to this city?"
+"Will my relationship work out?"
+"When will I recover from illness?"
+
+
+Very popular feature — anyone can use without knowing birth details
+Uses Prashna Marga classical text principles
+
+2. Varshaphal (Solar Return Chart)
+
+Chart cast for exact moment Sun returns to birth position each year
+Shows what the coming year holds
+New chart every birthday
+Shows:
+
+Theme of the year
+Most important months
+Career, love, health predictions for the year
+Muntha (year lord) analysis
+Tri-Rashi analysis
+
+
+
+3. Muhurta Finder
+
+User selects an activity they want to do
+App finds the next 5 most auspicious dates/times
+Activities:
+
+💒 Get married
+🏠 Move into new home
+💼 Start new job
+🚀 Launch business
+✈️ Travel abroad
+🎓 Start studying
+💊 Start medical treatment
+🚗 Buy vehicle
+💍 Get engaged
+👶 Plan conception
+
+
+Shows exact date, time, and why it is auspicious
+Includes which times to avoid (Rahu Kaal, Yamagandam etc.)
+
+4. Lal Kitab Remedies
+
+Lal Kitab is a unique branch of Vedic astrology from Punjab
+Very practical and affordable remedies
+Famous Lal Kitab remedies:
+
+Feed monkeys on Tuesday (Mars remedy)
+Float coconut in flowing water (Ketu remedy)
+Keep silver square piece (Moon remedy)
+Feed black dogs (Saturn remedy)
+Never cut nails on Saturday (Saturn)
+Keep fennel seeds under pillow (Mercury)
+
+
+Show Lal Kitab remedies for each planet in user's chart
+
+5. KP Astrology (Krishnamurti Paddhati)
+
+More precise prediction system developed by K.S. Krishnamurti
+Uses sub-lords for very accurate timing
+Particularly good for Yes/No questions
+Sub-lord theory: each degree of zodiac has a planet, sign lord and star lord
+More accurate than traditional Jyotisha for timing
+Show KP analysis alongside traditional analysis
+
+6. Tajik Astrology (Arabic Astrology)
+
+Annual chart system used in North India
+Persian/Arabic influences on Vedic astrology
+Sahams (sensitive points) calculation
+16 special Tajik Yogas
+Annual predictions more detailed than Varshaphal alone
+
+7. Nadi Astrology
+
+Ancient palm leaf manuscripts (Nadi Granthas)
+Agasthiya Nadi, Brighu Nadi, Dhruva Nadi
+Said to contain pre-written destiny of souls
+App can simulate Nadi-style readings using AI
+Very detailed past, present and future predictions
+Dramatic and mystical style of presentation
+
+8. Brighu Samhita Predictions
+
+Sage Brighu's system focuses on Jupiter's position
+Jupiter moves to a new sign every year
+Specific predictions for each Jupiter transit
+What Jupiter in each sign means for each Lagna
+Currently Jupiter is in Gemini (2024-2025)
+
+
+VASTU SHASTRA CONNECTION:
+9. Vastu + Jyotisha Integration
+
+Vastu Shastra = Hindu science of architecture and space
+Each direction ruled by a planet:
+
+North → Mercury (wealth, career)
+Northeast → Jupiter (wisdom, spirituality) — most sacred corner
+East → Sun (health, success)
+Southeast → Venus (fire, kitchen)
+South → Mars (strength, ancestors)
+Southwest → Rahu/Earth (stability, master bedroom)
+West → Saturn (discipline, children room)
+Northwest → Moon (air, guests)
+Center → Brahma (keep open and clear)
+
+
+Based on user's Lagna, show:
+
+Best direction to sleep
+Best direction to face while working
+Best direction for main entrance
+Which room should be in which direction
+Colors for each room based on planetary rulers
+
+
+
+10. Feng Shui vs Vastu Comparison
+
+Show similarities and differences
+Both are energy sciences
+How to apply both in modern apartments
+
+
+NUMEROLOGY INTEGRATION:
+11. Vedic Numerology (Anka Shastra)
+
+Connected to Jyotisha through planetary numbers
+Planetary numbers:
+
+1 = Sun
+2 = Moon
+3 = Jupiter
+4 = Rahu
+5 = Mercury
+6 = Venus
+7 = Ketu
+8 = Saturn
+9 = Mars
+
+
+Calculate:
+
+Life Path Number (from birth date)
+Name Number (from full name)
+Destiny Number
+Soul Number
+
+
+Show compatibility between numbers
+Lucky numbers, dates, years
+Best name spelling for success (name correction)
+Business name analysis
+
+12. Name Correction Service
+
+Based on birth chart and numerology
+Is your current name numerologically compatible with your chart?
+Suggested name corrections or alternative spellings
+Famous examples of name changes for success
+AI analyzes name vibration
+
+
+MANTRA AND SOUND HEALING:
+13. Binaural Beats + Mantras
+
+Each planet has a specific sound frequency
+Sun: 126.22 Hz
+Moon: 210.42 Hz
+Mars: 144.72 Hz
+Mercury: 141.27 Hz
+Jupiter: 183.58 Hz
+Venus: 221.23 Hz
+Saturn: 147.85 Hz
+Combine planetary mantras with matching binaural beats
+Healing audio sessions for each planet
+Background music while meditating
+
+14. Chakra Healing Audio
+
+Guided meditations for each chakra/planet
+Root chakra (Saturn) — grounding meditation
+Crown chakra (Sun) — enlightenment meditation
+Specific mantras for each chakra activation
+Duration: 5, 10, 20 minute options
+
+15. Nada Yoga (Sound Yoga)
+
+Science of sound healing in Hinduism
+Om chanting sessions with timer
+Specific Ragas (musical modes) for each planet:
+
+Sun → Bhairav Raga (morning)
+Moon → Yaman Raga (evening)
+Mars → Bhairavi Raga
+Mercury → Bilawal Raga
+Jupiter → Durga Raga
+Venus → Kafi Raga
+Saturn → Marwa Raga
+
+
+
+
+AYURVEDA INTEGRATION:
+16. Prakriti (Body Type) Analysis
+
+Based on birth chart determine Ayurvedic body type:
+
+Vata (Air + Space) — Mars, Saturn, Rahu dominant
+Pitta (Fire + Water) — Sun, Mars dominant
+Kapha (Earth + Water) — Moon, Venus, Jupiter dominant
+
+
+Show:
+
+Primary and secondary Prakriti
+Health tendencies
+Best diet for your type
+Best exercise type
+Sleep patterns
+Seasonal health advice
+Which foods to avoid
+
+
+
+17. Aushadhi (Herbal Remedies)
+
+Each planet rules specific herbs and plants:
+
+Sun → Bilva, Calotropis, Wheat
+Moon → Jasmine, Lotus, White flowers
+Mars → Red flowers, Neem, Garlic
+Mercury → Tulsi, Green vegetables, Mung
+Jupiter → Banana, Yellow flowers, Ashwagandha
+Venus → Shatavari, White flowers, Sugar cane
+Saturn → Sesame, Black dal, Iron rich herbs
+Rahu → Garlic, Tobacco (avoid), Camphor
+Ketu → Kusha grass, Ashwagandha
+
+
+Herbal remedies for weak planets
+Ayurvedic treatment suggestions
+
+
+SACRED GEOGRAPHY:
+18. Pilgrimage Planner
+
+Based on chart recommend sacred places to visit
+Each place has planetary energy:
+
+Varanasi → Saturn/Shiva (karma burning)
+Tirupati → Venus/Vishnu (wealth)
+Kedarnath → Saturn/Shiva (moksha)
+Rameshwaram → Sun/Ram (marriage blessings)
+Vrindavan → Moon/Krishna (love and devotion)
+Puri → Jupiter/Jagannath (dharma)
+Dwarka → Sun/Krishna (soul journey)
+Badrinath → Jupiter/Vishnu (wisdom)
+
+
+Show which pilgrimage will most benefit your chart
+Best time to visit (planetary transits)
+What prayers to do at each place
+
+19. Jyotirlinga Guide
+
+12 Jyotirlingas (self-manifested Shiva shrines)
+Each Jyotirlinga connected to a zodiac sign/planet
+Which Jyotirlinga is most important for you
+Prayers and mantras specific to each
+Virtual darshan (images and 360° views)
+
+
+MODERN INTEGRATION:
+20. AI Life Coach (Dharma Guide)
+
+Not just astrology but life coaching
+Based on chart + current situation
+User describes their problem
+AI gives advice combining:
+
+Jyotisha insights
+Bhagavad Gita wisdom
+Practical modern advice
+Specific planetary remedies
+
+
+Like having a wise guru available 24/7
+Memory of past conversations
+Tracks user's spiritual journey over time
+
+21. Astrology + Psychology Integration
+
+Map Vedic astrology to modern psychology:
+
+Lagna = Ego (Freud) / Persona (Jung)
+Moon = Unconscious mind / Anima/Animus
+Sun = Higher Self / True Self
+Saturn = Shadow (Jung) — repressed karma
+Rahu = Id (Freud) — unconscious desires
+Ketu = Collective unconscious
+
+
+Show users psychological insights through astrological lens
+Not replacing therapy but adding spiritual dimension
+
+22. Astro-Journaling
+
+Daily journal prompts based on planetary transits
+"Jupiter is activating your 9th house today — journal about your beliefs and philosophy"
+"Mars is in your 6th house — journal about health habits you want to change"
+Save journal entries to app
+Review journal alongside astrological timeline
+See how planetary periods affect mood and events
+
+
+COMMUNITY AND SOCIAL:
+23. Rashi Match (Like Tinder but for Spiritual Community)
+
+Separate from Find Vibe
+Just for finding spiritual friends and study partners
+Match based on Nakshatra compatibility
+No romance angle — purely spiritual networking
+"Find your Dharma Mitra (spiritual friend)"
+
+24. Guru-Shishya Platform
+
+Connect spiritual seekers with teachers
+Not just Jyotishis but also:
+
+Yoga teachers
+Meditation guides
+Sanskrit teachers
+Vedanta scholars
+Ayurvedic practitioners
+
+
+Both live sessions and recorded courses
+Free and paid content
+
+25. Satsang Rooms
+
+Live spiritual discussion rooms
+Like Clubhouse but for Dharmic topics
+Topics:
+
+Daily Bhagavad Gita discussion
+Planetary transit predictions live
+Meditation sessions
+Mantra chanting circles
+Q&A with Jyotishis
+
+
+Anyone can host or join
+Record and save sessions
+
+
+DATABASE TABLES:
+sql-- Prashna questions
+CREATE TABLE prashna_readings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  question TEXT,
+  chart_time TIMESTAMP,
+  reading TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Muhurta selections
+CREATE TABLE muhurta_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  activity_type TEXT,
+  preferred_date_from DATE,
+  preferred_date_to DATE,
+  auspicious_times JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Numerology profiles
+CREATE TABLE numerology_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  life_path_number INTEGER,
+  name_number INTEGER,
+  destiny_number INTEGER,
+  lucky_numbers INTEGER[],
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Pilgrimage planner
+CREATE TABLE pilgrimage_plans (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  destination TEXT,
+  recommended_date DATE,
+  planetary_reason TEXT,
+  prayers_to_do TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Astro journal
+CREATE TABLE astro_journal (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  entry_text TEXT,
+  planetary_transit TEXT,
+  mood TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Satsang rooms
+CREATE TABLE satsang_rooms (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  host_id UUID REFERENCES profiles(id),
+  title TEXT,
+  topic TEXT,
+  is_live BOOLEAN DEFAULT FALSE,
+  participant_count INTEGER DEFAULT 0,
+  recording_url TEXT,
+  scheduled_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Vastu analysis
+CREATE TABLE vastu_analysis (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  home_entrance_direction TEXT,
+  recommendations JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Anthropic API Key: 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
+Don't break any existing features.
