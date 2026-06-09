@@ -398,15 +398,18 @@ function FullGlamLens() {
 }
 
 function KoreanBeautyLens() {
+  const positions = useRef(
+    Array.from({ length: 8 }, () => Math.random() * (W - 30))
+  ).current;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(253,242,248,0.10)" }]} />
       <BlushCheeks color="rgba(249,168,212,0.5)" />
-      {[...Array(8)].map((_, i) => (
+      {positions.map((x, i) => (
         <FallingEmoji
           key={i}
           emoji="🌸"
-          x={Math.random() * W}
+          x={x}
           delay={i * 600}
           duration={3500 + i * 200}
           size={14 + i % 4 * 3}
@@ -439,7 +442,6 @@ function BoldLipLens() {
 }
 
 function EyeColorLens() {
-  const pulse = usePulse(2000);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={W} height={H}>
@@ -687,26 +689,32 @@ function CrownLens() {
   const floatY = useFloat(1800, 6);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width={W} height={H}>
-        {/* Crown body */}
-        <Path
-          d={`M${CROWN.x - 46} ${CROWN.y + 28} L${CROWN.x - 46} ${CROWN.y - 8} L${CROWN.x - 24} ${CROWN.y + 10} L${CROWN.x} ${CROWN.y - 28} L${CROWN.x + 24} ${CROWN.y + 10} L${CROWN.x + 46} ${CROWN.y - 8} L${CROWN.x + 46} ${CROWN.y + 28} Z`}
-          fill="#D97706"
-          stroke="#F59E0B"
-          strokeWidth={2}
-        />
-        {/* Crown gems */}
-        <Circle cx={CROWN.x}      cy={CROWN.y - 24} r={7} fill="#EF4444" />
-        <Circle cx={CROWN.x - 24} cy={CROWN.y + 14} r={5} fill="#8B5CF6" />
-        <Circle cx={CROWN.x + 24} cy={CROWN.y + 14} r={5} fill="#3B82F6" />
-        <Circle cx={CROWN.x - 46} cy={CROWN.y - 4}  r={4} fill="#10B981" />
-        <Circle cx={CROWN.x + 46} cy={CROWN.y - 4}  r={4} fill="#10B981" />
-        {/* Crown shine */}
-        <Path
-          d={`M${CROWN.x - 20} ${CROWN.y + 14} L${CROWN.x - 14} ${CROWN.y} L${CROWN.x + 14} ${CROWN.y} L${CROWN.x + 20} ${CROWN.y + 14} Z`}
-          fill="rgba(255,255,255,0.2)"
-        />
-      </Svg>
+      <Animated.View style={{ transform: [{ translateY: floatY }] }}>
+        <Svg width={W} height={H}>
+          {/* Crown body */}
+          <Path
+            d={`M${CROWN.x - 46} ${CROWN.y + 28} L${CROWN.x - 46} ${CROWN.y - 8} L${CROWN.x - 24} ${CROWN.y + 10} L${CROWN.x} ${CROWN.y - 28} L${CROWN.x + 24} ${CROWN.y + 10} L${CROWN.x + 46} ${CROWN.y - 8} L${CROWN.x + 46} ${CROWN.y + 28} Z`}
+            fill="#D97706"
+            stroke="#F59E0B"
+            strokeWidth={2}
+          />
+          {/* Crown gems */}
+          <Circle cx={CROWN.x}      cy={CROWN.y - 24} r={7} fill="#EF4444" />
+          <Circle cx={CROWN.x - 24} cy={CROWN.y + 14} r={5} fill="#8B5CF6" />
+          <Circle cx={CROWN.x + 24} cy={CROWN.y + 14} r={5} fill="#3B82F6" />
+          <Circle cx={CROWN.x - 46} cy={CROWN.y - 4}  r={4} fill="#10B981" />
+          <Circle cx={CROWN.x + 46} cy={CROWN.y - 4}  r={4} fill="#10B981" />
+          {/* Crown shine */}
+          <Path
+            d={`M${CROWN.x - 20} ${CROWN.y + 14} L${CROWN.x - 14} ${CROWN.y} L${CROWN.x + 14} ${CROWN.y} L${CROWN.x + 20} ${CROWN.y + 14} Z`}
+            fill="rgba(255,255,255,0.2)"
+          />
+          {/* Sparkle dots */}
+          <Circle cx={CROWN.x - 60} cy={CROWN.y + 10} r={2} fill="#FDE68A" opacity={0.7} />
+          <Circle cx={CROWN.x + 60} cy={CROWN.y + 10} r={2} fill="#FDE68A" opacity={0.7} />
+          <Circle cx={CROWN.x}      cy={CROWN.y - 44} r={2.5} fill="#FDE68A" opacity={0.8} />
+        </Svg>
+      </Animated.View>
     </View>
   );
 }
@@ -909,11 +917,13 @@ function HaloWingsLens() {
 function SpaceLens() {
   const STAR_COUNT = 30;
   const floatY = useFloat(3000, 3);
-  const starPos = Array.from({ length: STAR_COUNT }, (_, i) => ({
-    x: (W / STAR_COUNT) * i + Math.random() * (W / STAR_COUNT),
-    y: Math.random() * H,
-    size: 6 + Math.random() * 10,
-  }));
+  const starPos = useRef(
+    Array.from({ length: STAR_COUNT }, (_, i) => ({
+      x: (W / STAR_COUNT) * i + Math.random() * (W / STAR_COUNT),
+      y: Math.random() * H,
+      size: 6 + Math.random() * 10,
+    }))
+  ).current;
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(3,7,30,0.45)" }]} />
@@ -992,7 +1002,6 @@ function FireLens() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {[...Array(FIRE_COUNT)].map((_, i) => {
-        const fromBottom = H * 0.7 + Math.random() * H * 0.2;
         const baseX = W * 0.15 + (i * (W * 0.7 / FIRE_COUNT));
         return (
           <FallingEmoji
