@@ -1,0 +1,430 @@
+Add Snapchat-style AR camera effects and lenses to the Gundruk camera:
+Anthropic API Key: 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
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+
+IMPLEMENTATION LIBRARY:
+Use ViroReact or React Native Vision Camera with @tensorflow/tfjs-react-native for face detection and AR effects.
+Install these packages:
+expo install react-native-vision-camera
+expo install @tensorflow/tfjs-react-native
+expo install @tensorflow-models/face-landmarks-detection
+expo install react-native-reanimated
+expo install expo-gl
+
+FACE DETECTION SYSTEM:
+
+Use TensorFlow.js face landmark detection
+Detect 468 face points in real time
+Track: eyes, eyebrows, nose, mouth, chin, forehead, cheeks
+Update at 30fps so effects move smoothly with face
+Works on both front and back camera
+Handle multiple faces (up to 3 faces at once)
+
+
+LENS CATEGORIES — Build these lenses:
+CATEGORY 1 — CUTE ANIMAL FACES:
+1. Dog Filter (most popular):
+
+Brown/golden dog ears appear on top of head
+Black dog nose replaces human nose
+Pink tongue hangs out of mouth
+Floppy ears move when head tilts
+Fur texture overlay on cheeks
+
+2. Cat Filter:
+
+Cat ears on top of head
+Whiskers on cheeks (6 whiskers, 3 each side)
+Cat nose (pink triangle)
+Eyes get cat-like slant
+Optional: cat fur pattern on face
+
+3. Bunny Filter:
+
+Long white bunny ears
+Pink bunny nose
+Whiskers
+Cute blush circles on cheeks
+
+4. Bear Filter:
+
+Round bear ears
+Bear nose
+Cute bear face markings
+
+5. Deer Filter:
+
+Antlers on head
+Deer nose
+Big sparkly eyes
+Freckles on cheeks
+
+
+CATEGORY 2 — BEAUTY AND MAKEUP:
+6. Natural Glow:
+
+Smooth skin
+Subtle highlight on forehead and cheeks
+Natural lip color enhancement
+Brightened eyes
+
+7. Full Glam Makeup:
+
+Dramatic eyeshadow (purple/gold/smokey)
+Bold eyeliner
+Long lashes
+Red/pink lipstick
+Contour and highlight
+
+8. Korean Beauty:
+
+Glass skin effect (dewy, glowing)
+Puppy eye makeup
+Gradient lip (darker outside, lighter center)
+Aegyo sal (under-eye puffiness that looks cute)
+Soft blush
+
+9. Bold Lip:
+
+Try different lip colors
+Red, pink, nude, purple, orange, black
+User can pick color
+Precise lip line detection
+
+10. Eye Color Change:
+
+Change eye color to:
+
+Blue, green, grey, hazel, purple, red
+
+
+Realistic iris texture
+Adjusts to lighting
+
+
+CATEGORY 3 — FUN AND VIRAL:
+11. Age Filter:
+
+Make face look 30 years older
+Add wrinkles, grey hair, sagging skin
+Or make face look younger (baby face)
+
+12. Gender Swap:
+
+Make male face look female
+Make female face look male
+Restructure facial features using AI
+
+13. Cartoon/Anime:
+
+Turn face into anime character
+Big sparkly anime eyes
+Smooth anime skin
+Anime hair style overlay
+
+14. Crown and Flowers:
+
+Flower crown on head (roses, daisies)
+Flowers float and sway gently
+Different flower colors
+
+15. Crying Sparkles:
+
+Sparkly tears fall from eyes
+Rainbow tears option
+Stars and hearts fall from eyes
+
+16. Rainbow Mouth:
+
+Open mouth → rainbow shoots out
+Can also do: fire, butterflies, stars, confetti
+
+17. Giant Eyes:
+
+Make eyes 2x bigger
+Cute doll-like appearance
+Sparkle added to eyes
+
+18. Face Distortion Fun:
+
+Big nose mode
+Tiny mouth mode
+Giant forehead
+Squeezed face
+Stretched face
+
+19. Neon Glow:
+
+Neon outline around entire face
+Neon makeup (glowing eyeliner, lips)
+Blacklight UV effect
+
+20. Face Swap:
+
+Swap faces with another person in frame
+Or swap with a celebrity photo
+Or swap with your friend from gallery
+
+
+CATEGORY 4 — WORLD/BACKGROUND AR:
+21. Snow Effect:
+
+Snow falls all around user
+Snowflakes land on hair and shoulders
+Winter wonderland feel
+
+22. Butterflies:
+
+Colorful butterflies fly around head
+Land on shoulders and hair
+Flutter wings realistically
+
+23. Confetti Explosion:
+
+Tap screen → confetti explodes from user
+Celebration effect
+Different colors
+
+24. Fire Hands:
+
+Fire appears in palm when hand is open
+Realistic fire physics
+Blue fire option
+
+25. Halo and Wings:
+
+Golden halo appears above head
+Angel wings on back
+Or devil horns + tail
+
+26. Space Background:
+
+Replace background with space
+Stars, nebula, planets behind user
+Keep user in foreground clearly
+
+27. Matrix Effect:
+
+Green code falls behind user
+User's face gets green tint
+Matrix digital rain effect
+
+28. Underwater:
+
+Replace background with ocean
+Fish swim behind user
+Bubbles float up
+Caustic light patterns
+
+
+CATEGORY 5 — JYOTISHA/SPIRITUAL LENSES (Unique to Gundruk!):
+29. Zodiac Aura:
+
+Based on user's Rashi (zodiac sign)
+Colored aura glows around user:
+
+Aries → Red fiery aura
+Taurus → Green earth aura
+Gemini → Yellow air aura
+Cancer → Silver water aura
+Leo → Golden solar aura
+Virgo → Emerald aura
+Libra → Pink balanced aura
+Scorpio → Purple/dark aura
+Sagittarius → Orange fire aura
+Capricorn → Brown/gold aura
+Aquarius → Electric blue aura
+Pisces → Turquoise cosmic aura
+
+
+User's zodiac symbol floats around them
+Constellation lines appear
+
+30. Chakra Activation:
+
+Show 7 chakra points on body as glowing orbs
+Each chakra pulses with its color:
+
+Root → Red
+Sacral → Orange
+Solar Plexus → Yellow
+Heart → Green
+Throat → Blue
+Third Eye → Indigo
+Crown → Violet/White
+
+
+Chakra energy flows upward from root to crown
+
+31. Goddess/God Filter:
+
+Goddess Lakshmi crown and jewelry overlay
+Lord Shiva third eye and ash marks
+Lord Krishna peacock feather crown
+Goddess Durga with lion aura
+Lord Ganesha elephant head overlay (fun version)
+
+32. Om Aura:
+
+Golden Om symbol (ॐ) glows above head
+Sacred geometry (Sri Yantra) rotates behind
+Lotus petals frame the face
+Mystical golden light emanates from user
+
+33. Navagraha Lens:
+
+Show which planet is strongest in user's chart
+That planet's symbol appears glowing
+Planet's color surrounds user:
+
+Jupiter → Golden glow
+Venus → Pink/white glow
+Mercury → Green glow
+Sun → Orange/red solar glow
+Moon → Silver moonlight glow
+Mars → Red warrior glow
+Saturn → Blue/dark rings appear
+Rahu → Smoky mysterious aura
+Ketu → Spiritual white light
+
+
+
+
+LENS SELECTOR UI:
+Bottom of camera screen:
+
+Horizontal scrollable row of lens previews
+Each lens shows small preview circle
+Categories tabs: All / Cute / Beauty / Fun / Spiritual / Trending
+Search bar to find specific lens
+Favorites (heart) to save preferred lenses
+Trending section showing most used lenses today
+New lenses section updated weekly
+Tap lens to activate
+Tap again to deactivate (return to normal)
+Long press lens → share lens with friend
+
+
+TECHNICAL IMPLEMENTATION:
+javascript// Face Detection Setup
+import * as tf from '@tensorflow/tfjs-react-native';
+import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
+
+const setupFaceDetection = async () => {
+  await tf.ready();
+  const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+  const detector = await faceLandmarksDetection.createDetector(model, {
+    runtime: 'tfjs',
+    refineLandmarks: true,
+    maxFaces: 3,
+  });
+  return detector;
+};
+
+// AR Overlay Component
+const AROverlay = ({ faces, activeLens }) => {
+  return (
+    <Canvas style={StyleSheet.absoluteFill}>
+      {faces.map((face, index) => (
+        <LensEffect
+          key={index}
+          face={face}
+          lens={activeLens}
+          landmarks={face.keypoints}
+        />
+      ))}
+    </Canvas>
+  );
+};
+
+// Lens Effect Renderer
+const LensEffect = ({ face, lens, landmarks }) => {
+  const leftEye = landmarks.find(p => p.name === 'leftEye');
+  const rightEye = landmarks.find(p => p.name === 'rightEye');
+  const nose = landmarks.find(p => p.name === 'noseTip');
+  const mouth = landmarks.find(p => p.name === 'lipsUpperOuter');
+  
+  switch(lens.id) {
+    case 'dog':
+      return <DogLens eyes={[leftEye, rightEye]} nose={nose} />;
+    case 'cat':
+      return <CatLens landmarks={landmarks} />;
+    case 'flower_crown':
+      return <FlowerCrown topOfHead={landmarks.topOfHead} />;
+    // ... etc
+  }
+};
+
+FILTERS STRIP (Color Filters):
+Below lenses, separate from AR effects:
+
+Natural (no filter)
+Vivid (boosted colors)
+Warm (orange/yellow tint)
+Cool (blue tint)
+Vintage (faded old photo)
+Cinematic (letterbox + color grade)
+Black and White
+Fade (desaturated)
+Golden Hour (warm glow)
+Moonlight (cool silver)
+
+Show as small preview circles at bottom
+Swipe through to preview each filter before taking photo
+
+CREATIVE TOOLS AFTER CAPTURE:
+Stickers:
+
+Emoji stickers (all emojis as stickers)
+Giphy animated stickers (search by keyword)
+Bitmoji-style cartoon avatar stickers (use user's profile photo)
+Custom sticker from photo (cutout tool)
+Zodiac sign stickers (Jyotisha themed)
+
+Text:
+
+8 font styles (Classic, Bold, Neon, Typewriter, Brush, Serif, Sans, Outlined)
+Full color picker
+Text background option
+Curved text option
+Text animation (fade in, bounce, glitter)
+
+Drawing:
+
+Pen tool (thin/thick)
+Highlighter tool
+Eraser
+Rainbow brush
+Emoji brush (draw with selected emoji)
+Undo/redo
+
+Music:
+
+Add background music
+Show lyrics on screen
+Trim audio to fit video length
+Volume control (original sound vs music)
+
+
+PERFORMANCE REQUIREMENTS:
+
+Lenses must run at minimum 24fps (ideally 30fps)
+Face detection must work in low light
+Maximum 200ms delay from face movement to effect movement
+Smooth transitions when switching lenses
+No camera freeze or lag
+Work on Android 8.0+ and iOS 13+
+
+
+LENS SHARING FEATURE:
+
+Share any lens with friend through DM
+"Send lens" button on each lens
+Friend can try same lens
+Trending lenses shared through stories
+
+Don't break any existing camera or posting features.

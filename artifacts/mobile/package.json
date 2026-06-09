@@ -72,15 +72,16 @@
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
     "@supabase/supabase-js": "^2.106.2",
+    "expo": "~54.0.35",
     "expo-av": "^16.0.8",
     "expo-camera": "~17.0.10",
     "expo-contacts": "~15.0.11",
+    "expo-face-detector": "^13.0.2",
     "expo-file-system": "^19.0.23",
     "expo-updates": "~29.0.18",
-    "react-native-pager-view": "^6.9.1",
-    "react-native-qrcode-svg": "^6.3.21",
-    "expo": "~54.0.35",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "react-native-pager-view": "^6.9.1",
+    "react-native-qrcode-svg": "^6.3.21"
   }
 }

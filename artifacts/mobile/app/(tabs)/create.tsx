@@ -31,6 +31,8 @@ import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/compone
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { BeautyPanel, BeautyOverlay, BeautySettings } from "@/components/camera/BeautyPanel";
 import { CameraFilterStrip, FilterOverlay, CAMERA_FILTERS, CameraFilter } from "@/components/camera/CameraFilterStrip";
+import { LensOverlay } from "@/components/camera/LensOverlay";
+import { LensSelector } from "@/components/camera/LensSelector";
 import { useAuth } from "@/context/AuthContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { Track } from "@/lib/music";
@@ -383,6 +385,10 @@ export default function CreateScreen() {
   const [cameraFilter, setCameraFilter] = useState<CameraFilter>(CAMERA_FILTERS[0]);
   const [filterIntensity, setFilterIntensity] = useState(100);
 
+  // ── Lenses (AR effects) ────────────────────────────────────────────────────
+  const [activeLensId, setActiveLensId] = useState<string | null>(null);
+  const [showLensPicker, setShowLensPicker] = useState(false);
+
   // ── Overlays / music ──────────────────────────────────────────────────────
   const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
   const [textOverlays, setTextOverlays] = useState<TextOverlayItem[]>([]);
@@ -692,6 +698,9 @@ export default function CreateScreen() {
         {/* ── BEAUTY OVERLAY ── */}
         <BeautyOverlay settings={beautySettings} />
 
+        {/* ── LENS OVERLAY (AR effects) ── */}
+        <LensOverlay lensId={activeLensId} />
+
         {/* ── EXPOSURE OVERLAY (simulated) ── */}
         {exposureValue !== 0 && (
           <View
@@ -853,11 +862,18 @@ export default function CreateScreen() {
             <Text style={[s.sideLabel, (showFilterStrip || cameraFilter.id !== "none") && { color: "#EC4899" }]}>Filter</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={s.sideTool} onPress={() => { setShowBeauty((v) => !v); setShowFilterStrip(false); }}>
+          <TouchableOpacity style={s.sideTool} onPress={() => { setShowBeauty((v) => !v); setShowFilterStrip(false); setShowLensPicker(false); }}>
             <View style={[s.sideCircle, showBeauty && { backgroundColor: "#EC489930" }]}>
               <Ionicons name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
             </View>
             <Text style={s.sideLabel}>Beauty</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => { setShowLensPicker((v) => !v); setShowFilterStrip(false); setShowBeauty(false); }}>
+            <View style={[s.sideCircle, (showLensPicker || activeLensId !== null) && { backgroundColor: "#A78BFA30" }]}>
+              <Text style={{ fontSize: 20 }}>{activeLensId ? "✨" : "🪄"}</Text>
+            </View>
+            <Text style={[s.sideLabel, activeLensId !== null && { color: "#A78BFA" }]}>Lens</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={() => setShowMusicPicker(true)}>
@@ -898,6 +914,15 @@ export default function CreateScreen() {
             intensity={filterIntensity}
             onFilterChange={setCameraFilter}
             onIntensityChange={setFilterIntensity}
+          />
+        </Animated.View>
+
+        {/* ── LENS SELECTOR ── */}
+        <Animated.View style={{ opacity: controlsOpacity }} pointerEvents={recording ? "none" : "box-none"}>
+          <LensSelector
+            visible={showLensPicker}
+            activeLensId={activeLensId}
+            onSelect={(id) => setActiveLensId(id)}
           />
         </Animated.View>
 

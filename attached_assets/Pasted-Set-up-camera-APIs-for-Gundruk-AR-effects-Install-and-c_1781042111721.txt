@@ -1,0 +1,122 @@
+Set up camera APIs for Gundruk AR effects:
+Install and configure these camera libraries:
+npm install react-native-vision-camera
+npm install @react-native-ml-kit/face-detection
+npm install @tensorflow/tfjs-react-native
+npm install @tensorflow-models/face-landmarks-detection
+npm install @tensorflow/tfjs-backend-webgl
+Setup Vision Camera:
+javascript// camera-setup.ts
+import { Camera } from 'react-native-vision-camera';
+
+export const requestCameraPermission = async () => {
+  const permission = await Camera.requestCameraPermission();
+  return permission === 'authorized';
+};
+Setup ML Kit Face Detection:
+javascript// face-detection.ts
+import FaceDetection from '@react-native-ml-kit/face-detection';
+
+export const detectFaces = async (imageUri: string) => {
+  const faces = await FaceDetection.detect(imageUri, {
+    performanceMode: 'fast',
+    landmarkMode: 'all',
+    contourMode: 'all',
+    classificationMode: 'all',
+    minFaceSize: 0.1,
+    isTrackingEnabled: true,
+  });
+  return faces;
+};
+Setup TensorFlow Face Mesh:
+javascript// ar-setup.ts
+import * as tf from '@tensorflow/tfjs-react-native';
+import * as faceLandmarksDetection from '@tensorflow-models/face-landmarks-detection';
+
+let detector = null;
+
+export const initializeAR = async () => {
+  await tf.ready();
+  detector = await faceLandmarksDetection.createDetector(
+    faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh,
+    {
+      runtime: 'tfjs',
+      refineLandmarks: true,
+      maxFaces: 2,
+    }
+  );
+  return detector;
+};
+
+export const getFaceLandmarks = async (video) => {
+  if (!detector) return [];
+  const faces = await detector.estimateFaces(video);
+  return faces;
+};
+Build AR Lens Component:
+javascript// ARCamera.tsx
+import React, { useEffect, useRef, useState } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Camera, useCameraDevices, useFrameProcessor } from 'react-native-vision-camera';
+import { Canvas, Image, useImage } from '@shopify/react-native-skia';
+
+const ARCamera = ({ activeLens }) => {
+  const devices = useCameraDevices();
+  const device = devices.front;
+  const [faces, setFaces] = useState([]);
+
+  const frameProcessor = useFrameProcessor((frame) => {
+    'worklet';
+    // Process each frame for face detection
+    const detectedFaces = detectFacesInFrame(frame);
+    setFaces(detectedFaces);
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <Camera
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={true}
+        frameProcessor={frameProcessor}
+        frameProcessorFps={30}
+      />
+      {/* AR overlay */}
+      <Canvas style={StyleSheet.absoluteFill}>
+        {faces.map((face, i) => (
+          <LensRenderer
+            key={i}
+            face={face}
+            lens={activeLens}
+          />
+        ))}
+      </Canvas>
+    </View>
+  );
+};
+Also register for Snap Camera Kit:
+
+Go to https://kit.snapchat.com
+Create developer account
+Get API key
+Add to app config
+
+Add these to app.json:
+json{
+  "plugins": [
+    [
+      "react-native-vision-camera",
+      {
+        "cameraPermissionText": "Gundruk needs camera access for photos and AR effects",
+        "enableMicrophonePermission": true,
+        "microphonePermissionText": "Gundruk needs microphone for video recording"
+      }
+    ]
+  ]
+}
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Don't break any existing camera features.

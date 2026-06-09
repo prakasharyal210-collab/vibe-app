@@ -9,4 +9,5 @@
 - [Vibe smart matching algorithm](vibe-smart-matching.md) — 100-pt scoring SQL in scripts/vibe-matching-migration.sql; new db.ts exports; find.tsx swipe limits wired in SwipeCardDeck.
 - [Gundruk AI system](gundruk-ai-system.md) — all AI calls via POST /api/ai/chat; 15+ feature types; mobile lib/ai.ts with AsyncStorage cache; parseAIJson handles markdown-wrapped JSON from Claude.
 - [Jyotisha advanced features](jyotisha-advanced.md) — 8 new sections (Prashna, Spiritual Path, Past Life, Karma, Ishta Devata, Dasha Calendar, Mantra Library, Navamsa D9); JYOTISHA_KNOWLEDGE in chat.ts; parseAIJson requires 2 args (use T|null generic for nullable fallbacks).
+- [Camera lens system](camera-lens-system.md) — 33 AR lenses (5 cute, 5 beauty, 10 fun, 8 world, 5 spiritual); SVG+Animated overlays, no native face-tracking required; hooks inside .map() must be extracted to sub-components.
 - [Feature 4 DB migration](feature4-migration.md) — story_interactions, story_highlights, posts.is_pinned, post_analytics, profile_analytics; SQL at scripts/feature-4-migration.sql; DATABASE_URL = local postgres only, run SQL in Supabase dashboard.
