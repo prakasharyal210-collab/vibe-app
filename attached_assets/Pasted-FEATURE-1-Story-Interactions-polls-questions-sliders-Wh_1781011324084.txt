@@ -1,0 +1,77 @@
+FEATURE 1 — Story Interactions (polls, questions, sliders):
+When creating a story, add a sticker button that opens these interactive options:
+
+Poll — "Yes/No" or custom 2-option poll. Viewers tap to vote. Show live vote percentage.
+Question Box — Viewers type a question/answer. Creator sees all responses.
+Emoji Slider — Viewers slide an emoji (❤️ or custom) to rate something 0-100%
+Quiz — Multiple choice question with correct answer. Show who got it right.
+Countdown Timer — Set a date/time. Shows live countdown on story.
+
+Save responses to Supabase story_interactions table:
+story_id, user_id, interaction_type, response, created_at
+Show results to story creator when they view their own story.
+
+FEATURE 2 — Story Highlights:
+On profile screen below bio, add a horizontal row of highlight circles (like Instagram).
+
+Tap "+" to create a new highlight
+Choose a name and cover photo
+Select which past stories to include
+Highlights stay on profile permanently (don't expire like stories)
+Tap a highlight to view all stories inside it
+Long press to edit or delete highlight
+
+Save to Supabase story_highlights table:
+id, user_id, title, cover_image_url, story_ids[], created_at
+
+FEATURE 3 — Pinned Posts on Profile:
+
+Long press any post on profile grid → option to "Pin to Profile"
+Pinned posts show at the TOP of the profile grid with a 📌 pin icon
+Max 3 pinned posts at a time
+Long press pinned post → option to "Unpin"
+
+Add is_pinned boolean column to posts table.
+Pinned posts always appear first in profile grid query:
+sqlORDER BY is_pinned DESC, created_at DESC
+
+FEATURE 4 — Creator Analytics Dashboard:
+Add an "📊 Analytics" button on the profile screen (only visible to the profile owner).
+Show these stats:
+Overview (last 7 / 30 / 90 days selector):
+
+👁️ Total profile views
+👥 New followers gained
+❤️ Total likes received
+💬 Total comments received
+📤 Total shares
+
+Top Posts:
+
+Show top 5 best performing posts ranked by engagement
+Each shows: thumbnail, likes, comments, views, reach
+
+Follower Insights:
+
+Follower growth chart (line graph)
+Top locations of followers
+Most active time of day
+
+Reach & Impressions:
+
+How many unique accounts saw your content
+Impression count per post
+
+Best time to post:
+
+AI-powered suggestion using Claude
+"Your followers are most active on weekdays at 7PM"
+
+Save analytics data to Supabase post_analytics and profile_analytics tables.
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Don't break any existing features.

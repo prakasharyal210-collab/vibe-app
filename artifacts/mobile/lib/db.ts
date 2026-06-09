@@ -1254,6 +1254,7 @@ export interface ProfileGridItem {
   caption: string;
   duration?: number;
   created_at: string;
+  is_pinned?: boolean;
 }
 
 export function extractHashtags(caption: string): string[] {
@@ -1263,7 +1264,7 @@ export function extractHashtags(caption: string): string[] {
 
 export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem[]> {
   const [postsRes, reelsRes] = await Promise.allSettled([
-    supabase.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+    supabase.from('posts').select('*').eq('user_id', userId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
     supabase.from('reels').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
   ]);
   const posts: ProfileGridItem[] =
@@ -1276,6 +1277,7 @@ export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem
           comments: p.comments_count ?? 0,
           caption: p.caption ?? '',
           created_at: p.created_at,
+          is_pinned: p.is_pinned ?? false,
         }))
       : [];
   const reels: ProfileGridItem[] =
@@ -1290,11 +1292,15 @@ export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem
           caption: r.caption ?? '',
           duration: r.duration,
           created_at: r.created_at,
+          is_pinned: false,
         }))
       : [];
-  return [...posts, ...reels].sort(
+  // Pinned posts always first, then sort remaining by date
+  const pinned = posts.filter((p) => p.is_pinned);
+  const rest = [...posts.filter((p) => !p.is_pinned), ...reels].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
+  return [...pinned, ...rest];
 }
 
 export async function uploadPostMedia(
@@ -2177,6 +2183,105 @@ export async function getDailySwipeCount(userId: string): Promise<number> {
     return count ?? 0;
   } catch {
     return 0;
+  }
+}
+
+// ── Story Highlights ──────────────────────────────────────────────────────────
+
+export interface StoryHighlight {
+  id: string;
+  user_id: string;
+  title: string;
+  cover_image_url?: string;
+  story_ids: string[];
+  created_at: string;
+}
+
+export async function fetchHighlights(userId: string): Promise<StoryHighlight[]> {
+  try {
+    const { data, error } = await supabase
+      .from('story_highlights')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (!error && data) return data as StoryHighlight[];
+  } catch {}
+  return [];
+}
+
+export async function createHighlight(
+  userId: string,
+  title: string,
+  coverImageUrl?: string,
+): Promise<StoryHighlight | null> {
+  try {
+    const { data, error } = await supabase
+      .from('story_highlights')
+      .insert({ user_id: userId, title, cover_image_url: coverImageUrl ?? null, story_ids: [] })
+      .select()
+      .single();
+    if (!error && data) return data as StoryHighlight;
+  } catch {}
+  return null;
+}
+
+export async function deleteHighlight(highlightId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('story_highlights')
+      .delete()
+      .eq('id', highlightId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+// ── Pinned Posts ──────────────────────────────────────────────────────────────
+
+export async function togglePinPost(postId: string, isPinned: boolean): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .update({ is_pinned: isPinned })
+      .eq('id', postId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function getPinnedCount(userId: string): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('posts')
+      .select('id', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('is_pinned', true);
+    return (!error && count !== null) ? count : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// ── Story Interactions ────────────────────────────────────────────────────────
+
+export async function saveStoryInteraction(
+  storyId: string,
+  userId: string,
+  interactionType: string,
+  response: Record<string, unknown>,
+): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('story_interactions').insert({
+      story_id: storyId,
+      user_id: userId,
+      interaction_type: interactionType,
+      response,
+    });
+    return !error;
+  } catch {
+    return false;
   }
 }
 

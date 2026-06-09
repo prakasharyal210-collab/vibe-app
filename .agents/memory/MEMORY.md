@@ -8,3 +8,4 @@
 - [Find Gundruk privacy settings](find-gundruk-privacy.md) — 3 profile columns (show_in_matching, find_gundruk_mode, vibe_request_privacy); profiles table lives in Supabase not local Drizzle DB; migration SQL at artifacts/mobile/supabase_migration_privacy.sql
 - [Vibe smart matching algorithm](vibe-smart-matching.md) — 100-pt scoring SQL in scripts/vibe-matching-migration.sql; new db.ts exports; find.tsx swipe limits wired in SwipeCardDeck.
 - [Gundruk AI system](gundruk-ai-system.md) — all AI calls via POST /api/ai/chat; 15+ feature types; mobile lib/ai.ts with AsyncStorage cache; parseAIJson handles markdown-wrapped JSON from Claude.
+- [Feature 4 DB migration](feature4-migration.md) — story_interactions, story_highlights, posts.is_pinned, post_analytics, profile_analytics; SQL at scripts/feature-4-migration.sql; DATABASE_URL = local postgres only, run SQL in Supabase dashboard.

@@ -24,10 +24,10 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProfilePosts, getProfileStats, ProfileGridItem } from "@/lib/db";
+import { fetchProfilePosts, getProfileStats, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight } from "@/lib/db";
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
-import { MOCK_HIGHLIGHTS, Profile, supabase } from "@/lib/supabase";
+import { Profile, supabase } from "@/lib/supabase";
 import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
 import { shareContent } from "@/lib/share";
 
@@ -336,6 +336,9 @@ export default function ProfileScreen() {
   const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
   const [showCreateHighlight, setShowCreateHighlight] = useState(false);
   const [newHighlightName, setNewHighlightName] = useState("");
+  const [highlights, setHighlights] = useState<StoryHighlight[]>([]);
+  const [highlightsLoading, setHighlightsLoading] = useState(false);
+  const [creatingHighlight, setCreatingHighlight] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
@@ -375,6 +378,18 @@ export default function ProfileScreen() {
     supabase.from("profiles").select("*").eq("id", session.user.id).single()
       .then(({ data }) => { if (data) setProfile(data as Profile); });
   }, [session]);
+
+  const loadHighlights = useCallback(async (uid: string) => {
+    setHighlightsLoading(true);
+    const data = await fetchHighlights(uid);
+    setHighlights(data);
+    setHighlightsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    loadHighlights(session.user.id);
+  }, [session?.user?.id]);
 
   const loadMyPosts = useCallback(async (uid: string) => {
     const results = await fetchProfilePosts(uid);
@@ -502,6 +517,13 @@ export default function ProfileScreen() {
             <Text style={[styles.editBtnText, { color: colors.foreground }]}>Edit Profile</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            onPress={() => router.push("/analytics" as any)}
+            style={[styles.analyticsBtn, { backgroundColor: "rgba(139,92,246,0.12)", borderColor: "#8B5CF6" }]}
+          >
+            <Ionicons name="bar-chart-outline" size={15} color="#8B5CF6" />
+            <Text style={styles.analyticsBtnText}>Analytics</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={() => {
               shareContent("profile", { username: displayUsername }, `Check out @${displayUsername} on Gundruk!`);
             }}
@@ -511,10 +533,6 @@ export default function ProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => router.push("/suggested-users" as any)}>
             <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.findFriendsBtn, { backgroundColor: "rgba(139,92,246,0.12)", borderColor: "#8B5CF6" }]} onPress={() => router.push("/find-friends" as any)}>
-            <Ionicons name="people-outline" size={15} color="#8B5CF6" />
-            <Text style={styles.findFriendsBtnText}>Find Friends</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(139,92,246,0.15)", borderColor: "#8B5CF6" }]}>
             <Text style={styles.walletEmoji}>🪙</Text>
@@ -531,18 +549,35 @@ export default function ProfileScreen() {
             </View>
             <Text style={[styles.highlightLabel, { color: colors.mutedForeground }]}>New</Text>
           </TouchableOpacity>
-          {MOCK_HIGHLIGHTS.map((h) => (
+          {highlights.map((h) => (
             <TouchableOpacity
               key={h.id}
               style={styles.highlightItem}
-              onPress={() => setActiveHighlight({ ...h, username: displayUsername })}
+              onPress={() => setActiveHighlight({
+                id: h.id,
+                label: h.title,
+                image: h.cover_image_url ?? `https://picsum.photos/seed/${h.id}/200/200`,
+                username: displayUsername,
+              })}
+              onLongPress={() => {
+                Alert.alert(h.title, "Manage this highlight", [
+                  { text: "Delete", style: "destructive", onPress: async () => {
+                    await deleteHighlight(h.id);
+                    setHighlights((prev) => prev.filter((x) => x.id !== h.id));
+                  }},
+                  { text: "Cancel", style: "cancel" },
+                ]);
+              }}
             >
               <LinearGradient colors={["#8B5CF6", "#EC4899"]} style={styles.highlightRing}>
                 <View style={[styles.highlightInner, { backgroundColor: colors.background }]}>
-                  <Image source={{ uri: h.image }} style={styles.highlightImg} />
+                  <Image
+                    source={{ uri: h.cover_image_url ?? `https://picsum.photos/seed/${h.id}/200/200` }}
+                    style={styles.highlightImg}
+                  />
                 </View>
               </LinearGradient>
-              <Text style={[styles.highlightLabel, { color: colors.foreground }]}>{h.label}</Text>
+              <Text style={[styles.highlightLabel, { color: colors.foreground }]} numberOfLines={1}>{h.title}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -585,8 +620,34 @@ export default function ProfileScreen() {
             activeOpacity={0.85}
             style={{ position: "relative" }}
             onPress={() => openPhoto(gridData, index)}
+            onLongPress={() => {
+              if (!item.isReel && !item.id.startsWith("reel_")) {
+                const isPinned = (item as any).is_pinned;
+                Alert.alert(
+                  isPinned ? "Unpin Post" : "Pin Post",
+                  isPinned ? "Remove this post from the top of your profile?" : "Pin this post to the top of your profile?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: isPinned ? "Unpin" : "Pin",
+                      onPress: async () => {
+                        const ok = await togglePinPost(item.id, !isPinned);
+                        if (ok && session?.user?.id) {
+                          await loadMyPosts(session.user.id);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }
+            }}
           >
             <Image source={{ uri: item.image_url || undefined }} style={styles.gridImage} resizeMode="cover" />
+            {(item as any).is_pinned && (
+              <View style={styles.pinBadge}>
+                <Ionicons name="pin" size={10} color="#fff" />
+              </View>
+            )}
             {item.isReel && (
               <View style={styles.reelBadge}>
                 <Ionicons name="play" size={12} color="#fff" />
@@ -652,14 +713,25 @@ export default function ProfileScreen() {
             <LinearGradient colors={["#8B5CF6", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14 }}>
               <TouchableOpacity
                 style={{ paddingVertical: 14, alignItems: "center" }}
-                onPress={() => {
+                disabled={creatingHighlight}
+                onPress={async () => {
                   if (!newHighlightName.trim()) { Alert.alert("Name required", "Please enter a name for your highlight."); return; }
-                  Alert.alert("Highlight Created!", `"${newHighlightName.trim()}" will appear on your profile once you add stories to it.`);
-                  setNewHighlightName("");
-                  setShowCreateHighlight(false);
+                  if (!session?.user?.id) return;
+                  setCreatingHighlight(true);
+                  const hl = await createHighlight(session.user.id, newHighlightName.trim());
+                  setCreatingHighlight(false);
+                  if (hl) {
+                    setHighlights((prev) => [hl, ...prev]);
+                    setNewHighlightName("");
+                    setShowCreateHighlight(false);
+                  } else {
+                    Alert.alert("Error", "Could not create highlight. Please run the DB migration in the Supabase SQL editor first.");
+                  }
                 }}
               >
-                <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 15, color: "#fff" }}>Create Highlight</Text>
+                <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 15, color: "#fff" }}>
+                  {creatingHighlight ? "Creating…" : "Create Highlight"}
+                </Text>
               </TouchableOpacity>
             </LinearGradient>
           </View>
@@ -715,8 +787,11 @@ const styles = StyleSheet.create({
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   gridImage: { width: GRID_ITEM, height: GRID_ITEM },
   reelBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 6, padding: 3 },
+  pinBadge: { position: "absolute", top: 6, left: 6, backgroundColor: "rgba(139,92,246,0.85)", borderRadius: 6, padding: 3 },
   durationBadge: { position: "absolute", bottom: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   durationBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Poppins_600SemiBold" },
   gridOverlay: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
   gridLikes: { color: "#fff", fontSize: 10, fontFamily: "Poppins_500Medium" },
+  analyticsBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
+  analyticsBtnText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
 });

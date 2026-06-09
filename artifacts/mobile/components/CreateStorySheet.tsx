@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { StoryInteractionSheet, InteractionConfig } from "@/components/StoryInteractionSheet";
 
 const { width: W, height: H } = Dimensions.get("window");
 
@@ -46,6 +47,8 @@ function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () 
   const [bgIdx, setBgIdx] = useState(0);
   const [fontSize, setFontSize] = useState(1);
   const [alignIdx, setAlignIdx] = useState(1);
+  const [showInteractions, setShowInteractions] = useState(false);
+  const [activeInteraction, setActiveInteraction] = useState<InteractionConfig | null>(null);
 
   const gradient = BG_GRADIENTS[bgIdx];
   const align = TEXT_ALIGNS[alignIdx];
@@ -63,6 +66,7 @@ function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () 
   const botPad = Platform.OS === "web" ? 20 : insets.bottom + 16;
 
   return (
+    <>
     <View style={StyleSheet.absoluteFill}>
       <LinearGradient colors={gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
 
@@ -79,8 +83,23 @@ function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () 
               {align === "left" ? "⬅" : align === "center" ? "↔" : "➡"}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowInteractions(true)} style={[editorStyles.toolBtn, { backgroundColor: "rgba(139,92,246,0.5)" }]}>
+            <Text style={editorStyles.toolLabel}>✨</Text>
+          </TouchableOpacity>
         </View>
       </View>
+
+      {activeInteraction && (
+        <View style={editorStyles.interactionBadge} pointerEvents="none">
+          <Text style={editorStyles.interactionBadgeText}>
+            {activeInteraction.type === "poll" ? "📊" :
+             activeInteraction.type === "question" ? "❓" :
+             activeInteraction.type === "slider" ? activeInteraction.emoji ?? "❤️" :
+             activeInteraction.type === "quiz" ? "🧠" : "⏰"}{" "}
+            {activeInteraction.question || activeInteraction.type}
+          </Text>
+        </View>
+      )}
 
       <View style={editorStyles.textArea} pointerEvents="box-none">
         <TextInput
@@ -126,6 +145,15 @@ function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () 
         </View>
       </View>
     </View>
+    <StoryInteractionSheet
+      visible={showInteractions}
+      onClose={() => setShowInteractions(false)}
+      onSelect={(config) => {
+        setActiveInteraction(config);
+        setShowInteractions(false);
+      }}
+    />
+    </>
   );
 }
 
@@ -262,4 +290,6 @@ const editorStyles = StyleSheet.create({
   postBtn: { flex: 2, borderRadius: 14, overflow: "hidden" },
   postGrad: { paddingVertical: 13, alignItems: "center" },
   postText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  interactionBadge: { position: "absolute", top: "45%", alignSelf: "center", backgroundColor: "rgba(139,92,246,0.85)", borderRadius: 16, paddingHorizontal: 18, paddingVertical: 10, zIndex: 20 },
+  interactionBadgeText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
 });
