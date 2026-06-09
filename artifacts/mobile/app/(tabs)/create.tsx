@@ -29,6 +29,8 @@ import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import { StickerPickerModal } from "@/components/StickerPickerModal";
 import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/components/EffectsPickerSheet";
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
+import { BeautyPanel, BeautyOverlay, BeautySettings } from "@/components/camera/BeautyPanel";
+import { CameraFilterStrip, FilterOverlay, CAMERA_FILTERS, CameraFilter } from "@/components/camera/CameraFilterStrip";
 import { useAuth } from "@/context/AuthContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { Track } from "@/lib/music";
@@ -36,8 +38,23 @@ import { callAI, parseAIJson } from "@/lib/ai";
 
 const { width: W, height: H } = Dimensions.get("window");
 
-const MODES = ["Post", "Video", "Live"] as const;
-type CreateMode = (typeof MODES)[number];
+// ── Capture modes ────────────────────────────────────────────────────────────
+const CAPTURE_MODES = [
+  { key: "Photo",     icon: "camera-outline" as const,        label: "📸 Photo",      isVideo: false },
+  { key: "Video",     icon: "videocam-outline" as const,      label: "🎬 Video",      isVideo: true  },
+  { key: "Portrait",  icon: "person-outline" as const,        label: "🎭 Portrait",   isVideo: false },
+  { key: "Night",     icon: "moon-outline" as const,          label: "🌙 Night",      isVideo: false },
+  { key: "SlowMo",    icon: "pause-outline" as const,         label: "⚡ Slow Mo",    isVideo: true  },
+  { key: "Boomerang", icon: "sync-outline" as const,          label: "⏩ Boomerang",  isVideo: true  },
+  { key: "Panorama",  icon: "expand-outline" as const,        label: "📐 Panorama",   isVideo: false },
+] as const;
+type CaptureMode = (typeof CAPTURE_MODES)[number]["key"];
+
+// Legacy mode for upload logic
+type UploadMode = "Post" | "Video" | "Live";
+function toUploadMode(m: CaptureMode): UploadMode {
+  return (m === "Video" || m === "SlowMo" || m === "Boomerang") ? "Video" : "Post";
+}
 
 const DURATIONS = ["15s", "30s", "60s", "3min"] as const;
 const DURATION_SECS: Record<string, number> = { "15s": 15, "30s": 30, "60s": 60, "3min": 180 };
@@ -49,6 +66,7 @@ interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; 
 const CONFETTI_COLORS = ["#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899", "#A78BFA"];
 const CONFETTI_COUNT = 28;
 
+// ── Grid overlay ─────────────────────────────────────────────────────────────
 function GridOverlay() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -60,6 +78,121 @@ function GridOverlay() {
   );
 }
 
+// ── Panorama guide ───────────────────────────────────────────────────────────
+function PanoramaGuide() {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={pano.centerLine} />
+      <View style={pano.arrowWrap}>
+        <Ionicons name="arrow-forward" size={24} color="rgba(255,255,255,0.6)" />
+        <Text style={pano.hint}>Pan slowly to the right</Text>
+      </View>
+    </View>
+  );
+}
+const pano = StyleSheet.create({
+  centerLine: { position: "absolute", top: 0, bottom: 0, left: "50%", width: 1.5, backgroundColor: "rgba(251,191,36,0.7)", marginLeft: -0.75 },
+  arrowWrap: { position: "absolute", bottom: "35%", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  hint: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_500Medium", fontSize: 13 },
+});
+
+// ── Focus ring ───────────────────────────────────────────────────────────────
+function FocusRing({ point, visible }: { point: { x: number; y: number } | null; visible: boolean }) {
+  const scale = useRef(new Animated.Value(1.5)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (visible && point) {
+      scale.setValue(1.5); opacity.setValue(1);
+      Animated.parallel([
+        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }),
+        Animated.sequence([
+          Animated.delay(800),
+          Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+        ]),
+      ]).start();
+    }
+  }, [visible, point]);
+  if (!point || !visible) return null;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        left: point.x - 30,
+        top: point.y - 30,
+        width: 60, height: 60,
+        borderRadius: 30,
+        borderWidth: 2,
+        borderColor: "#FBBF24",
+        transform: [{ scale }],
+        opacity,
+      }}
+    />
+  );
+}
+
+// ── Zoom slider ──────────────────────────────────────────────────────────────
+function ZoomSlider({ zoom, onChange }: { zoom: number; onChange: (v: number) => void }) {
+  const STEPS = [0, 0.1, 0.25, 0.5, 0.75, 1];
+  return (
+    <View style={zs.container}>
+      <Ionicons name="add" size={14} color="rgba(255,255,255,0.7)" />
+      <View style={zs.track}>
+        <View style={[zs.fill, { height: `${zoom * 100}%` as any }]} />
+        {STEPS.map((v) => (
+          <TouchableOpacity key={v} onPress={() => onChange(v)} style={[zs.step, { bottom: `${v * 100}%` as any }]}>
+            <View style={[zs.stepDot, zoom >= v && zs.stepDotActive]} />
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Ionicons name="remove" size={14} color="rgba(255,255,255,0.7)" />
+      <View style={zs.badge}>
+        <Text style={zs.badgeText}>{zoom < 0.05 ? "1×" : zoom < 0.15 ? "2×" : zoom < 0.35 ? "3×" : zoom < 0.6 ? "5×" : "10×"}</Text>
+      </View>
+    </View>
+  );
+}
+const zs = StyleSheet.create({
+  container: { position: "absolute", left: 12, top: "28%", bottom: "28%", alignItems: "center", gap: 8, width: 28 },
+  track: { flex: 1, width: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2, position: "relative" },
+  fill: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#A78BFA", borderRadius: 2 },
+  step: { position: "absolute", left: -6, width: 16, height: 16, alignItems: "center", justifyContent: "center" },
+  stepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.35)" },
+  stepDotActive: { backgroundColor: "#A78BFA" },
+  badge: { backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 10, paddingHorizontal: 4, paddingVertical: 2 },
+  badgeText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 9 },
+});
+
+// ── Exposure slider (vertical, appears after tap-focus) ───────────────────────
+function ExposureSlider({ value, onChange, visible }: { value: number; onChange: (v: number) => void; visible: boolean }) {
+  if (!visible) return null;
+  const STEPS = [-1, -0.5, 0, 0.5, 1];
+  const pct = ((value + 1) / 2) * 100;
+  return (
+    <View style={es.container}>
+      <Ionicons name="sunny" size={14} color="#FBBF24" />
+      <View style={es.track}>
+        <View style={[es.fill, { height: `${pct}%` as any }]} />
+        {STEPS.map((v) => (
+          <TouchableOpacity key={v} onPress={() => onChange(v)} style={[es.step, { bottom: `${((v + 1) / 2) * 100}%` as any }]}>
+            <View style={[es.stepDot, value >= v && es.stepDotActive]} />
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Ionicons name="sunny-outline" size={10} color="rgba(255,255,255,0.5)" />
+    </View>
+  );
+}
+const es = StyleSheet.create({
+  container: { position: "absolute", right: 12, top: "28%", bottom: "28%", alignItems: "center", gap: 6, width: 28 },
+  track: { flex: 1, width: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2, position: "relative" },
+  fill: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#FBBF24", borderRadius: 2 },
+  step: { position: "absolute", left: -6, width: 16, height: 16, alignItems: "center", justifyContent: "center" },
+  stepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.35)" },
+  stepDotActive: { backgroundColor: "#FBBF24" },
+});
+
+// ── Celebration modal (unchanged) ─────────────────────────────────────────────
 function CelebrationModal({ visible, onGoToProfile, onClose }: {
   visible: boolean; onGoToProfile: () => void; onClose: () => void;
 }) {
@@ -156,6 +289,7 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
   );
 }
 
+// ── Main create screen ────────────────────────────────────────────────────────
 export default function CreateScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
@@ -165,40 +299,65 @@ export default function CreateScreen() {
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const cameraRef = useRef<CameraView>(null);
 
+  // ── Mode ──────────────────────────────────────────────────────────────────
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("Video");
+  const modeScrollRef = useRef<ScrollView>(null);
+
+  // ── Camera controls ────────────────────────────────────────────────────────
   const [facing, setFacing] = useState<"front" | "back">("back");
   const [flashMode, setFlashMode] = useState<"off" | "on" | "auto">("off");
-  const [modeIdx, setModeIdx] = useState(1);
-  const slideAnim = useRef(new Animated.Value(1)).current;
+  const [zoom, setZoom] = useState(0);
+  const prevPinchDist = useRef<number | null>(null);
+  const baseZoom = useRef(0);
+  const controlsOpacity = useRef(new Animated.Value(1)).current;
 
+  // ── Zoom ──────────────────────────────────────────────────────────────────
+  const [showZoomSlider, setShowZoomSlider] = useState(true);
+
+  // ── Focus & exposure ──────────────────────────────────────────────────────
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
+  const [showFocusRing, setShowFocusRing] = useState(false);
+  const [exposureValue, setExposureValue] = useState(0);
+  const [showExposure, setShowExposure] = useState(false);
+  const focusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Timer / recording ─────────────────────────────────────────────────────
   const [recording, setRecording] = useState(false);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [capturedIsPhoto, setCapturedIsPhoto] = useState(false);
-  const [capturedForMode, setCapturedForMode] = useState<CreateMode>("Video");
   const [selectedDuration, setSelectedDuration] = useState("15s");
   const [recordingElapsed, setRecordingElapsed] = useState(0);
-
+  const [timerSecs, setTimerSecs] = useState<TimerValue>(0);
+  const [timerCount, setTimerCount] = useState<number | null>(null);
+  const timerScaleAnim = useRef(new Animated.Value(1)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStartRef = useRef<number | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isStartingRef = useRef(false);
   const recordPulse = useRef(new Animated.Value(1)).current;
   const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
-  const controlsOpacity = useRef(new Animated.Value(1)).current;
 
-  const [timerSecs, setTimerSecs] = useState<TimerValue>(0);
-  const [timerCount, setTimerCount] = useState<number | null>(null);
-  const timerScaleAnim = useRef(new Animated.Value(1)).current;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  // ── Display toggles ────────────────────────────────────────────────────────
   const [showGrid, setShowGrid] = useState(false);
   const [showMirror, setShowMirror] = useState(false);
+
+  // ── Beauty ────────────────────────────────────────────────────────────────
   const [showBeauty, setShowBeauty] = useState(false);
-  const [speed, setSpeed] = useState("normal");
+  const [beautySettings, setBeautySettings] = useState<BeautySettings>({ smooth: 0, brighten: 0, slim: 0, eyes: 0 });
+
+  // ── Filters ────────────────────────────────────────────────────────────────
+  const [showFilterStrip, setShowFilterStrip] = useState(false);
+  const [cameraFilter, setCameraFilter] = useState<CameraFilter>(CAMERA_FILTERS[0]);
+  const [filterIntensity, setFilterIntensity] = useState(100);
+
+  // ── Overlays / music ──────────────────────────────────────────────────────
   const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
-  const [activeFilterConfig, setActiveFilterConfig] = useState<FilterConfig>(FILTERS[0]);
   const [textOverlays, setTextOverlays] = useState<TextOverlayItem[]>([]);
   const [stickers, setStickers] = useState<StickerItem[]>([]);
+  const [speed, setSpeed] = useState("normal");
 
+  // ── Sheets ────────────────────────────────────────────────────────────────
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [showEffectsPicker, setShowEffectsPicker] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
@@ -206,68 +365,79 @@ export default function CreateScreen() {
   const [newText, setNewText] = useState("");
   const [newTextColor, setNewTextColor] = useState("#ffffff");
 
-  const [liveTitle, setLiveTitle] = useState("");
+  // ── Post / AI ─────────────────────────────────────────────────────────────
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
   const [aiModal, setAiModal] = useState<{ type: "idea" | "script"; content: string[] } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  const mode = MODES[modeIdx];
   const hasPermission = !!(camPermission?.granted && micPermission?.granted);
   const permissionsLoaded = camPermission !== null && micPermission !== null;
   const needsPermission = permissionsLoaded && !hasPermission;
 
+  const isVideoMode = CAPTURE_MODES.find((m) => m.key === captureMode)?.isVideo ?? false;
+
+  // ── Fade controls during recording ────────────────────────────────────────
   useEffect(() => {
-    Animated.spring(slideAnim, { toValue: modeIdx, useNativeDriver: true, tension: 120, friction: 14 }).start();
-  }, [modeIdx]);
+    Animated.timing(controlsOpacity, { toValue: recording ? 0 : 1, duration: 220, useNativeDriver: true }).start();
+  }, [recording]);
 
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
       if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+      if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
     };
   }, []);
 
-  // Fade non-record controls while recording
-  useEffect(() => {
-    Animated.timing(controlsOpacity, {
-      toValue: recording ? 0 : 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start();
-  }, [recording]);
+  // ── Tap to focus ──────────────────────────────────────────────────────────
+  const handleCameraTap = useCallback((e: any) => {
+    const { locationX, locationY } = e.nativeEvent;
+    setFocusPoint({ x: locationX, y: locationY });
+    setShowFocusRing(true);
+    setShowExposure(true);
+    Haptics.selectionAsync();
+    if (focusTimeoutRef.current) clearTimeout(focusTimeoutRef.current);
+    focusTimeoutRef.current = setTimeout(() => {
+      setShowFocusRing(false);
+      setShowExposure(false);
+    }, 3500);
+  }, []);
 
-  const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gs) =>
-      Math.abs(gs.dx) > 20 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.8,
-    onPanResponderRelease: (_, gs) => {
-      if (gs.dx < -60) setModeIdx((p) => Math.min(p + 1, 2));
-      else if (gs.dx > 60) setModeIdx((p) => Math.max(p - 1, 0));
+  // ── Pinch to zoom (multi-touch) ────────────────────────────────────────────
+  const cameraGestureHandlers = useMemo(() => ({
+    onStartShouldSetResponder: () => true,
+    onMoveShouldSetResponder: () => true,
+    onResponderGrant: (e: any) => {
+      if (e.nativeEvent.touches.length === 2) {
+        const [t1, t2] = e.nativeEvent.touches;
+        prevPinchDist.current = Math.hypot(t2.pageX - t1.pageX, t2.pageY - t1.pageY);
+        baseZoom.current = zoom;
+      }
     },
-  }), []);
+    onResponderMove: (e: any) => {
+      const { touches } = e.nativeEvent;
+      if (touches.length === 2) {
+        const [t1, t2] = touches;
+        const dist = Math.hypot(t2.pageX - t1.pageX, t2.pageY - t1.pageY);
+        if (prevPinchDist.current !== null) {
+          const delta = (dist - prevPinchDist.current) / 400;
+          setZoom((z) => Math.min(1, Math.max(0, baseZoom.current + delta)));
+        }
+        prevPinchDist.current = dist;
+      }
+    },
+    onResponderRelease: (e: any) => {
+      prevPinchDist.current = null;
+      baseZoom.current = zoom;
+      if (e.nativeEvent.touches.length === 0 && e.nativeEvent.changedTouches.length === 1) {
+        handleCameraTap(e);
+      }
+    },
+  }), [zoom, handleCameraTap]);
 
-  const cycleFlash = () => setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
-  const cycleTimerSecs = () => {
-    const opts: TimerValue[] = [0, 3, 5, 10];
-    setTimerSecs((t) => opts[(opts.indexOf(t) + 1) % opts.length]);
-  };
-
-  const startPulse = useCallback(() => {
-    pulseLoopRef.current = Animated.loop(
-      Animated.sequence([
-        Animated.timing(recordPulse, { toValue: 1.18, duration: 550, useNativeDriver: true }),
-        Animated.timing(recordPulse, { toValue: 1, duration: 550, useNativeDriver: true }),
-      ])
-    );
-    pulseLoopRef.current.start();
-  }, [recordPulse]);
-
-  const stopPulse = useCallback(() => {
-    pulseLoopRef.current?.stop();
-    Animated.timing(recordPulse, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-  }, [recordPulse]);
-
+  // ── Timer countdown ────────────────────────────────────────────────────────
   const runTimerCountdown = useCallback((): Promise<void> => {
     return new Promise((resolve) => {
       if (timerSecs === 0) { resolve(); return; }
@@ -286,21 +456,38 @@ export default function CreateScreen() {
     });
   }, [timerSecs, timerScaleAnim]);
 
+  // ── Record pulse ──────────────────────────────────────────────────────────
+  const startPulse = useCallback(() => {
+    pulseLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(recordPulse, { toValue: 1.18, duration: 550, useNativeDriver: true }),
+        Animated.timing(recordPulse, { toValue: 1, duration: 550, useNativeDriver: true }),
+      ])
+    );
+    pulseLoopRef.current.start();
+  }, [recordPulse]);
+
+  const stopPulse = useCallback(() => {
+    pulseLoopRef.current?.stop();
+    Animated.timing(recordPulse, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+  }, [recordPulse]);
+
+  // ── Photo capture ─────────────────────────────────────────────────────────
   const takePhoto = useCallback(async () => {
     try {
       await runTimerCountdown();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.85, skipProcessing: false });
+      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9, skipProcessing: false });
       if (photo?.uri) {
         setCapturedIsPhoto(true);
-        setCapturedForMode(mode);
         setRecordedUri(photo.uri);
       }
     } catch {
       Alert.alert("Photo failed", "Could not capture photo. Try again.");
     }
-  }, [runTimerCountdown, mode]);
+  }, [runTimerCountdown]);
 
+  // ── Video recording ────────────────────────────────────────────────────────
   const startVideoRecording = useCallback(async () => {
     if (recording || isStartingRef.current) return;
     isStartingRef.current = true;
@@ -310,34 +497,23 @@ export default function CreateScreen() {
     startPulse();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     isStartingRef.current = false;
-
     const maxDuration = DURATION_SECS[selectedDuration] ?? 15;
     recordTimerRef.current = setInterval(() => {
       setRecordingElapsed((prev) => {
         if (prev >= maxDuration - 1) {
-          clearInterval(recordTimerRef.current!);
-          recordTimerRef.current = null;
-          cameraRef.current?.stopRecording();
-          return prev;
+          clearInterval(recordTimerRef.current!); recordTimerRef.current = null;
+          cameraRef.current?.stopRecording(); return prev;
         }
         return prev + 1;
       });
     }, 1000);
-
     try {
-      setCapturedForMode(mode);
       const result = await cameraRef.current?.recordAsync({ maxDuration });
-      if (result?.uri) {
-        setCapturedIsPhoto(false);
-        setRecordedUri(result.uri);
-      }
+      if (result?.uri) { setCapturedIsPhoto(false); setRecordedUri(result.uri); }
     } catch {}
-
     if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
-    setRecording(false);
-    setRecordingElapsed(0);
-    stopPulse();
-  }, [recording, runTimerCountdown, selectedDuration, startPulse, stopPulse, mode]);
+    setRecording(false); setRecordingElapsed(0); stopPulse();
+  }, [recording, runTimerCountdown, selectedDuration, startPulse, stopPulse]);
 
   const stopVideoRecording = useCallback(() => {
     cameraRef.current?.stopRecording();
@@ -357,28 +533,26 @@ export default function CreateScreen() {
 
   const onRecordPressOut = useCallback(async () => {
     if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
+      clearTimeout(holdTimerRef.current); holdTimerRef.current = null;
       if (!recording && !isStartingRef.current) {
-        await takePhoto();
+        if (isVideoMode) { startVideoRecording(); }
+        else { await takePhoto(); }
       }
     } else if (recording || isStartingRef.current) {
       stopVideoRecording();
     }
     pressStartRef.current = null;
-  }, [recording, takePhoto, stopVideoRecording]);
+  }, [recording, takePhoto, stopVideoRecording, startVideoRecording, isVideoMode]);
 
+  // ── Gallery ───────────────────────────────────────────────────────────────
   const pickFromGallery = async () => {
     if (!isLoggedIn) { setShowLoginPrompt(true); return; }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      quality: 0.85,
-      allowsEditing: true,
+      mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.9, allowsEditing: true,
     });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setCapturedIsPhoto(asset.type !== "video");
-      setCapturedForMode(mode);
       setRecordedUri(asset.uri);
     }
   };
@@ -394,17 +568,21 @@ export default function CreateScreen() {
     setShowStickerModal(false);
   };
 
+  const cycleFlash = () => setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
   const flashColor = flashMode === "off" ? "#fff" : flashMode === "on" ? "#EAB308" : "#60A5FA";
+  const flashIcon = flashMode === "off" ? "flash-off-outline" : flashMode === "on" ? "flash-outline" : "flash-outline";
 
   const maxDuration = DURATION_SECS[selectedDuration] ?? 15;
   const recordProgress = recording ? Math.min(recordingElapsed / maxDuration, 1) : 0;
 
-  const TAB_W = W / 3;
-  const underlineX = slideAnim.interpolate({
-    inputRange: [0, 1, 2],
-    outputRange: [TAB_W * 0 + TAB_W / 2 - 16, TAB_W * 1 + TAB_W / 2 - 16, TAB_W * 2 + TAB_W / 2 - 16],
-  });
+  // ── Panorama mode special record handler ──────────────────────────────────
+  const isBoomerang = captureMode === "Boomerang";
+  const isSlowMo = captureMode === "SlowMo";
+  const isPanorama = captureMode === "Panorama";
+  const isPortrait = captureMode === "Portrait";
+  const isNight = captureMode === "Night";
 
+  // ── Permissions ────────────────────────────────────────────────────────────
   if (!permissionsLoaded) {
     return (
       <View style={s.permBg}>
@@ -424,11 +602,7 @@ export default function CreateScreen() {
         </LinearGradient>
         <Text style={s.permTitle}>Camera Access</Text>
         <Text style={s.permSub}>Allow camera and microphone to record videos and take photos</Text>
-        <GradientButton
-          onPress={async () => { await requestCamPermission(); await requestMicPermission(); }}
-          title="Allow Camera & Mic"
-          style={{ width: 240, marginTop: 8 }}
-        />
+        <GradientButton onPress={async () => { await requestCamPermission(); await requestMicPermission(); }} title="Allow Camera & Mic" style={{ width: 240, marginTop: 8 }} />
       </View>
     );
   }
@@ -439,39 +613,72 @@ export default function CreateScreen() {
       <View style={s.root}>
 
         {/* ── CAMERA ── */}
-        <View style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}>
+        <View
+          style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}
+          {...cameraGestureHandlers}
+        >
           <CameraView
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             facing={facing}
             flash={flashMode}
             mode="video"
+            zoom={zoom}
           />
         </View>
 
         {/* ── GRADIENT OVERLAY ── */}
         <LinearGradient
-          colors={["rgba(0,0,0,0.55)", "transparent", "transparent", "rgba(0,0,0,0.75)"]}
-          locations={[0, 0.25, 0.65, 1]}
+          colors={["rgba(0,0,0,0.6)", "transparent", "transparent", "rgba(0,0,0,0.8)"]}
+          locations={[0, 0.2, 0.6, 1]}
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
 
         {/* ── FILTER OVERLAY ── */}
-        {activeFilterConfig.id !== "none" && (
+        <FilterOverlay filter={cameraFilter} intensity={filterIntensity} />
+
+        {/* ── BEAUTY OVERLAY ── */}
+        <BeautyOverlay settings={beautySettings} />
+
+        {/* ── EXPOSURE OVERLAY (simulated) ── */}
+        {exposureValue !== 0 && (
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: (activeFilterConfig as any).blendHex ?? "#000", opacity: (activeFilterConfig as any).opacity ?? 0 }]}
+            style={[StyleSheet.absoluteFill, {
+              backgroundColor: exposureValue > 0 ? `rgba(255,255,255,${exposureValue * 0.12})` : `rgba(0,0,0,${Math.abs(exposureValue) * 0.2})`,
+            }]}
             pointerEvents="none"
           />
+        )}
+
+        {/* ── PORTRAIT BOKEH HINT ── */}
+        {isPortrait && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <LinearGradient
+              colors={["transparent", "transparent", "rgba(0,0,8,0.55)"]}
+              locations={[0, 0.5, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={s.portraitBadge}>
+              <Ionicons name="aperture-outline" size={13} color="#A78BFA" />
+              <Text style={s.portraitBadgeText}>Portrait · Depth Effect</Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── NIGHT MODE HINT ── */}
+        {isNight && (
+          <View style={s.nightBadge} pointerEvents="none">
+            <Ionicons name="moon" size={12} color="#60A5FA" />
+            <Text style={s.nightBadgeText}>Night Mode</Text>
+          </View>
         )}
 
         {/* ── GRID ── */}
         {showGrid && <GridOverlay />}
 
-        {/* ── LIVE DARK TINT ── */}
-        {mode === "Live" && (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.38)" }]} pointerEvents="none" />
-        )}
+        {/* ── PANORAMA GUIDE ── */}
+        {isPanorama && <PanoramaGuide />}
 
         {/* ── TIMER COUNTDOWN ── */}
         {timerCount !== null && (
@@ -482,13 +689,13 @@ export default function CreateScreen() {
           </View>
         )}
 
-        {/* ── RECORDING INDICATOR (top centre) ── */}
+        {/* ── RECORDING INDICATOR ── */}
         {recording && (
           <View style={[s.recIndicator, { top: insets.top + 10 }]} pointerEvents="none">
             <View style={s.recDot} />
-            <Text style={s.recTimer}>
-              {Math.floor(recordingElapsed / 60)}:{String(recordingElapsed % 60).padStart(2, "0")}
-            </Text>
+            <Text style={s.recTimer}>{Math.floor(recordingElapsed / 60)}:{String(recordingElapsed % 60).padStart(2, "0")}</Text>
+            {isBoomerang && <Text style={s.recModeBadge}>⏩ BOM</Text>}
+            {isSlowMo && <Text style={s.recModeBadge}>⚡ SLOW</Text>}
           </View>
         )}
 
@@ -503,9 +710,7 @@ export default function CreateScreen() {
         {selectedMusic && (
           <View style={[s.musicBadge, { top: insets.top + (recording ? 52 : 10) }]} pointerEvents="none">
             <Ionicons name="musical-notes" size={11} color="#fff" />
-            <Text style={s.musicBadgeText} numberOfLines={1}>
-              {selectedMusic.title} · {selectedMusic.artist}
-            </Text>
+            <Text style={s.musicBadgeText} numberOfLines={1}>{selectedMusic.title} · {selectedMusic.artist}</Text>
           </View>
         )}
 
@@ -527,208 +732,226 @@ export default function CreateScreen() {
           )
         )}
 
-        {/* ── SWIPE GESTURE CAPTURE AREA ── */}
-        <View
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 190 + insets.bottom }}
-          {...panResponder.panHandlers}
-        />
+        {/* ── FOCUS RING ── */}
+        <FocusRing point={focusPoint} visible={showFocusRing} />
 
-        {/* ── TOP CONTROLS ── */}
+        {/* ── ZOOM SLIDER (left) ── */}
+        <Animated.View style={{ opacity: controlsOpacity }} pointerEvents={recording ? "none" : "box-none"}>
+          <ZoomSlider zoom={zoom} onChange={setZoom} />
+        </Animated.View>
+
+        {/* ── EXPOSURE SLIDER (right, after focus) ── */}
+        <Animated.View style={{ opacity: controlsOpacity }} pointerEvents={recording ? "none" : "box-none"}>
+          <ExposureSlider value={exposureValue} onChange={setExposureValue} visible={showExposure} />
+        </Animated.View>
+
+        {/* ── TOP BAR ── */}
         <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity style={s.topBtn} onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons name="close" size={30} color="#fff" />
+          <TouchableOpacity style={s.topBtn} onPress={() => router.back()}>
+            <Ionicons name="close" size={28} color="#fff" />
           </TouchableOpacity>
-          <View style={{ flex: 1 }} />
-          <TouchableOpacity style={s.topBtn} onPress={() => Alert.alert("Create", "Vibe camera · Swipe left/right to switch modes")}>
-            <Ionicons name="help-circle-outline" size={24} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
+          <View style={s.topCenter}>
+            {isNight && <Text style={s.modeHint}>Night mode active</Text>}
+            {isSlowMo && <Text style={s.modeHint}>0.5× slow motion</Text>}
+            {isBoomerang && <Text style={s.modeHint}>Tap to record boomerang</Text>}
+          </View>
+          <View style={s.topRight}>
+            {/* Zoom tap shortcut */}
+            <TouchableOpacity style={s.topPill} onPress={() => { const next = zoom < 0.05 ? 0.12 : zoom < 0.2 ? 0.35 : 0; setZoom(next); }}>
+              <Text style={s.topPillText}>{zoom < 0.05 ? "1×" : zoom < 0.2 ? "2×" : "3×"}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* ── RIGHT SIDE TOOLS (hidden during LIVE, fades during recording) ── */}
-        {mode !== "Live" && (
-          <Animated.View style={[s.sideTools, { bottom: insets.bottom + 225 }, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
-            <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
-              <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={22} color="#fff" /></View>
-              <Text style={s.sideLabel}>Flip</Text>
-            </TouchableOpacity>
+        {/* ── RIGHT SIDE TOOLS ── */}
+        <Animated.View style={[s.sideTools, { bottom: insets.bottom + 268, opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
 
-            <TouchableOpacity style={s.sideTool} onPress={cycleFlash}>
-              <View style={[s.sideCircle, flashMode !== "off" && { backgroundColor: "#EAB30830" }]}>
-                <Ionicons name={flashMode === "off" ? "flash-off-outline" : "flash-outline"} size={22} color={flashColor} />
+          <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
+            <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={22} color="#fff" /></View>
+            <Text style={s.sideLabel}>Flip</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={cycleFlash}>
+            <View style={[s.sideCircle, flashMode !== "off" && { backgroundColor: "#EAB30830" }]}>
+              <Ionicons name={flashIcon} size={22} color={flashColor} />
+            </View>
+            <Text style={[s.sideLabel, { color: flashColor }]}>{flashMode === "off" ? "Flash" : flashMode === "on" ? "On" : "Auto"}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => { const opts: TimerValue[] = [0, 3, 5, 10]; setTimerSecs((t) => opts[(opts.indexOf(t) + 1) % opts.length]); }}>
+            <View style={[s.sideCircle, timerSecs > 0 && { backgroundColor: "#7C3AED30" }]}>
+              <Ionicons name={timerSecs > 0 ? "timer" : "timer-outline"} size={22} color={timerSecs > 0 ? "#A78BFA" : "#fff"} />
+            </View>
+            <Text style={[s.sideLabel, timerSecs > 0 && { color: "#A78BFA" }]}>{timerSecs > 0 ? `${timerSecs}s` : "Timer"}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => setShowGrid((v) => !v)}>
+            <View style={[s.sideCircle, showGrid && { backgroundColor: "#7C3AED30" }]}>
+              <Ionicons name="grid-outline" size={22} color={showGrid ? "#A78BFA" : "#fff"} />
+            </View>
+            <Text style={[s.sideLabel, showGrid && { color: "#A78BFA" }]}>Grid</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => { setShowFilterStrip((v) => !v); setShowBeauty(false); }}>
+            <View style={[s.sideCircle, showFilterStrip && { backgroundColor: "#EC489930" }]}>
+              <Ionicons name="color-filter-outline" size={22} color={showFilterStrip ? "#EC4899" : cameraFilter.id !== "none" ? "#EC4899" : "#fff"} />
+            </View>
+            <Text style={[s.sideLabel, (showFilterStrip || cameraFilter.id !== "none") && { color: "#EC4899" }]}>Filter</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => { setShowBeauty((v) => !v); setShowFilterStrip(false); }}>
+            <View style={[s.sideCircle, showBeauty && { backgroundColor: "#EC489930" }]}>
+              <Ionicons name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
+            </View>
+            <Text style={s.sideLabel}>Beauty</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => setShowMusicPicker(true)}>
+            <View style={[s.sideCircle, selectedMusic && { backgroundColor: "#7C3AED30" }]}>
+              <Ionicons name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
+            </View>
+            <Text style={[s.sideLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.sideTool} onPress={() => setShowTextModal(true)}>
+            <View style={s.sideCircle}><Ionicons name="text-outline" size={22} color="#fff" /></View>
+            <Text style={s.sideLabel}>Text</Text>
+          </TouchableOpacity>
+
+          {captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? (
+            <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={async () => {
+              setAiLoading(true);
+              const result = await callAI("story_idea", {});
+              setAiLoading(false);
+              const parsed = parseAIJson<{ ideas?: string[] }>(result, {});
+              if (parsed.ideas) setAiModal({ type: "idea", content: parsed.ideas });
+            }}>
+              <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
+                {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="bulb-outline" size={22} color="#A78BFA" />}
               </View>
-              <Text style={[s.sideLabel, { color: flashColor }]}>
-                {flashMode === "off" ? "Flash" : flashMode === "on" ? "On" : "Auto"}
-              </Text>
+              <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={cycleTimerSecs}>
-              <View style={[s.sideCircle, timerSecs > 0 && { backgroundColor: "#7C3AED30" }]}>
-                <Ionicons name={timerSecs > 0 ? "timer" : "timer-outline"} size={22} color={timerSecs > 0 ? "#A78BFA" : "#fff"} />
+          ) : (
+            <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={async () => {
+              setAiLoading(true);
+              const result = await callAI("reel_script", { topic: "my reel", duration: selectedDuration });
+              setAiLoading(false);
+              const parsed = parseAIJson<{ script?: string[] }>(result, {});
+              if (parsed.script) setAiModal({ type: "script", content: parsed.script });
+            }}>
+              <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
+                {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="document-text-outline" size={22} color="#A78BFA" />}
               </View>
-              <Text style={[s.sideLabel, timerSecs > 0 && { color: "#A78BFA" }]}>{timerSecs > 0 ? `${timerSecs}s` : "Timer"}</Text>
+              <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Script</Text>
             </TouchableOpacity>
+          )}
 
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowMusicPicker(true)}>
-              <View style={[s.sideCircle, selectedMusic && { backgroundColor: "#7C3AED30" }]}>
-                <Ionicons name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
-              </View>
-              <Text style={[s.sideLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
-            </TouchableOpacity>
+        </Animated.View>
 
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowEffectsPicker(true)}>
-              <View style={[s.sideCircle, activeFilterConfig.id !== "none" && { backgroundColor: "#EC489930" }]}>
-                <Ionicons name="sparkles-outline" size={22} color={activeFilterConfig.id !== "none" ? "#EC4899" : "#fff"} />
-              </View>
-              <Text style={s.sideLabel}>Effects</Text>
-            </TouchableOpacity>
+        {/* ── FILTER STRIP ── */}
+        <Animated.View style={{ opacity: controlsOpacity }}>
+          <CameraFilterStrip
+            visible={showFilterStrip}
+            activeFilter={cameraFilter.id}
+            intensity={filterIntensity}
+            onFilterChange={setCameraFilter}
+            onIntensityChange={setFilterIntensity}
+          />
+        </Animated.View>
 
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowBeauty((b) => !b)}>
-              <View style={[s.sideCircle, showBeauty && { backgroundColor: "#EC489930" }]}>
-                <Ionicons name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
-              </View>
-              <Text style={s.sideLabel}>Beauty</Text>
-            </TouchableOpacity>
+        {/* ── BEAUTY PANEL ── */}
+        <BeautyPanel
+          visible={showBeauty}
+          settings={beautySettings}
+          onChange={(key, val) => setBeautySettings((prev) => ({ ...prev, [key]: val }))}
+          onClose={() => setShowBeauty(false)}
+        />
 
-            {mode === "Post" && (
-              <TouchableOpacity
-                style={s.sideTool}
-                disabled={aiLoading}
-                onPress={async () => {
-                  setAiLoading(true);
-                  const result = await callAI("story_idea", {});
-                  setAiLoading(false);
-                  const parsed = parseAIJson<{ ideas?: string[] }>(result, {});
-                  if (parsed.ideas) setAiModal({ type: "idea", content: parsed.ideas });
-                }}
-              >
-                <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
-                  {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="bulb-outline" size={22} color="#A78BFA" />}
-                </View>
-                <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
-              </TouchableOpacity>
-            )}
+        {/* ── BOTTOM AREA ── */}
+        <View style={[s.bottomArea, { paddingBottom: insets.bottom + 8 }]}>
 
-            {mode === "Video" && (
-              <TouchableOpacity
-                style={s.sideTool}
-                disabled={aiLoading}
-                onPress={async () => {
-                  setAiLoading(true);
-                  const result = await callAI("reel_script", { topic: "my reel", duration: selectedDuration });
-                  setAiLoading(false);
-                  const parsed = parseAIJson<{ script?: string[] }>(result, {});
-                  if (parsed.script) setAiModal({ type: "script", content: parsed.script });
-                }}
-              >
-                <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
-                  {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="document-text-outline" size={22} color="#A78BFA" />}
-                </View>
-                <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Script</Text>
-              </TouchableOpacity>
-            )}
-
-          </Animated.View>
-        )}
-
-        {/* ── BOTTOM CONTROLS ── */}
-        <View style={[s.bottomArea, { paddingBottom: insets.bottom + 12 }]}>
-
-          {/* Duration pills — POST + VIDEO only, fades while recording */}
-          {mode !== "Live" && (
+          {/* Duration pills — video modes only */}
+          {isVideoMode && (
             <Animated.View style={[s.durationRow, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
               {DURATIONS.map((d) => (
-                <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)}
-                  style={[s.durationPill, selectedDuration === d && s.durationPillActive]}>
+                <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)} style={[s.durationPill, selectedDuration === d && s.durationPillActive]}>
                   <Text style={[s.durationText, selectedDuration === d && s.durationTextActive]}>{d}</Text>
                 </TouchableOpacity>
               ))}
             </Animated.View>
           )}
 
-          {/* Mode tabs — fades while recording */}
-          <Animated.View style={[s.modeTabs, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
-            {MODES.map((m, i) => (
-              <TouchableOpacity key={m} onPress={() => setModeIdx(i)} style={s.modeTab}>
-                <Text style={[s.modeTabText, modeIdx === i && s.modeTabActive]}>{m.toUpperCase()}</Text>
-              </TouchableOpacity>
-            ))}
-            <Animated.View style={[s.modeUnderline, { transform: [{ translateX: underlineX }] }]} />
+          {/* Mode selector — horizontal scroll */}
+          <Animated.View style={[{ opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
+            <ScrollView
+              ref={modeScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.modeScroll}
+            >
+              {CAPTURE_MODES.map((m) => (
+                <TouchableOpacity
+                  key={m.key}
+                  onPress={() => setCaptureMode(m.key)}
+                  style={[s.modeTab, captureMode === m.key && s.modeTabActive]}
+                >
+                  <Text style={[s.modeTabText, captureMode === m.key && s.modeTabTextActive]}>
+                    {m.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </Animated.View>
 
-          {/* LIVE mode bottom */}
-          {mode === "Live" ? (
-            <View style={s.liveBottom}>
-              <TextInput
-                value={liveTitle}
-                onChangeText={setLiveTitle}
-                placeholder="Add a title for your live…"
-                placeholderTextColor="rgba(255,255,255,0.45)"
-                style={s.liveTitleInput}
-                maxLength={60}
-              />
-              <TouchableOpacity
-                style={s.goLiveBtn}
-                onPress={() => {
-                  if (!isLoggedIn) { setShowLoginPrompt(true); return; }
-                  router.push("/live");
-                }}>
-                <LinearGradient colors={["#EF4444", "#B91C1C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.goLiveGrad}>
-                  <Ionicons name="radio" size={20} color="#fff" />
-                  <Text style={s.goLiveText}>Go Live</Text>
-                </LinearGradient>
+          {/* Record row */}
+          <View style={s.recordRow}>
+            {/* Gallery */}
+            <Animated.View style={{ opacity: controlsOpacity }}>
+              <TouchableOpacity onPress={pickFromGallery} style={s.sideAction} disabled={recording}>
+                <View style={s.sideActionCircle}>
+                  <Ionicons name="images-outline" size={26} color="#fff" />
+                </View>
+                <Text style={s.sideActionLabel}>Gallery</Text>
               </TouchableOpacity>
-            </View>
-          ) : (
-            /* POST + VIDEO record row */
-            <View style={s.recordRow}>
-              {/* Gallery — fades while recording */}
-              <Animated.View style={{ opacity: controlsOpacity }}>
-                <TouchableOpacity onPress={pickFromGallery} style={s.sideAction} disabled={recording}>
-                  <View style={s.sideActionCircle}>
-                    <Ionicons name="images-outline" size={26} color="#fff" />
-                  </View>
-                  <Text style={s.sideActionLabel}>Gallery</Text>
-                </TouchableOpacity>
-              </Animated.View>
+            </Animated.View>
 
-              {/* Record button — always visible */}
-              <View style={s.recordWrap}>
-                <Animated.View style={[
-                  s.recordRing,
-                  recording && { borderColor: "#EF4444" },
-                  { transform: [{ scale: recordPulse }] },
-                ]} />
-                <Pressable
-                  onPressIn={onRecordPressIn}
-                  onPressOut={onRecordPressOut}
-                  disabled={timerCount !== null}
-                  style={s.recordBtn}
-                >
-                  {recording ? (
-                    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#EF4444" }}>
-                      <View style={s.stopSquare} />
-                    </View>
-                  ) : (
+            {/* Capture button */}
+            <View style={s.recordWrap}>
+              <Animated.View style={[s.recordRing, recording && { borderColor: "#EF4444" }, { transform: [{ scale: recordPulse }] }]} />
+              <Pressable
+                onPressIn={onRecordPressIn}
+                onPressOut={onRecordPressOut}
+                disabled={timerCount !== null}
+                style={s.recordBtn}
+              >
+                {recording ? (
+                  <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#EF4444" }}>
+                    {isVideoMode ? <View style={s.stopSquare} /> : <View style={s.stopSquare} />}
+                  </View>
+                ) : (
+                  <>
                     <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                  )}
-                </Pressable>
-                {/* Hint label fades while recording */}
-                <Animated.Text style={[s.recordHint, { opacity: controlsOpacity }]}>
-                  {mode === "Post" ? "Tap · photo  Hold · video" : "Hold to record"}
-                </Animated.Text>
-              </View>
-
-              {/* Flip — fades while recording */}
-              <Animated.View style={{ opacity: controlsOpacity }}>
-                <TouchableOpacity onPress={() => setFacing((f) => f === "back" ? "front" : "back")} style={s.sideAction} disabled={recording}>
-                  <View style={s.sideActionCircle}>
-                    <Ionicons name="camera-reverse-outline" size={26} color="#fff" />
-                  </View>
-                  <Text style={s.sideActionLabel}>Flip</Text>
-                </TouchableOpacity>
-              </Animated.View>
+                    {captureMode === "Boomerang" && <Text style={s.btnIcon}>⏩</Text>}
+                    {captureMode === "SlowMo" && <Text style={s.btnIcon}>⚡</Text>}
+                    {captureMode === "Panorama" && <Text style={s.btnIcon}>📐</Text>}
+                  </>
+                )}
+              </Pressable>
+              <Animated.Text style={[s.recordHint, { opacity: controlsOpacity }]}>
+                {isVideoMode ? "Hold · record   Tap · stop" : "Tap to capture"}
+              </Animated.Text>
             </View>
-          )}
+
+            {/* Flip */}
+            <Animated.View style={{ opacity: controlsOpacity }}>
+              <TouchableOpacity onPress={() => setFacing((f) => f === "back" ? "front" : "back")} style={s.sideAction} disabled={recording}>
+                <View style={s.sideActionCircle}>
+                  <Ionicons name="camera-reverse-outline" size={26} color="#fff" />
+                </View>
+                <Text style={s.sideActionLabel}>Flip</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         </View>
 
         {/* ── TEXT MODAL ── */}
@@ -736,19 +959,10 @@ export default function CreateScreen() {
           <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowTextModal(false)} />
           <View style={s.textCard}>
             <Text style={s.textCardTitle}>Add Text</Text>
-            <TextInput
-              value={newText}
-              onChangeText={setNewText}
-              placeholder="Type something…"
-              placeholderTextColor="rgba(255,255,255,0.35)"
-              autoFocus
-              maxLength={60}
-              style={[s.textInput, { color: newTextColor }]}
-            />
+            <TextInput value={newText} onChangeText={setNewText} placeholder="Type something…" placeholderTextColor="rgba(255,255,255,0.35)" autoFocus maxLength={60} style={[s.textInput, { color: newTextColor }]} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
               {TEXT_COLORS.map((c) => (
-                <TouchableOpacity key={c} onPress={() => setNewTextColor(c)}
-                  style={[s.colorDot, { backgroundColor: c }, newTextColor === c && s.colorDotActive]} />
+                <TouchableOpacity key={c} onPress={() => setNewTextColor(c)} style={[s.colorDot, { backgroundColor: c }, newTextColor === c && s.colorDotActive]} />
               ))}
             </ScrollView>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
@@ -769,52 +983,43 @@ export default function CreateScreen() {
         <EffectsPickerSheet
           visible={showEffectsPicker}
           onClose={() => setShowEffectsPicker(false)}
-          activeFilter={activeFilterConfig.id}
-          onFilterChange={setActiveFilterConfig}
-          showGrid={showGrid}
-          onGridToggle={() => setShowGrid((v) => !v)}
-          showMirror={showMirror}
-          onMirrorToggle={() => setShowMirror((v) => !v)}
-          timer={timerSecs}
-          onTimerChange={setTimerSecs}
-          speed={speed}
-          onSpeedChange={setSpeed}
-          showBeauty={showBeauty}
-          onBeautyToggle={() => setShowBeauty((v) => !v)}
+          activeFilter={cameraFilter.id}
+          onFilterChange={(f) => setCameraFilter({ id: f.id, label: f.label, blendColor: f.blendHex, blendOpacity: f.opacity })}
+          showGrid={showGrid} onGridToggle={() => setShowGrid((v) => !v)}
+          showMirror={showMirror} onMirrorToggle={() => setShowMirror((v) => !v)}
+          timer={timerSecs} onTimerChange={setTimerSecs}
+          speed={speed} onSpeedChange={setSpeed}
+          showBeauty={showBeauty} onBeautyToggle={() => setShowBeauty((v) => !v)}
         />
         <StickerPickerModal visible={showStickerModal} onClose={() => setShowStickerModal(false)} onSelect={(gifUrl) => addSticker(undefined, gifUrl)} />
 
       </View>
 
-      {/* ── VIDEO EDITOR (full screen overlay — must cover camera, not split with it) ── */}
+      {/* ── VIDEO EDITOR (full screen overlay) ── */}
       {recordedUri && (
         <View style={StyleSheet.absoluteFill}>
-        <VideoEditorSheet
-          uri={recordedUri}
-          isPhoto={capturedIsPhoto}
-          initialMusic={selectedMusic}
-          initialFilter={activeFilterConfig}
-          textOverlays={textOverlays}
-          stickers={stickers}
-          onDiscard={() => { setRecordedUri(null); setTextOverlays([]); setStickers([]); }}
-          onPost={async (data) => {
-            const uri = recordedUri;
-            const wasPhoto = capturedIsPhoto;
-            const forMode = capturedForMode;
-            setRecordedUri(null);
-            setTextOverlays([]);
-            setStickers([]);
-            setSelectedMusic(null);
-            if (uri && session?.user?.id) {
-              if (wasPhoto || forMode === "Post") {
-                await uploadPostMedia(session.user.id, uri, data.caption ?? "");
-              } else {
-                await uploadReelMedia(session.user.id, uri, data.caption ?? "");
+          <VideoEditorSheet
+            uri={recordedUri}
+            isPhoto={capturedIsPhoto}
+            initialMusic={selectedMusic}
+            initialFilter={{ id: cameraFilter.id, label: cameraFilter.label, color: cameraFilter.blendColor, opacity: cameraFilter.blendOpacity, blendHex: cameraFilter.blendColor }}
+            textOverlays={textOverlays}
+            stickers={stickers}
+            onDiscard={() => { setRecordedUri(null); setTextOverlays([]); setStickers([]); }}
+            onPost={async (data) => {
+              const uri = recordedUri;
+              const wasPhoto = capturedIsPhoto;
+              setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null);
+              if (uri && session?.user?.id) {
+                if (wasPhoto || !isVideoMode) {
+                  await uploadPostMedia(session.user.id, uri, data.caption ?? "");
+                } else {
+                  await uploadReelMedia(session.user.id, uri, data.caption ?? "");
+                }
               }
-            }
-            setShowCelebration(true);
-          }}
-        />
+              setShowCelebration(true);
+            }}
+          />
         </View>
       )}
 
@@ -825,7 +1030,6 @@ export default function CreateScreen() {
         onClose={() => setShowCelebration(false)}
       />
 
-      {/* AI Content Modal */}
       {aiModal && (
         <Modal transparent animationType="slide" onRequestClose={() => setAiModal(null)}>
           <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" }}>
@@ -834,11 +1038,7 @@ export default function CreateScreen() {
                 {aiModal.type === "idea" ? "✨ Story Ideas" : "✨ Reel Script"}
               </Text>
               {aiModal.content.map((item, i) => (
-                <TouchableOpacity
-                  key={i}
-                  onPress={() => setAiModal(null)}
-                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.3)", marginBottom: 10 }}
-                >
+                <TouchableOpacity key={i} onPress={() => setAiModal(null)} style={{ paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.3)", marginBottom: 10 }}>
                   <Text style={{ color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 20 }}>
                     {aiModal.type === "script" ? `${i + 1}. ` : ""}{item}
                   </Text>
@@ -855,85 +1055,80 @@ export default function CreateScreen() {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const SIDE_CIRCLE_SIZE = 44;
-const RECORD_BTN_SIZE = 80;
-const RECORD_RING_SIZE = 98;
+const RECORD_BTN_SIZE = 78;
+const RECORD_RING_SIZE = 96;
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
 
-  // Permission
   permBg: { flex: 1, backgroundColor: "#080810", alignItems: "center", justifyContent: "center", gap: 16, paddingHorizontal: 32 },
   permIconBg: { width: 100, height: 100, borderRadius: 50, alignItems: "center", justifyContent: "center" },
   permTitle: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold" },
   permSub: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 22 },
 
-  // Top bar
-  topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 8 },
-  topBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  topBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 8, gap: 8 },
+  topBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 19 },
+  topCenter: { flex: 1, alignItems: "center" },
+  topRight: { alignItems: "flex-end" },
+  topPill: { backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  topPillText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
+  modeHint: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_500Medium", fontSize: 12, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
 
-  // Side tools
-  sideTools: { position: "absolute", right: 10, gap: 18 },
-  sideTool: { alignItems: "center", gap: 4 },
-  sideCircle: { width: SIDE_CIRCLE_SIZE, height: SIDE_CIRCLE_SIZE, borderRadius: SIDE_CIRCLE_SIZE / 2, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.18)" },
-  sideLabel: { color: "#fff", fontSize: 10, fontFamily: "Poppins_500Medium", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  sideTools: { position: "absolute", right: 8, gap: 14 },
+  sideTool: { alignItems: "center", gap: 3 },
+  sideCircle: { width: SIDE_CIRCLE_SIZE, height: SIDE_CIRCLE_SIZE, borderRadius: SIDE_CIRCLE_SIZE / 2, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
+  sideLabel: { color: "#fff", fontSize: 9.5, fontFamily: "Poppins_500Medium", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
 
-  // Timer overlay
   timerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
-  timerNumber: { fontSize: 120, fontFamily: "Poppins_700Bold", color: "#fff", textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
+  timerNumber: { fontSize: 110, fontFamily: "Poppins_700Bold", color: "#fff", textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
 
-  // Recording indicator
-  recIndicator: { position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+  recIndicator: { position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   recDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" },
   recTimer: { color: "#fff", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  recModeBadge: { color: "#FBBF24", fontSize: 10, fontFamily: "Poppins_700Bold" },
   recProgressTrack: { position: "absolute", left: 0, right: 0, height: 3, backgroundColor: "rgba(255,255,255,0.2)" },
   recProgressFill: { height: 3, backgroundColor: "#EF4444" },
 
-  // Music badge
   musicBadge: { position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   musicBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium", maxWidth: W * 0.55 },
 
-  // Bottom area
+  portraitBadge: { position: "absolute", top: 60, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(139,92,246,0.2)", borderWidth: 1, borderColor: "rgba(139,92,246,0.5)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
+  portraitBadgeText: { color: "#A78BFA", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  nightBadge: { position: "absolute", top: 60, right: 16, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(59,130,246,0.2)", borderWidth: 1, borderColor: "rgba(59,130,246,0.4)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 },
+  nightBadgeText: { color: "#60A5FA", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
+
   bottomArea: { position: "absolute", bottom: 0, left: 0, right: 0 },
-  durationRow: { flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 14 },
+  durationRow: { flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 10 },
   durationPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   durationPillActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
   durationText: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Poppins_500Medium" },
   durationTextActive: { color: "#fff", fontFamily: "Poppins_700Bold" },
 
-  // Mode tabs
-  modeTabs: { flexDirection: "row", marginBottom: 18, position: "relative" },
-  modeTab: { flex: 1, alignItems: "center", paddingVertical: 4 },
-  modeTabText: { color: "rgba(255,255,255,0.5)", fontSize: 13, fontFamily: "Poppins_600SemiBold", letterSpacing: 1 },
-  modeTabActive: { color: "#fff", fontFamily: "Poppins_700Bold" },
-  modeUnderline: { position: "absolute", bottom: 0, width: 32, height: 2.5, borderRadius: 2, backgroundColor: "#fff" },
+  modeScroll: { paddingHorizontal: 16, gap: 6, marginBottom: 16, alignItems: "center" },
+  modeTab: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.4)" },
+  modeTabActive: { backgroundColor: "rgba(139,92,246,0.3)", borderWidth: 1, borderColor: "#8B5CF6" },
+  modeTabText: { color: "rgba(255,255,255,0.55)", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  modeTabTextActive: { color: "#fff", fontFamily: "Poppins_700Bold" },
 
-  // Record row
   recordRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 28, marginBottom: 4 },
   sideAction: { alignItems: "center", gap: 5, width: 60 },
   sideActionCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
   sideActionLabel: { color: "rgba(255,255,255,0.8)", fontSize: 11, fontFamily: "Poppins_500Medium" },
 
-  // Record button
   recordWrap: { alignItems: "center", gap: 8 },
   recordRing: { position: "absolute", width: RECORD_RING_SIZE, height: RECORD_RING_SIZE, borderRadius: RECORD_RING_SIZE / 2, borderWidth: 3, borderColor: "rgba(255,255,255,0.7)" },
-  recordBtn: { width: RECORD_BTN_SIZE, height: RECORD_BTN_SIZE, borderRadius: RECORD_BTN_SIZE / 2, overflow: "hidden", backgroundColor: "#7C3AED" },
+  recordBtn: { width: RECORD_BTN_SIZE, height: RECORD_BTN_SIZE, borderRadius: RECORD_BTN_SIZE / 2, overflow: "hidden", backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
   stopSquare: { width: 26, height: 26, borderRadius: 5, backgroundColor: "#fff" },
+  btnIcon: { fontSize: 22 },
   recordHint: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontFamily: "Poppins_400Regular", textAlign: "center" },
 
-  // Live bottom
-  liveBottom: { paddingHorizontal: 24, gap: 14 },
-  liveTitleInput: { backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 15, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
-  goLiveBtn: { borderRadius: 18, overflow: "hidden" },
-  goLiveGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 18 },
-  goLiveText: { color: "#fff", fontSize: 17, fontFamily: "Poppins_700Bold" },
-
-  // Text modal
   modalBackdrop: { flex: 1 },
   textCard: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36, gap: 14 },
   textCardTitle: { color: "#fff", fontSize: 16, fontFamily: "Poppins_700Bold" },
   textInput: { backgroundColor: "#1a1a2e", borderRadius: 12, padding: 14, fontSize: 16, fontFamily: "Poppins_500Medium", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", minHeight: 50 },
   colorDot: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.2)" },
-  colorDotActive: { borderColor: "#7C3AED", borderWidth: 3 },
-  cancelBtn: { flex: 1, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  colorDotActive: { borderColor: "#fff", borderWidth: 3 },
+  cancelBtn: { flex: 1, paddingVertical: 14, alignItems: "center", borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)" },
 });

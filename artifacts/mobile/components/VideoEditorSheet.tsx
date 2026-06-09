@@ -26,6 +26,19 @@ import { supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 
+// ── Adjust settings ───────────────────────────────────────────────────────────
+interface AdjustSettings {
+  brightness: number;
+  contrast: number;
+  saturation: number;
+  warmth: number;
+  fade: number;
+  vignette: number;
+}
+const DEFAULT_ADJUST: AdjustSettings = { brightness: 0, contrast: 0, saturation: 0, warmth: 0, fade: 0, vignette: 0 };
+type CropRatio = "free" | "square" | "4:3" | "16:9" | "9:16";
+const CROP_RATIOS: CropRatio[] = ["free", "square", "4:3", "16:9", "9:16"];
+
 export interface PostData {
   caption: string;
   music: Track | null;
@@ -33,21 +46,8 @@ export interface PostData {
   tags: string[];
 }
 
-interface TextOverlay {
-  id: string;
-  text: string;
-  color: string;
-  x: number;
-  y: number;
-}
-
-interface StickerItem {
-  id: string;
-  emoji?: string;
-  gifUrl?: string;
-  x: number;
-  y: number;
-}
+interface TextOverlay { id: string; text: string; color: string; x: number; y: number; }
+interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; y: number; }
 
 interface Props {
   uri: string;
@@ -63,9 +63,9 @@ interface Props {
 const TEXT_COLORS = ["#ffffff", "#000000", "#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899"];
 const STICKER_EMOJIS = ["🔥", "💜", "✨", "😍", "🎶", "👑", "💯", "🌊", "🦋", "🌸", "💫", "🎉", "😂", "🙌", "💪", "🌈", "⚡", "🎯", "🦄", "🤩", "😘", "🍀", "🌺", "💎", "🏆", "🎵", "🌟", "🎸", "🍕", "❤️"];
 const AUDIENCES = ["Everyone", "Friends", "Followers", "Only Me"];
-
 const TRIM_W = W - 32;
 
+// ── Sub-components ─────────────────────────────────────────────────────────────
 function FilterSwatch({ filter, active, onPress }: { filter: FilterConfig; active: boolean; onPress: () => void }) {
   const colors = useColors();
   return (
@@ -82,6 +82,48 @@ function FilterSwatch({ filter, active, onPress }: { filter: FilterConfig; activ
   );
 }
 
+function AdjustSliderRow({
+  label, emoji, value, min, max, color, onChange,
+}: {
+  label: string; emoji: string; value: number; min: number; max: number; color: string;
+  onChange: (v: number) => void;
+}) {
+  const STEPS = 5;
+  const range = max - min;
+  const pct = ((value - min) / range) * 100;
+  const steps = Array.from({ length: STEPS + 1 }, (_, i) => min + (range / STEPS) * i);
+  return (
+    <View style={adj.row}>
+      <Text style={adj.emoji}>{emoji}</Text>
+      <Text style={adj.label}>{label}</Text>
+      <View style={adj.trackWrap}>
+        <View style={adj.track}>
+          <View style={[adj.fill, { width: `${pct}%` as any, backgroundColor: color }]} />
+        </View>
+        <View style={adj.touchRow}>
+          {steps.map((v, i) => (
+            <TouchableOpacity key={i} style={adj.touchZone} onPress={() => onChange(Number(v.toFixed(2)))} activeOpacity={0.7} />
+          ))}
+        </View>
+      </View>
+      <Text style={[adj.val, { color }]}>{value > 0 ? `+${Math.round(value * 100)}` : Math.round(value * 100)}</Text>
+    </View>
+  );
+}
+
+const adj = StyleSheet.create({
+  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  emoji: { fontSize: 16, width: 24, textAlign: "center" },
+  label: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_500Medium", fontSize: 12, width: 76 },
+  trackWrap: { flex: 1, position: "relative" },
+  track: { height: 4, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 2 },
+  fill: { position: "absolute", left: 0, top: 0, height: 4, borderRadius: 2 },
+  touchRow: { position: "absolute", top: -12, left: 0, right: 0, bottom: -12, flexDirection: "row" },
+  touchZone: { flex: 1 },
+  val: { fontFamily: "Poppins_600SemiBold", fontSize: 11, width: 32, textAlign: "right" },
+});
+
+// ── Main component ─────────────────────────────────────────────────────────────
 export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, textOverlays: initialText, stickers: initialStickers, onDiscard, onPost }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -91,7 +133,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const [music, setMusic] = useState<Track | null>(initialMusic);
   const [filter, setFilter] = useState<FilterConfig>(initialFilter);
   const [showMusicPicker, setShowMusicPicker] = useState(false);
-  const [activeTab, setActiveTab] = useState<"edit" | "caption">("edit");
+  const [activeTab, setActiveTab] = useState<"edit" | "adjust" | "caption">("edit");
   const [textOverlays, setTextOverlays] = useState<TextOverlay[]>(initialText);
   const [stickers, setStickers] = useState<StickerItem[]>(initialStickers);
   const [showTextModal, setShowTextModal] = useState(false);
@@ -99,6 +141,10 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const [newText, setNewText] = useState("");
   const [newTextColor, setNewTextColor] = useState("#ffffff");
   const [posting, setPosting] = useState(false);
+  const [rotate, setRotate] = useState(0);
+  const [flipH, setFlipH] = useState(false);
+  const [cropRatio, setCropRatio] = useState<CropRatio>("free");
+  const [adjust, setAdjust] = useState<AdjustSettings>(DEFAULT_ADJUST);
 
   const [showAISheet, setShowAISheet] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -118,55 +164,33 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
   const generateAICaptions = async () => {
     animateSparkle();
-    setAiCaptions([]);
-    setAiHashtags([]);
-    setSelectedHashtags([]);
-    setAiLoading(true);
-    setShowAISheet(true);
-
+    setAiCaptions([]); setAiHashtags([]); setSelectedHashtags([]);
+    setAiLoading(true); setShowAISheet(true);
     try {
       let imageBase64: string | undefined;
       let mimeType: string | undefined;
-
       if (isPhoto) {
         try {
-          const base64 = await FileSystem.readAsStringAsync(uri, {
-            encoding: "base64",
-          });
+          const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" });
           imageBase64 = base64;
           const ext = uri.split(".").pop()?.toLowerCase() ?? "jpg";
           mimeType = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-        } catch {
-          // If we can't read the file, proceed without image
-        }
+        } catch {}
       }
-
       const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
       const res = await fetch(`${apiUrl}/api/ai/caption`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imageBase64,
-          mimeType,
-          mediaType: isPhoto ? "photo" : "video",
-        }),
+        body: JSON.stringify({ imageBase64, mimeType, mediaType: isPhoto ? "photo" : "video" }),
       });
-
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json() as { captions: string[]; hashtags: string[] };
-      setAiCaptions(data.captions ?? []);
-      setAiHashtags(data.hashtags ?? []);
-
-      // Store request in Supabase
+      setAiCaptions(data.captions ?? []); setAiHashtags(data.hashtags ?? []);
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from("ai_caption_requests").insert({
-          user_id: user.id,
-          media_type: isPhoto ? "photo" : "video",
-          captions_generated: data.captions?.length ?? 0,
-        });
+        await supabase.from("ai_caption_requests").insert({ user_id: user.id, media_type: isPhoto ? "photo" : "video", captions_generated: data.captions?.length ?? 0 });
       }
-    } catch (err) {
+    } catch {
       setShowAISheet(false);
       Alert.alert("AI Caption Error", "Could not generate captions. Please try again.");
     } finally {
@@ -185,54 +209,35 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     setSelectedHashtags([]);
   };
 
-  const toggleHashtag = (tag: string) => {
-    setSelectedHashtags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
-
   const trimStartX = useRef(new Animated.Value(0)).current;
   const trimEndX = useRef(new Animated.Value(TRIM_W)).current;
   const [trimStartVal, setTrimStartVal] = useState(0);
   const [trimEndVal, setTrimEndVal] = useState(TRIM_W);
 
-  const startPan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, g) => {
-        const newX = Math.max(0, Math.min(trimEndVal - 30, g.moveX - 16));
-        setTrimStartVal(newX);
-        trimStartX.setValue(newX);
-      },
-    })
-  ).current;
+  const startPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, g) => {
+      const newX = Math.max(0, Math.min(trimEndVal - 30, g.moveX - 16));
+      setTrimStartVal(newX); trimStartX.setValue(newX);
+    },
+  })).current;
 
-  const endPan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (_, g) => {
-        const newX = Math.min(TRIM_W, Math.max(trimStartVal + 30, g.moveX - 16));
-        setTrimEndVal(newX);
-        trimEndX.setValue(newX);
-      },
-    })
-  ).current;
+  const endPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderMove: (_, g) => {
+      const newX = Math.min(TRIM_W, Math.max(trimStartVal + 30, g.moveX - 16));
+      setTrimEndVal(newX); trimEndX.setValue(newX);
+    },
+  })).current;
 
   const addTextOverlay = () => {
     if (!newText.trim()) return;
-    setTextOverlays((prev) => [
-      ...prev,
-      { id: Date.now().toString(), text: newText.trim(), color: newTextColor, x: 80, y: 120 },
-    ]);
-    setNewText("");
-    setShowTextModal(false);
+    setTextOverlays((prev) => [...prev, { id: Date.now().toString(), text: newText.trim(), color: newTextColor, x: 80, y: 120 }]);
+    setNewText(""); setShowTextModal(false);
   };
 
   const addSticker = (emoji: string) => {
-    setStickers((prev) => [
-      ...prev,
-      { id: Date.now().toString(), emoji, x: 80 + Math.random() * 100, y: 80 + Math.random() * 120 },
-    ]);
+    setStickers((prev) => [...prev, { id: Date.now().toString(), emoji, x: 80 + Math.random() * 100, y: 80 + Math.random() * 120 }]);
     setShowStickerModal(false);
   };
 
@@ -253,16 +258,71 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     { id: "music", icon: "musical-notes-outline", label: "Music", color: "#7C3AED" },
     { id: "text", icon: "text-outline", label: "Text", color: "#3B82F6" },
     { id: "stickers", icon: "happy-outline", label: "Stickers", color: "#F97316" },
-    { id: "filter", icon: "color-filter-outline", label: "Filter", color: "#EC4899" },
+  ];
+
+  // Build adjust overlay layers
+  const brightnessOpacity = Math.abs(adjust.brightness) * 0.4;
+  const warmthOpacity = adjust.warmth > 0 ? adjust.warmth * 0.3 : 0;
+  const coolOpacity = adjust.warmth < 0 ? Math.abs(adjust.warmth) * 0.3 : 0;
+  const fadeOpacity = adjust.fade * 0.35;
+  const vignetteOpacity = adjust.vignette * 0.7;
+  const hasAdjust = Object.values(adjust).some((v) => v !== 0);
+
+  const ADJUST_SLIDERS = [
+    { key: "brightness" as keyof AdjustSettings, label: "Brightness", emoji: "☀️", min: -1, max: 1, color: "#FBBF24" },
+    { key: "contrast" as keyof AdjustSettings, label: "Contrast", emoji: "◐", min: -1, max: 1, color: "#A78BFA" },
+    { key: "saturation" as keyof AdjustSettings, label: "Saturation", emoji: "🎨", min: -1, max: 1, color: "#EC4899" },
+    { key: "warmth" as keyof AdjustSettings, label: "Warmth", emoji: "🌅", min: -1, max: 1, color: "#F97316" },
+    { key: "fade" as keyof AdjustSettings, label: "Fade", emoji: "🌫", min: 0, max: 1, color: "#94A3B8" },
+    { key: "vignette" as keyof AdjustSettings, label: "Vignette", emoji: "⬛", min: 0, max: 1, color: "#6366F1" },
+  ];
+
+  const imgTransform = [
+    { rotate: `${rotate}deg` },
+    { scaleX: flipH ? -1 : 1 },
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: "#000" }]}>
+      {/* ── PREVIEW ── */}
       <View style={[styles.preview, { paddingTop: insets.top }]}>
-        <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+        <Animated.View style={[StyleSheet.absoluteFill, { transform: imgTransform }]}>
+          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+        </Animated.View>
+
+        {/* Filter overlay */}
         {filter.id !== "none" && (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: filter.blendHex, opacity: filter.opacity }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: filter.blendHex, opacity: filter.opacity }]} pointerEvents="none" />
         )}
+
+        {/* Adjust overlays */}
+        {hasAdjust && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {adjust.brightness > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255,255,255,${brightnessOpacity})` }]} />}
+            {adjust.brightness < 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(0,0,0,${brightnessOpacity})` }]} />}
+            {adjust.warmth > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(249,115,22,${warmthOpacity})` }]} />}
+            {adjust.warmth < 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(59,130,246,${coolOpacity})` }]} />}
+            {adjust.fade > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(226,232,240,${fadeOpacity})` }]} />}
+            {vignetteOpacity > 0 && (
+              <View style={StyleSheet.absoluteFill}>
+                <LinearGradient
+                  colors={[`rgba(0,0,0,${vignetteOpacity})`, "transparent", "transparent", `rgba(0,0,0,${vignetteOpacity})`]}
+                  locations={[0, 0.3, 0.7, 1]}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Crop ratio visual guide */}
+        {cropRatio !== "free" && activeTab === "adjust" && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <View style={styles.cropOverlay} />
+          </View>
+        )}
+
+        {/* Text overlays */}
         {textOverlays.map((t) => (
           <View key={t.id} style={[styles.textOverlay, { top: t.y, left: t.x }]}>
             <Text style={[styles.overlayText, { color: t.color }]}>{t.text}</Text>
@@ -281,48 +341,43 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             <Ionicons name="arrow-back-outline" size={22} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.previewTitle}>{isPhoto ? "Photo Editor" : "Video Editor"}</Text>
-          <View style={{ width: 38 }} />
+          {activeTab === "adjust" && hasAdjust ? (
+            <TouchableOpacity onPress={() => setAdjust(DEFAULT_ADJUST)} style={styles.resetBtn}>
+              <Text style={styles.resetText}>Reset</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 52 }} />
+          )}
         </View>
 
         {music && (
           <View style={styles.musicBar}>
             <Ionicons name="musical-notes" size={13} color="#fff" />
-            <Text style={styles.musicBarText} numberOfLines={1}>
-              {music.title} · {music.artist}
-            </Text>
+            <Text style={styles.musicBarText} numberOfLines={1}>{music.title} · {music.artist}</Text>
           </View>
         )}
       </View>
 
+      {/* ── EDITOR PANEL ── */}
       <View style={[styles.editorPanel, { backgroundColor: colors.background }]}>
-        <View style={styles.tabRow}>
-          {(["edit", "caption"] as const).map((t) => (
-            <TouchableOpacity
-              key={t}
-              onPress={() => setActiveTab(t)}
-              style={[styles.tabPill, activeTab === t && { backgroundColor: "#7C3AED" }]}
-            >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+          {(["edit", "adjust", "caption"] as const).map((t) => (
+            <TouchableOpacity key={t} onPress={() => setActiveTab(t)} style={[styles.tabPill, activeTab === t && { backgroundColor: "#7C3AED" }]}>
               <Text style={[styles.tabText, { color: activeTab === t ? "#fff" : colors.mutedForeground }]}>
-                {t === "edit" ? "✏️ Edit" : "📝 Caption & Post"}
+                {t === "edit" ? "✏️ Edit" : t === "adjust" ? "🎛 Adjust" : "📝 Post"}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
-        {activeTab === "edit" ? (
+        {/* ── EDIT TAB ── */}
+        {activeTab === "edit" && (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
             {!isPhoto && (
               <View>
                 <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Trim Video</Text>
                 <View style={[styles.trimContainer, { backgroundColor: colors.muted }]}>
-                  <LinearGradient
-                    colors={["#7C3AED", "#EA580C"]}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={[
-                      styles.trimHighlight,
-                      { left: trimStartVal, width: trimEndVal - trimStartVal },
-                    ]}
-                  />
+                  <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.trimHighlight, { left: trimStartVal, width: trimEndVal - trimStartVal }]} />
                   <Animated.View {...startPan.panHandlers} style={[styles.trimHandle, { left: trimStartX }]}>
                     <View style={styles.trimHandleBar} />
                   </Animated.View>
@@ -340,15 +395,11 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Tools</Text>
               <View style={styles.toolsRow}>
                 {TOOLS.map((tool) => (
-                  <TouchableOpacity
-                    key={tool.id}
-                    style={styles.toolBtn}
-                    onPress={() => {
-                      if (tool.id === "music") setShowMusicPicker(true);
-                      if (tool.id === "text") setShowTextModal(true);
-                      if (tool.id === "stickers") setShowStickerModal(true);
-                    }}
-                  >
+                  <TouchableOpacity key={tool.id} style={styles.toolBtn} onPress={() => {
+                    if (tool.id === "music") setShowMusicPicker(true);
+                    if (tool.id === "text") setShowTextModal(true);
+                    if (tool.id === "stickers") setShowStickerModal(true);
+                  }}>
                     <View style={[styles.toolIconWrap, { backgroundColor: tool.color + "22" }]}>
                       <Ionicons name={tool.icon as any} size={22} color={tool.color} />
                     </View>
@@ -399,7 +450,66 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               </View>
             )}
           </ScrollView>
-        ) : (
+        )}
+
+        {/* ── ADJUST TAB ── */}
+        {activeTab === "adjust" && (
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
+            {/* Rotate & flip */}
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Transform</Text>
+              <View style={styles.toolsRow}>
+                {[
+                  { icon: "return-up-back-outline", label: "Rotate L", action: () => setRotate((r) => (r - 90 + 360) % 360), color: "#8B5CF6" },
+                  { icon: "return-up-forward-outline", label: "Rotate R", action: () => setRotate((r) => (r + 90) % 360), color: "#8B5CF6" },
+                  { icon: "swap-horizontal-outline", label: flipH ? "Un-Flip" : "Flip H", action: () => setFlipH((v) => !v), color: "#F97316" },
+                  { icon: "refresh-outline", label: "Reset", action: () => { setRotate(0); setFlipH(false); }, color: "#EF4444" },
+                ].map((btn) => (
+                  <TouchableOpacity key={btn.label} style={styles.toolBtn} onPress={btn.action}>
+                    <View style={[styles.toolIconWrap, { backgroundColor: btn.color + "22" }]}>
+                      <Ionicons name={btn.icon as any} size={22} color={btn.color} />
+                    </View>
+                    <Text style={[styles.toolLabel, { color: colors.mutedForeground }]}>{btn.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Crop ratios */}
+            <View>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Crop Ratio</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {CROP_RATIOS.map((r) => (
+                  <TouchableOpacity key={r} onPress={() => setCropRatio(r)} style={[styles.cropPill, cropRatio === r && styles.cropPillActive]}>
+                    <Text style={[styles.cropPillText, { color: cropRatio === r ? "#fff" : colors.mutedForeground }]}>{r}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Adjust sliders */}
+            <View style={{ gap: 4 }}>
+              <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Adjustments</Text>
+              <View style={[styles.adjustCard, { backgroundColor: colors.muted }]}>
+                {ADJUST_SLIDERS.map((sl) => (
+                  <AdjustSliderRow
+                    key={sl.key}
+                    label={sl.label}
+                    emoji={sl.emoji}
+                    value={adjust[sl.key]}
+                    min={sl.min}
+                    max={sl.max}
+                    color={sl.color}
+                    onChange={(v) => setAdjust((prev) => ({ ...prev, [sl.key]: v }))}
+                  />
+                ))}
+              </View>
+            </View>
+          </ScrollView>
+        )}
+
+        {/* ── CAPTION TAB ── */}
+        {activeTab === "caption" && (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
             <View>
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Caption</Text>
@@ -412,22 +522,11 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 maxLength={300}
                 style={[styles.captionInput, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
               />
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                <Text style={[styles.captionCount, { color: colors.mutedForeground }]}>{caption.length}/300</Text>
-              </View>
+              <Text style={[styles.captionCount, { color: colors.mutedForeground }]}>{caption.length}/300</Text>
 
               <Animated.View style={{ transform: [{ scale: sparkleAnim }], marginTop: 10 }}>
-                <TouchableOpacity
-                  onPress={generateAICaptions}
-                  style={styles.aiCaptionBtn}
-                  activeOpacity={0.82}
-                >
-                  <LinearGradient
-                    colors={["#7C3AED", "#EC4899"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.aiCaptionGrad}
-                  >
+                <TouchableOpacity onPress={generateAICaptions} style={styles.aiCaptionBtn} activeOpacity={0.82}>
+                  <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.aiCaptionGrad}>
                     <Text style={{ fontSize: 16 }}>✨</Text>
                     <Text style={styles.aiCaptionText}>Generate AI Caption</Text>
                     <Ionicons name="sparkles-outline" size={16} color="rgba(255,255,255,0.8)" />
@@ -440,11 +539,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Audience</Text>
               <View style={styles.audienceRow}>
                 {AUDIENCES.map((a) => (
-                  <TouchableOpacity
-                    key={a}
-                    onPress={() => setAudience(a)}
-                    style={[styles.audiencePill, audience === a && { backgroundColor: "#7C3AED" }]}
-                  >
+                  <TouchableOpacity key={a} onPress={() => setAudience(a)} style={[styles.audiencePill, audience === a && { backgroundColor: "#7C3AED" }]}>
                     <Text style={[styles.audienceText, { color: audience === a ? "#fff" : colors.mutedForeground }]}>{a}</Text>
                   </TouchableOpacity>
                 ))}
@@ -458,11 +553,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 { icon: "chatbubbles-outline", label: "Allow Comments", color: "#10B981" },
                 { icon: "download-outline", label: "Allow Downloads", color: "#3B82F6" },
               ].map((o, i, arr) => (
-                <TouchableOpacity
-                  key={o.label}
-                  style={[styles.postOptionRow, { borderBottomColor: colors.border }, i === arr.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => Alert.alert(o.label, "Coming soon")}
-                >
+                <TouchableOpacity key={o.label} style={[styles.postOptionRow, { borderBottomColor: colors.border }, i === arr.length - 1 && { borderBottomWidth: 0 }]} onPress={() => Alert.alert(o.label, "Coming soon")}>
                   <Ionicons name={o.icon as any} size={18} color={o.color} />
                   <Text style={[styles.postOptionText, { color: colors.foreground }]}>{o.label}</Text>
                   <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
@@ -478,44 +569,18 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
         )}
       </View>
 
-      <MusicPickerSheet
-        visible={showMusicPicker}
-        onClose={() => setShowMusicPicker(false)}
-        onSelect={(t) => setMusic(t)}
-        selectedTrack={music}
-      />
-
-      <AICaptionSheet
-        visible={showAISheet}
-        loading={aiLoading}
-        captions={aiCaptions}
-        hashtags={aiHashtags}
-        selectedHashtags={selectedHashtags}
-        onSelectCaption={handleSelectCaption}
-        onToggleHashtag={toggleHashtag}
-        onClose={() => setShowAISheet(false)}
-      />
+      {/* ── PICKERS / MODALS ── */}
+      <MusicPickerSheet visible={showMusicPicker} onClose={() => setShowMusicPicker(false)} onSelect={(t) => setMusic(t)} selectedTrack={music} />
+      <AICaptionSheet visible={showAISheet} loading={aiLoading} captions={aiCaptions} hashtags={aiHashtags} selectedHashtags={selectedHashtags} onSelectCaption={handleSelectCaption} onToggleHashtag={(tag) => setSelectedHashtags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])} onClose={() => setShowAISheet(false)} />
 
       <View style={{ display: showTextModal ? "flex" : "none" }}>
         <View style={styles.textModalBackdrop}>
           <View style={[styles.textModalCard, { backgroundColor: colors.background }]}>
             <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Text</Text>
-            <TextInput
-              value={newText}
-              onChangeText={setNewText}
-              placeholder="Type something..."
-              placeholderTextColor={colors.mutedForeground}
-              style={[styles.textModalInput, { color: newTextColor, backgroundColor: colors.muted, borderColor: colors.border }]}
-              autoFocus={showTextModal}
-              maxLength={60}
-            />
+            <TextInput value={newText} onChangeText={setNewText} placeholder="Type something..." placeholderTextColor={colors.mutedForeground} style={[styles.textModalInput, { color: newTextColor, backgroundColor: colors.muted, borderColor: colors.border }]} autoFocus={showTextModal} maxLength={60} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
               {TEXT_COLORS.map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  onPress={() => setNewTextColor(c)}
-                  style={[styles.colorDot, { backgroundColor: c, borderColor: newTextColor === c ? "#7C3AED" : "transparent" }]}
-                />
+                <TouchableOpacity key={c} onPress={() => setNewTextColor(c)} style={[styles.colorDot, { backgroundColor: c, borderColor: newTextColor === c ? "#7C3AED" : "transparent" }]} />
               ))}
             </ScrollView>
             <View style={{ flexDirection: "row", gap: 10 }}>
@@ -557,79 +622,86 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  preview: { height: "45%", position: "relative" },
-  previewTopBar: {
-    position: "absolute", top: 0, left: 0, right: 0,
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 16, paddingBottom: 12,
-  },
-  topBtn: { backgroundColor: "rgba(0,0,0,0.4)", padding: 8, borderRadius: 20 },
-  previewTitle: { color: "#fff", fontSize: 16, fontFamily: "Poppins_700Bold" },
-  musicBar: {
-    position: "absolute", bottom: 12, left: 12, right: 12,
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10,
-  },
-  musicBarText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_500Medium", flex: 1 },
+  preview: { flex: 1, position: "relative", backgroundColor: "#000", overflow: "hidden" },
+  previewTopBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingBottom: 8 },
+  topBtn: { width: 38, height: 38, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  previewTitle: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  resetBtn: { backgroundColor: "rgba(239,68,68,0.2)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(239,68,68,0.4)" },
+  resetText: { color: "#FCA5A5", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  musicBar: { position: "absolute", bottom: 12, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  musicBarText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium", maxWidth: W * 0.6 },
   textOverlay: { position: "absolute" },
-  overlayText: { fontSize: 22, fontFamily: "Poppins_700Bold", textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
+  overlayText: { fontSize: 18, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 },
   stickerOverlay: { position: "absolute", fontSize: 36 },
-  stickerGifOverlay: { position: "absolute", width: 80, height: 80 },
-  editorPanel: { flex: 1 },
-  tabRow: { flexDirection: "row", gap: 8, padding: 12 },
-  tabPill: { flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: "center", backgroundColor: "rgba(255,255,255,0.06)" },
+  stickerGifOverlay: { position: "absolute", width: 60, height: 60 },
+  cropOverlay: { flex: 1, borderWidth: 1.5, borderColor: "rgba(251,191,36,0.6)", margin: 20, borderRadius: 2 },
+
+  editorPanel: { height: "45%", borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: "hidden" },
+  tabRow: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6, gap: 8 },
+  tabPill: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.07)" },
   tabText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+
   sectionLabel: { fontSize: 13, fontFamily: "Poppins_700Bold", marginBottom: 10 },
-  trimContainer: { height: 44, borderRadius: 10, overflow: "visible", position: "relative", marginBottom: 6 },
-  trimHighlight: { position: "absolute", top: 0, bottom: 0, borderRadius: 6 },
-  trimHandle: {
-    position: "absolute", top: -6, width: 16, height: 56,
-    backgroundColor: "#7C3AED", borderRadius: 4, alignItems: "center", justifyContent: "center",
-  },
-  trimHandleBar: { width: 3, height: 20, backgroundColor: "#fff", borderRadius: 2 },
+
+  trimContainer: { height: 48, borderRadius: 10, marginBottom: 6, position: "relative", overflow: "hidden" },
+  trimHighlight: { position: "absolute", top: 0, bottom: 0, borderRadius: 10, opacity: 0.35 },
+  trimHandle: { position: "absolute", top: 0, bottom: 0, width: 16, backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center", borderRadius: 4 },
+  trimHandleBar: { width: 2.5, height: 22, backgroundColor: "#fff", borderRadius: 2 },
   trimInfo: { fontSize: 11, fontFamily: "Poppins_500Medium" },
-  toolsRow: { flexDirection: "row", gap: 12 },
-  toolBtn: { alignItems: "center", gap: 6, flex: 1 },
-  toolIconWrap: { width: 52, height: 52, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+
+  toolsRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  toolBtn: { alignItems: "center", gap: 5, minWidth: 64 },
+  toolIconWrap: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   toolLabel: { fontSize: 11, fontFamily: "Poppins_500Medium" },
-  musicCard: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    borderRadius: 14, padding: 12, borderWidth: 1,
-  },
-  musicCardIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  musicCardTitle: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
-  musicCardArtist: { fontSize: 12, fontFamily: "Poppins_400Regular" },
-  filterSwatchWrap: { alignItems: "center", gap: 5 },
-  filterSwatchBox: { width: 52, height: 52, borderRadius: 10, overflow: "hidden", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
-  filterSwatchLabel: { fontSize: 10, fontFamily: "Poppins_500Medium", color: "rgba(255,255,255,0.7)" },
-  overlayRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 10, borderRadius: 10, marginBottom: 4 },
-  overlayPreview: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
-  captionInput: { borderRadius: 12, padding: 12, fontSize: 14, fontFamily: "Poppins_400Regular", minHeight: 80, textAlignVertical: "top", borderWidth: 1 },
-  captionCount: { fontSize: 11, fontFamily: "Poppins_400Regular" },
+
+  musicCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 12, padding: 12, borderWidth: 1 },
+  musicCardIcon: { width: 38, height: 38, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  musicCardTitle: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  musicCardArtist: { fontSize: 11, fontFamily: "Poppins_400Regular" },
+
+  filterSwatchWrap: { alignItems: "center", gap: 4 },
+  filterSwatchBox: { width: 52, height: 52, borderRadius: 10, overflow: "hidden", borderWidth: 1.5, borderColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
+  filterSwatchLabel: { fontSize: 10, fontFamily: "Poppins_500Medium", color: "rgba(255,255,255,0.6)" },
+
+  overlayRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 10, borderRadius: 10, marginBottom: 6 },
+  overlayPreview: { fontSize: 14, fontFamily: "Poppins_500Medium" },
+
+  adjustCard: { borderRadius: 14, padding: 14, gap: 4 },
+  cropPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.07)" },
+  cropPillActive: { backgroundColor: "#7C3AED" },
+  cropPillText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+
+  captionInput: { borderRadius: 12, padding: 12, fontSize: 14, fontFamily: "Poppins_400Regular", borderWidth: 1, minHeight: 80 },
+  captionCount: { fontSize: 11, fontFamily: "Poppins_400Regular", textAlign: "right", marginTop: 4 },
   aiCaptionBtn: { borderRadius: 14, overflow: "hidden" },
   aiCaptionGrad: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 13 },
-  aiCaptionText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_700Bold", letterSpacing: 0.2 },
+  aiCaptionText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+
   audienceRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  audiencePill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.08)" },
-  audienceText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
-  postOptionsCard: { borderRadius: 14, overflow: "hidden", borderWidth: 1 },
-  postOptionRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderBottomWidth: 0.5 },
+  audiencePill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.07)" },
+  audienceText: { fontSize: 13, fontFamily: "Poppins_500Medium" },
+
+  postOptionsCard: { borderRadius: 14, borderWidth: 1, overflow: "hidden" },
+  postOptionRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   postOptionText: { flex: 1, fontSize: 14, fontFamily: "Poppins_500Medium" },
-  discardBtn: { alignItems: "center", paddingVertical: 8 },
+
+  discardBtn: { alignItems: "center", paddingVertical: 14 },
   discardText: { fontSize: 14, fontFamily: "Poppins_500Medium" },
-  textModalBackdrop: { position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.7)", alignItems: "center", justifyContent: "flex-end", zIndex: 100 },
-  textModalCard: { width: "100%", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14 },
-  textModalTitle: { fontSize: 17, fontFamily: "Poppins_700Bold" },
-  textModalInput: { borderRadius: 12, padding: 12, fontSize: 18, fontFamily: "Poppins_700Bold", borderWidth: 1, textAlign: "center" },
-  colorDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 3 },
-  modalCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: "center" },
+
+  textModalBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  textModalCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36, gap: 12 },
+  textModalTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },
+  textModalInput: { borderRadius: 12, padding: 12, fontSize: 16, fontFamily: "Poppins_500Medium", borderWidth: 1, minHeight: 50 },
+  colorDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 2 },
+  modalCancelBtn: { flex: 1, paddingVertical: 13, alignItems: "center", borderRadius: 12 },
   modalCancelText: { fontSize: 15, fontFamily: "Poppins_600SemiBold" },
   modalAddBtn: { flex: 2, borderRadius: 12, overflow: "hidden" },
   modalAddGrad: { paddingVertical: 14, alignItems: "center" },
   modalAddText: { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
-  stickerCard: { width: "100%", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 },
-  stickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+
+  stickerCard: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 36 },
+  stickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  stickerItem: { width: 50, height: 50, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 12 },
+  stickerItem: { width: 52, height: 52, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
   stickerEmoji: { fontSize: 28 },
 });
