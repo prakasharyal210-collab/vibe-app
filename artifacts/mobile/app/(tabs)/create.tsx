@@ -917,14 +917,15 @@ export default function CreateScreen() {
           />
         </Animated.View>
 
-        {/* ── LENS SELECTOR ── */}
-        <Animated.View style={{ opacity: controlsOpacity }} pointerEvents={recording ? "none" : "box-none"}>
-          <LensSelector
-            visible={showLensPicker}
-            activeLensId={activeLensId}
-            onSelect={(id) => setActiveLensId(id)}
-          />
-        </Animated.View>
+        {/* ── LENS SELECTOR (Modal — renders above everything) ── */}
+        <LensSelector
+          visible={showLensPicker}
+          activeLensId={activeLensId}
+          onSelect={(id) => {
+            setActiveLensId(id);
+            setShowLensPicker(false);
+          }}
+        />
 
         {/* ── BEAUTY PANEL ── */}
         <BeautyPanel
