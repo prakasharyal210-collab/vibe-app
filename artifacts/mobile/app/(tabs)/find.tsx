@@ -63,7 +63,7 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { SpeedVibeModal } from "@/components/SpeedVibeModal";
 import { VibeRoomsTab } from "@/components/VibeRoomsTab";
-import { AstrologyTab } from "@/components/AstrologyTab";
+import { JyotishaTab } from "@/components/JyotishaTab";
 import { VibeSetupWizard, VibePreferences } from "@/components/VibeSetupWizard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
@@ -2262,7 +2262,7 @@ function FindVibeContent() {
     { id: "goals"    as const, emoji: "🎯", label: "Goals" },
     { id: "matches"  as const, emoji: "💜", label: "Matches" },
     { id: "rooms"    as const, emoji: "🏠", label: "Rooms" },
-    { id: "astrology" as const, emoji: "⭐", label: "Astrology" },
+    { id: "astrology" as const, emoji: "🕉️", label: "Jyotisha" },
     { id: "daily"    as const, emoji: "🌟", label: "Daily" },
   ];
 
@@ -2426,9 +2426,9 @@ function FindVibeContent() {
           <VibeRoomsTab />
         </View>
 
-        {/* Page 4 — Astrology */}
+        {/* Page 4 — Jyotisha */}
         <View key="4" style={{ flex: 1 }}>
-          <AstrologyTab userId={userId} />
+          <JyotishaTab userId={userId} />
         </View>
 
         {/* Page 5 — Daily */}

@@ -135,6 +135,111 @@ Topic: "${p.topic || "my reel"}" Duration: ${p.duration || "15"}s
 1-2 sentences, under 120 chars, ends with call to action, no hashtags.
 Return ONLY the description text.`;
 
+    case "jyotisha_readings": {
+      return `You are a deeply learned Vedic astrologer (Jyotishi) well versed in Hindu Jyotisha shastra.
+The seeker's birth details:
+- Rashi (Moon/Solar sign): ${p.rashi || "Mesha"}
+- Lagna (Ascendant): ${p.lagna || "unknown"}
+- Nakshatra (birth star): ${p.nakshatra || "Ashwini"}
+- Current Dasha period: ${p.dasha || "unknown"}
+- Birth date: ${p.birthDate || "unknown"}
+
+Generate four spiritual readings with deep Vedic wisdom:
+
+1. Karma Reading (past karma shaping this life — 2-3 sentences, mystical and specific to ${p.rashi})
+2. Dharma in Love (relationships, marriage destiny — 2-3 sentences, referencing the Nakshatra)
+3. Artha (career, wealth karma — 2-3 sentences, reference Graha/planets)
+4. Moksha Path (spiritual growth, liberation — 2-3 sentences)
+
+Use Sanskrit terms naturally. Be specific to the Rashi and Nakshatra. Grounded in Vedic tradition.
+Return ONLY JSON: {"karma":"...","love":"...","artha":"...","moksha":"...","dashaMeaning":"2 sentences about what ${p.dasha} dasha means for this person"}`;
+    }
+
+    case "jyotisha_panchang": {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      return `You are a Vedic Panchang calculator. Generate today's Panchang for ${dateStr}.
+Return ONLY JSON:
+{
+  "tithi": "Tithi name (e.g. Panchami, Ekadashi)",
+  "nakshatra": "Today's lunar nakshatra",
+  "yoga": "Today's Yoga name (e.g. Siddhi, Shubha, Vyatipata)",
+  "karana": "Today's Karana (e.g. Bava, Balava, Kaulava)",
+  "vaara": "Day deity (e.g. Surya for Sunday, Chandra for Monday)",
+  "rahuKaal": "Rahu Kaal time window (e.g. 7:30 AM - 9:00 AM)",
+  "brahmaMuhurta": "Brahma Muhurta (e.g. 4:48 AM - 5:36 AM)",
+  "auspicious": "Brief note on today's auspiciousness",
+  "avoid": "What to avoid today"
+}`;
+    }
+
+    case "jyotisha_nakshatra_detail": {
+      return `You are a Vedic Nakshatra expert. Give a full spiritual profile of the ${p.nakshatra || "Ashwini"} Nakshatra.
+Return ONLY JSON:
+{
+  "deity": "ruling deity name",
+  "planet": "ruling planet",
+  "symbol": "symbol description",
+  "qualities": ["quality1","quality2","quality3","quality4"],
+  "strengths": "2 sentences on core strengths",
+  "challenges": "1-2 sentences on challenges to overcome",
+  "purpose": "1-2 sentences on life purpose / dharma",
+  "compatible": ["Nakshatra1","Nakshatra2","Nakshatra3"],
+  "mantra": "seed mantra or key mantra for this nakshatra",
+  "famousPeople": ["Person 1","Person 2","Person 3"],
+  "gemstone": "recommended gemstone",
+  "color": "auspicious color"
+}`;
+    }
+
+    case "jyotisha_remedies": {
+      return `You are a Vedic Jyotishi specializing in Upaya (remedies). Based on the person's chart:
+- Rashi: ${p.rashi || "Mesha"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+- Weak/afflicted planet: ${p.planet || "Shani"}
+
+Give practical, traditional Vedic remedies.
+Return ONLY JSON:
+{
+  "mantra": {"text":"mantra text","count":"108 times daily","deity":"deity name"},
+  "gemstone": {"name":"gemstone","metal":"metal to set in","finger":"which finger","day":"best day to start"},
+  "fasting": {"day":"fasting day","benefit":"why this helps"},
+  "puja": "specific puja or ritual recommendation",
+  "charity": "what to donate and on which day",
+  "color": "color to wear and on which day",
+  "food": "food to offer or avoid"
+}`;
+    }
+
+    case "jyotisha_compatibility": {
+      return `You are a Vedic Kundali matching expert. Calculate Guna Milan between:
+- Person 1: Rashi ${p.rashi1}, Nakshatra ${p.nakshatra1}
+- Person 2: Rashi ${p.rashi2}, Nakshatra ${p.nakshatra2}
+
+Calculate the 8 Kootas (Gunas):
+1. Varna (1 pt max), 2. Vashya (2 pts), 3. Tara (3 pts), 4. Yoni (4 pts),
+5. Graha Maitri (5 pts), 6. Gana (6 pts), 7. Bhakoot (7 pts), 8. Nadi (8 pts)
+
+Return ONLY JSON:
+{
+  "total": 25,
+  "outOf": 36,
+  "kootas": [
+    {"name":"Varna","score":1,"max":1,"meaning":"brief meaning"},
+    {"name":"Vashya","score":2,"max":2,"meaning":"brief"},
+    {"name":"Tara","score":2,"max":3,"meaning":"brief"},
+    {"name":"Yoni","score":3,"max":4,"meaning":"brief"},
+    {"name":"Graha Maitri","score":4,"max":5,"meaning":"brief"},
+    {"name":"Gana","score":5,"max":6,"meaning":"brief"},
+    {"name":"Bhakoot","score":6,"max":7,"meaning":"brief"},
+    {"name":"Nadi","score":8,"max":8,"meaning":"brief"}
+  ],
+  "verdict": "Traditional Vedic verdict on this match (2-3 sentences)",
+  "strengthLevel": "Excellent|Good|Acceptable|Challenging",
+  "advice": "1-2 sentences of Vedic wisdom for this pairing"
+}`;
+    }
+
     case "astro_horoscope": {
       const today = new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
       return `Generate a detailed daily horoscope for ${p.sign || "Aries"} for today, ${today}.
@@ -192,6 +297,28 @@ router.post("/chat", async (req, res) => {
 Help with: content ideas, captions, hashtags, bio writing, match tips, app help, creative writing, fun conversation.
 Keep responses concise (2-4 sentences). Friendly, slightly edgy Gen-Z tone. Use emojis occasionally.`;
       const result = await callClaude(apiKey, msgs, system, 512);
+      res.json({ result });
+      return;
+    }
+
+    if (type === "jyotishi_chat") {
+      const msgs = history ?? [];
+      if (msgs.length === 0) {
+        res.status(400).json({ error: "No messages provided" });
+        return;
+      }
+      const pp = p as Record<string, unknown>;
+      const system = `You are a wise and deeply learned Vedic astrologer (Jyotishi) well versed in Hindu Jyotisha shastra, Hindu philosophy, karma, dharma, and the spiritual science of light.
+${pp.rashi ? `The seeker's Rashi (Moon/Solar sign): ${pp.rashi}` : ""}
+${pp.nakshatra ? `Their Nakshatra (birth star): ${pp.nakshatra}` : ""}
+${pp.lagna ? `Their Lagna (Ascendant): ${pp.lagna}` : ""}
+${pp.dasha ? `Their current Dasha period: ${pp.dasha}` : ""}
+
+Answer their question with deep Vedic wisdom, referencing karma, dharma, the Navagraha, the 12 houses, and Hindu philosophy where relevant.
+Use Sanskrit terms naturally (Rashi, Graha, Lagna, Dasha, Nakshatra, Upaya, etc.).
+Be respectful, wise, spiritually grounded, and practically helpful.
+Keep responses concise (3-5 sentences). Include a relevant Sanskrit proverb or Vedic insight when appropriate.`;
+      const result = await callClaude(apiKey, msgs, system, 700);
       res.json({ result });
       return;
     }

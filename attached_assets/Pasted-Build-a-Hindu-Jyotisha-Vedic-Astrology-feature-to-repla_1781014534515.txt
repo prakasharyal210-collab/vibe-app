@@ -1,0 +1,161 @@
+Build a Hindu Jyotisha (Vedic Astrology) feature to replace Gundruk in Find Vibe:
+Philosophy: This is not Western astrology. This is Jyotisha — the Hindu spiritual science of light. It maps a person's karma using their exact birth details to reveal their cosmic blueprint, destiny, character and life path.
+
+1. Birth Chart Setup (Kundali):
+
+Ask user for:
+
+📅 Date of birth
+⏰ Exact time of birth
+📍 Place of birth
+
+
+Calculate:
+
+Rashi (Moon sign — most important in Vedic)
+Lagna (Ascendant/Rising sign)
+Nakshatra (Birth star — 27 lunar mansions)
+Planetary positions (Graha) in 12 houses
+
+
+Save to Supabase profiles table
+
+
+2. Main Jyotisha Screen:
+Daily Panchang (cosmic calendar):
+
+Tithi (lunar day)
+Nakshatra of the day
+Yoga
+Karana
+Auspicious/inauspicious times (Rahu Kaal, Brahma Muhurta)
+
+Personal Readings (AI powered by Claude):
+
+🔮 Karma Reading — what past karma shapes this life
+💕 Dharma in Love — relationships and marriage destiny
+💼 Artha — career and wealth karma
+🙏 Moksha path — spiritual growth guidance
+⚡ Current Dasha — which planetary period you are in and what it means
+
+
+3. The 9 Planets (Navagraha):
+Show each planet's position and meaning:
+
+☀️ Surya (Sun) — soul, father, authority
+🌙 Chandra (Moon) — mind, mother, emotions
+♂️ Mangal (Mars) — energy, courage, aggression
+☿️ Budha (Mercury) — intelligence, communication
+♃ Guru (Jupiter) — wisdom, grace, expansion
+♀️ Shukra (Venus) — love, beauty, pleasure
+♄ Shani (Saturn) — karma, discipline, lessons
+🐉 Rahu (North Node) — desire, illusion, worldly ambition
+🐍 Ketu (South Node) — past life, liberation, spirituality
+
+
+4. Kundali Matching (Compatibility):
+
+Used traditionally for marriage compatibility
+Calculate Guna Milan (36 point matching system):
+
+Varna (1 point)
+Vashya (2 points)
+Tara (3 points)
+Yoni (4 points)
+Graha Maitri (5 points)
+Gana (6 points)
+Bhakoot (7 points)
+Nadi (8 points)
+
+
+Show total score out of 36
+18+ = acceptable, 24+ = good, 32+ = excellent
+Show in Find Vibe matches: "⭐ 28/36 Kundali Match"
+
+
+5. AI Jyotishi (Ask the Astrologer):
+
+"🔮 Ask Jyotishi" button
+Claude acts as a wise Vedic astrologer
+User can ask:
+
+"When will I get married according to my kundali?"
+"What does Shani Sade Sati mean for me?"
+"Is this a good time to start a business?"
+"What remedies can help my Rahu?"
+"Explain my Nakshatra"
+
+
+
+Claude prompt:
+javascript`You are a wise and knowledgeable Vedic astrologer (Jyotishi) well versed in 
+Hindu spiritual science. The user's birth details are:
+- Rashi (Moon sign): ${rashi}
+- Lagna (Ascendant): ${lagna}  
+- Nakshatra: ${nakshatra}
+- Current Dasha: ${dasha}
+
+Answer their question with deep Vedic wisdom, referencing karma, dharma, 
+the Navagraha and Hindu philosophy where relevant. 
+Be respectful, wise and spiritually grounded.
+
+User question: ${question}`
+
+6. Remedies (Upaya):
+
+Based on weak planets in chart, suggest remedies:
+
+🙏 Mantras to chant
+💎 Gemstones to wear
+🌿 Fasting days
+🕯️ Puja recommendations
+🎨 Colors to wear on specific days
+🪐 Planetary deity to worship
+
+
+
+
+7. The 27 Nakshatras:
+
+Full page for user's birth Nakshatra
+Name, deity, symbol, ruling planet
+Personality traits
+Compatible Nakshatras for love and friendship
+Famous people with same Nakshatra
+
+
+8. Vedic Calendar Integration:
+
+Show upcoming auspicious dates (Muhurta) for:
+
+Marriage
+Starting business
+Travel
+Buying property
+Naming ceremony
+
+
+
+
+UI Design:
+
+Deep midnight blue/black background
+Gold Sanskrit-inspired typography
+Constellation and mandala patterns
+Warm saffron and gold accent colors
+Lotus and Om symbols
+Smooth mystical animations
+Feels sacred and spiritual
+
+
+Supabase tables needed:
+sqlkundali_profiles (user_id, birth_date, birth_time, birth_place, rashi, lagna, nakshatra, dasha_period)
+kundali_compatibility (user1_id, user2_id, guna_score, compatibility_details)
+jyotishi_conversations (user_id, question, answer, created_at)
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Anthropic API Key: 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
+Don't break any other features.
