@@ -266,6 +266,174 @@ Fun, mystical, wise tone. Based on actual astrological traditions.
 Return ONLY JSON: {"score":85,"strengths":["strength1","strength2"],"challenges":["challenge1","challenge2"],"verdict":"2-sentence romantic verdict","emoji":"🔥"}`;
     }
 
+    case "jyotisha_daily_mantra": {
+      const dayOfWeek = new Date().toLocaleDateString("en-IN", { weekday: "long" });
+      const dayPlanetMap: Record<string, string> = {
+        Sunday: "Surya", Monday: "Chandra", Tuesday: "Mangal",
+        Wednesday: "Budha", Thursday: "Guru", Friday: "Shukra", Saturday: "Shani",
+      };
+      const rulingPlanet = dayPlanetMap[dayOfWeek] ?? "Surya";
+      return `You are a Vedic mantra guru. Give the daily mantra for someone born in ${p.nakshatra || "Ashwini"} Nakshatra.
+Today is ${dayOfWeek} ruled by ${rulingPlanet}.
+
+Return ONLY JSON:
+{
+  "mantra": "Full mantra in Sanskrit (Devanagari script)",
+  "transliteration": "Roman transliteration of the mantra",
+  "meaning": "English meaning of the mantra (1-2 sentences)",
+  "deity": "Name of the deity this mantra is for",
+  "deityDescription": "Who this deity is and why they relate to this Nakshatra (1 sentence)",
+  "chantCount": "108",
+  "chantTime": "Brahma Muhurta (4:00 AM - 6:00 AM) or at sunrise",
+  "benefits": "3-4 key spiritual and material benefits of chanting this mantra",
+  "daySpecial": "Why today (${dayOfWeek}) is significant for this mantra (1 sentence)"
+}`;
+    }
+
+    case "jyotisha_sade_sati": {
+      const rashiIdx = ["Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya","Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"].indexOf(String(p.rashi || "Mesha"));
+      const saturnRashiIdx = (rashiIdx + 10) % 12;
+      const rashiList = ["Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya","Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"];
+      const saturnRashi = rashiList[saturnRashiIdx] ?? "Makara";
+      return `You are a Vedic astrologer specializing in Shani (Saturn) transits.
+The user's Moon sign (Rashi) is ${p.rashi || "Mesha"}.
+Current estimated Saturn position is approximately in ${saturnRashi}.
+User's approximate age: ${p.age || "30"}.
+
+Analyze their Sade Sati and Shani Dhaiya status.
+Return ONLY JSON:
+{
+  "inSadeSati": true or false,
+  "phase": "Rising Phase / Peak Phase / Setting Phase / Not in Sade Sati",
+  "sadeSatiStart": "approximate year Sade Sati started or will start",
+  "sadeSatiEnd": "approximate year it will end",
+  "inDhaiya": true or false,
+  "dhaiyaDetails": "brief explanation of Shani Dhaiya status",
+  "affectedAreas": ["area1", "area2", "area3", "area4"],
+  "currentEffects": "2-3 sentences on what Shani is currently teaching this person",
+  "remedies": [
+    {"name":"Remedy 1","description":"how to perform"},
+    {"name":"Remedy 2","description":"how to perform"},
+    {"name":"Remedy 3","description":"how to perform"},
+    {"name":"Remedy 4","description":"how to perform"},
+    {"name":"Remedy 5","description":"how to perform"}
+  ],
+  "scriptureQuote": "A relevant quote from Hindu scripture about Shani Dev",
+  "message": "An encouraging spiritual message for this person about Saturn's role in their karma (2 sentences)"
+}`;
+    }
+
+    case "jyotisha_gemstone_finder": {
+      return `You are a Vedic gemologist and Jyotishi. Based on this birth chart:
+- Lagna (Ascendant): ${p.lagna || "Karka"}
+- Moon sign (Rashi): ${p.rashi || "Mesha"}
+- Current Dasha: ${p.dasha || "Shani Dasha"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+
+Determine which planets are strong and which are weak based on the Lagna and Rashi.
+Give personalized gemstone recommendations based on classical Jyotisha texts.
+
+Return ONLY JSON:
+{
+  "primaryGemstone": {
+    "planet": "planet name",
+    "gem": "gemstone name",
+    "gemSanskrit": "Sanskrit/Hindi name",
+    "finger": "which finger",
+    "metal": "which metal",
+    "day": "best day to start wearing",
+    "time": "auspicious time",
+    "mantra": "mantra to chant while wearing",
+    "carats": "recommended weight in carats",
+    "benefit": "main benefit for this person specifically"
+  },
+  "secondaryGemstone": {
+    "planet": "planet name",
+    "gem": "gemstone name",
+    "gemSanskrit": "Sanskrit/Hindi name",
+    "finger": "which finger",
+    "metal": "which metal",
+    "day": "best day",
+    "mantra": "activation mantra",
+    "benefit": "specific benefit"
+  },
+  "thirdGemstone": {
+    "planet": "planet name",
+    "gem": "gemstone name",
+    "gemSanskrit": "Sanskrit/Hindi name",
+    "finger": "which finger",
+    "metal": "which metal",
+    "day": "best day",
+    "mantra": "activation mantra",
+    "benefit": "specific benefit"
+  },
+  "avoid": ["gemstone to avoid 1 (reason)", "gemstone to avoid 2 (reason)"],
+  "warning": "Important caution about gemstone combinations to avoid",
+  "activationRitual": "How to purify and activate any gemstone before wearing (3-4 steps)"
+}`;
+    }
+
+    case "jyotisha_marriage_timing": {
+      const rashiList2 = ["Mesha","Vrishabha","Mithuna","Karka","Simha","Kanya","Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"];
+      const rashiIdx2 = rashiList2.indexOf(String(p.lagna || "Karka"));
+      const seventhLordRashi = rashiList2[(rashiIdx2 + 6) % 12] ?? "Makara";
+      return `You are a Vedic marriage astrologer using classical Jyotisha principles.
+Birth details:
+- Rashi (Moon sign): ${p.rashi || "Mesha"}
+- Lagna (Ascendant): ${p.lagna || "Karka"}
+- 7th house falls in: ${seventhLordRashi}
+- Current Dasha period: ${p.dasha || "unknown"}
+- Age: ${p.age || "25"}
+
+Analyze marriage timing and prospects using the 7th house, Venus, and Dasha system.
+Return ONLY JSON:
+{
+  "likelyAgeRange": "e.g. 24-28 years",
+  "bestYears": ["year1", "year2", "year3"],
+  "currentDashaFavorable": true or false,
+  "dashaAnalysis": "2 sentences on whether current Dasha supports marriage",
+  "partnerQualities": "What kind of partner is indicated by the 7th house lord (2-3 sentences, mention physical and personality traits)",
+  "marriagePlanets": ["planet1 - why","planet2 - why"],
+  "obstacles": ["obstacle1", "obstacle2"],
+  "remedies": ["remedy1", "remedy2", "remedy3"],
+  "mangalDosha": true or false,
+  "mangalDoshaDetails": "Brief explanation of Mangal Dosha status and its effects if present",
+  "auspiciousMonths": ["month1", "month2", "month3"],
+  "vedicWisdom": "A relevant Vedic verse or wisdom about marriage and dharma (1-2 sentences)"
+}`;
+    }
+
+    case "jyotisha_house_reading": {
+      const houseNames = ["","Tanu","Dhana","Sahaja","Sukha","Putra","Shatru","Kalatra","Randhra","Bhagya","Karma","Labha","Vyaya"];
+      const houseAreas = ["","Self & Body","Wealth & Family","Siblings & Communication","Home & Happiness","Children & Creativity","Enemies & Health","Marriage & Partnership","Transformation & Mysteries","Fortune & Dharma","Career & Karma","Gains & Aspirations","Loss & Liberation"];
+      const houseNum = typeof p.houseNumber === "number" ? p.houseNumber : 1;
+      const houseName = houseNames[houseNum] ?? "Tanu";
+      const houseArea = houseAreas[houseNum] ?? "Self";
+      return `You are a Vedic astrologer giving a house reading.
+House: ${houseNum}th House (${houseName} Bhava) — governs ${houseArea}
+- Lagna: ${p.lagna || "Karka"}
+- Rashi: ${p.rashi || "Mesha"}
+- Nakshatra: ${p.nakshatra || "Ashwini"}
+
+Give a detailed reading for this house.
+Return ONLY JSON:
+{
+  "houseName": "${houseName}",
+  "houseArea": "${houseArea}",
+  "houseNumber": ${houseNum},
+  "houseLord": "the planet that rules this house based on the Lagna",
+  "naturalSignificator": "the planet naturally associated with this house's themes",
+  "strength": "Strong/Moderate/Needs Attention",
+  "strengthReason": "1 sentence why",
+  "positives": "2-3 sentences on the strengths and blessings of this house for this person",
+  "challenges": "1-2 sentences on challenges to navigate",
+  "keyAreas": ["specific life area 1", "specific life area 2", "specific life area 3"],
+  "remedy": "1 specific Vedic remedy to strengthen this house",
+  "mantra": "a mantra for the house lord",
+  "vedicInsight": "A deep Vedic philosophical insight about this house's themes (1-2 sentences)"
+}`;
+    }
+
     default:
       return `You are Gundruk AI. ${p.message || "Hello!"}`;
   }

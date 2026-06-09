@@ -1,0 +1,155 @@
+Here's the prompt for Replit AI:
+
+Add these 5 Vedic Astrology features to the Jyotisha section in Gundruk:
+Anthropic API Key: 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
+
+FEATURE 1 — Daily Mantra:
+
+Every day show a personalized mantra based on user's Nakshatra
+Show mantra in Sanskrit with English transliteration and meaning
+Audio button to hear pronunciation
+"How many times to chant" guide (108 times recommended)
+Show which deity the mantra is for
+Send daily notification with mantra at Brahma Muhurta time (4-6am)
+
+Claude prompt:
+javascript`Give the daily mantra for someone born in ${nakshatra} Nakshatra. 
+Include: Sanskrit text, transliteration, English meaning, 
+ruling deity, and benefits of chanting. 
+Today is ${dayOfWeek} ruled by ${rulingPlanet}.`
+
+FEATURE 2 — Sade Sati Calculator:
+
+Calculate if user is currently in Shani (Saturn) Sade Sati
+Sade Sati = Saturn transiting through 12th, 1st and 2nd house from Moon sign
+Show:
+
+Are you in Sade Sati? Yes/No
+Which phase? (Rising/Peak/Setting)
+When did it start? When will it end?
+What areas of life are affected?
+Remedies to reduce Saturn's effects
+
+
+Also calculate Shani Dhaiya (2.5 year mini Sade Sati)
+Beautiful timeline showing past, current and future Sade Sati periods
+
+Claude prompt:
+javascript`The user's Moon sign (Rashi) is ${rashi}. 
+Current Saturn position is in ${saturnRashi}.
+Calculate if they are in Sade Sati or Shani Dhaiya.
+Explain the effects on their life right now and give 
+5 powerful remedies to pacify Saturn. 
+Reference Hindu scriptures and Shani Dev worship.`
+
+FEATURE 3 — Gemstone Finder:
+
+Based on user's birth chart, recommend gemstones for each planet
+Show all 9 planetary gemstones:
+
+☀️ Sun → Ruby (Manikya)
+🌙 Moon → Pearl (Moti)
+♂️ Mars → Red Coral (Moonga)
+☿️ Mercury → Emerald (Panna)
+♃ Jupiter → Yellow Sapphire (Pukhraj)
+♀️ Venus → Diamond (Heera)
+♄ Saturn → Blue Sapphire (Neelam)
+🐉 Rahu → Hessonite (Gomed)
+🐍 Ketu → Cat's Eye (Lahsuniya)
+
+
+For each gemstone:
+
+Which finger to wear on
+Which metal (gold/silver/panchdhatu)
+When to wear (day and time)
+Mantra to chant while wearing
+Weight in carats recommended
+WARNING: which gemstones NOT to wear together
+
+
+Highlight user's most beneficial gemstone in gold
+
+Claude prompt:
+javascript`Based on this Vedic birth chart:
+- Lagna (Ascendant): ${lagna}
+- Moon sign: ${rashi}  
+- Weak planets: ${weakPlanets}
+- Strong planets: ${strongPlanets}
+
+Recommend the top 3 gemstones this person should wear.
+For each gemstone explain: benefits, which finger, 
+which metal, activation ritual, and any cautions.
+Base recommendations on classical Jyotisha texts.`
+
+FEATURE 4 — Marriage Timing:
+
+Analyze user's 7th house and Venus for marriage indicators
+Show:
+
+Most likely age range for marriage
+Best years coming up for marriage
+Current Dasha/Antardasha favorable for marriage?
+Which planetary periods bring marriage
+What qualities to look for in a partner (based on 7th house lord)
+Obstacles to marriage and remedies
+
+
+
+Claude prompt:
+javascript`Analyze this person's marriage prospects using Vedic astrology:
+- Rashi: ${rashi}
+- Lagna: ${lagna}
+- 7th house lord: ${seventhLord}
+- Venus position: ${venusPosition}
+- Current Dasha: ${currentDasha}
+- Age: ${age}
+
+Give a detailed marriage timing prediction including:
+most favorable years, partner qualities, 
+any doshas affecting marriage and remedies.
+Use classical Jyotisha principles.`
+
+FEATURE 5 — 12 Houses Complete Life Reading:
+
+Full analysis of all 12 houses in user's birth chart
+Each house shows:
+
+House name and life area it governs
+Which planet is placed there
+Strength of that house
+What it means for the user
+Positive and challenging aspects
+
+
+Beautiful card UI — one card per house
+Tap any house for detailed AI reading
+Overall life summary at top
+
+Claude prompt:
+javascript`Give a complete reading of the ${houseNumber} house 
+(${houseName} - governing ${houseArea}) for:
+- Lagna: ${lagna}
+- Planet in this house: ${planetInHouse}
+- House lord: ${houseLord}
+- House lord position: ${houseLordPosition}
+
+Explain what this means for the person's ${houseArea} 
+in their life. Include strengths, challenges and remedies.
+Use Vedic Jyotisha principles and Hindu philosophy.`
+
+UI for all features:
+
+Dark midnight blue background
+Gold and saffron accent colors
+Sanskrit text with Devanagari script where appropriate
+Lotus, Om, and mandala design elements
+Smooth mystical animations
+Sacred geometry patterns
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Don't break any existing features.
