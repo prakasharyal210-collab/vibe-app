@@ -8,8 +8,8 @@ export default function Index() {
 
   useEffect(() => {
     if (loading) return;
-    // Go straight to Reels — no login required to browse
-    router.replace("/(tabs)");
+    // Go straight to Feed > For You — no login required to browse
+    router.replace("/(tabs)/feed");
   }, [loading]);
 
   return (

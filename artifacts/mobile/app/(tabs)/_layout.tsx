@@ -267,7 +267,7 @@ function ClassicTabLayout({
 
   return (
     <Tabs
-      initialRouteName="index"
+      initialRouteName="feed"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
