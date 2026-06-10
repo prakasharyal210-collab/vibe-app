@@ -299,9 +299,9 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
       <StarField />
       <Animated.View style={{ opacity: fadeIn, transform: [{ translateY: slideUp }], alignItems: "center", width: "100%" }}>
         <Text style={S.omText}>ॐ</Text>
-        <Text style={S.setupTitle}>Jyotisha — Light of the Veda</Text>
+        <Text style={S.setupTitle}>Astrology — Light of the Veda</Text>
         <Text style={S.setupSub}>
-          The ancient Hindu science of Jyotisha maps your karma through the cosmic blueprint imprinted at your birth. Enter your details to reveal your Kundali.
+          The ancient Hindu science of Astrology maps your karma through the cosmic blueprint imprinted at your birth. Enter your details to reveal your Kundali.
         </Text>
 
         {rashiData && (
@@ -2520,7 +2520,7 @@ export function JyotishaTab({ userId }: { userId?: string }) {
   if (loading) {
     return <View style={{ flex: 1, backgroundColor: BG, justifyContent: "center", alignItems: "center" }}>
       <ActivityIndicator color={SAFFRON} size="large" />
-      <Text style={{ color: DIM, marginTop: 12, fontFamily: "Poppins_400Regular" }}>ॐ Loading Jyotisha...</Text>
+      <Text style={{ color: DIM, marginTop: 12, fontFamily: "Poppins_400Regular" }}>ॐ Loading Astrology...</Text>
     </View>;
   }
 

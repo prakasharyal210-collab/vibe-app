@@ -40,7 +40,7 @@ export const LENSES: Lens[] = [
   { id: 'matrix',        name: 'Matrix',       icon: '🖥️', category: 'world' },
   { id: 'underwater',    name: 'Underwater',   icon: '🌊', category: 'world' },
   { id: 'fire',          name: 'Fire',         icon: '🔥', category: 'world' },
-  // ── Jyotisha / Spiritual ───────────────────────────────────────────────────
+  // ── Astrology / Spiritual ──────────────────────────────────────────────────
   { id: 'zodiac_aura',   name: 'Zodiac Aura',  icon: '🔮', category: 'spiritual' },
   { id: 'chakra',        name: 'Chakra',       icon: '☯️', category: 'spiritual' },
   { id: 'goddess',       name: 'Goddess',      icon: '🌺', category: 'spiritual' },

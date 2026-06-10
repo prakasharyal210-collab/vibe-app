@@ -2262,7 +2262,7 @@ function FindVibeContent() {
     { id: "goals"    as const, emoji: "🎯", label: "Goals" },
     { id: "matches"  as const, emoji: "💜", label: "Matches" },
     { id: "rooms"    as const, emoji: "🏠", label: "Rooms" },
-    { id: "astrology" as const, emoji: "🕉️", label: "Jyotisha" },
+    { id: "astrology" as const, emoji: "🕉️", label: "Astrology" },
     { id: "daily"    as const, emoji: "🌟", label: "Daily" },
   ];
 
