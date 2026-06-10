@@ -89,6 +89,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [deezerError, setDeezerError] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playProgress, setPlayProgress] = useState(0);
   const [localSelected, setLocalSelected] = useState<Track | null>(selectedTrack);
@@ -120,12 +121,14 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   const loadTracks = useCallback(async () => {
     if (search.trim()) {
       setLoading(true);
+      setDeezerError(false);
       const results = await searchTracksOnJamendo(search);
       setTracks(results);
       setLoading(false);
       return;
     }
     if (category === "Favorites") {
+      setDeezerError(false);
       const ids = await getFavoriteIds();
       setFavoriteIds(ids);
       setTracks(TRACKS.filter((t) => ids.includes(t.id)));
@@ -133,12 +136,17 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
     }
     if (category === "Trending") {
       setLoading(true);
+      setDeezerError(false);
       const results = await fetchDeezerChart(deezerCountry);
+      if (results.length === 0) {
+        setDeezerError(true);
+      }
       setTracks(results);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setDeezerError(false);
     const results = await fetchTracksFromJamendo(category as MusicCategory);
     setTracks(results);
     setLoading(false);
@@ -164,7 +172,11 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
     if (playingId === track.id) { await stopSound(); return; }
     await stopSound();
     try {
-      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: false });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.previewUrl },
         { shouldPlay: true, positionMillis: track.trimStart * 1000 },
@@ -282,18 +294,24 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
           <Ionicons name={isFav ? "heart" : "heart-outline"} size={18} color={isFav ? "#EF4444" : colors.mutedForeground} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => togglePlay(track)}
-          style={styles.playBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <LinearGradient
-            colors={isPlaying ? ["#EF4444", "#DC2626"] : ["#7C3AED", "#6D28D9"]}
-            style={styles.playBtnGrad}
+        {track.previewUrl ? (
+          <TouchableOpacity
+            onPress={() => togglePlay(track)}
+            style={styles.playBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name={isPlaying ? "stop" : "play"} size={14} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={isPlaying ? ["#EF4444", "#DC2626"] : ["#7C3AED", "#6D28D9"]}
+              style={styles.playBtnGrad}
+            >
+              <Ionicons name={isPlaying ? "stop" : "play"} size={14} color="#fff" />
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.playBtnGrad, { backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center", borderRadius: 17 }]}>
+            <Ionicons name="ban-outline" size={14} color="rgba(255,255,255,0.25)" />
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -414,6 +432,16 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
           </View>
         )}
 
+        {deezerError && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="wifi-outline" size={18} color="#F97316" />
+            <Text style={styles.errorText}>Music unavailable right now</Text>
+            <TouchableOpacity onPress={loadTracks} style={styles.retryBtn}>
+              <Text style={styles.retryText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {loading ? (
           <View style={[styles.emptyState, { gap: 16 }]}>
             <ActivityIndicator size="large" color="#F97316" />
@@ -421,7 +449,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
               {category === "Trending" ? "Loading Deezer charts…" : "Finding tracks…"}
             </Text>
           </View>
-        ) : tracks.length === 0 ? (
+        ) : !deezerError && tracks.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="musical-notes-outline" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
@@ -531,4 +559,13 @@ const styles = StyleSheet.create({
   playBtnGrad: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
   emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   emptyText: { fontSize: 15, fontFamily: "Poppins_500Medium" },
+  errorBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: "rgba(249,115,22,0.12)", borderColor: "rgba(249,115,22,0.3)",
+    borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  errorText: { flex: 1, color: "#F97316", fontSize: 13, fontFamily: "Poppins_500Medium" },
+  retryBtn: { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: "#F97316", borderRadius: 8 },
+  retryText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_700Bold" },
 });

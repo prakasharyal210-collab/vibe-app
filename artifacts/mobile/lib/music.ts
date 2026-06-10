@@ -180,7 +180,11 @@ export async function fetchTrendingSounds(limit = 20): Promise<Track[]> {
   return fetchTracksFromJamendo("Trending");
 }
 
-// ─── Deezer chart fetcher ──────────────────────────────────────────────────────
+// ─── Deezer chart fetcher (via backend proxy to avoid CORS) ───────────────────
+
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+const CACHE_TTL_DEEZER = 60 * 60 * 1000;
 
 interface DeezerApiTrack {
   id: number;
@@ -199,7 +203,7 @@ function deezerToTrack(dt: DeezerApiTrack, position: number): Track {
     title: dt.title,
     artist: dt.artist.name,
     durationSecs: dt.duration,
-    previewUrl: dt.preview,
+    previewUrl: dt.preview ?? "",
     coverUrl: dt.album.cover_medium || dt.artist.picture_medium || undefined,
     coverColor: "#F97316",
     category: "Trending",
@@ -213,7 +217,6 @@ function deezerToTrack(dt: DeezerApiTrack, position: number): Track {
 
 export async function fetchDeezerChart(countryCode: string): Promise<Track[]> {
   const cacheKey = `deezer_chart_${countryCode}`;
-  const CACHE_TTL_DEEZER = 15 * 60 * 1000;
 
   const mem = memCache.get(cacheKey);
   if (mem && Date.now() - mem.ts < CACHE_TTL_DEEZER) return mem.data;
@@ -230,21 +233,19 @@ export async function fetchDeezerChart(countryCode: string): Promise<Track[]> {
   } catch {}
 
   try {
-    const url = countryCode === "0"
-      ? "https://api.deezer.com/chart/0/tracks?limit=50"
-      : `https://api.deezer.com/chart/${countryCode}/tracks?limit=50`;
-
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`Deezer ${res.status}`);
+    const url = `${API_BASE}/music/deezer?country=${encodeURIComponent(countryCode)}&limit=50`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
+    if (!res.ok) throw new Error(`Proxy ${res.status}`);
     const json = await res.json() as { data?: DeezerApiTrack[] };
     const tracks = (json.data ?? []).map((dt, i) => deezerToTrack(dt, i + 1));
+    if (tracks.length === 0) throw new Error("Empty response");
 
     const entry = { data: tracks, ts: Date.now() };
     memCache.set(cacheKey, entry);
     AsyncStorage.setItem(cacheKey, JSON.stringify(entry)).catch(() => {});
     return tracks;
   } catch {
-    return getTracksByCategory("Trending");
+    return [];
   }
 }
 
