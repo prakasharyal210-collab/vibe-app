@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   FlatList,
   PanResponder,
   Platform,
@@ -19,6 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import PagerViewCompat, { PagerViewHandle } from "@/components/PagerViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SnapViewerModal } from "@/components/SnapViewer";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -1089,6 +1091,82 @@ const btSt = StyleSheet.create({
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#8B5CF6", marginTop: 1 },
 });
 
+// ─── SwipeableTopTabBar ───────────────────────────────────────────────────────
+
+const SCREEN_W = Dimensions.get("window").width;
+
+function SwipeableTopTabBar({
+  scrollOffset,
+  onPress,
+  chatBadge,
+  snapBadge,
+}: {
+  scrollOffset: Animated.Value;
+  onPress: (page: number) => void;
+  chatBadge?: number;
+  snapBadge?: number;
+}) {
+  const tabW = SCREEN_W / 2;
+  const underlineX = scrollOffset.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, tabW],
+    extrapolate: "clamp",
+  });
+  const tab0Opacity = scrollOffset.interpolate({ inputRange: [0, 1], outputRange: [1, 0.45], extrapolate: "clamp" });
+  const tab1Opacity = scrollOffset.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1], extrapolate: "clamp" });
+
+  return (
+    <View style={topTabSt.bar}>
+      {/* Tab 0 — Messages */}
+      <TouchableOpacity style={topTabSt.tab} onPress={() => onPress(0)} activeOpacity={0.8}>
+        <Animated.View style={[topTabSt.tabInner, { opacity: tab0Opacity }]}>
+          <Text style={topTabSt.tabIcon}>💬</Text>
+          <Text style={topTabSt.tabLabel}>Messages</Text>
+          {!!chatBadge && chatBadge > 0 && (
+            <View style={topTabSt.badge}><Text style={topTabSt.badgeText}>{chatBadge > 99 ? "99+" : chatBadge}</Text></View>
+          )}
+        </Animated.View>
+      </TouchableOpacity>
+
+      {/* Tab 1 — Snaps */}
+      <TouchableOpacity style={topTabSt.tab} onPress={() => onPress(1)} activeOpacity={0.8}>
+        <Animated.View style={[topTabSt.tabInner, { opacity: tab1Opacity }]}>
+          <Text style={topTabSt.tabIcon}>📸</Text>
+          <Text style={topTabSt.tabLabel}>Snaps</Text>
+          {!!snapBadge && snapBadge > 0 && (
+            <View style={[topTabSt.badge, { backgroundColor: "#EA580C" }]}><Text style={topTabSt.badgeText}>{snapBadge > 99 ? "99+" : snapBadge}</Text></View>
+          )}
+        </Animated.View>
+      </TouchableOpacity>
+
+      {/* Sliding underline */}
+      <Animated.View style={[topTabSt.underline, { width: tabW, transform: [{ translateX: underlineX }] }]} />
+    </View>
+  );
+}
+
+const topTabSt = StyleSheet.create({
+  bar: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+    position: "relative",
+  },
+  tab: { flex: 1, paddingVertical: 11, alignItems: "center" },
+  tabInner: { flexDirection: "row", alignItems: "center", gap: 6 },
+  tabIcon: { fontSize: 15 },
+  tabLabel: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14.5 },
+  badge: {
+    minWidth: 18, height: 18, borderRadius: 9, backgroundColor: "#7C3AED",
+    alignItems: "center", justifyContent: "center", paddingHorizontal: 4,
+  },
+  badgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 10 },
+  underline: {
+    position: "absolute", bottom: 0, height: 2.5, borderRadius: 2,
+    backgroundColor: "#8B5CF6",
+  },
+});
+
 // ─── InboxScreen ──────────────────────────────────────────────────────────────
 
 export default function InboxScreen() {
@@ -1098,6 +1176,8 @@ export default function InboxScreen() {
   const { show, ToastView } = useToast();
 
   const [mainTab, setMainTab] = useState<MainTab>("chats");
+  const pagerRef = useRef<PagerViewHandle>(null);
+  const scrollOffset = useRef(new Animated.Value(0)).current;
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [snapConvos, setSnapConvos] = useState<SnapConversation[]>([]);
   const [usersWithStories, setUsersWithStories] = useState<Set<string>>(new Set());
@@ -1228,41 +1308,77 @@ export default function InboxScreen() {
         </View>
       </View>
 
+      {/* ── Swipeable top tab bar (only for chats/snaps) ── */}
+      {mainTab !== "calls" && (
+        <SwipeableTopTabBar
+          scrollOffset={scrollOffset}
+          onPress={(page) => {
+            pagerRef.current?.setPage(page);
+            setMainTab(page === 0 ? "chats" : "snaps");
+          }}
+          chatBadge={unreadChats}
+          snapBadge={unreadSnaps}
+        />
+      )}
+
       {/* ── Tab content ── */}
-      <View style={{ flex: 1 }}>
-        {mainTab === "chats" && (
-          <ChatsTab
-            conversations={conversations}
-            snapConvos={snapConvos}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            usersWithStories={usersWithStories}
-            onCamera={openSnapCamera}
-            onSnapCamera={openSnapCamera}
-            onSnapView={handleViewSnap}
-            show={show}
-          />
-        )}
-        {mainTab === "snaps" && (
-          <SnapsTab
-            userId={userId ?? ""}
-            snapConvos={snapConvos}
-            usersWithStories={usersWithStories}
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            onSnapCamera={openSnapCamera}
-            onSnapView={handleViewSnap}
-            streaks={streaks}
-            show={show}
-          />
-        )}
-        {mainTab === "calls" && <CallsTab />}
-      </View>
+      {mainTab === "calls" ? (
+        <View style={{ flex: 1 }}><CallsTab /></View>
+      ) : (
+        <PagerViewCompat
+          ref={pagerRef}
+          style={{ flex: 1 }}
+          initialPage={mainTab === "snaps" ? 1 : 0}
+          onPageScroll={(e) => {
+            const { position, offset } = e.nativeEvent;
+            scrollOffset.setValue(position + offset);
+          }}
+          onPageSelected={(e) => {
+            const page = e.nativeEvent.position;
+            setMainTab(page === 0 ? "chats" : "snaps");
+          }}
+        >
+          <View key="chats" style={{ flex: 1 }}>
+            <ChatsTab
+              conversations={conversations}
+              snapConvos={snapConvos}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              usersWithStories={usersWithStories}
+              onCamera={openSnapCamera}
+              onSnapCamera={openSnapCamera}
+              onSnapView={handleViewSnap}
+              show={show}
+            />
+          </View>
+          <View key="snaps" style={{ flex: 1 }}>
+            <SnapsTab
+              userId={userId ?? ""}
+              snapConvos={snapConvos}
+              usersWithStories={usersWithStories}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              onSnapCamera={openSnapCamera}
+              onSnapView={handleViewSnap}
+              streaks={streaks}
+              show={show}
+            />
+          </View>
+        </PagerViewCompat>
+      )}
 
       {/* ── Bottom tab bar ── */}
       <BottomTabBar
         active={mainTab}
-        onChange={setMainTab}
+        onChange={(tab) => {
+          if (tab === "calls") {
+            setMainTab("calls");
+          } else {
+            const page = tab === "chats" ? 0 : 1;
+            pagerRef.current?.setPage(page);
+            setMainTab(tab);
+          }
+        }}
         insets={insets}
         chatBadge={unreadChats}
         snapBadge={unreadSnaps}
