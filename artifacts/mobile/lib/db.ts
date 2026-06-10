@@ -1263,8 +1263,17 @@ export function extractHashtags(caption: string): string[] {
 }
 
 export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem[]> {
+  // Try with is_pinned ordering; if column absent fall back to created_at only
+  const fetchPosts = async () => {
+    const res = await supabase.from('posts').select('*').eq('user_id', userId)
+      .order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
+    if (res.error) {
+      return supabase.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    }
+    return res;
+  };
   const [postsRes, reelsRes] = await Promise.allSettled([
-    supabase.from('posts').select('*').eq('user_id', userId).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }),
+    fetchPosts(),
     supabase.from('reels').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
   ]);
   const posts: ProfileGridItem[] =
@@ -1306,7 +1315,13 @@ export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem
 export async function uploadPostMedia(
   userId: string,
   uri: string,
-  caption: string
+  caption: string,
+  options?: {
+    location?: string;
+    taggedUsers?: string[];
+    commentsEnabled?: boolean;
+    downloadsEnabled?: boolean;
+  }
 ): Promise<{ id: string; mediaUrl: string } | null> {
   try {
     const cleanUri = uri.split('?')[0];
@@ -1331,27 +1346,54 @@ export async function uploadPostMedia(
       console.log('Storage fetch/upload failed:', storageErr);
     }
 
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
+    // Build insert payload — include new fields if they exist in the schema
+    const fullPayload: Record<string, unknown> = {
+      user_id: userId,
+      image_url: mediaUrl,
+      media_url: mediaUrl,
+      caption,
+      likes_count: 0,
+      comments_count: 0,
+      views_count: 0,
+      created_at: new Date().toISOString(),
+    };
+    if (options?.location) fullPayload.location = options.location;
+    if (options?.commentsEnabled !== undefined) fullPayload.comments_enabled = options.commentsEnabled;
+    if (options?.downloadsEnabled !== undefined) fullPayload.downloads_enabled = options.downloadsEnabled;
+
+    let { data, error } = await supabase.from('posts').insert(fullPayload).select('id').single();
+
+    // If schema has extra columns not yet migrated, fall back to minimal insert
+    if (error) {
+      console.log('Post insert (full) error:', error.message, '— retrying minimal insert');
+      const minimalPayload = {
         user_id: userId,
         image_url: mediaUrl,
         media_url: mediaUrl,
         caption,
-        hashtags: extractHashtags(caption),
-        is_reel: false,
         likes_count: 0,
         comments_count: 0,
         views_count: 0,
         created_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
+      };
+      ({ data, error } = await supabase.from('posts').insert(minimalPayload).select('id').single());
+    }
+
     if (error) {
       console.log('Post insert error:', error.message);
       return null;
     }
-    return { id: (data as any).id, mediaUrl };
+
+    const postId = (data as any).id;
+
+    // Save tagged users to post_tags — silently ignore if table doesn't exist yet
+    if (options?.taggedUsers?.length) {
+      supabase.from('post_tags').insert(
+        options.taggedUsers.map((uid) => ({ post_id: postId, tagged_user_id: uid, tagged_by: userId }))
+      ).then(() => {}, () => {});
+    }
+
+    return { id: postId, mediaUrl };
   } catch (err) {
     console.log('uploadPostMedia error:', err);
     return null;

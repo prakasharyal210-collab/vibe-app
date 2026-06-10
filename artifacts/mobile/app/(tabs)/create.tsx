@@ -1091,7 +1091,12 @@ export default function CreateScreen() {
               setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null);
               if (uri && session?.user?.id) {
                 if (wasPhoto || !isVideoMode) {
-                  await uploadPostMedia(session.user.id, uri, data.caption ?? "");
+                  await uploadPostMedia(session.user.id, uri, data.caption ?? "", {
+                    location: data.location,
+                    taggedUsers: data.taggedUsers,
+                    commentsEnabled: data.commentsEnabled,
+                    downloadsEnabled: data.downloadsEnabled,
+                  });
                 } else {
                   await uploadReelMedia(session.user.id, uri, data.caption ?? "");
                 }

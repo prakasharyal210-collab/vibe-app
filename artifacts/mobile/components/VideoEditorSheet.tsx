@@ -1,15 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system";
+import * as Location from "expo-location";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  FlatList,
   Image,
+  Modal,
   PanResponder,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -23,6 +28,7 @@ import { FilterConfig, FILTERS } from "@/components/EffectsPickerSheet";
 import { useColors } from "@/hooks/useColors";
 import { Track, formatDuration } from "@/lib/music";
 import { supabase } from "@/lib/supabase";
+import { searchProfiles } from "@/lib/db";
 
 const { width: W } = Dimensions.get("window");
 
@@ -44,7 +50,13 @@ export interface PostData {
   music: Track | null;
   audience: string;
   tags: string[];
+  location?: string;
+  taggedUsers?: string[];
+  commentsEnabled?: boolean;
+  downloadsEnabled?: boolean;
 }
+
+interface TaggedUser { id: string; username: string; avatar_url?: string | null; full_name?: string | null; }
 
 interface TextOverlay { id: string; text: string; color: string; x: number; y: number; }
 interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; y: number; }
@@ -152,6 +164,15 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const [aiHashtags, setAiHashtags] = useState<string[]>([]);
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
 
+  const [location, setLocation] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [taggedUsers, setTaggedUsers] = useState<TaggedUser[]>([]);
+  const [showTagPicker, setShowTagPicker] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagResults, setTagResults] = useState<TaggedUser[]>([]);
+  const [allowComments, setAllowComments] = useState(true);
+  const [allowDownloads, setAllowDownloads] = useState(true);
+
   const sparkleAnim = useRef(new Animated.Value(1)).current;
 
   const animateSparkle = () => {
@@ -209,6 +230,27 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     setSelectedHashtags([]);
   };
 
+  const fetchLocation = async () => {
+    try {
+      setLocationLoading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Location access is needed to tag your location.");
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [geo] = await Location.reverseGeocodeAsync(loc.coords);
+      const city = geo?.city ?? geo?.district ?? geo?.subregion ?? "";
+      const country = geo?.country ?? "";
+      const locationStr = [city, country].filter(Boolean).join(", ");
+      setLocation(locationStr || "Unknown location");
+    } catch {
+      Alert.alert("Location error", "Could not get your location. Please try again.");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
   const trimStartX = useRef(new Animated.Value(0)).current;
   const trimEndX = useRef(new Animated.Value(TRIM_W)).current;
   const [trimStartVal, setTrimStartVal] = useState(0);
@@ -245,7 +287,16 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     setPosting(true);
     await new Promise((r) => setTimeout(r, 1400));
     setPosting(false);
-    onPost({ caption, music, audience, tags: [] });
+    onPost({
+      caption,
+      music,
+      audience,
+      tags: taggedUsers.map((u) => u.username),
+      location: location || undefined,
+      taggedUsers: taggedUsers.map((u) => u.id),
+      commentsEnabled: allowComments,
+      downloadsEnabled: allowDownloads,
+    });
   };
 
   const trimStartPct = trimStartVal / TRIM_W;
@@ -547,18 +598,60 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             </View>
 
             <View style={[styles.postOptionsCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-              {[
-                { icon: "location-outline", label: "Add Location", color: "#F97316" },
-                { icon: "person-add-outline", label: "Tag People", color: "#7C3AED" },
-                { icon: "chatbubbles-outline", label: "Allow Comments", color: "#10B981" },
-                { icon: "download-outline", label: "Allow Downloads", color: "#3B82F6" },
-              ].map((o, i, arr) => (
-                <TouchableOpacity key={o.label} style={[styles.postOptionRow, { borderBottomColor: colors.border }, i === arr.length - 1 && { borderBottomWidth: 0 }]} onPress={() => Alert.alert(o.label, "Coming soon")}>
-                  <Ionicons name={o.icon as any} size={18} color={o.color} />
-                  <Text style={[styles.postOptionText, { color: colors.foreground }]}>{o.label}</Text>
-                  <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
-                </TouchableOpacity>
-              ))}
+              {/* Add Location */}
+              <TouchableOpacity
+                style={[styles.postOptionRow, { borderBottomColor: colors.border }]}
+                onPress={location ? () => setLocation("") : fetchLocation}
+              >
+                <Ionicons name="location-outline" size={18} color="#F97316" />
+                <Text style={[styles.postOptionText, { color: location ? "#F97316" : colors.foreground }]} numberOfLines={1}>
+                  {location || "Add Location"}
+                </Text>
+                {locationLoading
+                  ? <ActivityIndicator size="small" color="#F97316" />
+                  : location
+                    ? <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+                    : <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                }
+              </TouchableOpacity>
+
+              {/* Tag People */}
+              <TouchableOpacity
+                style={[styles.postOptionRow, { borderBottomColor: colors.border }]}
+                onPress={() => setShowTagPicker(true)}
+              >
+                <Ionicons name="person-add-outline" size={18} color="#7C3AED" />
+                <Text style={[styles.postOptionText, { color: taggedUsers.length > 0 ? "#7C3AED" : colors.foreground }]}>
+                  {taggedUsers.length > 0
+                    ? `${taggedUsers.length} ${taggedUsers.length === 1 ? "person" : "people"} tagged`
+                    : "Tag People"}
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+
+              {/* Allow Comments */}
+              <View style={[styles.postOptionRow, { borderBottomColor: colors.border }]}>
+                <Ionicons name="chatbubbles-outline" size={18} color="#10B981" />
+                <Text style={[styles.postOptionText, { color: colors.foreground }]}>Allow Comments</Text>
+                <Switch
+                  value={allowComments}
+                  onValueChange={setAllowComments}
+                  trackColor={{ false: "rgba(255,255,255,0.1)", true: "#10B981" }}
+                  thumbColor="#fff"
+                />
+              </View>
+
+              {/* Allow Downloads */}
+              <View style={[styles.postOptionRow, { borderBottomWidth: 0 }]}>
+                <Ionicons name="download-outline" size={18} color="#3B82F6" />
+                <Text style={[styles.postOptionText, { color: colors.foreground }]}>Allow Downloads</Text>
+                <Switch
+                  value={allowDownloads}
+                  onValueChange={setAllowDownloads}
+                  trackColor={{ false: "rgba(255,255,255,0.1)", true: "#3B82F6" }}
+                  thumbColor="#fff"
+                />
+              </View>
             </View>
 
             <GradientButton onPress={handlePost} title="Post to Gundruk 🔥" loading={posting} />
@@ -572,6 +665,107 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
       {/* ── PICKERS / MODALS ── */}
       <MusicPickerSheet visible={showMusicPicker} onClose={() => setShowMusicPicker(false)} onSelect={(t) => setMusic(t)} selectedTrack={music} />
       <AICaptionSheet visible={showAISheet} loading={aiLoading} captions={aiCaptions} hashtags={aiHashtags} selectedHashtags={selectedHashtags} onSelectCaption={handleSelectCaption} onToggleHashtag={(tag) => setSelectedHashtags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])} onClose={() => setShowAISheet(false)} />
+
+      {/* ── TAG PEOPLE MODAL ── */}
+      <Modal
+        visible={showTagPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTagPicker(false)}
+        statusBarTranslucent
+      >
+        <View style={tagStyles.backdrop}>
+          <View style={[tagStyles.sheet, { backgroundColor: colors.background }]}>
+            <View style={tagStyles.header}>
+              <Text style={[tagStyles.title, { color: colors.foreground }]}>Tag People</Text>
+              <TouchableOpacity onPress={() => setShowTagPicker(false)}>
+                <Ionicons name="close" size={22} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[tagStyles.searchRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+              <TextInput
+                value={tagSearch}
+                onChangeText={async (q) => {
+                  setTagSearch(q);
+                  if (q.trim().length > 0) {
+                    const results = await searchProfiles(q).catch(() => []);
+                    setTagResults(results as TaggedUser[]);
+                  } else {
+                    setTagResults([]);
+                  }
+                }}
+                placeholder="Search by username…"
+                placeholderTextColor={colors.mutedForeground}
+                style={[tagStyles.searchInput, { color: colors.foreground }]}
+                autoFocus
+              />
+            </View>
+
+            {taggedUsers.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 44 }} contentContainerStyle={tagStyles.chipsRow}>
+                {taggedUsers.map((u) => (
+                  <TouchableOpacity
+                    key={u.id}
+                    style={tagStyles.chip}
+                    onPress={() => setTaggedUsers((prev) => prev.filter((x) => x.id !== u.id))}
+                  >
+                    <Text style={tagStyles.chipText}>@{u.username}</Text>
+                    <Ionicons name="close" size={11} color="#fff" />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
+            <FlatList
+              data={tagResults}
+              keyExtractor={(item) => item.id}
+              style={{ maxHeight: 300 }}
+              renderItem={({ item }) => {
+                const isSelected = taggedUsers.some((u) => u.id === item.id);
+                return (
+                  <TouchableOpacity
+                    style={[tagStyles.resultRow, { borderBottomColor: colors.border }]}
+                    onPress={() =>
+                      setTaggedUsers((prev) =>
+                        isSelected ? prev.filter((u) => u.id !== item.id) : [...prev, item]
+                      )
+                    }
+                  >
+                    {item.avatar_url ? (
+                      <Image source={{ uri: item.avatar_url }} style={tagStyles.avatar} />
+                    ) : (
+                      <View style={[tagStyles.avatar, tagStyles.avatarPlaceholder]}>
+                        <Ionicons name="person" size={16} color="rgba(255,255,255,0.4)" />
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[tagStyles.username, { color: colors.foreground }]}>@{item.username}</Text>
+                      {item.full_name ? <Text style={[tagStyles.fullName, { color: colors.mutedForeground }]}>{item.full_name}</Text> : null}
+                    </View>
+                    {isSelected && <Ionicons name="checkmark-circle" size={20} color="#7C3AED" />}
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <Text style={[tagStyles.emptyText, { color: colors.mutedForeground }]}>
+                  {tagSearch.length > 0 ? "No users found" : "Type a username to search"}
+                </Text>
+              }
+            />
+
+            <TouchableOpacity
+              style={tagStyles.doneBtn}
+              onPress={() => setShowTagPicker(false)}
+            >
+              <LinearGradient colors={["#7C3AED", "#6D28D9"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={tagStyles.doneBtnGrad}>
+                <Text style={tagStyles.doneBtnText}>Done{taggedUsers.length > 0 ? ` (${taggedUsers.length})` : ""}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <View style={{ display: showTextModal ? "flex" : "none" }}>
         <View style={styles.textModalBackdrop}>
@@ -704,4 +898,25 @@ const styles = StyleSheet.create({
   stickerGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   stickerItem: { width: 52, height: 52, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center" },
   stickerEmoji: { fontSize: 28 },
+});
+
+const tagStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingBottom: 36, maxHeight: "80%" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 18 },
+  title: { fontSize: 17, fontFamily: "Poppins_700Bold" },
+  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Poppins_400Regular", padding: 0 },
+  chipsRow: { paddingHorizontal: 16, gap: 8, alignItems: "center", paddingBottom: 8 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#7C3AED", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  chipText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_500Medium" },
+  resultRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  avatarPlaceholder: { backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
+  username: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  fullName: { fontSize: 12, fontFamily: "Poppins_400Regular" },
+  emptyText: { textAlign: "center", fontSize: 14, fontFamily: "Poppins_400Regular", paddingVertical: 24 },
+  doneBtn: { marginHorizontal: 16, marginTop: 16, borderRadius: 16, overflow: "hidden" },
+  doneBtnGrad: { paddingVertical: 15, alignItems: "center" },
+  doneBtnText: { color: "#fff", fontSize: 16, fontFamily: "Poppins_700Bold" },
 });
