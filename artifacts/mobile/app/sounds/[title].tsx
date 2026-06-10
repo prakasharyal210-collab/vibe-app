@@ -26,7 +26,7 @@ function fmt(n: number) {
   return String(n);
 }
 
-interface GridPost { id: string; image_url: string; likes_count: number; is_reel?: boolean; }
+interface GridPost { id: string; image_url?: string; media_url?: string; likes_count: number; is_reel?: boolean; }
 
 export default function SoundsScreen() {
   const { title } = useLocalSearchParams<{ title: string }>();
@@ -44,7 +44,7 @@ export default function SoundsScreen() {
     if (!title) return;
     supabase
       .from("posts")
-      .select("id, image_url, likes_count, is_reel")
+      .select("id, media_url, likes_count, is_reel")
       .eq("music_title", decoded)
       .order("created_at", { ascending: false })
       .limit(60)
@@ -126,7 +126,7 @@ export default function SoundsScreen() {
         renderItem={({ item }) => (
           loading ? null : (
             <TouchableOpacity activeOpacity={0.85} style={{ position: "relative" }}>
-              <Image source={{ uri: item.image_url }} style={styles.gridImg} resizeMode="cover" />
+              <Image source={{ uri: item.media_url ?? item.image_url }} style={styles.gridImg} resizeMode="cover" />
               {item.is_reel && (
                 <View style={styles.reelBadge}><Ionicons name="play" size={11} color="#fff" /></View>
               )}

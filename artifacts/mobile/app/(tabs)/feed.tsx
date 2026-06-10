@@ -261,7 +261,7 @@ const whyStyles = StyleSheet.create({
 });
 
 
-function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts: { id: string; image_url: string; likes_count: number }[]; colors: any; title?: string }) {
+function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts: { id: string; image_url?: string; media_url?: string; likes_count: number }[]; colors: any; title?: string }) {
   const ITEM = (W - 4) / 3;
   function fmt(n: number) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -282,7 +282,7 @@ function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts:
             onPress={() => router.push(`/post/${p.id}` as any)}
             style={{ position: "relative" }}
           >
-            <Image source={{ uri: p.image_url }} style={{ width: ITEM, height: ITEM }} resizeMode="cover" />
+            <Image source={{ uri: p.media_url ?? p.image_url }} style={{ width: ITEM, height: ITEM }} resizeMode="cover" />
             <View style={{ position: "absolute", bottom: 4, left: 5, flexDirection: "row", alignItems: "center", gap: 6 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
                 <Text style={{ fontSize: 9 }}>❤️</Text>
@@ -367,7 +367,7 @@ export default function FeedScreen() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { notifCount: rtNotifCount, messageCount: rtMsgCount, clearNotifBadge, clearMessageBadge } = useRealtime();
-  const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url: string; likes_count: number }[]>([]);
+  const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url?: string; media_url?: string; likes_count: number }[]>([]);
 
   const pagerRef = useRef<ScrollView>(null);
   const mainTabSwipe = useMainTabSwipe("feed");
@@ -469,7 +469,7 @@ export default function FeedScreen() {
     if (!fyState.loading && fyState.posts.length === 0) {
       (async () => {
         try {
-          const { data } = await supabase.from("posts").select("id, image_url, likes_count")
+          const { data } = await supabase.from("posts").select("id, media_url, likes_count")
             .order("likes_count", { ascending: false })
             .limit(9);
           setTrendingPosts(data?.length ? data : MOCK_TRENDING_GRID);

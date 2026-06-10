@@ -351,7 +351,7 @@ export default function ProfileScreen() {
       try {
         const { data } = await supabase
           .from("post_tags")
-          .select("posts(id, image_url, caption, likes_count, comments_count)")
+          .select("posts(id, media_url, caption, likes_count, comments_count)")
           .eq("tagged_user_id", uid)
           .limit(30);
         if (data && data.length > 0) {
@@ -361,7 +361,7 @@ export default function ProfileScreen() {
               .filter(Boolean)
               .map((p: any) => ({
                 id: p.id,
-                image_url: p.image_url,
+                image_url: p.media_url ?? p.image_url,
                 isReel: false,
                 likes: p.likes_count ?? 0,
                 comments: p.comments_count ?? 0,

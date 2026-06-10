@@ -26,7 +26,7 @@ function fmt(n: number) {
   return String(n);
 }
 
-interface GridPost { id: string; image_url: string; likes_count: number; is_reel?: boolean; }
+interface GridPost { id: string; image_url?: string; media_url?: string; likes_count: number; is_reel?: boolean; }
 
 export default function HashtagScreen() {
   const { tag } = useLocalSearchParams<{ tag: string }>();
@@ -46,7 +46,7 @@ export default function HashtagScreen() {
       try {
         const { data, count: c } = await supabase
           .from("posts")
-          .select("id, image_url, likes_count, is_reel", { count: "exact" })
+          .select("id, media_url, likes_count, is_reel", { count: "exact" })
           .ilike("caption", `%#${tag}%`)
           .order("created_at", { ascending: false })
           .limit(60);
@@ -110,7 +110,7 @@ export default function HashtagScreen() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           renderItem={({ item }) => (
             <TouchableOpacity activeOpacity={0.85} style={{ position: "relative" }}>
-              <Image source={{ uri: item.image_url }} style={styles.gridImg} resizeMode="cover" />
+              <Image source={{ uri: item.media_url ?? item.image_url }} style={styles.gridImg} resizeMode="cover" />
               {item.is_reel && (
                 <View style={styles.reelBadge}><Ionicons name="play" size={11} color="#fff" /></View>
               )}

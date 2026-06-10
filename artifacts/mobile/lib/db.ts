@@ -381,7 +381,7 @@ export async function fetchNotifications(userId: string): Promise<Notification[]
   try {
     const { data, error } = await supabase
       .from("notifications")
-      .select("*, profiles:actor_id(username, avatar_url), posts:post_id(image_url)")
+      .select("*, profiles:actor_id(username, avatar_url), posts:post_id(media_url)")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(30);
@@ -393,7 +393,7 @@ export async function fetchNotifications(userId: string): Promise<Notification[]
         text: notifText(n.type, n.message),
         time: timeAgoShort(n.created_at),
         read: n.read ?? false,
-        post_image: n.posts?.image_url ?? undefined,
+        post_image: n.posts?.media_url ?? undefined,
       }));
     }
   } catch {}
@@ -1346,10 +1346,9 @@ export async function uploadPostMedia(
       console.log('Storage fetch/upload failed:', storageErr);
     }
 
-    // Build insert payload — include new fields if they exist in the schema
+    // Build insert payload — media_url is the canonical column name in Supabase
     const fullPayload: Record<string, unknown> = {
       user_id: userId,
-      image_url: mediaUrl,
       media_url: mediaUrl,
       caption,
       likes_count: 0,
@@ -1368,7 +1367,6 @@ export async function uploadPostMedia(
       console.log('Post insert (full) error:', error.message, '— retrying minimal insert');
       const minimalPayload = {
         user_id: userId,
-        image_url: mediaUrl,
         media_url: mediaUrl,
         caption,
         likes_count: 0,

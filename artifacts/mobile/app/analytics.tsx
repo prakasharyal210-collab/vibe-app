@@ -87,7 +87,7 @@ export default function AnalyticsScreen() {
         supabase.from("likes").select("id", { count: "exact" }).eq("user_id", uid).gte("created_at", cutoff),
         supabase.from("comments").select("id", { count: "exact" }).eq("user_id", uid).gte("created_at", cutoff),
         supabase.from("follows").select("id", { count: "exact" }).eq("following_id", uid).gte("created_at", cutoff),
-        supabase.from("posts").select("id, image_url, likes_count, comments_count, caption").eq("user_id", uid).order("likes_count", { ascending: false }).limit(5),
+        supabase.from("posts").select("id, media_url, likes_count, comments_count, caption").eq("user_id", uid).order("likes_count", { ascending: false }).limit(5),
       ]);
 
       const likes = likesRes.status === "fulfilled" ? (likesRes.value.count ?? 0) : Math.floor(Math.random() * 800) + 100;
@@ -105,7 +105,7 @@ export default function AnalyticsScreen() {
 
       setTopPosts(posts.map((p: any) => ({
         id: p.id,
-        image_url: p.image_url ?? "",
+        image_url: p.media_url ?? "",
         likes: p.likes_count ?? 0,
         comments: p.comments_count ?? 0,
         caption: p.caption ?? "",
