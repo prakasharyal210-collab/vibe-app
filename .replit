@@ -26,6 +26,10 @@ EXPO_PUBLIC_SUPABASE_URL = "https://tatroqgcyebuqqkhmvpa.supabase.co"
 EXPO_PUBLIC_SUPABASE_ANON_KEY = "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF"
 
 [[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
 localPort = 8080
 externalPort = 8080
 

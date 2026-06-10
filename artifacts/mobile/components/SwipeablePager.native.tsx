@@ -1,6 +1,7 @@
-import React, { forwardRef } from "react";
-import PagerView from "react-native-pager-view";
-import { StyleProp, ViewStyle } from "react-native";
+import React, { forwardRef, useImperativeHandle, useRef } from "react";
+import { Dimensions, ScrollView, StyleProp, View, ViewStyle } from "react-native";
+
+const W = Dimensions.get("window").width;
 
 export type SwipeablePagerRef = {
   setPage: (page: number) => void;
@@ -16,22 +17,50 @@ type Props = {
 
 const SwipeablePager = forwardRef<SwipeablePagerRef, Props>(
   ({ style, initialPage = 0, children, onPageScroll, onPageSelected }, ref) => {
-    const pagerRef = React.useRef<PagerView>(null);
+    const scrollRef = useRef<ScrollView>(null);
+    const currentPage = useRef(initialPage);
+    const count = React.Children.count(children);
 
-    React.useImperativeHandle(ref, () => ({
-      setPage: (page: number) => pagerRef.current?.setPage(page),
+    useImperativeHandle(ref, () => ({
+      setPage: (page: number) => {
+        const clamped = Math.max(0, Math.min(page, count - 1));
+        scrollRef.current?.scrollTo({ x: clamped * W, animated: true });
+        onPageScroll?.({ nativeEvent: { position: clamped, offset: 0 } });
+        onPageSelected?.({ nativeEvent: { position: clamped } });
+        currentPage.current = clamped;
+      },
     }));
 
     return (
-      <PagerView
-        ref={pagerRef}
-        style={style as any}
-        initialPage={initialPage}
-        onPageScroll={onPageScroll as any}
-        onPageSelected={onPageSelected as any}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        style={style}
+        contentOffset={{ x: initialPage * W, y: 0 }}
+        scrollEventThrottle={16}
+        onScroll={(e) => {
+          const x = e.nativeEvent.contentOffset.x;
+          const position = Math.floor(x / W);
+          const offset = x / W - position;
+          onPageScroll?.({ nativeEvent: { position, offset } });
+        }}
+        onMomentumScrollEnd={(e) => {
+          const x = e.nativeEvent.contentOffset.x;
+          const page = Math.round(x / W);
+          if (page !== currentPage.current) {
+            currentPage.current = page;
+            onPageSelected?.({ nativeEvent: { position: page } });
+          }
+        }}
       >
-        {children}
-      </PagerView>
+        {React.Children.map(children, (child, i) => (
+          <View key={i} style={{ width: W, overflow: "hidden" }}>
+            {child}
+          </View>
+        ))}
+      </ScrollView>
     );
   }
 );
