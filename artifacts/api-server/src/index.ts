@@ -2,11 +2,13 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { createClient } from "@supabase/supabase-js";
 
-async function ensureStorageBuckets() {
+async function ensureSupabaseSetup() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!serviceKey) return;
   const sb = createClient(url, serviceKey);
+
+  // Ensure storage buckets exist
   for (const bucket of ["posts", "reels", "media", "avatars"]) {
     const { error } = await sb.storage.createBucket(bucket, { public: true });
     if (error && !error.message.includes("already exists")) {
@@ -14,6 +16,30 @@ async function ensureStorageBuckets() {
     } else if (!error) {
       logger.info({ bucket }, "Created storage bucket");
     }
+  }
+
+  // Ensure image_url column exists on posts (alias for media_url)
+  const { error: colErr } = await sb.rpc("exec_ddl" as any, {
+    ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url TEXT",
+  });
+  if (!colErr) {
+    // backfill and add sync trigger
+    await sb.rpc("exec_ddl" as any, {
+      ddl: "UPDATE posts SET image_url = media_url WHERE image_url IS NULL AND media_url IS NOT NULL",
+    });
+    await sb.rpc("exec_ddl" as any, {
+      ddl: `CREATE OR REPLACE FUNCTION sync_posts_image_url()
+        RETURNS TRIGGER LANGUAGE plpgsql AS $$
+        BEGIN IF NEW.media_url IS NOT NULL THEN NEW.image_url := NEW.media_url; END IF; RETURN NEW; END; $$`,
+    });
+    await sb.rpc("exec_ddl" as any, {
+      ddl: "DROP TRIGGER IF EXISTS trg_sync_posts_image_url ON posts",
+    });
+    await sb.rpc("exec_ddl" as any, {
+      ddl: `CREATE TRIGGER trg_sync_posts_image_url BEFORE INSERT OR UPDATE ON posts
+        FOR EACH ROW EXECUTE FUNCTION sync_posts_image_url()`,
+    });
+    logger.info("posts.image_url column and trigger applied");
   }
 }
 
@@ -38,7 +64,7 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
-  ensureStorageBuckets().catch((e) =>
-    logger.warn({ err: e }, "ensureStorageBuckets failed")
+  ensureSupabaseSetup().catch((e) =>
+    logger.warn({ err: e }, "ensureSupabaseSetup failed")
   );
 });
