@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
 import { claimDailyReward, getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
@@ -240,24 +241,33 @@ function CreateIcon() {
 function ClassicTabLayout({
   findVibeLocked,
   onLockedTabPress,
+  isLoggedIn,
+  onGuestTabPress,
 }: {
   findVibeLocked: boolean;
   onLockedTabPress: () => void;
+  isLoggedIn: boolean;
+  onGuestTabPress: () => void;
 }) {
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
 
-  // Use a ref so the listeners function always reads the latest value without
-  // relying on React Navigation to re-subscribe on every prop change.
+  // Use refs so listeners always read the latest values without stale closures
   const lockedRef = useRef(findVibeLocked);
   lockedRef.current = findVibeLocked;
 
   const onLockedRef = useRef(onLockedTabPress);
   onLockedRef.current = onLockedTabPress;
 
+  const isLoggedInRef = useRef(isLoggedIn);
+  isLoggedInRef.current = isLoggedIn;
+
+  const onGuestRef = useRef(onGuestTabPress);
+  onGuestRef.current = onGuestTabPress;
+
   return (
     <Tabs
-      initialRouteName="feed"
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: theme.primary,
@@ -303,6 +313,14 @@ function ClassicTabLayout({
       />
       <Tabs.Screen
         name="create"
+        listeners={() => ({
+          tabPress: (e) => {
+            if (!isLoggedInRef.current) {
+              e.preventDefault();
+              onGuestRef.current();
+            }
+          },
+        })}
         options={{
           title: "",
           tabBarIcon: () => <CreateIcon />,
@@ -310,10 +328,13 @@ function ClassicTabLayout({
       />
       <Tabs.Screen
         name="find"
-        listeners={({ navigation }) => ({
+        listeners={() => ({
           tabPress: (e) => {
-            // Always reads the latest value via ref — no stale closure
-            console.log('[FindVibe Tab] tabPress fired, lockedRef.current =', lockedRef.current);
+            if (!isLoggedInRef.current) {
+              e.preventDefault();
+              onGuestRef.current();
+              return;
+            }
             if (lockedRef.current) {
               e.preventDefault();
               onLockedRef.current();
@@ -337,6 +358,14 @@ function ClassicTabLayout({
       />
       <Tabs.Screen
         name="profile"
+        listeners={() => ({
+          tabPress: (e) => {
+            if (!isLoggedInRef.current) {
+              e.preventDefault();
+              onGuestRef.current();
+            }
+          },
+        })}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon iconName={focused ? "person" : "person-outline"} label="Profile" focused={focused} color={color} isIOS={isIOS} sfActive="person.fill" sfDefault="person" />
@@ -377,12 +406,14 @@ async function readLockState(userId: string): Promise<boolean> {
 export default function TabLayout() {
   const { session } = useAuth();
   const userId = session?.user?.id;
+  const isLoggedIn = !!userId;
   const [rewardCoins, setRewardCoins] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   // Default to locked until we read the stored preference
   const [findVibeLocked, setFindVibeLocked] = useState(true);
   const [showLockedSheet, setShowLockedSheet] = useState(false);
+  const [showGuestSheet, setShowGuestSheet] = useState(false);
   const claimedRef = useRef(false);
   const onboardingRef = useRef(false);
 
@@ -471,6 +502,8 @@ export default function TabLayout() {
         <ClassicTabLayout
           findVibeLocked={findVibeLocked}
           onLockedTabPress={() => setShowLockedSheet(true)}
+          isLoggedIn={isLoggedIn}
+          onGuestTabPress={() => setShowGuestSheet(true)}
         />
       )}
       <RewardToast coins={rewardCoins} visible={showToast} />
@@ -478,6 +511,11 @@ export default function TabLayout() {
       <FindVibeLockedSheet
         visible={showLockedSheet}
         onClose={() => setShowLockedSheet(false)}
+      />
+      <LoginPrompt
+        visible={showGuestSheet}
+        onClose={() => setShowGuestSheet(false)}
+        message="Sign up to like, comment and more"
       />
     </>
   );

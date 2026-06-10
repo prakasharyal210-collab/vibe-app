@@ -31,12 +31,15 @@ const OTA_READY_KEY = "ota_ready";
 function RootLayoutNav() {
   const { session, loading } = useAuth();
 
-  // Auth guard: whenever session disappears (logout or token expiry),
-  // replace the entire navigation stack with the login screen so the
-  // back button cannot return to the authenticated app.
+  // Auth guard: only redirect to login on explicit sign-out (session goes
+  // from non-null → null after having been set). Guests can browse freely.
+  const prevSessionRef = React.useRef<typeof session | undefined>(undefined);
   useEffect(() => {
     if (loading) return;
-    if (!session) {
+    const hadSession = prevSessionRef.current !== undefined && prevSessionRef.current !== null;
+    prevSessionRef.current = session;
+    if (hadSession && !session) {
+      // Signed out — kick back to login
       router.replace("/(auth)/login");
     }
   }, [session, loading]);
