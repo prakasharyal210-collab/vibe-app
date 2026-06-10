@@ -24,7 +24,23 @@ export interface Track {
   bpm: number;
   trimStart: number;
   isFromJamendo?: boolean;
+  isDeezer?: boolean;
+  chartPosition?: number;
 }
+
+export interface DeezerCountryOption {
+  code: string;
+  label: string;
+  flag: string;
+}
+
+export const DEEZER_COUNTRIES: DeezerCountryOption[] = [
+  { code: "0",  label: "Global", flag: "🌍" },
+  { code: "US", label: "USA",    flag: "🇺🇸" },
+  { code: "IN", label: "India",  flag: "🇮🇳" },
+  { code: "GB", label: "UK",     flag: "🇬🇧" },
+  { code: "NP", label: "Nepal",  flag: "🇳🇵" },
+];
 
 const JAMENDO_CLIENT_ID = "b6747d04";
 const JAMENDO_BASE = "https://api.jamendo.com/v3.0/tracks/";
@@ -162,6 +178,74 @@ export async function saveTrackToSupabase(track: Track, category: string): Promi
 
 export async function fetchTrendingSounds(limit = 20): Promise<Track[]> {
   return fetchTracksFromJamendo("Trending");
+}
+
+// ─── Deezer chart fetcher ──────────────────────────────────────────────────────
+
+interface DeezerApiTrack {
+  id: number;
+  title: string;
+  artist: { name: string; picture_medium: string };
+  album: { title: string; cover_medium: string };
+  preview: string;
+  duration: number;
+  rank: number;
+  position: number;
+}
+
+function deezerToTrack(dt: DeezerApiTrack, position: number): Track {
+  return {
+    id: `deezer_${dt.id}`,
+    title: dt.title,
+    artist: dt.artist.name,
+    durationSecs: dt.duration,
+    previewUrl: dt.preview,
+    coverUrl: dt.album.cover_medium || dt.artist.picture_medium || undefined,
+    coverColor: "#F97316",
+    category: "Trending",
+    usedInReels: Math.round(dt.rank / 1000),
+    bpm: 0,
+    trimStart: 0,
+    isDeezer: true,
+    chartPosition: position,
+  };
+}
+
+export async function fetchDeezerChart(countryCode: string): Promise<Track[]> {
+  const cacheKey = `deezer_chart_${countryCode}`;
+  const CACHE_TTL_DEEZER = 15 * 60 * 1000;
+
+  const mem = memCache.get(cacheKey);
+  if (mem && Date.now() - mem.ts < CACHE_TTL_DEEZER) return mem.data;
+
+  try {
+    const stored = await AsyncStorage.getItem(cacheKey);
+    if (stored) {
+      const parsed = JSON.parse(stored) as { data: Track[]; ts: number };
+      if (Date.now() - parsed.ts < CACHE_TTL_DEEZER) {
+        memCache.set(cacheKey, parsed);
+        return parsed.data;
+      }
+    }
+  } catch {}
+
+  try {
+    const url = countryCode === "0"
+      ? "https://api.deezer.com/chart/0/tracks?limit=50"
+      : `https://api.deezer.com/chart/${countryCode}/tracks?limit=50`;
+
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`Deezer ${res.status}`);
+    const json = await res.json() as { data?: DeezerApiTrack[] };
+    const tracks = (json.data ?? []).map((dt, i) => deezerToTrack(dt, i + 1));
+
+    const entry = { data: tracks, ts: Date.now() };
+    memCache.set(cacheKey, entry);
+    AsyncStorage.setItem(cacheKey, JSON.stringify(entry)).catch(() => {});
+    return tracks;
+  } catch {
+    return getTracksByCategory("Trending");
+  }
 }
 
 export const MUSIC_CATEGORIES: { key: MusicCategory; icon: string }[] = [

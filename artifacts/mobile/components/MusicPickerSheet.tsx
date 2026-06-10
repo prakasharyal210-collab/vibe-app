@@ -17,10 +17,12 @@ import {
   View,
 } from "react-native";
 import {
+  DEEZER_COUNTRIES,
   MUSIC_CATEGORIES,
   MusicCategory,
   Track,
   TRACKS,
+  fetchDeezerChart,
   fetchTracksFromJamendo,
   searchTracksOnJamendo,
   saveTrackToSupabase,
@@ -82,13 +84,13 @@ function WaveAnimation({ playing }: { playing: boolean }) {
 export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: Props) {
   const colors = useColors();
   const [category, setCategory] = useState<MusicCategory | "Favorites">("Trending");
+  const [deezerCountry, setDeezerCountry] = useState("0");
   const [search, setSearch] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [playProgress, setPlayProgress] = useState(0);
-  const [trimValue, setTrimValue] = useState(0);
   const [localSelected, setLocalSelected] = useState<Track | null>(selectedTrack);
   const soundRef = useRef<Audio.Sound | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -105,16 +107,14 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
 
   useEffect(() => {
     loadTracks();
-  }, [category, search]);
+  }, [category, search, deezerCountry]);
 
   useEffect(() => {
     getFavoriteIds().then(setFavoriteIds);
   }, []);
 
   useEffect(() => {
-    return () => {
-      stopSound();
-    };
+    return () => { stopSound(); };
   }, []);
 
   const loadTracks = useCallback(async () => {
@@ -131,11 +131,18 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
       setTracks(TRACKS.filter((t) => ids.includes(t.id)));
       return;
     }
+    if (category === "Trending") {
+      setLoading(true);
+      const results = await fetchDeezerChart(deezerCountry);
+      setTracks(results);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const results = await fetchTracksFromJamendo(category as MusicCategory);
     setTracks(results);
     setLoading(false);
-  }, [category, search]);
+  }, [category, search, deezerCountry]);
 
   const stopSound = async () => {
     if (progressRef.current) {
@@ -154,10 +161,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   };
 
   const togglePlay = async (track: Track) => {
-    if (playingId === track.id) {
-      await stopSound();
-      return;
-    }
+    if (playingId === track.id) { await stopSound(); return; }
     await stopSound();
     try {
       await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: false });
@@ -179,11 +183,9 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
       progressRef.current = setInterval(() => {
         elapsed += 0.1;
         setPlayProgress(Math.min(elapsed / PREVIEW_DURATION, 1));
-        if (elapsed >= PREVIEW_DURATION) {
-          stopSound();
-        }
+        if (elapsed >= PREVIEW_DURATION) stopSound();
       }, 100);
-    } catch (e) {
+    } catch {
       setPlayingId(null);
     }
   };
@@ -214,6 +216,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
     const isPlaying = playingId === track.id;
     const isSelected = localSelected?.id === track.id;
     const isFav = favoriteIds.includes(track.id);
+    const pos = track.chartPosition;
 
     return (
       <TouchableOpacity
@@ -221,32 +224,44 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
         onPress={() => setLocalSelected(isSelected ? null : track)}
         activeOpacity={0.75}
       >
-        <View style={[styles.trackCover, { backgroundColor: track.coverColor + "33", borderColor: track.coverColor + "55", overflow: "hidden" }]}>
-          {track.coverUrl ? (
-            <>
-              <Image source={{ uri: track.coverUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-              {isPlaying && (
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }]}>
-                  <WaveAnimation playing={true} />
-                </View>
-              )}
-            </>
-          ) : isPlaying ? (
-            <WaveAnimation playing={true} />
-          ) : (
-            <Ionicons name="musical-notes" size={18} color={track.coverColor} />
+        {/* Album cover with optional position badge */}
+        <View style={styles.coverWrapper}>
+          <View style={[styles.trackCover, { backgroundColor: track.coverColor + "33", borderColor: track.coverColor + "55", overflow: "hidden" }]}>
+            {track.coverUrl ? (
+              <>
+                <Image source={{ uri: track.coverUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                {isPlaying && (
+                  <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center" }]}>
+                    <WaveAnimation playing={true} />
+                  </View>
+                )}
+              </>
+            ) : isPlaying ? (
+              <WaveAnimation playing={true} />
+            ) : (
+              <Ionicons name="musical-notes" size={18} color={track.coverColor} />
+            )}
+          </View>
+          {pos != null && pos <= 3 && (
+            <View style={[styles.topBadge, { backgroundColor: pos === 1 ? "#F59E0B" : pos === 2 ? "#9CA3AF" : "#B45309" }]}>
+              <Text style={styles.topBadgeText}>#{pos}</Text>
+            </View>
           )}
         </View>
 
         <View style={styles.trackMeta}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text style={[styles.trackTitle, { color: colors.foreground }]} numberOfLines={1}>
+            {pos != null && pos > 3 && (
+              <Text style={styles.posLabel}>#{pos}</Text>
+            )}
+            <Text style={[styles.trackTitle, { color: colors.foreground, flex: 1 }]} numberOfLines={1}>
               {track.title}
             </Text>
             {isSelected && <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />}
           </View>
-          <Text style={[styles.trackArtist, { color: colors.mutedForeground }]}>
-            {track.artist} · {formatCount(track.usedInReels)} reels
+          <Text style={[styles.trackArtist, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {track.artist}
+            {track.isDeezer ? " · 30s preview" : ` · ${formatCount(track.usedInReels)} reels`}
           </Text>
           {isPlaying && (
             <View style={styles.progressBar}>
@@ -356,6 +371,34 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
           </ScrollView>
         )}
 
+        {/* Country tabs — only visible when Trending is active */}
+        {!search && category === "Trending" && (
+          <View style={styles.trendingHeader}>
+            <Text style={[styles.trendingTitle, { color: colors.foreground }]}>🔥 Trending Now</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 6, paddingTop: 6 }}
+            >
+              {DEEZER_COUNTRIES.map((c) => {
+                const active = deezerCountry === c.code;
+                return (
+                  <TouchableOpacity
+                    key={c.code}
+                    onPress={() => setDeezerCountry(c.code)}
+                    style={[styles.countryPill, active && { backgroundColor: "#F97316", borderColor: "#F97316" }]}
+                  >
+                    <Text style={styles.countryFlag}>{c.flag}</Text>
+                    <Text style={[styles.countryLabel, { color: active ? "#fff" : colors.mutedForeground }]}>
+                      {c.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         {localSelected && (
           <View style={[styles.selectedBar, { backgroundColor: "#7C3AED" + "22", borderColor: "#7C3AED" + "44" }]}>
             <Ionicons name="musical-notes" size={16} color="#7C3AED" />
@@ -373,8 +416,10 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
 
         {loading ? (
           <View style={[styles.emptyState, { gap: 16 }]}>
-            <ActivityIndicator size="large" color="#7C3AED" />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>Finding tracks on Jamendo…</Text>
+            <ActivityIndicator size="large" color="#F97316" />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+              {category === "Trending" ? "Loading Deezer charts…" : "Finding tracks…"}
+            </Text>
           </View>
         ) : tracks.length === 0 ? (
           <View style={styles.emptyState}>
@@ -401,7 +446,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
   sheet: {
     position: "absolute", bottom: 0, left: 0, right: 0,
-    height: H * 0.82,
+    height: H * 0.85,
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     overflow: "hidden",
   },
@@ -435,6 +480,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.07)",
   },
   catText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  // Trending / Deezer section
+  trendingHeader: {
+    paddingHorizontal: 16, paddingBottom: 8, paddingTop: 4,
+  },
+  trendingTitle: { fontSize: 14, fontFamily: "Poppins_700Bold" },
+  countryPill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
+    borderWidth: 1, borderColor: "rgba(249,115,22,0.3)",
+    backgroundColor: "rgba(249,115,22,0.08)",
+  },
+  countryFlag: { fontSize: 14 },
+  countryLabel: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  // Selected bar
   selectedBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
     marginHorizontal: 16, marginBottom: 6, marginTop: 4,
@@ -442,15 +501,24 @@ const styles = StyleSheet.create({
   },
   selectedBarTitle: { color: "#7C3AED", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   selectedBarSub: { color: "#A78BFA", fontSize: 11, fontFamily: "Poppins_400Regular" },
+  // Track row
   trackRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, marginHorizontal: 8, marginVertical: 2,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, marginHorizontal: 8, marginVertical: 2,
   },
+  coverWrapper: { position: "relative" },
   trackCover: {
-    width: 44, height: 44, borderRadius: 12,
+    width: 46, height: 46, borderRadius: 12,
     alignItems: "center", justifyContent: "center", borderWidth: 1,
   },
+  topBadge: {
+    position: "absolute", bottom: -4, right: -4,
+    borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1,
+    minWidth: 20, alignItems: "center",
+  },
+  topBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Poppins_700Bold" },
   trackMeta: { flex: 1, gap: 2 },
+  posLabel: { color: "#F97316", fontSize: 11, fontFamily: "Poppins_700Bold", minWidth: 24 },
   trackTitle: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
   trackArtist: { fontSize: 12, fontFamily: "Poppins_400Regular" },
   progressBar: {
