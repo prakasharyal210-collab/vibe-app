@@ -41,6 +41,9 @@ export function LoginPrompt({ visible, onClose, message }: LoginPromptProps) {
           style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
         >
           <View style={styles.handle} />
+          <TouchableOpacity style={styles.closeBtn} onPress={onClose} hitSlop={8}>
+            <Text style={styles.closeX}>✕</Text>
+          </TouchableOpacity>
 
           <Text style={styles.emoji}>✨</Text>
           <Text style={[styles.title, { color: colors.foreground }]}>
@@ -148,5 +151,22 @@ const styles = StyleSheet.create({
   skipText: {
     fontSize: 13,
     fontFamily: "Poppins_400Regular",
+  },
+  closeBtn: {
+    position: "absolute",
+    top: 16,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#333",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
+  closeX: {
+    color: "#fff",
+    fontSize: 14,
+    lineHeight: 16,
   },
 });
