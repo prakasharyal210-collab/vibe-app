@@ -6,13 +6,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  Animated as RNAnimated,
+  Animated,
   FlatList,
-  Image,
-  Modal,
+  PanResponder,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -42,33 +42,62 @@ import {
 } from "@/lib/snap";
 import { Conversation, supabase, timeAgo } from "@/lib/supabase";
 
-type FilterTab = "all" | "unread" | "stories" | "groups";
+type MainTab = "chats" | "snaps" | "calls";
+type ChatFilter = "all" | "unread" | "favorites" | "groups";
+type SnapFilter = "all" | "received" | "sent" | "opened";
 type ConvoStatus = "new_snap" | "new_chat" | "snap_delivered" | "chat_delivered" | "opened";
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+async function fetchStreaks(userId: string): Promise<Map<string, number>> {
+  try {
+    const { data } = await supabase
+      .from("snap_streaks")
+      .select("user1_id, user2_id, streak_count")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+    const map = new Map<string, number>();
+    (data ?? []).forEach((row: any) => {
+      const otherId = row.user1_id === userId ? row.user2_id : row.user1_id;
+      map.set(otherId, row.streak_count ?? 0);
+    });
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function previewText(text: string): string {
+  if (!text) return "";
+  if (isSnap(text)) return "📷 Photo";
+  return text.length > 42 ? text.slice(0, 42) + "…" : text;
+}
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 
 function useToast() {
   const [message, setMessage] = useState("");
-  const opacity = useRef(new RNAnimated.Value(0)).current;
-
+  const opacity = useRef(new Animated.Value(0)).current;
   const show = (msg: string) => {
     setMessage(msg);
     opacity.setValue(0);
-    RNAnimated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }).start();
-    setTimeout(() => RNAnimated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(), 2400);
+    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    setTimeout(() => Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(), 2400);
   };
-
   const ToastView = message ? (
-    <RNAnimated.View style={[toastSt.wrap, { opacity }]} pointerEvents="none">
+    <Animated.View style={[toastSt.wrap, { opacity }]} pointerEvents="none">
       <Text style={toastSt.text}>{message}</Text>
-    </RNAnimated.View>
+    </Animated.View>
   ) : null;
-
   return { show, ToastView };
 }
 
 const toastSt = StyleSheet.create({
-  wrap: { position: "absolute", bottom: 28, left: 20, right: 20, backgroundColor: "rgba(30,12,50,0.95)", borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, alignItems: "center", zIndex: 9999, borderWidth: 1, borderColor: "rgba(124,58,237,0.3)" },
+  wrap: {
+    position: "absolute", bottom: 90, left: 20, right: 20,
+    backgroundColor: "rgba(15,10,30,0.97)", borderRadius: 14,
+    paddingVertical: 12, paddingHorizontal: 18, alignItems: "center",
+    zIndex: 9999, borderWidth: 1, borderColor: "rgba(124,58,237,0.35)",
+  },
   text: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
 });
 
@@ -76,21 +105,23 @@ const toastSt = StyleSheet.create({
 
 function StatusBox({ status, time }: { status: ConvoStatus; time: string }) {
   const isSnapType = status === "new_snap" || status === "snap_delivered";
-  const color = status === "opened" ? "#6B7280" : isSnapType ? "#EF4444" : "#3B82F6";
+  const color =
+    status === "opened" ? "#6B7280" :
+    status === "new_chat" || status === "chat_delivered" ? "#3B82F6" :
+    "#EF4444";
   const isFilled = status === "new_snap" || status === "new_chat";
   const label =
     status === "new_snap" ? "New Snap" :
     status === "new_chat" ? "New Chat" :
-    (status === "snap_delivered" || status === "chat_delivered") ? "Delivered" :
+    status === "snap_delivered" || status === "chat_delivered" ? "Delivered" :
     "Opened";
-
   return (
     <View style={stSt.wrap}>
       {isFilled ? (
         <View style={[stSt.square, { backgroundColor: color }]} />
       ) : (
         <View style={[stSt.squareOutline, { borderColor: color }]}>
-          <Ionicons name="arrow-forward" size={7} color={color} />
+          <Ionicons name="arrow-forward" size={6} color={color} />
         </View>
       )}
       <Text style={[stSt.label, { color }]}>{label}</Text>
@@ -116,76 +147,239 @@ function StoryRingAvatar({
 }: {
   username: string; url?: string | null; size: number; hasStory: boolean; onPress: () => void;
 }) {
-  const avatar = <UserAvatar username={username} url={url} size={size} />;
-  if (!hasStory) {
-    return <TouchableOpacity onPress={onPress} activeOpacity={0.85}>{avatar}</TouchableOpacity>;
-  }
+  const inner = <UserAvatar username={username} url={url} size={size} />;
+  if (!hasStory) return <TouchableOpacity onPress={onPress} activeOpacity={0.85}>{inner}</TouchableOpacity>;
   const ring = size + 7;
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
-      <LinearGradient
-        colors={["#7C3AED", "#EC4899", "#F97316"]}
-        start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
-        style={{ width: ring, height: ring, borderRadius: ring / 2, alignItems: "center", justifyContent: "center" }}
-      >
+      <LinearGradient colors={["#7C3AED", "#EC4899", "#F97316"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }}
+        style={{ width: ring, height: ring, borderRadius: ring / 2, alignItems: "center", justifyContent: "center" }}>
         <View style={{ borderRadius: (size + 3) / 2, borderWidth: 2.5, borderColor: "#0A0A0F" }}>
-          {avatar}
+          {inner}
         </View>
       </LinearGradient>
     </TouchableOpacity>
   );
 }
 
-// ─── ConversationItem ─────────────────────────────────────────────────────────
+// ─── SwipeableRow ─────────────────────────────────────────────────────────────
 
-function ConversationItem({
-  convo, isPinned, hasStory, onCamera, onLongPress,
+function SwipeableRow({
+  children, onDelete, onArchive, onMute,
 }: {
-  convo: Conversation; isPinned: boolean; hasStory: boolean;
+  children: React.ReactNode;
+  onDelete?: () => void;
+  onArchive?: () => void;
+  onMute?: () => void;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const OPEN_X = -104;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 6 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.9,
+      onPanResponderGrant: () => { translateX.stopAnimation(); },
+      onPanResponderMove: (_, gs) => {
+        const x = Math.max(Math.min(gs.dx, 0), OPEN_X - 20);
+        translateX.setValue(x);
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dx < OPEN_X / 2) {
+          Animated.spring(translateX, { toValue: OPEN_X, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+        } else {
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+        }
+      },
+    })
+  ).current;
+
+  const close = () =>
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+
+  const actionWidth = 104 / ([onMute, onArchive, onDelete].filter(Boolean).length || 1);
+
+  return (
+    <View style={{ overflow: "hidden" }}>
+      <View style={[StyleSheet.absoluteFill, { flexDirection: "row", justifyContent: "flex-end" }]}>
+        {onMute && (
+          <TouchableOpacity onPress={() => { close(); onMute(); }}
+            style={[swipeSt.action, { backgroundColor: "#6B7280", width: actionWidth }]}>
+            <Ionicons name="notifications-off-outline" size={19} color="#fff" />
+            <Text style={swipeSt.actionLabel}>Mute</Text>
+          </TouchableOpacity>
+        )}
+        {onArchive && (
+          <TouchableOpacity onPress={() => { close(); onArchive(); }}
+            style={[swipeSt.action, { backgroundColor: "#374151", width: actionWidth }]}>
+            <Ionicons name="archive-outline" size={19} color="#fff" />
+            <Text style={swipeSt.actionLabel}>Archive</Text>
+          </TouchableOpacity>
+        )}
+        {onDelete && (
+          <TouchableOpacity onPress={() => { close(); onDelete(); }}
+            style={[swipeSt.action, { backgroundColor: "#EF4444", width: actionWidth }]}>
+            <Ionicons name="trash-outline" size={19} color="#fff" />
+            <Text style={swipeSt.actionLabel}>Delete</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX }] }}>
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
+
+const swipeSt = StyleSheet.create({
+  action: { alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 6 },
+  actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 10 },
+});
+
+// ─── GundrukAIRow ─────────────────────────────────────────────────────────────
+
+function GundrukAIRow({ borderColor }: { borderColor: string }) {
+  return (
+    <TouchableOpacity
+      onPress={() => router.push("/ai-chat" as any)}
+      style={[msgSt.row, { borderBottomColor: borderColor }]}
+      activeOpacity={0.75}
+    >
+      <LinearGradient
+        colors={["#4C1D95", "#7C3AED"]}
+        style={msgSt.aiAvatar}
+      >
+        <Text style={{ fontSize: 22 }}>🤖</Text>
+      </LinearGradient>
+      <View style={msgSt.rowBody}>
+        <View style={msgSt.rowTop}>
+          <Text style={msgSt.nameAI} numberOfLines={1}>Gundruk AI</Text>
+          <Text style={msgSt.timeText}>Always on</Text>
+        </View>
+        <Text style={msgSt.previewAI} numberOfLines={1}>
+          Ask me anything — captions, bio, date ideas…
+        </Text>
+      </View>
+      <View style={msgSt.aiBadge}>
+        <Text style={msgSt.aiBadgeText}>AI</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const msgSt = StyleSheet.create({
+  row: {
+    flexDirection: "row", alignItems: "center", paddingHorizontal: 16,
+    paddingVertical: 13, gap: 12, borderBottomWidth: 0.5,
+  },
+  aiAvatar: {
+    width: 52, height: 52, borderRadius: 26, alignItems: "center",
+    justifyContent: "center", borderWidth: 2, borderColor: "#7C3AED",
+  },
+  rowBody: { flex: 1, minWidth: 0 },
+  rowTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
+  nameUnread: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14.5 },
+  nameMuted: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_500Medium", fontSize: 14.5 },
+  nameAI: { color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 14.5 },
+  timeText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_400Regular", fontSize: 11.5 },
+  previewText: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 1 },
+  previewUnread: { color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_500Medium", fontSize: 13, marginTop: 1 },
+  previewAI: { color: "rgba(139,92,246,0.7)", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 1 },
+  aiBadge: {
+    backgroundColor: "rgba(124,58,237,0.2)", borderRadius: 8, borderWidth: 1,
+    borderColor: "rgba(124,58,237,0.4)", paddingHorizontal: 7, paddingVertical: 2,
+  },
+  aiBadgeText: { color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 11 },
+  unreadBadge: {
+    minWidth: 20, height: 20, borderRadius: 10, backgroundColor: "#7C3AED",
+    alignItems: "center", justifyContent: "center", paddingHorizontal: 5,
+  },
+  unreadBadgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 11 },
+  mutedIcon: { marginLeft: 2 },
+  pinnedIcon: { marginLeft: 2 },
+  camBtn: { padding: 6 },
+  tick: { marginLeft: 3, marginBottom: 1 },
+});
+
+// ─── MessageConvoItem ─────────────────────────────────────────────────────────
+
+function MessageConvoItem({
+  convo, isPinned, isMuted, isFavorite, hasStory,
+  onCamera, onLongPress, onDelete, onMute, onArchive,
+}: {
+  convo: Conversation; isPinned: boolean; isMuted: boolean; isFavorite: boolean; hasStory: boolean;
   onCamera: () => void; onLongPress: () => void;
+  onDelete: () => void; onMute: () => void; onArchive: () => void;
 }) {
   const colors = useColors();
   const hasUnread = convo.unread_count > 0;
   const isSnapMsg = isSnap(convo.last_message ?? "");
-  const status: ConvoStatus = hasUnread ? (isSnapMsg ? "new_snap" : "new_chat") : "opened";
+
+  const nameStyle = isMuted ? msgSt.nameMuted : hasUnread ? msgSt.nameUnread : { color: colors.mutedForeground as string, fontFamily: "Poppins_500Medium" as const, fontSize: 14.5 };
 
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
-      onLongPress={onLongPress}
-      delayLongPress={400}
-      style={({ pressed }) => [styles.convoItem, { borderBottomColor: colors.border, opacity: pressed ? 0.75 : 1 }]}
-    >
-      <StoryRingAvatar
-        username={convo.other_user.username}
-        url={convo.other_user.avatar_url}
-        size={50}
-        hasStory={hasStory}
-        onPress={() => hasStory
-          ? router.push(`/profile/${convo.other_user.username}` as any)
-          : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })
-        }
-      />
-      <View style={styles.convoText}>
-        <Text style={[styles.convoName, hasUnread ? styles.convoNameBold : { color: colors.mutedForeground }]}>
-          {isPinned ? "📌 " : ""}{convo.other_user.username}
-        </Text>
-        <StatusBox status={status} time={timeAgo(convo.last_message_at)} />
-      </View>
-      <TouchableOpacity onPress={onCamera} style={rowSt.camBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <Ionicons name="camera-outline" size={22} color={colors.mutedForeground} />
-      </TouchableOpacity>
-    </Pressable>
+    <SwipeableRow onDelete={onDelete} onArchive={onArchive} onMute={onMute}>
+      <Pressable
+        onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
+        onLongPress={onLongPress}
+        delayLongPress={400}
+        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.03)" : "transparent" }]}
+      >
+        <StoryRingAvatar
+          username={convo.other_user.username}
+          url={convo.other_user.avatar_url}
+          size={50}
+          hasStory={hasStory}
+          onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
+        />
+        <View style={msgSt.rowBody}>
+          <View style={msgSt.rowTop}>
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 4 }}>
+              {isPinned && <Text style={{ fontSize: 11 }}>📌</Text>}
+              {isMuted && <Ionicons name="notifications-off" size={12} color="rgba(255,255,255,0.3)" style={msgSt.mutedIcon} />}
+              <Text style={[nameStyle, { flex: 1 }]} numberOfLines={1}>{convo.other_user.username}</Text>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+              {!hasUnread && (
+                <Ionicons
+                  name="checkmark-done"
+                  size={14}
+                  color="rgba(139,92,246,0.7)"
+                  style={msgSt.tick}
+                />
+              )}
+              <Text style={msgSt.timeText}>{timeAgo(convo.last_message_at)}</Text>
+            </View>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text
+              style={[hasUnread ? msgSt.previewUnread : msgSt.previewText, { flex: 1 }]}
+              numberOfLines={1}
+            >
+              {isSnapMsg ? "📷 Photo" : previewText(convo.last_message ?? "")}
+            </Text>
+            {hasUnread && (
+              <View style={msgSt.unreadBadge}>
+                <Text style={msgSt.unreadBadgeText}>{convo.unread_count > 99 ? "99+" : convo.unread_count}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity onPress={onCamera} style={msgSt.camBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="camera-outline" size={21} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      </Pressable>
+    </SwipeableRow>
   );
 }
 
 // ─── SnapConvoItem ────────────────────────────────────────────────────────────
 
-function SnapConvoItem({
-  convo, isPinned, hasStory, onView, onCamera, onLongPress,
+function SnapConvoItemRow({
+  convo, isPinned, hasStory, streak, onView, onCamera, onLongPress, onDelete,
 }: {
-  convo: SnapConversation; isPinned: boolean; hasStory: boolean;
-  onView: () => void; onCamera: () => void; onLongPress: () => void;
+  convo: SnapConversation; isPinned: boolean; hasStory: boolean; streak: number;
+  onView: () => void; onCamera: () => void; onLongPress: () => void; onDelete: () => void;
 }) {
   const colors = useColors();
   const snap = parseSnap(convo.message_text);
@@ -199,40 +393,110 @@ function SnapConvoItem({
   }
 
   return (
-    <Pressable
-      onPress={() => isUnviewedIncoming
-        ? onView()
-        : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })
-      }
-      onLongPress={onLongPress}
-      delayLongPress={400}
-      style={({ pressed }) => [styles.convoItem, { borderBottomColor: colors.border, opacity: pressed ? 0.75 : 1 }]}
-    >
-      <StoryRingAvatar
-        username={convo.other_user.username}
-        url={convo.other_user.avatar_url}
-        size={50}
-        hasStory={hasStory}
-        onPress={() => hasStory
-          ? router.push(`/profile/${convo.other_user.username}` as any)
-          : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })
-        }
-      />
-      <View style={styles.convoText}>
-        <Text style={[styles.convoName, isUnviewedIncoming ? styles.convoNameBold : { color: colors.mutedForeground }]}>
-          {isPinned ? "📌 " : ""}{convo.other_user.username}
-        </Text>
-        <StatusBox status={status} time={timeAgo(convo.created_at)} />
-      </View>
-      <TouchableOpacity onPress={onCamera} style={rowSt.camBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <Ionicons name="camera-outline" size={22} color={colors.mutedForeground} />
-      </TouchableOpacity>
-    </Pressable>
+    <SwipeableRow onDelete={onDelete}>
+      <Pressable
+        onPress={() => isUnviewedIncoming
+          ? onView()
+          : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
+        onLongPress={onLongPress}
+        delayLongPress={400}
+        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.03)" : "transparent" }]}
+      >
+        <StoryRingAvatar
+          username={convo.other_user.username}
+          url={convo.other_user.avatar_url}
+          size={50}
+          hasStory={hasStory}
+          onPress={() => hasStory
+            ? router.push(`/profile/${convo.other_user.username}` as any)
+            : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
+        />
+        <View style={msgSt.rowBody}>
+          <View style={msgSt.rowTop}>
+            <Text
+              style={[isUnviewedIncoming ? msgSt.nameUnread : { color: colors.mutedForeground as string, fontFamily: "Poppins_500Medium" as const, fontSize: 14.5 }, { flex: 1 }]}
+              numberOfLines={1}
+            >
+              {isPinned ? "📌 " : ""}{convo.other_user.username}
+            </Text>
+            {streak > 0 && (
+              <View style={snapRowSt.streakBadge}>
+                <Text style={snapRowSt.streakText}>🔥 {streak}</Text>
+              </View>
+            )}
+          </View>
+          <StatusBox status={status} time={timeAgo(convo.created_at)} />
+        </View>
+        <TouchableOpacity onPress={onCamera} style={msgSt.camBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <LinearGradient colors={["#EA580C", "#DC2626"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={snapRowSt.camBtnGrad}>
+            <Ionicons name="camera" size={16} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+      </Pressable>
+    </SwipeableRow>
   );
 }
 
-const rowSt = StyleSheet.create({
-  camBtn: { padding: 6 },
+const snapRowSt = StyleSheet.create({
+  streakBadge: {
+    backgroundColor: "rgba(249,115,22,0.12)", borderRadius: 10, borderWidth: 1,
+    borderColor: "rgba(249,115,22,0.3)", paddingHorizontal: 7, paddingVertical: 2,
+  },
+  streakText: { color: "#F97316", fontFamily: "Poppins_700Bold", fontSize: 11 },
+  camBtnGrad: { borderRadius: 14, padding: 7, alignItems: "center", justifyContent: "center" },
+});
+
+// ─── StoriesRow ───────────────────────────────────────────────────────────────
+
+function StoriesRow({
+  userId, storiesUsers,
+}: {
+  userId: string;
+  storiesUsers: Array<{ id: string; username: string; avatar_url?: string | null }>;
+}) {
+  const colors = useColors();
+  return (
+    <View style={storySt.wrap}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={storySt.scroll}>
+        {/* My story */}
+        <TouchableOpacity style={storySt.item} activeOpacity={0.8}>
+          <LinearGradient colors={["#1a1a2e", "#2a1a4e"]} style={storySt.addRing}>
+            <View style={storySt.addInner}>
+              <Ionicons name="add" size={22} color="#7C3AED" />
+            </View>
+          </LinearGradient>
+          <Text style={[storySt.label, { color: colors.mutedForeground }]} numberOfLines={1}>My Story</Text>
+        </TouchableOpacity>
+        {/* Other users */}
+        {storiesUsers.map((u) => (
+          <TouchableOpacity
+            key={u.id}
+            style={storySt.item}
+            activeOpacity={0.8}
+            onPress={() => router.push(`/profile/${u.username}` as any)}
+          >
+            <LinearGradient colors={["#7C3AED", "#EC4899", "#F97316"]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={storySt.ring}>
+              <View style={storySt.ringInner}>
+                <UserAvatar username={u.username} url={u.avatar_url} size={50} />
+              </View>
+            </LinearGradient>
+            <Text style={[storySt.label, { color: colors.mutedForeground }]} numberOfLines={1}>{u.username}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const storySt = StyleSheet.create({
+  wrap: { paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.07)" },
+  scroll: { paddingHorizontal: 14, gap: 16 },
+  item: { alignItems: "center", gap: 5, width: 62 },
+  addRing: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "rgba(124,58,237,0.5)" },
+  addInner: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(124,58,237,0.1)", alignItems: "center", justifyContent: "center" },
+  ring: { width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center" },
+  ringInner: { borderRadius: 27, borderWidth: 2.5, borderColor: "#0A0A0F", overflow: "hidden" },
+  label: { fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center", maxWidth: 60 },
 });
 
 // ─── SnapSendSheet ─────────────────────────────────────────────────────────────
@@ -250,7 +514,6 @@ function SnapSendSheet({
   const filtered = conversations.filter((c) =>
     (c.other_user.username ?? "").toLowerCase().includes(search.toLowerCase())
   );
-
   return (
     <View style={[snapSendSt.overlay, { backgroundColor: colors.background }]}>
       <View style={[snapSendSt.header, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
@@ -260,27 +523,25 @@ function SnapSendSheet({
         <Text style={[snapSendSt.title, { color: colors.foreground }]}>Send Snap to…</Text>
         <View style={{ width: 32 }} />
       </View>
-
-      <Image source={{ uri }} style={snapSendSt.preview} resizeMode="cover" />
+      <View style={{ width: "100%", height: 140, backgroundColor: "#1a1a2e", overflow: "hidden" }}>
+        <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
+          <Ionicons name="camera" size={40} color="rgba(234,88,12,0.4)" />
+        </View>
+      </View>
       <View style={snapSendSt.noteRow}>
         <Ionicons name="eye-off-outline" size={13} color="rgba(255,255,255,0.4)" />
         <Text style={snapSendSt.note}>Disappears after the recipient views it once</Text>
       </View>
-
       <View style={[snapSendSt.searchWrap, { borderBottomColor: colors.border }]}>
         <View style={[snapSendSt.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
           <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
           <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search friends…"
-            placeholderTextColor={colors.mutedForeground}
-            style={[snapSendSt.searchInput, { color: colors.foreground }]}
-            autoCapitalize="none"
+            value={search} onChangeText={setSearch}
+            placeholder="Search friends…" placeholderTextColor={colors.mutedForeground}
+            style={[snapSendSt.searchInput, { color: colors.foreground }]} autoCapitalize="none"
           />
         </View>
       </View>
-
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
@@ -290,13 +551,10 @@ function SnapSendSheet({
             <TouchableOpacity
               onPress={() => onSendTo(item.other_user)}
               style={[snapSendSt.row, { borderBottomColor: colors.border }]}
-              activeOpacity={0.75}
-              disabled={!!sendingTo}
+              activeOpacity={0.75} disabled={!!sendingTo}
             >
               <UserAvatar username={item.other_user.username} url={item.other_user.avatar_url} size={44} />
-              <Text style={[snapSendSt.rowName, { color: colors.foreground }]} numberOfLines={1}>
-                {item.other_user.username}
-              </Text>
+              <Text style={[snapSendSt.rowName, { color: colors.foreground }]} numberOfLines={1}>{item.other_user.username}</Text>
               {isSending ? (
                 <ActivityIndicator size="small" color="#EA580C" />
               ) : (
@@ -325,8 +583,7 @@ const snapSendSt = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, zIndex: 100 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 0.5 },
   title: { fontFamily: "Poppins_700Bold", fontSize: 16 },
-  preview: { width: "100%", height: 180, backgroundColor: "#1a1a2e" },
-  noteRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: "rgba(234,88,12,0.08)" },
+  noteRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: "rgba(234,88,12,0.07)" },
   note: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 12 },
   searchWrap: { paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5 },
   searchBar: { flexDirection: "row", alignItems: "center", borderRadius: 14, paddingHorizontal: 12, height: 42, gap: 8, borderWidth: 1 },
@@ -337,49 +594,499 @@ const snapSendSt = StyleSheet.create({
   sendBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
 });
 
-// ─── RequestItem ──────────────────────────────────────────────────────────────
+// ─── SubFilterBar ─────────────────────────────────────────────────────────────
 
-function RequestItem({
-  convo, onAccept, onDelete,
-}: { convo: Conversation; onAccept: (c: Conversation) => void; onDelete: (c: Conversation) => void }) {
+function SubFilterBar<T extends string>({
+  tabs, active, onChange, accent = "#7C3AED",
+}: {
+  tabs: Array<{ id: T; label: string; badge?: number }>;
+  active: T;
+  onChange: (id: T) => void;
+  accent?: string;
+}) {
   const colors = useColors();
   return (
-    <View style={[styles.convoItem, reqSt.requestItem, { borderBottomColor: colors.border, borderColor: "rgba(124,58,237,0.15)" }]}>
-      <UserAvatar username={convo.other_user.username} url={convo.other_user.avatar_url} size={50} />
-      <View style={styles.convoText}>
-        <View style={styles.convoHeader}>
-          <Text style={[styles.convoName, styles.convoNameBold, { color: colors.foreground }]}>
-            {convo.other_user.username}
-          </Text>
-          <Text style={[styles.convoTime, { color: colors.mutedForeground }]}>{timeAgo(convo.last_message_at)}</Text>
-        </View>
-        <Text style={[styles.convoMessage, reqSt.blurred, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {convo.last_message || "Sent you a message"}
-        </Text>
-        <View style={reqSt.btnRow}>
-          <TouchableOpacity onPress={() => onAccept(convo)} style={reqSt.acceptBtn} activeOpacity={0.8}>
-            <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={reqSt.acceptGrad}>
-              <Text style={reqSt.acceptText}>Accept</Text>
-            </LinearGradient>
+    <ScrollView
+      horizontal showsHorizontalScrollIndicator={false}
+      style={[subSt.bar, { borderBottomColor: colors.border }]}
+      contentContainerStyle={{ paddingHorizontal: 14, gap: 4 }}
+    >
+      {tabs.map((t) => {
+        const isActive = t.id === active;
+        return (
+          <TouchableOpacity
+            key={t.id}
+            onPress={() => onChange(t.id)}
+            style={[subSt.btn, isActive && { backgroundColor: accent + "22", borderColor: accent + "66" }]}
+            activeOpacity={0.8}
+          >
+            <Text style={[subSt.label, { color: isActive ? accent : colors.mutedForeground }]}>{t.label}</Text>
+            {t.badge ? (
+              <View style={[subSt.badge, { backgroundColor: accent }]}>
+                <Text style={subSt.badgeText}>{t.badge}</Text>
+              </View>
+            ) : null}
+            {isActive && <View style={[subSt.underline, { backgroundColor: accent }]} />}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => onDelete(convo)} style={[reqSt.deleteBtn, { borderColor: colors.border }]} activeOpacity={0.8}>
-            <Text style={[reqSt.deleteText, { color: colors.mutedForeground }]}>Delete</Text>
-          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+const subSt = StyleSheet.create({
+  bar: { borderBottomWidth: 0.5, maxHeight: 46 },
+  btn: {
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10, flexDirection: "row",
+    alignItems: "center", gap: 5, position: "relative", borderWidth: 1, borderColor: "transparent",
+  },
+  label: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  badge: { borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, minWidth: 18, alignItems: "center" },
+  badgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 10 },
+  underline: { position: "absolute", bottom: 0, left: "20%", right: "20%", height: 2, borderRadius: 1 },
+});
+
+// ─── ChatsTab ─────────────────────────────────────────────────────────────────
+
+function ChatsTab({
+  conversations, snapConvos, refreshing, onRefresh, usersWithStories,
+  onCamera, onSnapCamera, onSnapView, show,
+}: {
+  conversations: Conversation[];
+  snapConvos: SnapConversation[];
+  refreshing: boolean;
+  onRefresh: () => void;
+  usersWithStories: Set<string>;
+  onCamera: (preSearch?: string) => void;
+  onSnapCamera: (preSearch?: string) => void;
+  onSnapView: (c: SnapConversation) => void;
+  show: (msg: string) => void;
+}) {
+  const colors = useColors();
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<ChatFilter>("all");
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
+  const [favIds, setFavIds] = useState<Set<string>>(new Set());
+
+  type UnifiedItem = {
+    key: string;
+    kind: "chat" | "snap";
+    convo: Conversation | SnapConversation;
+    ts: string;
+    userId: string;
+    isPinned: boolean;
+    hasStory: boolean;
+    hasUnread: boolean;
+  };
+
+  const allItems = useMemo<UnifiedItem[]>(() => {
+    const chatItems: UnifiedItem[] = conversations.map((c) => ({
+      key: `chat_${c.id}`,
+      kind: "chat",
+      convo: c,
+      ts: c.last_message_at,
+      userId: c.other_user.id,
+      isPinned: pinnedIds.has(c.id),
+      hasStory: usersWithStories.has(c.other_user.id),
+      hasUnread: c.unread_count > 0,
+    }));
+    const snapItems: UnifiedItem[] = snapConvos.map((c) => {
+      const snap = parseSnap(c.message_text);
+      return {
+        key: `snap_${c.message_id}`,
+        kind: "snap",
+        convo: c,
+        ts: c.created_at,
+        userId: c.other_user.id,
+        isPinned: pinnedIds.has(c.message_id),
+        hasStory: usersWithStories.has(c.other_user.id),
+        hasUnread: !!(c.is_incoming && snap && !snap.viewed),
+      };
+    });
+    const merged = [...chatItems, ...snapItems];
+    merged.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+    merged.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
+    return merged;
+  }, [conversations, snapConvos, pinnedIds, usersWithStories]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    let base = allItems;
+    if (q) {
+      base = base.filter((i) => {
+        const n = i.kind === "chat"
+          ? (i.convo as Conversation).other_user.username
+          : (i.convo as SnapConversation).other_user.username;
+        return n.toLowerCase().includes(q);
+      });
+    }
+    if (filter === "unread") return base.filter((i) => i.hasUnread);
+    if (filter === "favorites") return base.filter((i) => favIds.has(i.userId));
+    if (filter === "groups") return [];
+    return base;
+  }, [allItems, filter, search, favIds]);
+
+  const unreadCount = useMemo(() => allItems.filter((i) => i.hasUnread).length, [allItems]);
+  const favCount = useMemo(() => allItems.filter((i) => favIds.has(i.userId)).length, [allItems, favIds]);
+
+  const handleLongPress = useCallback((id: string, username: string, isPinned: boolean, isFav: boolean) => {
+    Alert.alert(`@${username}`, undefined, [
+      {
+        text: isPinned ? "Unpin" : "📌 Pin Conversation",
+        onPress: () => setPinnedIds((p) => { const n = new Set(p); isPinned ? n.delete(id) : n.add(id); return n; }),
+      },
+      {
+        text: mutedIds.has(id) ? "🔔 Unmute" : "🔕 Mute",
+        onPress: () => setMutedIds((p) => { const n = new Set(p); p.has(id) ? n.delete(id) : n.add(id); return n; }),
+      },
+      {
+        text: isFav ? "★ Unfavorite" : "⭐ Add to Favorites",
+        onPress: () => setFavIds((p) => { const n = new Set(p); p.has(id) ? n.delete(id) : n.add(id); return n; }),
+      },
+      {
+        text: "✓ Mark as Read",
+        onPress: () => show(`@${username} marked as read`),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }, [mutedIds, show]);
+
+  const TABS: Array<{ id: ChatFilter; label: string; badge?: number }> = [
+    { id: "all", label: "All" },
+    { id: "unread", label: "Unread", badge: unreadCount || undefined },
+    { id: "favorites", label: "⭐ Favorites", badge: favCount || undefined },
+    { id: "groups", label: "Groups" },
+  ];
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Search bar */}
+      <View style={chatTabSt.searchWrap}>
+        <View style={[chatTabSt.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+          <Ionicons name="search-outline" size={15} color={colors.mutedForeground} />
+          <TextInput
+            value={search} onChangeText={setSearch}
+            placeholder="Search messages…" placeholderTextColor={colors.mutedForeground}
+            style={[chatTabSt.searchInput, { color: colors.foreground }]}
+            autoCapitalize="none"
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")}>
+              <Ionicons name="close-circle" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      {/* Sub-filter tabs */}
+      <SubFilterBar tabs={TABS} active={filter} onChange={setFilter} />
+
+      {/* Main list */}
+      {filter === "groups" ? (
+        <View style={chatTabSt.empty}>
+          <Text style={{ fontSize: 44 }}>👥</Text>
+          <Text style={[chatTabSt.emptyTitle, { color: colors.foreground }]}>No group chats yet</Text>
+          <Text style={[chatTabSt.emptySub, { color: colors.mutedForeground }]}>Group chats coming soon!</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.key}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8B5CF6" colors={["#8B5CF6"]} />}
+          ListHeaderComponent={filter === "all" ? <GundrukAIRow borderColor={colors.border} /> : null}
+          ListEmptyComponent={
+            <View style={chatTabSt.empty}>
+              <Text style={{ fontSize: 44 }}>{filter === "unread" ? "✅" : filter === "favorites" ? "⭐" : "💬"}</Text>
+              <Text style={[chatTabSt.emptyTitle, { color: colors.foreground }]}>
+                {filter === "unread" ? "All caught up!" : filter === "favorites" ? "No favorites yet" : "No messages yet"}
+              </Text>
+              <Text style={[chatTabSt.emptySub, { color: colors.mutedForeground }]}>
+                {filter === "unread" ? "You've read all your messages" : filter === "favorites" ? "Long-press a chat to add it" : "Start a conversation"}
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            if (item.kind === "chat") {
+              const c = item.convo as Conversation;
+              const isMuted = mutedIds.has(c.id);
+              const isFav = favIds.has(c.other_user.id);
+              return (
+                <MessageConvoItem
+                  convo={c}
+                  isPinned={item.isPinned}
+                  isMuted={isMuted}
+                  isFavorite={isFav}
+                  hasStory={item.hasStory}
+                  onCamera={() => onSnapCamera(c.other_user.username)}
+                  onLongPress={() => handleLongPress(c.id, c.other_user.username, item.isPinned, isFav)}
+                  onDelete={() => Alert.alert("Delete?", `Delete conversation with @${c.other_user.username}?`, [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Delete", style: "destructive", onPress: () => show("Conversation deleted") },
+                  ])}
+                  onMute={() => {
+                    setMutedIds((p) => { const n = new Set(p); p.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; });
+                    show(mutedIds.has(c.id) ? `@${c.other_user.username} unmuted` : `@${c.other_user.username} muted`);
+                  }}
+                  onArchive={() => show(`@${c.other_user.username} archived`)}
+                />
+              );
+            } else {
+              const c = item.convo as SnapConversation;
+              return (
+                <SnapConvoItemRow
+                  convo={c}
+                  isPinned={item.isPinned}
+                  hasStory={item.hasStory}
+                  streak={0}
+                  onView={() => onSnapView(c)}
+                  onCamera={() => onSnapCamera(c.other_user.username)}
+                  onLongPress={() => handleLongPress(c.message_id, c.other_user.username, item.isPinned, false)}
+                  onDelete={() => show("Snap deleted")}
+                />
+              );
+            }
+          }}
+          contentContainerStyle={{ paddingBottom: 100 }}
+        />
+      )}
+
+      {/* New message FAB */}
+      <TouchableOpacity
+        style={chatTabSt.fab}
+        onPress={() => router.push("/find-friends" as any)}
+        activeOpacity={0.85}
+      >
+        <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={chatTabSt.fabGrad}>
+          <Ionicons name="create-outline" size={22} color="#fff" />
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const reqSt = StyleSheet.create({
-  requestItem: { paddingVertical: 14, borderWidth: 0, borderBottomWidth: 0.5 },
-  blurred: { textShadowColor: "rgba(0,0,0,0)", fontStyle: "italic", opacity: 0.5, letterSpacing: 2, fontSize: 12 },
-  btnRow: { flexDirection: "row", gap: 8, marginTop: 10 },
-  acceptBtn: { flex: 1, borderRadius: 10, overflow: "hidden" },
-  acceptGrad: { paddingVertical: 8, alignItems: "center" },
-  acceptText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
-  deleteBtn: { flex: 1, borderRadius: 10, borderWidth: 1, paddingVertical: 8, alignItems: "center" },
-  deleteText: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+const chatTabSt = StyleSheet.create({
+  searchWrap: { paddingHorizontal: 14, paddingVertical: 8 },
+  searchBar: { flexDirection: "row", alignItems: "center", borderRadius: 14, paddingHorizontal: 12, height: 42, gap: 8, borderWidth: 1 },
+  searchInput: { flex: 1, fontSize: 14, fontFamily: "Poppins_400Regular" },
+  empty: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60, paddingHorizontal: 32, gap: 8 },
+  emptyTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 17, textAlign: "center" },
+  emptySub: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", lineHeight: 20 },
+  fab: {
+    position: "absolute", bottom: 20, right: 20,
+    shadowColor: "#7C3AED", shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 4 }, elevation: 10,
+  },
+  fabGrad: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+});
+
+// ─── SnapsTab ─────────────────────────────────────────────────────────────────
+
+function SnapsTab({
+  userId, snapConvos, usersWithStories, refreshing, onRefresh,
+  onSnapCamera, onSnapView, streaks, show,
+}: {
+  userId: string;
+  snapConvos: SnapConversation[];
+  usersWithStories: Set<string>;
+  refreshing: boolean;
+  onRefresh: () => void;
+  onSnapCamera: (preSearch?: string) => void;
+  onSnapView: (c: SnapConversation) => void;
+  streaks: Map<string, number>;
+  show: (msg: string) => void;
+}) {
+  const colors = useColors();
+  const [filter, setFilter] = useState<SnapFilter>("all");
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+
+  const storyUsers = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Array<{ id: string; username: string; avatar_url?: string | null }> = [];
+    snapConvos.forEach((c) => {
+      if (usersWithStories.has(c.other_user.id) && !seen.has(c.other_user.id)) {
+        seen.add(c.other_user.id);
+        out.push(c.other_user);
+      }
+    });
+    return out;
+  }, [snapConvos, usersWithStories]);
+
+  const filteredSnaps = useMemo(() => {
+    let base = snapConvos;
+    if (filter === "received") return base.filter((c) => c.is_incoming);
+    if (filter === "sent") return base.filter((c) => !c.is_incoming);
+    if (filter === "opened") {
+      return base.filter((c) => {
+        const snap = parseSnap(c.message_text);
+        return snap?.viewed;
+      });
+    }
+    return base;
+  }, [snapConvos, filter]);
+
+  const newCount = useMemo(
+    () => snapConvos.filter((c) => { const s = parseSnap(c.message_text); return c.is_incoming && s && !s.viewed; }).length,
+    [snapConvos]
+  );
+
+  const TABS: Array<{ id: SnapFilter; label: string; badge?: number }> = [
+    { id: "all", label: "All" },
+    { id: "received", label: "Received", badge: newCount || undefined },
+    { id: "sent", label: "Sent" },
+    { id: "opened", label: "Opened" },
+  ];
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Sub-filter tabs */}
+      <SubFilterBar tabs={TABS} active={filter} onChange={setFilter} accent="#EA580C" />
+
+      <FlatList
+        data={filteredSnaps}
+        keyExtractor={(c) => c.message_id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EA580C" colors={["#EA580C"]} />}
+        ListHeaderComponent={storyUsers.length > 0 ? <StoriesRow userId={userId} storiesUsers={storyUsers} /> : undefined}
+        ListEmptyComponent={
+          <View style={chatTabSt.empty}>
+            <Text style={{ fontSize: 44 }}>👻</Text>
+            <Text style={[chatTabSt.emptyTitle, { color: colors.foreground }]}>No snaps here</Text>
+            <Text style={[chatTabSt.emptySub, { color: colors.mutedForeground }]}>
+              {filter === "received" ? "No snaps received yet" : filter === "sent" ? "You haven't sent any snaps" : filter === "opened" ? "No opened snaps" : "Start snapping!"}
+            </Text>
+          </View>
+        }
+        renderItem={({ item: c }) => (
+          <SnapConvoItemRow
+            convo={c}
+            isPinned={pinnedIds.has(c.message_id)}
+            hasStory={usersWithStories.has(c.other_user.id)}
+            streak={streaks.get(c.other_user.id) ?? 0}
+            onView={() => onSnapView(c)}
+            onCamera={() => onSnapCamera(c.other_user.username)}
+            onLongPress={() =>
+              Alert.alert(`@${c.other_user.username}`, undefined, [
+                {
+                  text: pinnedIds.has(c.message_id) ? "Unpin" : "📌 Pin",
+                  onPress: () => setPinnedIds((p) => { const n = new Set(p); p.has(c.message_id) ? n.delete(c.message_id) : n.add(c.message_id); return n; }),
+                },
+                {
+                  text: "👁 View Profile",
+                  onPress: () => router.push(`/profile/${c.other_user.username}` as any),
+                },
+                { text: "Cancel", style: "cancel" },
+              ])
+            }
+            onDelete={() => show("Snap deleted")}
+          />
+        )}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
+
+      {/* Quick snap camera FAB */}
+      <TouchableOpacity style={chatTabSt.fab} onPress={() => onSnapCamera()} activeOpacity={0.85}>
+        <LinearGradient colors={["#EA580C", "#DC2626"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={chatTabSt.fabGrad}>
+          <Ionicons name="camera" size={22} color="#fff" />
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── CallsTab ─────────────────────────────────────────────────────────────────
+
+function CallsTab() {
+  const colors = useColors();
+  return (
+    <View style={callsSt.wrap}>
+      <LinearGradient colors={["rgba(124,58,237,0.15)", "rgba(249,115,22,0.08)"]} style={callsSt.card}>
+        <Text style={{ fontSize: 52 }}>📞</Text>
+        <Text style={[callsSt.title, { color: colors.foreground }]}>Calls Coming Soon</Text>
+        <Text style={[callsSt.sub, { color: colors.mutedForeground }]}>
+          Voice and video calls will be available in the next update.
+        </Text>
+        <View style={callsSt.badge}>
+          <Ionicons name="time-outline" size={14} color="#7C3AED" />
+          <Text style={callsSt.badgeText}>In Development</Text>
+        </View>
+      </LinearGradient>
+    </View>
+  );
+}
+
+const callsSt = StyleSheet.create({
+  wrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  card: { borderRadius: 24, padding: 32, alignItems: "center", gap: 12, borderWidth: 1, borderColor: "rgba(124,58,237,0.2)", width: "100%" },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 20, textAlign: "center" },
+  sub: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", lineHeight: 22 },
+  badge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(124,58,237,0.15)", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "rgba(124,58,237,0.3)" },
+  badgeText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+});
+
+// ─── BottomTabBar ─────────────────────────────────────────────────────────────
+
+function BottomTabBar({
+  active, onChange, insets, chatBadge, snapBadge,
+}: {
+  active: MainTab;
+  onChange: (t: MainTab) => void;
+  insets: { bottom: number };
+  chatBadge?: number;
+  snapBadge?: number;
+}) {
+  const TABS: Array<{ id: MainTab; label: string; icon: string; iconFocused: string; badge?: number }> = [
+    { id: "chats", label: "Chats", icon: "chatbubble-outline", iconFocused: "chatbubble", badge: chatBadge },
+    { id: "snaps", label: "Snaps", icon: "camera-outline", iconFocused: "camera", badge: snapBadge },
+    { id: "calls", label: "Calls", icon: "call-outline", iconFocused: "call" },
+  ];
+
+  return (
+    <View style={[btSt.bar, { paddingBottom: Math.max(insets.bottom, 12), borderTopColor: "rgba(255,255,255,0.07)" }]}>
+      {TABS.map((t) => {
+        const focused = t.id === active;
+        return (
+          <TouchableOpacity
+            key={t.id}
+            onPress={() => onChange(t.id)}
+            style={btSt.item}
+            activeOpacity={0.75}
+          >
+            <View style={btSt.iconWrap}>
+              <Ionicons
+                name={(focused ? t.iconFocused : t.icon) as any}
+                size={22}
+                color={focused ? "#8B5CF6" : "#6B7280"}
+              />
+              {!!t.badge && t.badge > 0 && (
+                <View style={btSt.badge}>
+                  <Text style={btSt.badgeText}>{t.badge > 99 ? "99+" : t.badge}</Text>
+                </View>
+              )}
+            </View>
+            <Text style={[btSt.label, { color: focused ? "#8B5CF6" : "#6B7280" }]}>{t.label}</Text>
+            {focused && <View style={btSt.dot} />}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+const btSt = StyleSheet.create({
+  bar: {
+    flexDirection: "row", backgroundColor: "rgba(8,8,16,0.97)",
+    borderTopWidth: 0.5, paddingTop: 10,
+  },
+  item: { flex: 1, alignItems: "center", gap: 3 },
+  iconWrap: { position: "relative" },
+  badge: {
+    position: "absolute", top: -5, right: -8,
+    minWidth: 16, height: 16, borderRadius: 8,
+    backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 3, borderWidth: 1.5, borderColor: "#0A0A0F",
+  },
+  badgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 9 },
+  label: { fontFamily: "Poppins_500Medium", fontSize: 10.5 },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#8B5CF6", marginTop: 1 },
 });
 
 // ─── InboxScreen ──────────────────────────────────────────────────────────────
@@ -388,35 +1095,31 @@ export default function InboxScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const { show: showToast, ToastView } = useToast();
+  const { show, ToastView } = useToast();
 
-  const [search, setSearch] = useState("");
-  const [filterTab, setFilterTab] = useState<FilterTab>("all");
+  const [mainTab, setMainTab] = useState<MainTab>("chats");
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [snapConvos, setSnapConvos] = useState<SnapConversation[]>([]);
-  const [requests, setRequests] = useState<Conversation[]>([]);
-  const [loadingReqs, setLoadingReqs] = useState(false);
-  const [loadingSnaps, setLoadingSnaps] = useState(true);
+  const [usersWithStories, setUsersWithStories] = useState<Set<string>>(new Set());
+  const [streaks, setStreaks] = useState<Map<string, number>>(new Map());
   const [refreshing, setRefreshing] = useState(false);
+
+  // Snap camera/viewer state (lifted to allow cross-tab usage)
   const [snapPreviewUri, setSnapPreviewUri] = useState<string | null>(null);
   const [snapPreviewSearch, setSnapPreviewSearch] = useState("");
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [snapViewer, setSnapViewer] = useState<{ uri: string; messageId: string; msgText: string } | null>(null);
-  const [showRequests, setShowRequests] = useState(false);
 
-  // New feature state
-  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
-  const [usersWithStories, setUsersWithStories] = useState<Set<string>>(new Set());
-
-  const topInset = Platform.OS === "web" ? 67 : insets.top;
   const userId = session?.user?.id;
+  const topInset = Platform.OS === "web" ? 67 : insets.top;
 
-  // ── Data loading ────────────────────────────────────────────────────────────
+  // ── Load data ─────────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     if (!userId) return;
     await Promise.all([
       fetchConversations(userId).then(setConversations).catch(() => {}),
-      fetchSnapConversations(userId).then(setSnapConvos).catch(() => {}).then(() => setLoadingSnaps(false)),
+      fetchSnapConversations(userId).then(setSnapConvos).catch(() => {}),
+      fetchStreaks(userId).then(setStreaks).catch(() => {}),
     ]);
   }, [userId]);
 
@@ -437,14 +1140,6 @@ export default function InboxScreen() {
     loadStories();
   }, [loadAll, loadStories]);
 
-  useEffect(() => {
-    if (!userId || !showRequests) return;
-    setLoadingReqs(true);
-    fetchMessageRequests(userId)
-      .then((data) => { setRequests(data); setLoadingReqs(false); })
-      .catch(() => setLoadingReqs(false));
-  }, [userId, showRequests]);
-
   const onRefresh = useCallback(async () => {
     if (!userId) return;
     setRefreshing(true);
@@ -452,154 +1147,37 @@ export default function InboxScreen() {
     setRefreshing(false);
   }, [loadAll, loadStories]);
 
-  // ── Unified list ────────────────────────────────────────────────────────────
-  type UnifiedItem =
-    | { key: string; kind: "chat"; convo: Conversation; ts: string; userId: string; isPinned: boolean; hasStory: boolean; hasUnread: boolean }
-    | { key: string; kind: "snap"; convo: SnapConversation; ts: string; userId: string; isPinned: boolean; hasStory: boolean; hasUnread: boolean };
-
-  const allItems = useMemo<UnifiedItem[]>(() => {
-    const chatItems: UnifiedItem[] = conversations.map((c) => ({
-      key: `chat_${c.id}`,
-      kind: "chat",
-      convo: c,
-      ts: c.last_message_at,
-      userId: c.other_user.id,
-      isPinned: pinnedIds.has(c.id),
-      hasStory: usersWithStories.has(c.other_user.id),
-      hasUnread: c.unread_count > 0,
-    }));
-
-    const snapItems: UnifiedItem[] = snapConvos.map((c) => {
-      const snap = parseSnap(c.message_text);
-      const hasUnread = !!(c.is_incoming && snap && !snap.viewed);
-      return {
-        key: `snap_${c.message_id}`,
-        kind: "snap",
-        convo: c,
-        ts: c.created_at,
-        userId: c.other_user.id,
-        isPinned: pinnedIds.has(c.message_id),
-        hasStory: usersWithStories.has(c.other_user.id),
-        hasUnread,
-      };
-    });
-
-    const merged = [...chatItems, ...snapItems];
-    merged.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
-    merged.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
-    return merged;
-  }, [conversations, snapConvos, pinnedIds, usersWithStories]);
-
-  // ── Filtered views ──────────────────────────────────────────────────────────
-  const filteredItems = useMemo(() => {
-    const q = search.toLowerCase();
-    let base = allItems;
-    if (q) {
-      base = base.filter((i) => {
-        const name = i.kind === "chat"
-          ? (i.convo as Conversation).other_user.username
-          : (i.convo as SnapConversation).other_user.username;
-        return name.toLowerCase().includes(q);
-      });
-    }
-    if (filterTab === "unread") return base.filter((i) => i.hasUnread);
-    if (filterTab === "stories") {
-      const seen = new Set<string>();
-      return base.filter((i) => {
-        if (!i.hasStory || seen.has(i.userId)) return false;
-        seen.add(i.userId);
-        return true;
-      });
-    }
-    if (filterTab === "groups") return [];
-    return base;
-  }, [allItems, filterTab, search]);
-
-  const unreadCount = useMemo(() => allItems.filter((i) => i.hasUnread).length, [allItems]);
-  const storiesCount = useMemo(() => {
-    const seen = new Set<string>();
-    allItems.forEach((i) => { if (i.hasStory) seen.add(i.userId); });
-    return seen.size;
-  }, [allItems]);
-
-  // ── Long press menu ─────────────────────────────────────────────────────────
-  const showLongPressMenu = useCallback((id: string, username: string, isPinned: boolean) => {
-    Alert.alert(`@${username}`, undefined, [
-      {
-        text: isPinned ? "Unpin Conversation" : "📌 Pin Conversation",
-        onPress: () => setPinnedIds((prev) => {
-          const next = new Set(prev);
-          if (isPinned) next.delete(id); else next.add(id);
-          return next;
-        }),
-      },
-      {
-        text: "🔕 Mute Notifications",
-        onPress: () => showToast(`@${username} muted`),
-      },
-      {
-        text: "🗑 Delete Conversation",
-        style: "destructive",
-        onPress: () =>
-          Alert.alert("Delete Conversation?", `This will delete your conversation with @${username}.`, [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Delete",
-              style: "destructive",
-              onPress: () => {
-                setConversations((prev) => prev.filter((c) => c.id !== id && c.other_user.id !== id));
-                setSnapConvos((prev) => prev.filter((c) => c.message_id !== id && c.other_user.id !== id));
-                showToast("Conversation deleted");
-              },
-            },
-          ]),
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [showToast]);
-
-  // ── Snap camera ─────────────────────────────────────────────────────────────
+  // ── Snap camera ────────────────────────────────────────────────────────────
   const openSnapCamera = useCallback(async (preSearch = "") => {
     try {
       if (Platform.OS !== "web") {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status === "granted") {
           const result = await ImagePicker.launchCameraAsync({ mediaTypes: "images", quality: 0.8 });
-          if (!result.canceled) {
-            setSnapPreviewSearch(preSearch);
-            setSnapPreviewUri(result.assets[0].uri);
-          }
+          if (!result.canceled) { setSnapPreviewSearch(preSearch); setSnapPreviewUri(result.assets[0].uri); }
           return;
         }
       }
       const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", quality: 0.8 });
-      if (!result.canceled) {
-        setSnapPreviewSearch(preSearch);
-        setSnapPreviewUri(result.assets[0].uri);
-      }
-    } catch {
-      Alert.alert("Error", "Could not open camera or photo library.");
-    }
+      if (!result.canceled) { setSnapPreviewSearch(preSearch); setSnapPreviewUri(result.assets[0].uri); }
+    } catch { Alert.alert("Error", "Could not open camera or photo library."); }
   }, []);
 
   const handleSendTo = useCallback(async (friend: { id: string; username?: string }) => {
     if (!snapPreviewUri || !userId) return;
     setSendingTo(friend.id);
     try {
-      let snapUrl = snapPreviewUri;
+      let url = snapPreviewUri;
       const uploaded = await uploadSnapToStorage(snapPreviewUri, userId);
-      if (uploaded) snapUrl = uploaded;
-      await sendSnapMessage(userId, friend.id, snapUrl, "photo");
+      if (uploaded) url = uploaded;
+      await sendSnapMessage(userId, friend.id, url, "photo");
       setSnapPreviewUri(null);
       setSnapPreviewSearch("");
       setSendingTo(null);
       fetchSnapConversations(userId).then(setSnapConvos).catch(() => {});
-      showToast(`Snap sent to @${friend.username ?? "friend"} 👻`);
-    } catch {
-      setSendingTo(null);
-      Alert.alert("Error", "Could not send snap. Please try again.");
-    }
-  }, [snapPreviewUri, userId]);
+      show(`Snap sent to @${friend.username ?? "friend"} 👻`);
+    } catch { setSendingTo(null); Alert.alert("Error", "Could not send snap."); }
+  }, [snapPreviewUri, userId, show]);
 
   const handleViewSnap = useCallback((convo: SnapConversation) => {
     const snap = parseSnap(convo.message_text);
@@ -622,184 +1200,73 @@ export default function InboxScreen() {
     await markSnapViewed(messageId, msgText).catch(() => {});
   }, [snapViewer]);
 
-  const handleAccept = async (convo: Conversation) => {
-    await acceptMessageRequest(convo.id);
-    setRequests((prev) => prev.filter((r) => r.id !== convo.id));
-    setConversations((prev) => [{ ...convo, unread_count: 1 }, ...prev]);
-    showToast(`Accepted message from @${convo.other_user.username} ✅`);
-  };
-
-  const handleDelete = (convo: Conversation) => {
-    Alert.alert("Delete Request?", `Delete the message request from @${convo.other_user.username}?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete", style: "destructive", onPress: async () => {
-          await deleteConversation(convo.id);
-          setRequests((prev) => prev.filter((r) => r.id !== convo.id));
-          showToast("Request deleted");
-        },
-      },
-    ]);
-  };
-
-  // ── Tab definitions ─────────────────────────────────────────────────────────
-  const TABS: { id: FilterTab; label: string; badge?: number }[] = [
-    { id: "all", label: "All" },
-    { id: "unread", label: "Unread", badge: unreadCount || undefined },
-    { id: "stories", label: "Stories", badge: storiesCount || undefined },
-    { id: "groups", label: "Groups" },
-  ];
-
-  // ── Render item ─────────────────────────────────────────────────────────────
-  const renderItem = useCallback(({ item }: { item: UnifiedItem }) => {
-    if (item.kind === "chat") {
-      const c = item.convo as Conversation;
-      return (
-        <ConversationItem
-          convo={c}
-          isPinned={item.isPinned}
-          hasStory={item.hasStory}
-          onCamera={() => openSnapCamera(c.other_user.username)}
-          onLongPress={() => showLongPressMenu(c.id, c.other_user.username, item.isPinned)}
-        />
-      );
-    } else {
-      const c = item.convo as SnapConversation;
-      return (
-        <SnapConvoItem
-          convo={c}
-          isPinned={item.isPinned}
-          hasStory={item.hasStory}
-          onView={() => handleViewSnap(c)}
-          onCamera={() => openSnapCamera(c.other_user.username)}
-          onLongPress={() => showLongPressMenu(c.message_id, c.other_user.username, item.isPinned)}
-        />
-      );
-    }
-  }, [openSnapCamera, showLongPressMenu, handleViewSnap]);
+  // ── Badges ─────────────────────────────────────────────────────────────────
+  const unreadChats = useMemo(
+    () => conversations.reduce((sum, c) => sum + (c.unread_count > 0 ? 1 : 0), 0),
+    [conversations]
+  );
+  const unreadSnaps = useMemo(
+    () => snapConvos.filter((c) => { const s = parseSnap(c.message_text); return c.is_incoming && s && !s.viewed; }).length,
+    [snapConvos]
+  );
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[screenSt.root, { backgroundColor: colors.background }]}>
       {/* ── Header ── */}
-      <View style={[styles.header, { paddingTop: topInset + 8, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+      <View style={[screenSt.header, { paddingTop: topInset + 6, borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="chevron-back" size={26} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.foreground }]}>Messages</Text>
-
-        {/* Requests badge button */}
-        <TouchableOpacity onPress={() => setShowRequests(true)} style={styles.headerIconBtn}>
-          <Ionicons name="person-add-outline" size={22} color={colors.foreground} />
-          {requests.length > 0 && (
-            <View style={styles.headerBadge}>
-              <Text style={styles.headerBadgeText}>{requests.length}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-
-        {/* Global snap camera */}
-        <TouchableOpacity onPress={() => openSnapCamera()}>
-          <View style={styles.snapCamBtn}>
-            <Ionicons name="camera" size={19} color="#EA580C" />
-          </View>
-        </TouchableOpacity>
+        <Text style={[screenSt.title, { color: colors.foreground }]}>Messages</Text>
+        <View style={screenSt.headerRight}>
+          <TouchableOpacity onPress={() => openSnapCamera()} style={screenSt.iconBtn}>
+            <Ionicons name="camera-outline" size={23} color={colors.foreground} />
+          </TouchableOpacity>
+          <TouchableOpacity style={screenSt.iconBtn}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* ── Filter tabs ── */}
-      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
-        {TABS.map((t) => {
-          const isActive = filterTab === t.id;
-          const badgeColor = t.id === "unread" ? "#3B82F6" : "#7C3AED";
-          return (
-            <TouchableOpacity
-              key={t.id}
-              onPress={() => setFilterTab(t.id)}
-              style={[styles.tabBtn, isActive && styles.tabBtnActive]}
-              activeOpacity={0.8}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text style={[styles.tabLabel, { color: isActive ? "#7C3AED" : colors.mutedForeground }]}>
-                  {t.label}
-                </Text>
-                {t.badge ? (
-                  <View style={[styles.reqBadge, { backgroundColor: badgeColor }]}>
-                    <Text style={styles.reqBadgeText}>{t.badge}</Text>
-                  </View>
-                ) : null}
-              </View>
-              {isActive && <View style={styles.tabIndicator} />}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      {/* ── Search bar ── */}
-      <View style={styles.searchWrapper}>
-        <View style={[styles.searchBar, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-          <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search messages…"
-            placeholderTextColor={colors.mutedForeground}
-            style={[styles.searchInput, { color: colors.foreground }]}
-            autoCapitalize="none"
+      {/* ── Tab content ── */}
+      <View style={{ flex: 1 }}>
+        {mainTab === "chats" && (
+          <ChatsTab
+            conversations={conversations}
+            snapConvos={snapConvos}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            usersWithStories={usersWithStories}
+            onCamera={openSnapCamera}
+            onSnapCamera={openSnapCamera}
+            onSnapView={handleViewSnap}
+            show={show}
           />
-        </View>
+        )}
+        {mainTab === "snaps" && (
+          <SnapsTab
+            userId={userId ?? ""}
+            snapConvos={snapConvos}
+            usersWithStories={usersWithStories}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            onSnapCamera={openSnapCamera}
+            onSnapView={handleViewSnap}
+            streaks={streaks}
+            show={show}
+          />
+        )}
+        {mainTab === "calls" && <CallsTab />}
       </View>
 
-      {/* ── Main list ── */}
-      {filterTab === "groups" ? (
-        <View style={styles.empty}>
-          <Text style={{ fontSize: 40 }}>👥</Text>
-          <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 8 }]}>No group chats yet</Text>
-          <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginTop: 4, paddingHorizontal: 32 }}>
-            Group chat feature is coming soon!
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredItems}
-          keyExtractor={(item) => item.key}
-          renderItem={renderItem}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8B5CF6" colors={["#8B5CF6"]} />
-          }
-          ListHeaderComponent={filterTab === "all" ? (
-            <TouchableOpacity
-              onPress={() => router.push("/ai-chat" as any)}
-              style={[styles.convoItem, { borderBottomColor: colors.border }]}
-              activeOpacity={0.75}
-            >
-              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(124,58,237,0.18)", borderWidth: 2, borderColor: "#7C3AED", alignItems: "center", justifyContent: "center" }}>
-                <Text style={{ fontSize: 22 }}>🤖</Text>
-              </View>
-              <View style={styles.convoText}>
-                <Text style={[styles.convoName, styles.convoNameBold, { color: colors.foreground }]}>Gundruk AI</Text>
-                <Text style={[styles.convoMessage, { color: colors.mutedForeground }]} numberOfLines={1}>
-                  Ask me anything — captions, bio, date ideas...
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ) : null}
-          ListEmptyComponent={
-            loadingSnaps ? (
-              <View style={styles.empty}>
-                <ActivityIndicator color="#8B5CF6" />
-              </View>
-            ) : (
-              <View style={styles.empty}>
-                <Text style={{ fontSize: 48 }}>
-                  {filterTab === "unread" ? "✅" : filterTab === "stories" ? "🌟" : "💬"}
-                </Text>
-                <Text style={[styles.emptyText, { color: colors.mutedForeground, marginTop: 8 }]}>
-                  {filterTab === "unread" ? "All caught up!" : filterTab === "stories" ? "No active stories" : "No messages yet"}
-                </Text>
-              </View>
-            )
-          }
-        />
-      )}
+      {/* ── Bottom tab bar ── */}
+      <BottomTabBar
+        active={mainTab}
+        onChange={setMainTab}
+        insets={insets}
+        chatBadge={unreadChats}
+        snapBadge={unreadSnaps}
+      />
 
       {/* ── Snap send sheet ── */}
       {snapPreviewUri && (
@@ -813,96 +1280,21 @@ export default function InboxScreen() {
         />
       )}
 
-      {/* ── Snap viewer modal ── */}
-      {snapViewer && (
-        <SnapViewerModal uri={snapViewer.uri} onClose={handleSnapViewerClose} />
-      )}
-
-      {/* ── Requests modal ── */}
-      <Modal
-        visible={showRequests}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowRequests(false)}
-      >
-        <View style={[styles.container, { backgroundColor: colors.background }]}>
-          <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: colors.border }]}>
-            <TouchableOpacity onPress={() => setShowRequests(false)} style={styles.backBtn}>
-              <Ionicons name="close" size={24} color={colors.foreground} />
-            </TouchableOpacity>
-            <Text style={[styles.title, { color: colors.foreground }]}>Message Requests</Text>
-            <View style={{ width: 36 }} />
-          </View>
-
-          {loadingReqs ? (
-            <View style={styles.empty}>
-              <ActivityIndicator color="#8B5CF6" />
-            </View>
-          ) : (
-            <FlatList
-              data={requests}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <RequestItem convo={item} onAccept={handleAccept} onDelete={handleDelete} />}
-              ListHeaderComponent={requests.length > 0 ? (
-                <View style={[styles.reqInfo, { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.15)" }]}>
-                  <Ionicons name="information-circle-outline" size={16} color="#A78BFA" />
-                  <Text style={[styles.reqInfoText, { color: "#A78BFA" }]}>
-                    These are messages from people you don't follow. Accept to move them to your inbox.
-                  </Text>
-                </View>
-              ) : null}
-              ListEmptyComponent={
-                <View style={styles.empty}>
-                  <Text style={{ fontSize: 48 }}>📭</Text>
-                  <Text style={[styles.emptyText, { color: colors.foreground, marginTop: 8 }]}>No message requests</Text>
-                  <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginTop: 4, paddingHorizontal: 32 }}>
-                    When someone you don't follow messages you, it'll appear here first.
-                  </Text>
-                </View>
-              }
-              contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-            />
-          )}
-        </View>
-      </Modal>
+      {/* ── Snap viewer ── */}
+      {snapViewer && <SnapViewerModal uri={snapViewer.uri} onClose={handleSnapViewerClose} />}
 
       {ToastView}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingBottom: 12, borderBottomWidth: 0.5, gap: 10 },
-  backBtn: { padding: 2 },
-  title: { flex: 1, fontSize: 20, fontFamily: "Poppins_700Bold" },
-  headerIconBtn: { position: "relative", padding: 4 },
-  headerBadge: { position: "absolute", top: 0, right: 0, width: 16, height: 16, borderRadius: 8, backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" },
-  headerBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Poppins_700Bold" },
-  snapCamBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(234,88,12,0.12)", borderWidth: 1.5, borderColor: "rgba(234,88,12,0.35)", alignItems: "center", justifyContent: "center" },
-  tabRow: { flexDirection: "row", borderBottomWidth: 0.5 },
-  tabBtn: { flex: 1, paddingVertical: 11, alignItems: "center", position: "relative" },
-  tabBtnActive: {},
-  tabLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  tabIndicator: { position: "absolute", bottom: 0, left: "15%", right: "15%", height: 2.5, backgroundColor: "#7C3AED", borderRadius: 2 },
-  reqBadge: { minWidth: 17, height: 17, borderRadius: 9, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  reqBadgeText: { color: "#fff", fontSize: 10, fontFamily: "Poppins_700Bold" },
-  searchWrapper: { paddingHorizontal: 14, paddingVertical: 9 },
-  searchBar: { flexDirection: "row", alignItems: "center", borderRadius: 14, paddingHorizontal: 12, height: 40, gap: 8, borderWidth: 1 },
-  searchInput: { flex: 1, fontSize: 14, fontFamily: "Poppins_400Regular" },
-  convoItem: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, gap: 12, borderBottomWidth: 0.5 },
-  convoText: { flex: 1 },
-  convoHeader: { flexDirection: "row", justifyContent: "space-between", marginBottom: 3 },
-  convoName: { fontSize: 15, fontFamily: "Poppins_500Medium", color: "#fff" },
-  convoNameBold: { fontFamily: "Poppins_700Bold" },
-  convoTime: { fontSize: 12, fontFamily: "Poppins_400Regular" },
-  convoRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  convoMessage: { fontSize: 13, fontFamily: "Poppins_400Regular", flex: 1 },
-  convoMessageBold: { fontFamily: "Poppins_500Medium" },
-  badge: { backgroundColor: "#7C3AED", minWidth: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 4, marginLeft: 8 },
-  badgeText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_700Bold" },
-  empty: { flex: 1, alignItems: "center", paddingTop: 80, gap: 6 },
-  emptyText: { fontSize: 16, fontFamily: "Poppins_600SemiBold" },
-  reqInfo: { flexDirection: "row", gap: 10, alignItems: "flex-start", margin: 14, padding: 12, borderRadius: 12, borderWidth: 1 },
-  reqInfoText: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 17 },
+const screenSt = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12,
+    borderBottomWidth: 0.5, gap: 10,
+  },
+  title: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 20 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 4 },
+  iconBtn: { padding: 6, borderRadius: 20 },
 });

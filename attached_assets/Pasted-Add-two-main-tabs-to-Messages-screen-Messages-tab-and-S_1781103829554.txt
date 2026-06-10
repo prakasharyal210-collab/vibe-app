@@ -1,0 +1,126 @@
+Add two main tabs to Messages screen — Messages tab and Snaps tab:
+Like WhatsApp has Chats/Updates/Communities/Calls at the bottom, add two main tabs at the top of Messages screen:
+
+TAB 1 — 💬 Messages:
+Everything text/chat related:
+Sub-filter tabs: All / Unread / Favorites / Groups
+Each conversation shows:
+
+Profile photo with story ring (purple gradient if active story)
+Name (bold if unread)
+Last message preview text
+Time ago (right side)
+Unread count badge (green circle with number)
+Double tick ✓✓ (grey = delivered, blue = read)
+Missed call indicator 📞 if applicable
+Muted icon 🔕 if muted
+Pinned icon 📌 if pinned
+
+Features:
+
+Swipe left → Delete / Archive / Mute
+Long press → Pin / Mute / Delete / Mark as read
+Archived chats section at top (collapsed)
+Search bar at top
+New message button (green/purple floating button bottom right)
+Gundruk AI 🤖 at top of list always
+
+
+TAB 2 — 📸 Snaps:
+Everything photo/snap related:
+Sub-filter tabs: All / Received / Sent / Opened
+Each snap conversation shows:
+
+Profile photo with story ring
+Name (bold if unread snap)
+Snap status with colored icon:
+
+🔴 Solid red square = New Snap received (unread)
+🔵 Solid blue square = New Chat in snap (unread)
+🔴 Red arrow outline = Snap delivered (sent, not opened)
+⬜ Grey arrow = Opened
+🟣 Purple = From Vibe Match
+
+
+Status text: "New Snap", "Delivered", "Opened", "Received"
+Time ago
+
+Snap Features:
+
+Quick 📷 camera button on right of each row → opens camera → sends snap directly to that person
+Tap snap → opens full screen view
+After viewing → auto marks as opened
+Snap disappears after viewing (optional toggle)
+Screenshot detection → notify sender "📸 [Name] took a screenshot!"
+Snap streak counter 🔥 between you and friend (like Snapchat streaks)
+Snap score (total snaps sent/received)
+
+Snap Effects in camera (when sending snap):
+
+All 33 AR lenses available
+Beauty filters
+Color filters
+Text overlay
+Stickers
+Draw/doodle
+Timer (how long snap is visible: 1-10 seconds or unlimited)
+Flash on/off
+Front/back camera flip
+
+Snap viewing:
+
+Hold to view
+Release to close
+"👀 Opened" notification to sender
+Replay option (once per snap)
+React with emoji
+Reply with snap or text
+
+Stories section in Snaps tab:
+
+Horizontal row at top showing friends with active stories
+Purple ring around their avatar
+Tap to view story
+Your story shown first with ➕ add button
+
+
+BOTTOM TAB NAVIGATION (like WhatsApp):
+Add bottom tabs to Messages screen:
+
+💬 Chats (Messages tab)
+📸 Snaps (Snaps tab)
+📞 Calls (call history - coming soon placeholder)
+
+
+HEADER:
+
+App name or "Messages" title
+📷 Quick camera button (top right) — opens camera
+⋯ More options
+
+
+DATABASE:
+sql-- Snap streaks
+CREATE TABLE snap_streaks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user1_id UUID REFERENCES profiles(id),
+  user2_id UUID REFERENCES profiles(id),
+  streak_count INTEGER DEFAULT 0,
+  last_snap_date DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Snap scores
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS snap_score INTEGER DEFAULT 0;
+
+-- Screenshot notifications
+CREATE TABLE snap_screenshots (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  snap_id UUID,
+  viewer_id UUID REFERENCES profiles(id),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
