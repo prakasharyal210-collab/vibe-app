@@ -9,6 +9,7 @@ import {
   Animated,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   StyleSheet,
@@ -18,7 +19,6 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SnapCaptureSheet, SnapViewerModal } from "@/components/SnapViewer";
 import { UserAvatar } from "@/components/UserAvatar";

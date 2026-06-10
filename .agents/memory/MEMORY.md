@@ -3,6 +3,7 @@
 - [Vibe design system](vibe-design-system.md) — Dark Luxury palette and floating glass pill tab bar; never change AdCard/ReelAdCard/ads.ts colors.
 - [Snap message feature](snap-feature.md) — Snapchat-style snaps encoded in message text field as __SNAP__:{...}; no DB migration needed.
 - [Crash fixes: expo-glass-effect + React Compiler](crash-fixes.md) — two fixes that stopped the persistent "Invalid hook call" / "Something went wrong" crash.
+- [Expo Go native module crashes](expo-go-native-crashes.md) — react-native-pager-view and react-native-keyboard-controller cause black screens in Expo Go; replaced with ScrollView+pagingEnabled and built-in KeyboardAvoidingView.
 - [AI caption generator](ai-caption-feature.md) — API route at /api/ai/caption uses claude-sonnet-4-5; AICaptionSheet + VideoEditorSheet wired; ai_caption_requests Supabase table; EXPO_PUBLIC_API_URL="" (empty = relative URL, works via Replit proxy).
 - [EAS Android build fixes](eas-android-build.md) — hermesc linux64-bin (HBC v96, RN 0.81.5) can't compile class declarations OR async arrow functions; babel preset-reversal pattern fixes both.
 - [Find Gundruk privacy settings](find-gundruk-privacy.md) — 3 profile columns (show_in_matching, find_gundruk_mode, vibe_request_privacy); profiles table lives in Supabase not local Drizzle DB; migration SQL at artifacts/mobile/supabase_migration_privacy.sql

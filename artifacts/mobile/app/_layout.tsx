@@ -12,7 +12,6 @@ import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -180,14 +179,12 @@ export default function RootLayout() {
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <AuthProvider>
-                  <RealtimeProvider>
-                    <RootLayoutNav />
-                    <ToastOverlay />
-                  </RealtimeProvider>
-                </AuthProvider>
-              </KeyboardProvider>
+              <AuthProvider>
+                <RealtimeProvider>
+                  <RootLayoutNav />
+                  <ToastOverlay />
+                </RealtimeProvider>
+              </AuthProvider>
             </GestureHandlerRootView>
           </QueryClientProvider>
         </ThemeProvider>
