@@ -208,6 +208,7 @@ const MANTRA_LIBRARY = [
 ] as const;
 
 interface KundaliProfile {
+  fullName: string;
   birthDate: string;
   birthTime: string;
   birthPlace: string;
@@ -262,6 +263,7 @@ function MandalaRing({ size = 200, color = GOLD }: { size?: number; color?: stri
 // ─── Setup Screen ─────────────────────────────────────────────────────────────
 
 function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void }) {
+  const [fullName, setFullName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [birthTime, setBirthTime] = useState("");
   const [birthPlace, setBirthPlace] = useState("");
@@ -277,6 +279,7 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
   }, []);
 
   const handleStart = () => {
+    if (!fullName.trim()) { setError("Please enter your full name"); return; }
     if (!birthDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
       setError("Please enter date as YYYY-MM-DD");
       return;
@@ -288,7 +291,7 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
     const nakshatra = getApproxNakshatra(birthDate);
     const lagna = getLagna(birthTime);
     const dasha = getCurrentDasha(nakshatra, birthDate);
-    onComplete({ birthDate, birthTime, birthPlace, rashi, lagna, nakshatra, dasha });
+    onComplete({ fullName: fullName.trim(), birthDate, birthTime, birthPlace, rashi, lagna, nakshatra, dasha });
   };
 
   const rashiPreview = birthDate.match(/^\d{4}-\d{2}-\d{2}$/) ? getVedicRashi(birthDate) : null;
@@ -314,6 +317,19 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
           </View>
         )}
 
+        <View style={S.inputSection}>
+          <Text style={S.inputLabel}>🙏 Full Name *</Text>
+          <TextInput
+            style={S.inputField}
+            value={fullName}
+            onChangeText={t => { setFullName(t); setError(""); }}
+            placeholder="Enter your full name"
+            placeholderTextColor={DIM}
+            autoCapitalize="words"
+            returnKeyType="next"
+          />
+          <Text style={S.inputHint}>Used for Namank (name numerology) and personalised readings</Text>
+        </View>
         <View style={S.inputSection}>
           <Text style={S.inputLabel}>📅 Date of Birth *</Text>
           <TextInput style={S.inputField} value={birthDate} onChangeText={t => { setBirthDate(t); setError(""); }}
@@ -445,7 +461,7 @@ function ReadingsSection({ profile }: { profile: KundaliProfile }) {
     const result = await callAI("jyotisha_readings", {
       rashi: profile.rashi, lagna: profile.lagna,
       nakshatra: profile.nakshatra, dasha: profile.dasha,
-      birthDate: profile.birthDate,
+      birthDate: profile.birthDate, name: profile.fullName,
     });
     const d = parseAIJson<ReadingsData>(result, {
       karma: "Your soul carries ancient wisdom from past lives of devotion and service.",
@@ -2504,6 +2520,9 @@ export function JyotishaTab({ userId }: { userId?: string }) {
     await AsyncStorage.setItem(KUNDALI_KEY, JSON.stringify(p)).catch(() => {});
     // Best-effort sync to Supabase if logged in
     if (userId) {
+      // Save full_name to the main profiles table
+      void supabase.from("profiles").update({ full_name: p.fullName }).eq("id", userId);
+      // Save birth details to kundali_profiles
       void supabase.from("kundali_profiles").upsert({
         user_id: userId, birth_date: p.birthDate, birth_time: p.birthTime,
         birth_place: p.birthPlace, rashi: p.rashi, lagna: p.lagna,
@@ -2535,6 +2554,9 @@ export function JyotishaTab({ userId }: { userId?: string }) {
       {/* Compact header */}
       <LinearGradient colors={["#0A0830", BG]} style={S.mainHeader}>
         <View style={{ flex: 1 }}>
+          {!!profile.fullName && (
+            <Text style={[S.mainHeaderSub, { color: GOLD, marginBottom: 2 }]}>Namaste, {profile.fullName} 🙏</Text>
+          )}
           <Text style={S.mainHeaderTitle}>
             <Text style={S.omInline}>ॐ </Text>
             <Text style={{ color: rashiData.color }}>{profile.rashi}</Text>
@@ -2611,6 +2633,7 @@ const S = StyleSheet.create({
   inputSection: { width: "100%", marginBottom: 16 },
   inputLabel: { color: DIM, fontFamily: "Poppins_600SemiBold", fontSize: 12, marginBottom: 6 },
   inputField: { backgroundColor: "rgba(253,230,138,0.05)", borderRadius: 14, borderWidth: 1, borderColor: "rgba(253,230,138,0.15)", paddingHorizontal: 16, paddingVertical: 13, color: CREAM, fontFamily: "Poppins_400Regular", fontSize: 15 },
+  inputHint: { color: DIM, fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 5, lineHeight: 16 },
   errorText: { color: "#F87171", fontFamily: "Poppins_400Regular", fontSize: 12, marginBottom: 8 },
   startBtn: { borderRadius: 28, overflow: "hidden", width: "100%", marginBottom: 14 },
   startBtnGrad: { paddingVertical: 15, alignItems: "center" },
