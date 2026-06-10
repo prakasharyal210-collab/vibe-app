@@ -1,8 +1,6 @@
 import { BlurView } from "expo-blur";
-import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -151,34 +149,6 @@ const sheetStyles = StyleSheet.create({
   dismissBtn: { paddingVertical: 12 },
   dismissText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
-
-// ── NativeTabLayout ───────────────────────────────────────────────────────────
-function NativeTabLayout() {
-  return (
-    <NativeTabs initialTab="feed">
-      <NativeTabs.Trigger name="feed">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Feed</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "play.rectangle", selected: "play.rectangle.fill" }} />
-        <Label>Reels</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="create">
-        <Icon sf={{ default: "plus.app", selected: "plus.app.fill" }} />
-        <Label>Create</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="find">
-        <Icon sf={{ default: "heart.circle", selected: "heart.circle.fill" }} />
-        <Label>Find Vibe</Label>
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="profile">
-        <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
-  );
-}
 
 // ── TabIcon ───────────────────────────────────────────────────────────────────
 interface TabIconProps {
@@ -490,22 +460,14 @@ export default function TabLayout() {
     }
   };
 
-  const isNativeGlass =
-    Platform.OS === "ios" &&
-    (() => { try { return isLiquidGlassAvailable(); } catch { return false; } })();
-
   return (
     <>
-      {isNativeGlass ? (
-        <NativeTabLayout />
-      ) : (
-        <ClassicTabLayout
-          findVibeLocked={findVibeLocked}
-          onLockedTabPress={() => setShowLockedSheet(true)}
-          isLoggedIn={isLoggedIn}
-          onGuestTabPress={() => setShowGuestSheet(true)}
-        />
-      )}
+      <ClassicTabLayout
+        findVibeLocked={findVibeLocked}
+        onLockedTabPress={() => setShowLockedSheet(true)}
+        isLoggedIn={isLoggedIn}
+        onGuestTabPress={() => setShowGuestSheet(true)}
+      />
       <RewardToast coins={rewardCoins} visible={showToast} />
       <OnboardingInterestPicker visible={showOnboarding} onComplete={handleOnboardingComplete} />
       <FindVibeLockedSheet
