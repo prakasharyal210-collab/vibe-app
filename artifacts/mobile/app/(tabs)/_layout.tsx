@@ -1,7 +1,6 @@
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs } from "expo-router";
-import { SymbolView } from "expo-symbols";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
@@ -156,13 +155,10 @@ interface TabIconProps {
   label: string;
   focused: boolean;
   color: string;
-  isIOS: boolean;
-  sfActive: string;
-  sfDefault: string;
   locked?: boolean;
 }
 
-function TabIcon({ iconName, label, focused, color, isIOS, sfActive, sfDefault, locked }: TabIconProps) {
+function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
   if (locked) {
     return (
       <View style={tabIconStyles.wrap}>
@@ -173,11 +169,7 @@ function TabIcon({ iconName, label, focused, color, isIOS, sfActive, sfDefault, 
   }
   return (
     <View style={tabIconStyles.wrap}>
-      {isIOS ? (
-        <SymbolView name={focused ? sfActive : sfDefault} tintColor={color} size={22} />
-      ) : (
-        <Ionicons name={iconName as any} size={22} color={color} />
-      )}
+      <Ionicons name={iconName as any} size={22} color={color} />
       <Text style={[tabIconStyles.label, { color }]}>{label}</Text>
       {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
@@ -269,7 +261,7 @@ function ClassicTabLayout({
         name="index"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon iconName={focused ? "play-circle" : "play-circle-outline"} label="Reels" focused={focused} color={color} isIOS={isIOS} sfActive="play.rectangle.fill" sfDefault="play.rectangle" />
+            <TabIcon iconName={focused ? "play-circle" : "play-circle-outline"} label="Reels" focused={focused} color={color} />
           ),
         }}
       />
@@ -277,7 +269,7 @@ function ClassicTabLayout({
         name="feed"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon iconName={focused ? "home" : "home-outline"} label="Feed" focused={focused} color={color} isIOS={isIOS} sfActive="house.fill" sfDefault="house" />
+            <TabIcon iconName={focused ? "home" : "home-outline"} label="Feed" focused={focused} color={color} />
           ),
         }}
       />
@@ -318,9 +310,6 @@ function ClassicTabLayout({
               label="Find Vibe"
               focused={focused && !findVibeLocked}
               color={findVibeLocked ? INACTIVE : color}
-              isIOS={isIOS}
-              sfActive="heart.fill"
-              sfDefault="heart"
               locked={findVibeLocked}
             />
           ),
@@ -338,7 +327,7 @@ function ClassicTabLayout({
         })}
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon iconName={focused ? "person" : "person-outline"} label="Profile" focused={focused} color={color} isIOS={isIOS} sfActive="person.fill" sfDefault="person" />
+            <TabIcon iconName={focused ? "person" : "person-outline"} label="Profile" focused={focused} color={color} />
           ),
         }}
       />

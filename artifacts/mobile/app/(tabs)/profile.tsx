@@ -373,11 +373,15 @@ export default function ProfileScreen() {
     })();
   }, [activeTab, session?.user?.id]);
 
+  const loadProfile = useCallback(async (uid: string) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    if (data) setProfile(data as Profile);
+  }, []);
+
   useEffect(() => {
-    if (!session?.user) return;
-    supabase.from("profiles").select("*").eq("id", session.user.id).single()
-      .then(({ data }) => { if (data) setProfile(data as Profile); });
-  }, [session]);
+    if (!session?.user?.id) return;
+    loadProfile(session.user.id);
+  }, [session?.user?.id, loadProfile]);
 
   const loadHighlights = useCallback(async (uid: string) => {
     setHighlightsLoading(true);
@@ -402,12 +406,13 @@ export default function ProfileScreen() {
     loadMyPosts(session.user.id).finally(() => setPostsLoading(false));
   }, [session?.user?.id]);
 
-  // Re-fetch posts every time this tab is focused (catches posts created on other screens)
+  // Re-fetch profile + posts every time this tab is focused (catches edits made on other screens)
   useFocusEffect(
     useCallback(() => {
       if (!session?.user?.id) return;
+      loadProfile(session.user.id);
       loadMyPosts(session.user.id);
-    }, [session?.user?.id, loadMyPosts])
+    }, [session?.user?.id, loadProfile, loadMyPosts])
   );
 
   useEffect(() => {
