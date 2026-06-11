@@ -23,6 +23,7 @@ import {
 import SwipeablePager, { SwipeablePagerRef } from "@/components/SwipeablePager";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  cancelAnimation,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -129,6 +130,8 @@ function ModeSelectionSheet({
 }) {
   const [selected, setSelected] = useState("dating");
   const slideY = useSharedValue(700);
+
+  useEffect(() => { return () => cancelAnimation(slideY); }, []);
 
   useEffect(() => {
     if (visible) {
@@ -355,6 +358,8 @@ function VibeGamesModal({ card, visible, onComplete, onSkip }: {
   const [score, setScore] = useState(0);
   const slideX = useSharedValue(W);
 
+  useEffect(() => { return () => cancelAnimation(slideX); }, []);
+
   useEffect(() => {
     if (visible) {
       setQIdx(0);
@@ -511,7 +516,7 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
       });
     };
     setTimeout(doPulse, 1000);
-    return () => { running = false; clearInterval(timer); };
+    return () => { running = false; clearInterval(timer); cancelAnimation(pulse); };
   }, []);
 
   const cardAnim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
@@ -856,7 +861,7 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
     opacity.value = withTiming(1, { duration: 350 });
     scale.value = withSpring(1, { damping: 14, stiffness: 120 });
     const t = setTimeout(onClose, 6000);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); cancelAnimation(opacity); cancelAnimation(scale); };
   }, []);
 
   const overlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -1025,6 +1030,8 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
   const [achievement, setAchievement] = useState<Achievement | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
+
+  useEffect(() => { return () => { cancelAnimation(translateX); cancelAnimation(translateY); }; }, []);
 
   // ── Swipe limit + cooldown state ──────────────────────────────────────────
   const [dailySwipeCount, setDailySwipeCount] = useState(0);
