@@ -447,7 +447,7 @@ export default function FeedScreen() {
     fetchFriendStories(userId).then(setFriendStories).catch(() => {});
 
     const channel = supabase
-      .channel(`friend-stories-${userId}`)
+      .channel(`friend-stories-${userId}-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "stories" },
@@ -455,7 +455,7 @@ export default function FeedScreen() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { supabase.removeChannel(channel).catch(() => {}); };
   }, [userId]);
 
   useEffect(() => {
