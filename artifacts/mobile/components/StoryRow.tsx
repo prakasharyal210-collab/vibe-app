@@ -114,6 +114,16 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
     timerRef.current = setTimeout(() => advance(), 5000);
   };
 
+  // Cancel all Reanimated animations on unmount so dangling frame callbacks
+  // don't cause "Object is not a function" in rafCallback on Android.
+  useEffect(() => {
+    return () => {
+      clearTimer();
+      cancelAnimation(progress);
+      cancelAnimation(translateY);
+    };
+  }, []);
+
   useEffect(() => {
     startTimer();
     return clearTimer;

@@ -2529,8 +2529,8 @@ class JyotishaErrorBoundary extends React.Component<
 }
 
 function JyotishaTabInner({ userId }: { userId?: string }) {
-  console.log("[JyotishaTab] mounting");
   const [profile, setProfile] = useState<KundaliProfile | null>(null);
+  React.useEffect(() => { console.log("[JyotishaTab] mounted"); }, []);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>("panchang");
 

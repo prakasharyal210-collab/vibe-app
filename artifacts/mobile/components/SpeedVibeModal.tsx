@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -47,6 +48,14 @@ export function SpeedVibeModal({ visible, onClose }: SpeedVibeModalProps) {
 
   const scale = useSharedValue(0.8);
   const opacity = useSharedValue(0);
+
+  // Cancel animations on unmount to prevent dangling rafCallback worklet errors
+  useEffect(() => {
+    return () => {
+      cancelAnimation(scale);
+      cancelAnimation(opacity);
+    };
+  }, []);
 
   useEffect(() => {
     if (visible) {

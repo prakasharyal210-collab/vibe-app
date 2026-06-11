@@ -69,6 +69,17 @@ export function PexelsReelItem({ item, isActive, soundOn, onToggleSound }: Props
   const lastTap = useRef(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cancel ALL animations on unmount to prevent dangling rafCallback worklet errors
+  useEffect(() => {
+    return () => {
+      cancelAnimation(progress);
+      cancelAnimation(heartScale);
+      cancelAnimation(saveScale);
+      cancelAnimation(pauseOpacity);
+      cancelAnimation(marqueeX);
+    };
+  }, []);
+
   // Progress bar driven by video duration
   const durationMs = (video.duration > 0 ? video.duration : 20) * 1000;
 

@@ -361,8 +361,8 @@ class CameraErrorBoundary extends React.Component<
 }
 
 function CreateScreenInner() {
-  console.log("[CreateScreen] mounting");
   const insets = useSafeAreaInsets();
+  React.useEffect(() => { console.log("[CreateScreen] mounted"); }, []);
   const { session } = useAuth();
   const isLoggedIn = !!session;
 

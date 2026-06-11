@@ -95,13 +95,14 @@ class LoginErrorBoundary extends React.Component<
 }
 
 function LoginScreen() {
-  console.log("[LoginScreen] mounting");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [focused, setFocused] = useState<"email" | "password" | null>(null);
+
+  React.useEffect(() => { console.log("[LoginScreen] mounted"); }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {

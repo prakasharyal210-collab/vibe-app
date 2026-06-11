@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dimensions,
   Image,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -51,6 +52,16 @@ export function FullScreenMediaViewer({ items, startIndex, visible, onClose }: F
   const heartScale = useSharedValue(0);
   const heartOpacity = useSharedValue(0);
   const bgOpacity = useSharedValue(1);
+
+  // Cancel animations on unmount to prevent dangling rafCallback worklet errors
+  useEffect(() => {
+    return () => {
+      cancelAnimation(translateY);
+      cancelAnimation(heartScale);
+      cancelAnimation(heartOpacity);
+      cancelAnimation(bgOpacity);
+    };
+  }, []);
 
   const handleDoubleTap = () => {
     if (!liked) {
