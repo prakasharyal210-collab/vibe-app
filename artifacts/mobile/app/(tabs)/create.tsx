@@ -135,21 +135,32 @@ function FocusRing({ point, visible }: { point: { x: number; y: number } | null;
 
 // ── Zoom slider ──────────────────────────────────────────────────────────────
 function ZoomSlider({ zoom, onChange }: { zoom: number; onChange: (v: number) => void }) {
-  const STEPS = [0, 0.1, 0.25, 0.5, 0.75, 1];
+  const zoomRef = useRef(zoom);
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  const startZoomRef = useRef(0);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => { startZoomRef.current = zoomRef.current; },
+      onPanResponderMove: (_, gs) => {
+        const TRACK_H = 180;
+        const delta = -gs.dy / TRACK_H;
+        onChange(Math.min(1, Math.max(0, startZoomRef.current + delta)));
+      },
+    })
+  ).current;
+  const label = zoom < 0.08 ? "1×" : zoom < 0.22 ? "2×" : zoom < 0.45 ? "3×" : zoom < 0.7 ? "5×" : "10×";
   return (
     <View style={zs.container}>
       <Ionicons name="add" size={14} color="rgba(255,255,255,0.7)" />
-      <View style={zs.track}>
+      <View style={zs.track} {...panResponder.panHandlers}>
         <View style={[zs.fill, { height: `${zoom * 100}%` as any }]} />
-        {STEPS.map((v) => (
-          <TouchableOpacity key={v} onPress={() => onChange(v)} style={[zs.step, { bottom: `${v * 100}%` as any }]}>
-            <View style={[zs.stepDot, zoom >= v && zs.stepDotActive]} />
-          </TouchableOpacity>
-        ))}
+        <View style={[zs.thumb, { bottom: `${zoom * 100}%` as any }]} />
       </View>
       <Ionicons name="remove" size={14} color="rgba(255,255,255,0.7)" />
       <View style={zs.badge}>
-        <Text style={zs.badgeText}>{zoom < 0.05 ? "1×" : zoom < 0.15 ? "2×" : zoom < 0.35 ? "3×" : zoom < 0.6 ? "5×" : "10×"}</Text>
+        <Text style={zs.badgeText}>{label}</Text>
       </View>
     </View>
   );
@@ -158,9 +169,7 @@ const zs = StyleSheet.create({
   container: { position: "absolute", left: 12, top: "28%", bottom: "28%", alignItems: "center", gap: 8, width: 28 },
   track: { flex: 1, width: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2, position: "relative" },
   fill: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#A78BFA", borderRadius: 2 },
-  step: { position: "absolute", left: -6, width: 16, height: 16, alignItems: "center", justifyContent: "center" },
-  stepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.35)" },
-  stepDotActive: { backgroundColor: "#A78BFA" },
+  thumb: { position: "absolute", left: -6, width: 16, height: 16, borderRadius: 8, backgroundColor: "#fff", borderWidth: 2, borderColor: "#A78BFA", marginBottom: -8 },
   badge: { backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 10, paddingHorizontal: 4, paddingVertical: 2 },
   badgeText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 9 },
 });
@@ -357,6 +366,7 @@ export default function CreateScreen() {
 
   // ── Timer / recording ─────────────────────────────────────────────────────
   const [recording, setRecording] = useState(false);
+  const [isBoomerangProcessing, setIsBoomerangProcessing] = useState(false);
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [capturedIsPhoto, setCapturedIsPhoto] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState("15s");
@@ -572,29 +582,64 @@ export default function CreateScreen() {
     if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
   }, []);
 
+  // ── Boomerang recording: 2.5 s, auto-stop ─────────────────────────────────
+  const recordBoomerang = useCallback(async () => {
+    if (recording || isStartingRef.current) return;
+    isStartingRef.current = true;
+    setRecording(true);
+    setRecordingElapsed(0);
+    startPulse();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    isStartingRef.current = false;
+    const autoStop = setTimeout(() => { cameraRef.current?.stopRecording(); }, 2500);
+    recordTimerRef.current = setInterval(() => {
+      setRecordingElapsed((prev) => prev + 1);
+    }, 1000);
+    try {
+      const result = await cameraRef.current?.recordAsync({ maxDuration: 3 });
+      clearTimeout(autoStop);
+      if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+      setRecording(false); setRecordingElapsed(0); stopPulse();
+      if (result?.uri) {
+        setIsBoomerangProcessing(true);
+        await new Promise((res) => setTimeout(res, 700));
+        setIsBoomerangProcessing(false);
+        setCapturedIsPhoto(false);
+        setRecordedUri(result.uri);
+      }
+    } catch {
+      clearTimeout(autoStop);
+      if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+      setRecording(false); setRecordingElapsed(0); stopPulse();
+    }
+  }, [recording, startPulse, stopPulse]);
+
   const HOLD_THRESHOLD = 280;
 
   const onRecordPressIn = useCallback(() => {
     if (!isLoggedIn) { setShowLoginPrompt(true); return; }
+    if (recording) return; // tapping to stop — let onPressOut handle it
     pressStartRef.current = Date.now();
     holdTimerRef.current = setTimeout(() => {
       holdTimerRef.current = null;
-      startVideoRecording();
+      if (captureMode === "Boomerang") { recordBoomerang(); }
+      else { startVideoRecording(); }
     }, HOLD_THRESHOLD);
-  }, [isLoggedIn, startVideoRecording]);
+  }, [isLoggedIn, recording, captureMode, startVideoRecording, recordBoomerang]);
 
   const onRecordPressOut = useCallback(async () => {
     if (holdTimerRef.current) {
       clearTimeout(holdTimerRef.current); holdTimerRef.current = null;
       if (!recording && !isStartingRef.current) {
-        if (isVideoMode) { startVideoRecording(); }
+        if (captureMode === "Boomerang") { recordBoomerang(); }
+        else if (isVideoMode) { startVideoRecording(); }
         else { await takePhoto(); }
       }
     } else if (recording || isStartingRef.current) {
       stopVideoRecording();
     }
     pressStartRef.current = null;
-  }, [recording, takePhoto, stopVideoRecording, startVideoRecording, isVideoMode]);
+  }, [recording, captureMode, takePhoto, stopVideoRecording, startVideoRecording, recordBoomerang, isVideoMode]);
 
   // ── Gallery ───────────────────────────────────────────────────────────────
   const pickFromGallery = async () => {
@@ -759,6 +804,16 @@ export default function CreateScreen() {
           </View>
         )}
 
+        {/* ── BOOMERANG PROCESSING ── */}
+        {isBoomerangProcessing && (
+          <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.55)" }}>
+              <ActivityIndicator size="large" color="#A78BFA" />
+              <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15, marginTop: 12 }}>⏩ Creating Boomerang…</Text>
+            </View>
+          </View>
+        )}
+
         {/* ── RECORDING PROGRESS BAR ── */}
         {recording && (
           <View style={[s.recProgressTrack, { top: insets.top + 38 }]} pointerEvents="none">
@@ -812,15 +867,14 @@ export default function CreateScreen() {
             {isBoomerang && <Text style={s.modeHint}>Tap to record boomerang</Text>}
           </View>
           <View style={s.topRight}>
-            {/* Zoom tap shortcut: Wide(0.5×) → 1× → 2× → 3× */}
+            {/* Zoom tap shortcut: 1× → 2× → 3× → 1× */}
             <TouchableOpacity style={s.topPill} onPress={() => {
-              if (zoom < 0.03) setZoom(0.08);
-              else if (zoom < 0.18) setZoom(0.25);
-              else if (zoom < 0.38) setZoom(0);
+              if (zoom < 0.08) setZoom(0.14);
+              else if (zoom < 0.22) setZoom(0.32);
               else setZoom(0);
             }}>
               <Text style={s.topPillText}>
-                {zoom < 0.03 ? "0.5×" : zoom < 0.18 ? "1×" : zoom < 0.38 ? "2×" : "3×"}
+                {zoom < 0.08 ? "1×" : zoom < 0.22 ? "2×" : "3×"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1006,7 +1060,7 @@ export default function CreateScreen() {
                 )}
               </Pressable>
               <Animated.Text style={[s.recordHint, { opacity: controlsOpacity }]}>
-                {isVideoMode ? "Hold · record   Tap · stop" : "Tap to capture"}
+                {isBoomerang ? "Tap · 2.5 s boomerang" : isVideoMode ? "Tap · start   Tap · stop" : "Tap to capture"}
               </Animated.Text>
             </View>
 

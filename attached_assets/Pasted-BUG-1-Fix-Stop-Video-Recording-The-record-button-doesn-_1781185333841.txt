@@ -1,0 +1,177 @@
+BUG 1 — Fix Stop Video Recording:
+The record button doesn't stop recording when tapped again. Fix it:
+javascriptconst [isRecording, setIsRecording] = useState(false);
+const cameraRef = useRef(null);
+
+const handleRecordButton = async () => {
+  if (isRecording) {
+    // STOP recording
+    cameraRef.current?.stopRecording();
+    setIsRecording(false);
+  } else {
+    // START recording
+    setIsRecording(true);
+    const video = await cameraRef.current?.recordAsync({
+      maxDuration: selectedDuration, // 15, 30, 60, 180 seconds
+      quality: '1080p',
+    });
+    setIsRecording(false);
+    // handle recorded video
+    handleVideoRecorded(video.uri);
+  }
+};
+
+// Record button UI changes when recording:
+<TouchableOpacity onPress={handleRecordButton}>
+  {isRecording ? (
+    // Show STOP button (red square)
+    <View style={styles.stopButton} />
+  ) : (
+    // Show RECORD button (red circle)
+    <View style={styles.recordButton} />
+  )}
+</TouchableOpacity>
+
+// Also show recording timer when recording:
+{isRecording && (
+  <Text style={styles.recordingTimer}>
+    ⏺ {formatTime(recordingSeconds)}
+  </Text>
+)}
+
+BUG 2 — Fix Boomerang Mode:
+Boomerang records 2-3 seconds then loops forward + backward. Fix it:
+javascriptconst recordBoomerang = async () => {
+  try {
+    setIsRecording(true);
+    
+    // Step 1: Record 2 seconds of video
+    const video = await cameraRef.current?.recordAsync({
+      maxDuration: 2,
+      quality: '720p',
+    });
+    setIsRecording(false);
+
+    // Step 2: Show processing indicator
+    setIsProcessing(true);
+
+    // Step 3: Create boomerang effect
+    // Load the video frames
+    const originalUri = video.uri;
+    
+    // For boomerang: play forward then backward
+    // Use expo-av to create the effect
+    const boomerangUri = await createBoomerang(originalUri);
+    
+    setIsProcessing(false);
+    
+    // Step 4: Show preview and let user post
+    handleVideoRecorded(boomerangUri);
+    
+  } catch (error) {
+    console.error('Boomerang error:', error);
+    setIsRecording(false);
+    setIsProcessing(false);
+  }
+};
+
+// Simple boomerang using expo-video-thumbnails
+import * as VideoThumbnails from 'expo-video-thumbnails';
+
+const createBoomerang = async (videoUri) => {
+  // Extract frames from video
+  const frames = [];
+  const duration = 2000; // 2 seconds in ms
+  
+  for (let time = 0; time <= duration; time += 100) {
+    const { uri } = await VideoThumbnails.getThumbnailAsync(videoUri, {
+      time: time,
+      quality: 0.8,
+    });
+    frames.push(uri);
+  }
+  
+  // Reverse frames for backward play
+  const reversedFrames = [...frames].reverse();
+  
+  // Combine: forward + backward frames
+  const boomerangFrames = [...frames, ...reversedFrames];
+  
+  // Convert frames back to video
+  // Return original video URI as fallback if frame manipulation not available
+  return videoUri;
+};
+Simpler boomerang approach:
+If frame manipulation is too complex, implement boomerang as:
+
+Record 2 seconds
+Play it in a loop that goes forward then backward using expo-av
+When user posts → upload original 2 second clip with isBoomerang: true flag
+In feed, play it forward+backward in loop
+
+
+BUG 3 — Add Zoom In/Zoom Out:
+Add zoom controls to camera:
+javascriptconst [zoom, setZoom] = useState(0); // 0 = no zoom, 1 = max zoom
+
+// Pinch to zoom gesture
+import { PinchGestureHandler } from 'react-native-gesture-handler';
+
+const onPinchGestureEvent = (event) => {
+  const scale = event.nativeEvent.scale;
+  const newZoom = Math.min(Math.max(zoom + (scale - 1) * 0.1, 0), 1);
+  setZoom(newZoom);
+};
+
+<PinchGestureHandler onGestureEvent={onPinchGestureEvent}>
+  <Camera
+    ref={cameraRef}
+    zoom={zoom} // expo-camera zoom prop
+    style={styles.camera}
+  />
+</PinchGestureHandler>
+
+// Zoom slider on right side of camera
+<View style={styles.zoomSlider}>
+  <Text>🔍+</Text>
+  <Slider
+    style={styles.verticalSlider}
+    value={zoom}
+    minimumValue={0}
+    maximumValue={1}
+    onValueChange={setZoom}
+    vertical={true}
+  />
+  <Text>🔍-</Text>
+</View>
+
+// Zoom level indicator
+<Text style={styles.zoomLabel}>
+  {zoom === 0 ? '1x' : zoom < 0.3 ? '2x' : zoom < 0.6 ? '3x' : '5x'}
+</Text>
+
+// Tap zoom level to cycle through: 1x → 2x → 3x → 0.5x
+<TouchableOpacity onPress={cycleZoom}>
+  <Text>{zoomLabel}x</Text>
+</TouchableOpacity>
+
+const cycleZoom = () => {
+  const levels = [0, 0.2, 0.5, 0.8];
+  const currentIndex = levels.indexOf(zoom);
+  const nextIndex = (currentIndex + 1) % levels.length;
+  setZoom(levels[nextIndex]);
+};
+Zoom UI:
+
+Show current zoom level as "1x" "2x" "3x" button at top of camera
+Tap to cycle through zoom levels
+Pinch gesture to smooth zoom
+Zoom indicator slides up/down on right side
+
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Fix all 3 bugs without breaking existing camera features.
