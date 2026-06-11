@@ -86,7 +86,7 @@ export default function LoginScreen() {
     if (error) {
       Alert.alert("Sign In Failed", error.message);
     } else {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/feed");
     }
   };
 

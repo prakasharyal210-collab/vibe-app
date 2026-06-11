@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   findFriendsBtnText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   gridTabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginTop: 4 },
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
-  gridImage: { width: GRID_ITEM, height: GRID_ITEM },
+  gridImage: { width: GRID_ITEM, height: GRID_ITEM, backgroundColor: "#1A0A2E" },
   reelBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 6, padding: 3 },
   pinBadge: { position: "absolute", top: 6, left: 6, backgroundColor: "rgba(139,92,246,0.85)", borderRadius: 6, padding: 3 },
   durationBadge: { position: "absolute", bottom: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
