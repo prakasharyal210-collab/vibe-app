@@ -33,6 +33,11 @@ function BackgroundOrbs() {
     loop(anim1, 4200);
     loop(anim2, 5800);
     loop(anim3, 7000);
+    return () => {
+      anim1.stopAnimation();
+      anim2.stopAnimation();
+      anim3.stopAnimation();
+    };
   }, []);
 
   const ty1 = anim1.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });

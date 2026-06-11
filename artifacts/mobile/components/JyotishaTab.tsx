@@ -231,13 +231,23 @@ function StarField({ count = 35 }: { count?: number }) {
   ).current;
   useEffect(() => {
     const nativeDriver = Platform.OS !== "web";
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
     stars.forEach(s => {
-      const pulse = () => Animated.sequence([
-        Animated.timing(s.anim, { toValue: 1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
-        Animated.timing(s.anim, { toValue: 0.1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
-      ]).start(pulse);
-      setTimeout(pulse, Math.random() * 2000);
+      const pulse = () => {
+        if (cancelled) return;
+        Animated.sequence([
+          Animated.timing(s.anim, { toValue: 1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
+          Animated.timing(s.anim, { toValue: 0.1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
+        ]).start(({ finished }) => { if (finished && !cancelled) pulse(); });
+      };
+      timers.push(setTimeout(pulse, Math.random() * 2000));
     });
+    return () => {
+      cancelled = true;
+      timers.forEach(clearTimeout);
+      stars.forEach(s => s.anim.stopAnimation());
+    };
   }, []);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -254,6 +264,7 @@ function MandalaRing({ size = 200, color = GOLD }: { size?: number; color?: stri
   const rot = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.loop(Animated.timing(rot, { toValue: 1, duration: 30000, useNativeDriver: Platform.OS !== "web" })).start();
+    return () => rot.stopAnimation();
   }, []);
   const rotate = rot.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   return (
@@ -1006,6 +1017,7 @@ function DailyMantraSection({ profile }: { profile: KundaliProfile }) {
       Animated.timing(glowAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
       Animated.timing(glowAnim, { toValue: 0.4, duration: 2200, useNativeDriver: true }),
     ])).start();
+    return () => glowAnim.stopAnimation();
   }, []);
 
   const load = useCallback(async () => {
