@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system";
 import * as Location from "expo-location";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   PanResponder,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -100,38 +101,72 @@ function AdjustSliderRow({
   label: string; emoji: string; value: number; min: number; max: number; color: string;
   onChange: (v: number) => void;
 }) {
-  const STEPS = 5;
-  const range = max - min;
-  const pct = ((value - min) / range) * 100;
-  const steps = Array.from({ length: STEPS + 1 }, (_, i) => min + (range / STEPS) * i);
+  const trackWidthRef = useRef(200);
+  const startValRef = useRef(value);
+  const valueRef = useRef(value);
+  useEffect(() => { valueRef.current = value; }, [value]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > Math.abs(g.dy) + 2,
+      onPanResponderGrant: () => {
+        startValRef.current = valueRef.current;
+      },
+      onPanResponderMove: (_, g) => {
+        const startX = ((startValRef.current - min) / (max - min)) * trackWidthRef.current;
+        const rawX = startX + g.dx;
+        const clampedX = Math.max(0, Math.min(trackWidthRef.current, rawX));
+        const newVal = min + (clampedX / trackWidthRef.current) * (max - min);
+        onChange(+newVal.toFixed(3));
+      },
+    })
+  ).current;
+
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+  const displayVal = Math.round(value * 100);
+
   return (
     <View style={adj.row}>
       <Text style={adj.emoji}>{emoji}</Text>
       <Text style={adj.label}>{label}</Text>
-      <View style={adj.trackWrap}>
+      <View
+        style={adj.trackWrap}
+        onLayout={(e) => { trackWidthRef.current = e.nativeEvent.layout.width; }}
+        {...panResponder.panHandlers}
+      >
         <View style={adj.track}>
           <View style={[adj.fill, { width: `${pct}%` as any, backgroundColor: color }]} />
         </View>
-        <View style={adj.touchRow}>
-          {steps.map((v, i) => (
-            <TouchableOpacity key={i} style={adj.touchZone} onPress={() => onChange(Number(v.toFixed(2)))} activeOpacity={0.7} />
-          ))}
-        </View>
+        <View style={[adj.thumb, { left: `${pct}%` as any, backgroundColor: color }]} />
       </View>
-      <Text style={[adj.val, { color }]}>{value > 0 ? `+${Math.round(value * 100)}` : Math.round(value * 100)}</Text>
+      <Text style={[adj.val, { color }]}>{displayVal > 0 ? `+${displayVal}` : displayVal}</Text>
     </View>
   );
 }
 
 const adj = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8 },
   emoji: { fontSize: 16, width: 24, textAlign: "center" },
   label: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_500Medium", fontSize: 12, width: 76 },
-  trackWrap: { flex: 1, position: "relative" },
-  track: { height: 4, backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 2 },
-  fill: { position: "absolute", left: 0, top: 0, height: 4, borderRadius: 2 },
-  touchRow: { position: "absolute", top: -12, left: 0, right: 0, bottom: -12, flexDirection: "row" },
-  touchZone: { flex: 1 },
+  trackWrap: { flex: 1, position: "relative", paddingVertical: 10 },
+  track: { height: 4, backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 2 },
+  fill: { position: "absolute", left: 0, top: 10, height: 4, borderRadius: 2 },
+  thumb: {
+    position: "absolute",
+    top: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginLeft: -10,
+    borderWidth: 2.5,
+    borderColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+  },
   val: { fontFamily: "Poppins_600SemiBold", fontSize: 11, width: 32, textAlign: "right" },
 });
 
@@ -321,6 +356,17 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const vignetteOpacity = adjust.vignette * 0.7;
   const hasAdjust = Object.values(adjust).some((v) => v !== 0);
 
+  // CSS filter for web — handles all 5 adjustments natively in the browser
+  const webFilterStyle: object | undefined = Platform.OS === "web" && hasAdjust ? {
+    filter: [
+      `brightness(${1 + adjust.brightness})`,
+      `contrast(${Math.max(0.1, 1 + adjust.contrast)})`,
+      `saturate(${Math.max(0, 1 + adjust.saturation)})`,
+      adjust.warmth > 0 ? `sepia(${adjust.warmth * 0.55})` : (adjust.warmth < 0 ? `hue-rotate(${adjust.warmth * -40}deg)` : null),
+      adjust.fade > 0 ? `opacity(${1 - adjust.fade * 0.45})` : null,
+    ].filter(Boolean).join(" "),
+  } : undefined;
+
   const ADJUST_SLIDERS = [
     { key: "brightness" as keyof AdjustSettings, label: "Brightness", emoji: "☀️", min: -1, max: 1, color: "#FBBF24" },
     { key: "contrast" as keyof AdjustSettings, label: "Contrast", emoji: "◐", min: -1, max: 1, color: "#A78BFA" },
@@ -340,7 +386,11 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
       {/* ── PREVIEW ── */}
       <View style={[styles.preview, { paddingTop: insets.top }]}>
         <Animated.View style={[StyleSheet.absoluteFill, { transform: imgTransform }]}>
-          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+          <Image
+            source={{ uri }}
+            style={[StyleSheet.absoluteFill, webFilterStyle as any]}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* Filter overlay */}
@@ -348,11 +398,14 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
           <View style={[StyleSheet.absoluteFill, { backgroundColor: filter.blendHex, opacity: filter.opacity }]} pointerEvents="none" />
         )}
 
-        {/* Adjust overlays */}
-        {hasAdjust && (
+        {/* Adjust overlays — native only; web uses CSS filter above */}
+        {Platform.OS !== "web" && hasAdjust && (
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {adjust.brightness > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(255,255,255,${brightnessOpacity})` }]} />}
             {adjust.brightness < 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(0,0,0,${brightnessOpacity})` }]} />}
+            {adjust.contrast > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(0,0,0,${adjust.contrast * 0.15})`, mixBlendMode: "multiply" as any }]} />}
+            {adjust.contrast < 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(128,128,128,${Math.abs(adjust.contrast) * 0.2})` }]} />}
+            {adjust.saturation < -0.3 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(128,128,128,${Math.abs(adjust.saturation) * 0.35})`, mixBlendMode: "color" as any }]} />}
             {adjust.warmth > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(249,115,22,${warmthOpacity})` }]} />}
             {adjust.warmth < 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(59,130,246,${coolOpacity})` }]} />}
             {adjust.fade > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(226,232,240,${fadeOpacity})` }]} />}

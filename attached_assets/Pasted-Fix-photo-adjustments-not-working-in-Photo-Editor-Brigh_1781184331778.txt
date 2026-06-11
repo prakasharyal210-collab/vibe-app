@@ -1,0 +1,82 @@
+Fix photo adjustments not working in Photo Editor — Brightness, Contrast, Saturation, Warmth, Fade sliders do nothing:
+The sliders show but dragging them doesn't change the photo. Fix all adjustment sliders to work in real time.
+Implementation using expo-image-manipulator:
+javascriptimport * as ImageManipulator from 'expo-image-manipulator';
+
+const applyAdjustments = async (originalUri, adjustments) => {
+  const { brightness, contrast, saturation } = adjustments;
+  
+  const result = await ImageManipulator.manipulateAsync(
+    originalUri,
+    [], // no geometric transforms
+    {
+      compress: 0.9,
+      format: ImageManipulator.SaveFormat.JPEG,
+    }
+  );
+  return result.uri;
+};
+For real-time preview use CSS/StyleSheet filters:
+javascript// Apply filters as CSS style on the Image component
+const getImageStyle = (adjustments) => {
+  const { brightness, contrast, saturation, warmth, fade } = adjustments;
+  
+  return {
+    filter: [
+      `brightness(${1 + brightness / 100})`,
+      `contrast(${1 + contrast / 100})`,
+      `saturate(${1 + saturation / 100})`,
+      `sepia(${warmth / 200})`,
+      `opacity(${1 - fade / 200})`,
+    ].join(' '),
+  };
+};
+
+// Apply to image
+<Image
+  source={{ uri: photoUri }}
+  style={[styles.photo, getImageStyle(adjustments)]}
+/>
+OR use react-native-image-filter-kit:
+npm install react-native-image-filter-kit
+javascriptimport { ColorMatrix, concatColorMatrices, brightness, contrast, saturate } from 'react-native-image-filter-kit';
+
+<ColorMatrix
+  matrix={concatColorMatrices(
+    brightness(adjustments.brightness / 100),
+    contrast(adjustments.contrast / 100),
+    saturate(adjustments.saturation / 100)
+  )}
+>
+  <Image source={{ uri: photoUri }} style={styles.photo} />
+</ColorMatrix>
+Make sliders actually connected to state:
+javascriptconst [adjustments, setAdjustments] = useState({
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  warmth: 0,
+  fade: 0,
+});
+
+// Each slider must call this:
+<Slider
+  value={adjustments.brightness}
+  minimumValue={-100}
+  maximumValue={100}
+  onValueChange={(value) => 
+    setAdjustments(prev => ({ ...prev, brightness: value }))
+  }
+/>
+When user taps Post:
+
+Apply all adjustments to the final image using ImageManipulator
+Upload the adjusted image to Supabase Storage
+Not the original unedited image
+
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+
+Fix all 5 sliders: Brightness, Contrast, Saturation, Warmth, Fade.
