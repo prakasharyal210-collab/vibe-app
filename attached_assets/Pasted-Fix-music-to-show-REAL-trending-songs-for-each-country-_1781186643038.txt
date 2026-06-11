@@ -1,0 +1,130 @@
+Fix music to show REAL trending songs for each country using multiple APIs:
+Use this approach for each country:
+javascript// In server.js - complete music route
+
+const DEEZER_CHARTS = {
+  global: 'https://api.deezer.com/chart/0/tracks?limit=50',
+  US: 'https://api.deezer.com/chart/23/tracks?limit=50',
+  GB: 'https://api.deezer.com/chart/23/tracks?limit=50',
+  FR: 'https://api.deezer.com/chart/23/tracks?limit=50',
+  DE: 'https://api.deezer.com/chart/23/tracks?limit=50',
+};
+
+const DEEZER_SEARCH = {
+  IN: 'https://api.deezer.com/search?q=bollywood+top+hits+2024&limit=50',
+  NP: 'https://api.deezer.com/search?q=nepali+trending+2024&limit=50',
+  PK: 'https://api.deezer.com/search?q=pakistani+urdu+trending&limit=50',
+  BD: 'https://api.deezer.com/search?q=bangla+trending+2024&limit=50',
+  KR: 'https://api.deezer.com/search?q=kpop+trending+2024&limit=50',
+  JP: 'https://api.deezer.com/search?q=japanese+trending+2024&limit=50',
+  BR: 'https://api.deezer.com/search?q=brazil+funk+trending+2024&limit=50',
+  ES: 'https://api.deezer.com/search?q=reggaeton+latin+trending+2024&limit=50',
+  NG: 'https://api.deezer.com/search?q=afrobeats+trending+2024&limit=50',
+};
+
+app.get('/api/music/trending', async (req, res) => {
+  const country = req.query.country || 'global';
+  
+  try {
+    let url;
+    
+    if (DEEZER_CHARTS[country]) {
+      url = DEEZER_CHARTS[country];
+    } else if (DEEZER_SEARCH[country]) {
+      url = DEEZER_SEARCH[country];
+    } else {
+      url = DEEZER_CHARTS.global;
+    }
+    
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    // Normalize response format
+    const tracks = data.data || data.tracks?.data || [];
+    
+    res.json({ tracks, country });
+    
+  } catch (error) {
+    console.error('Music error:', error);
+    res.status(500).json({ error: 'Failed to fetch music' });
+  }
+});
+Country list to show in music picker:
+javascriptconst COUNTRIES = [
+  { code: 'global', flag: '🌍', name: 'Global' },
+  { code: 'US', flag: '🇺🇸', name: 'USA' },
+  { code: 'IN', flag: '🇮🇳', name: 'India' },
+  { code: 'NP', flag: '🇳🇵', name: 'Nepal' },
+  { code: 'GB', flag: '🇬🇧', name: 'UK' },
+  { code: 'KR', flag: '🇰🇷', name: 'K-Pop' },
+  { code: 'BR', flag: '🇧🇷', name: 'Brazil' },
+  { code: 'ES', flag: '🇪🇸', name: 'Latin' },
+  { code: 'NG', flag: '🇳🇬', name: 'Afrobeats' },
+  { code: 'JP', flag: '🇯🇵', name: 'Japan' },
+  { code: 'PK', flag: '🇵🇰', name: 'Pakistan' },
+  { code: 'BD', flag: '🇧🇩', name: 'Bangladesh' },
+];
+In mobile app:
+javascriptconst [selectedCountry, setSelectedCountry] = useState('global');
+const [songs, setSongs] = useState([]);
+
+const loadSongs = async (country) => {
+  setLoading(true);
+  try {
+    const response = await fetch(
+      `https://gundruk.replit.app/api/music/trending?country=${country}`
+    );
+    const data = await response.json();
+    setSongs(data.tracks || []);
+  } catch (error) {
+    setError(true);
+  }
+  setLoading(false);
+};
+
+// Load songs when country tab changes
+useEffect(() => {
+  loadSongs(selectedCountry);
+}, [selectedCountry]);
+
+// Country tabs UI
+<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+  {COUNTRIES.map(country => (
+    <TouchableOpacity
+      key={country.code}
+      onPress={() => {
+        setSelectedCountry(country.code);
+        loadSongs(country.code);
+      }}
+      style={[
+        styles.countryTab,
+        selectedCountry === country.code && styles.activeTab
+      ]}
+    >
+      <Text>{country.flag} {country.name}</Text>
+    </TouchableOpacity>
+  ))}
+</ScrollView>
+Cache each country separately:
+javascriptconst cache = {};
+
+app.get('/api/music/trending', async (req, res) => {
+  const country = req.query.country || 'global';
+  const cacheKey = `music_${country}`;
+  const now = Date.now();
+  
+  // Return cached if less than 1 hour old
+  if (cache[cacheKey] && (now - cache[cacheKey].time) < 3600000) {
+    return res.json(cache[cacheKey].data);
+  }
+  
+  // Fetch fresh data
+  const data = await fetchMusicForCountry(country);
+  cache[cacheKey] = { data, time: now };
+  res.json(data);
+});
+After all changes — click Republish in Replit!
+Supabase:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF

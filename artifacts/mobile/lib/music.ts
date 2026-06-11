@@ -35,11 +35,18 @@ export interface DeezerCountryOption {
 }
 
 export const DEEZER_COUNTRIES: DeezerCountryOption[] = [
-  { code: "0",  label: "Global", flag: "🌍" },
-  { code: "US", label: "USA",    flag: "🇺🇸" },
-  { code: "IN", label: "India",  flag: "🇮🇳" },
-  { code: "GB", label: "UK",     flag: "🇬🇧" },
-  { code: "NP", label: "Nepal",  flag: "🇳🇵" },
+  { code: "0",  label: "Global",     flag: "🌍" },
+  { code: "US", label: "USA",        flag: "🇺🇸" },
+  { code: "IN", label: "India",      flag: "🇮🇳" },
+  { code: "NP", label: "Nepal",      flag: "🇳🇵" },
+  { code: "GB", label: "UK",         flag: "🇬🇧" },
+  { code: "KR", label: "K-Pop",      flag: "🇰🇷" },
+  { code: "BR", label: "Brazil",     flag: "🇧🇷" },
+  { code: "ES", label: "Latin",      flag: "🇪🇸" },
+  { code: "NG", label: "Afrobeats",  flag: "🇳🇬" },
+  { code: "JP", label: "Japan",      flag: "🇯🇵" },
+  { code: "PK", label: "Pakistan",   flag: "🇵🇰" },
+  { code: "BD", label: "Bangladesh", flag: "🇧🇩" },
 ];
 
 const JAMENDO_CLIENT_ID = "b6747d04";
@@ -216,7 +223,7 @@ function deezerToTrack(dt: DeezerApiTrack, position: number): Track {
 }
 
 export async function fetchDeezerChart(countryCode: string): Promise<Track[]> {
-  const cacheKey = `deezer_chart_${countryCode}`;
+  const cacheKey = `deezer_trending_${countryCode}`;
 
   const mem = memCache.get(cacheKey);
   if (mem && Date.now() - mem.ts < CACHE_TTL_DEEZER) return mem.data;
@@ -233,11 +240,12 @@ export async function fetchDeezerChart(countryCode: string): Promise<Track[]> {
   } catch {}
 
   try {
-    const url = `${API_BASE}/music/deezer?country=${encodeURIComponent(countryCode)}&limit=50`;
+    const url = `${API_BASE}/music/trending?country=${encodeURIComponent(countryCode)}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
     if (!res.ok) throw new Error(`Proxy ${res.status}`);
-    const json = await res.json() as { data?: DeezerApiTrack[] };
-    const tracks = (json.data ?? []).map((dt, i) => deezerToTrack(dt, i + 1));
+    const json = await res.json() as { tracks?: DeezerApiTrack[] };
+    const rawTracks = json.tracks ?? [];
+    const tracks = rawTracks.map((dt, i) => deezerToTrack(dt, i + 1));
     if (tracks.length === 0) throw new Error("Empty response");
 
     const entry = { data: tracks, ts: Date.now() };
