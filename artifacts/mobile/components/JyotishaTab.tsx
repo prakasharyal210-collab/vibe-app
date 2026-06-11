@@ -229,39 +229,48 @@ interface KundaliProfile {
 
 // ─── Star Field ───────────────────────────────────────────────────────────────
 
+function StarDot({ x, y, size, initialOpacity }: { x: number; y: number; size: number; initialOpacity: number }) {
+  const opacity = useSharedValue(initialOpacity);
+  useEffect(() => {
+    const dur1 = 1000 + Math.random() * 1500;
+    const dur2 = 1000 + Math.random() * 1500;
+    const delay = Math.random() * 2000;
+    const timer = setTimeout(() => {
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: dur1 }),
+          withTiming(0.1, { duration: dur2 })
+        ),
+        -1,
+        false
+      );
+    }, delay);
+    return () => { clearTimeout(timer); cancelAnimation(opacity); };
+  }, []);
+  const dotStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return (
+    <RAnimated.View
+      style={[
+        { position: "absolute", left: x, top: y, width: size * 2, height: size * 2, borderRadius: size, backgroundColor: "#FCD34D" },
+        dotStyle,
+      ]}
+    />
+  );
+}
+
 function StarField({ count = 35 }: { count?: number }) {
   const stars = useRef(
     Array.from({ length: count }, () => ({
       x: Math.random() * W,
       y: Math.random() * 260,
       size: Math.random() * 1.8 + 0.4,
-      anim: new Animated.Value(Math.random()),
+      initialOpacity: Math.random(),
     }))
   ).current;
-  useEffect(() => {
-    const nativeDriver = Platform.OS !== "web";
-    let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    stars.forEach(s => {
-      const pulse = () => {
-        if (cancelled) return;
-        Animated.sequence([
-          Animated.timing(s.anim, { toValue: 1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
-          Animated.timing(s.anim, { toValue: 0.1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
-        ]).start(({ finished }) => { if (finished && !cancelled) pulse(); });
-      };
-      timers.push(setTimeout(pulse, Math.random() * 2000));
-    });
-    return () => {
-      cancelled = true;
-      timers.forEach(clearTimeout);
-      stars.forEach(s => s.anim.stopAnimation());
-    };
-  }, []);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {stars.map((s, i) => (
-        <Animated.View key={i} style={{ position: "absolute", left: s.x, top: s.y, width: s.size * 2, height: s.size * 2, borderRadius: s.size, backgroundColor: "#FCD34D", opacity: s.anim }} />
+        <StarDot key={i} x={s.x} y={s.y} size={s.size} initialOpacity={s.initialOpacity} />
       ))}
     </View>
   );
@@ -300,11 +309,15 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
   const [birthTime, setBirthTime] = useState("");
   const [birthPlace, setBirthPlace] = useState("");
   const [error, setError] = useState("");
-  const fadeIn = useRef(new Animated.Value(1)).current;
-  const slideUp = useRef(new Animated.Value(30)).current;
+  const slideUp = useSharedValue(30);
+  const slideStyle = useAnimatedStyle(() => ({
+    opacity: 1,
+    transform: [{ translateY: slideUp.value }],
+  }));
 
   useEffect(() => {
-    Animated.timing(slideUp, { toValue: 0, duration: 600, useNativeDriver: Platform.OS !== "web" }).start();
+    slideUp.value = withTiming(0, { duration: 600 });
+    return () => cancelAnimation(slideUp);
   }, []);
 
   const handleStart = () => {
@@ -329,7 +342,7 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
   return (
     <ScrollView contentContainerStyle={S.setupScroll} showsVerticalScrollIndicator={false}>
       <StarField />
-      <Animated.View style={{ opacity: fadeIn, transform: [{ translateY: slideUp }], alignItems: "center", width: "100%" }}>
+      <RAnimated.View style={[slideStyle, { alignItems: "center", width: "100%" }]}>
         <Text style={S.omText}>ॐ</Text>
         <Text style={S.setupTitle}>Astrology — Light of the Veda</Text>
         <Text style={S.setupSub}>
@@ -382,7 +395,7 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
           </LinearGradient>
         </TouchableOpacity>
         <Text style={S.privacyNote}>🔒 Stored only on your device</Text>
-      </Animated.View>
+      </RAnimated.View>
     </ScrollView>
   );
 }
