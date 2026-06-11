@@ -4,6 +4,15 @@ import {
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
   Platform, Animated, Dimensions,
 } from "react-native";
+import RAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  cancelAnimation,
+  Easing,
+} from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -261,14 +270,25 @@ function StarField({ count = 35 }: { count?: number }) {
 // ─── Mandala Ring Decoration ──────────────────────────────────────────────────
 
 function MandalaRing({ size = 200, color = GOLD }: { size?: number; color?: string }) {
-  const rot = useRef(new Animated.Value(0)).current;
+  const rot = useSharedValue(0);
   useEffect(() => {
-    Animated.loop(Animated.timing(rot, { toValue: 1, duration: 30000, useNativeDriver: Platform.OS !== "web" })).start();
-    return () => rot.stopAnimation();
+    rot.value = withRepeat(
+      withTiming(360, { duration: 30000, easing: Easing.linear }),
+      -1,
+      false
+    );
+    return () => cancelAnimation(rot);
   }, []);
-  const rotate = rot.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const rotStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rot.value}deg` }],
+  }));
   return (
-    <Animated.View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 1, borderColor: color + "30", borderStyle: "dashed", transform: [{ rotate }], position: "absolute" }} />
+    <RAnimated.View
+      style={[
+        { width: size, height: size, borderRadius: size / 2, borderWidth: 1, borderColor: color + "30", borderStyle: "dashed", position: "absolute" },
+        rotStyle,
+      ]}
+    />
   );
 }
 
@@ -1010,15 +1030,21 @@ const MANTRA_KEY = `gundruk_mantra_v1:${new Date().toDateString()}`;
 function DailyMantraSection({ profile }: { profile: KundaliProfile }) {
   const [data, setData] = useState<MantraData | null>(null);
   const [loading, setLoading] = useState(false);
-  const glowAnim = useRef(new Animated.Value(0.4)).current;
+  const glowAnim = useSharedValue(0.4);
 
   useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim, { toValue: 1, duration: 2200, useNativeDriver: true }),
-      Animated.timing(glowAnim, { toValue: 0.4, duration: 2200, useNativeDriver: true }),
-    ])).start();
-    return () => glowAnim.stopAnimation();
+    glowAnim.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2200 }),
+        withTiming(0.4, { duration: 2200 })
+      ),
+      -1,
+      false
+    );
+    return () => cancelAnimation(glowAnim);
   }, []);
+
+  const glowStyle = useAnimatedStyle(() => ({ opacity: glowAnim.value }));
 
   const load = useCallback(async () => {
     try {
@@ -1049,7 +1075,7 @@ function DailyMantraSection({ profile }: { profile: KundaliProfile }) {
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
       <LinearGradient colors={["#0C0830", "#050515", BG]} style={S.mantraHeader}>
         <StarField count={50} />
-        <Animated.Text style={[S.mantraOm, { opacity: glowAnim }]}>ॐ</Animated.Text>
+        <RAnimated.Text style={[S.mantraOm, glowStyle]}>ॐ</RAnimated.Text>
         <Text style={S.mantraTitle}>आज का मंत्र</Text>
         <Text style={S.mantraSubtitle}>Daily Mantra for {profile.nakshatra} Nakshatra</Text>
         <Text style={S.mantraDate}>{today}</Text>

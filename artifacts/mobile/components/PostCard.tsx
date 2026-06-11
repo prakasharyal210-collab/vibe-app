@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -77,6 +78,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     likes_count: post.likes_count,
     comments_count: post.comments_count,
   });
+
+  useEffect(() => {
+    return () => cancelAnimation(heartScale);
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
