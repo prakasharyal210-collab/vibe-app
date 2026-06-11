@@ -118,31 +118,41 @@ export default function RootLayout() {
   const [updateCheckDone, setUpdateCheckDone] = useState(false);
 
   // ── Step 1: on every cold start, check if a downloaded update is waiting ──
-  // This runs synchronously before the splash screen hides.  If an update is
-  // ready we clear the flag and call reloadAsync() — the user only ever sees
-  // the splash screen and wakes up in the new version.  If no update is ready
-  // we set updateCheckDone so the rest of the app can proceed normally.
+  // Hard 2-second safety timeout guarantees the app ALWAYS proceeds even if
+  // AsyncStorage or Updates.reloadAsync() hangs (prevents permanent black screen).
   useEffect(() => {
     if (__DEV__) {
       setUpdateCheckDone(true);
       return;
     }
 
-    AsyncStorage.getItem(OTA_READY_KEY).then(async (val) => {
-      if (val === "1") {
-        try {
-          await AsyncStorage.removeItem(OTA_READY_KEY);
-          await Updates.reloadAsync(); // loads the new bundle; does not return
-        } catch {
-          // If reload fails for any reason just continue normally
-          setUpdateCheckDone(true);
+    const done = () => setUpdateCheckDone(true);
+
+    // Safety net: force proceed after 2s no matter what
+    const safetyTimer = setTimeout(done, 2000);
+
+    AsyncStorage.getItem(OTA_READY_KEY)
+      .then(async (val) => {
+        if (val === "1") {
+          // Remove the flag first so a failed reload doesn't loop
+          await AsyncStorage.removeItem(OTA_READY_KEY).catch(() => {});
+          try {
+            await Updates.reloadAsync(); // loads the new bundle; does not return
+          } catch {
+            clearTimeout(safetyTimer);
+            done();
+          }
+        } else {
+          clearTimeout(safetyTimer);
+          done();
         }
-      } else {
-        setUpdateCheckDone(true);
-      }
-    }).catch(() => {
-      setUpdateCheckDone(true);
-    });
+      })
+      .catch(() => {
+        clearTimeout(safetyTimer);
+        done();
+      });
+
+    return () => clearTimeout(safetyTimer);
   }, []);
 
   // ── Step 2: hide splash once fonts + update-check are both done ───────────
