@@ -1,0 +1,131 @@
+Fix photo upload — photos not appearing in profile grid after posting:
+When I upload a photo and tap "Post to Gundruk" the post is not showing in my profile grid. Fix the entire photo upload flow end to end.
+Step 1 — Check and fix the upload code:
+The photo must be uploaded to Supabase Storage first, then the public URL saved to the posts table.
+javascriptimport { supabase } from '../lib/supabase';
+import * as FileSystem from 'expo-file-system';
+
+const uploadPhoto = async (localUri, userId) => {
+  try {
+    // Step 1: Read the file
+    const fileInfo = await FileSystem.getInfoAsync(localUri);
+    if (!fileInfo.exists) throw new Error('File not found');
+
+    // Step 2: Convert to blob
+    const response = await fetch(localUri);
+    const blob = await response.blob();
+
+    // Step 3: Create unique filename
+    const fileName = `${userId}/${Date.now()}.jpg`;
+
+    // Step 4: Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('posts') // make sure 'posts' bucket exists
+      .upload(fileName, blob, {
+        contentType: 'image/jpeg',
+        upsert: true
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Step 5: Get public URL
+    const { data: urlData } = supabase.storage
+      .from('posts')
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    // Step 6: Save post to database
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .insert({
+        user_id: userId,
+        media_url: publicUrl,
+        image_url: publicUrl,
+        caption: caption,
+        media_type: 'image',
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (postError) throw postError;
+
+    return post;
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    throw error;
+  }
+};
+Step 2 — Make sure Supabase Storage bucket exists:
+Run this in Supabase SQL Editor:
+sql-- Check if posts bucket exists
+SELECT * FROM storage.buckets WHERE id = 'posts';
+
+-- If not exists, the bucket needs to be created in 
+-- Supabase Dashboard → Storage → New bucket → name: posts → Public: ON
+Step 3 — Fix profile grid to load posts:
+javascriptconst loadMyPosts = async (userId) => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id, media_url, image_url, caption, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error loading posts:', error);
+    return [];
+  }
+
+  return data;
+};
+Step 4 — Fix profile grid to show correct image URL:
+javascript// In profile grid, use media_url OR image_url whichever exists
+const getImageUrl = (post) => {
+  return post.media_url || post.image_url || null;
+};
+
+// In the grid item
+<Image 
+  source={{ uri: getImageUrl(post) }}
+  style={styles.gridImage}
+/>
+Step 5 — Make sure RLS (Row Level Security) policies allow insert:
+Run in Supabase SQL Editor:
+sql-- Allow users to insert their own posts
+CREATE POLICY "Users can insert own posts" ON posts
+FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Allow everyone to read posts
+CREATE POLICY "Posts are publicly readable" ON posts
+FOR SELECT USING (true);
+
+-- Allow storage uploads
+CREATE POLICY "Allow authenticated uploads" ON storage.objects
+FOR INSERT WITH CHECK (bucket_id = 'posts' AND auth.role() = 'authenticated');
+
+-- Allow public read of storage
+CREATE POLICY "Allow public read" ON storage.objects
+FOR SELECT USING (bucket_id = 'posts');
+Step 6 — Add console logs to debug:
+Add these logs to find exactly where it fails:
+javascriptconsole.log('1. Starting upload for user:', userId);
+console.log('2. File URI:', localUri);
+console.log('3. Upload result:', uploadData, uploadError);
+console.log('4. Public URL:', publicUrl);
+console.log('5. Post insert result:', post, postError);
+After fixing:
+
+Profile grid should reload automatically after posting
+Call loadMyPosts(userId) again after successful post
+Show loading spinner while uploading
+Show success message after post is created
+
+My Supabase details:
+
+URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Anon Key: sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF
+User ID: 87ea3c20-5a78-4891-9cea-4e2722fcbe6e
+
+Fix this completely so photos appear in profile grid immediately after posting.

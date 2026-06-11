@@ -1346,10 +1346,11 @@ export async function uploadPostMedia(
       console.log('Storage fetch/upload failed:', storageErr);
     }
 
-    // Build insert payload — media_url is the canonical column name in Supabase
+    // Build insert payload — write both media_url and image_url for compatibility
     const fullPayload: Record<string, unknown> = {
       user_id: userId,
       media_url: mediaUrl,
+      image_url: mediaUrl,
       caption,
       likes_count: 0,
       comments_count: 0,
@@ -1362,7 +1363,7 @@ export async function uploadPostMedia(
 
     let { data, error } = await supabase.from('posts').insert(fullPayload).select('id').single();
 
-    // If schema has extra columns not yet migrated, fall back to minimal insert
+    // If schema doesn't have image_url column yet, fall back to media_url-only insert
     if (error) {
       console.log('Post insert (full) error:', error.message, '— retrying minimal insert');
       const minimalPayload = {
@@ -1379,7 +1380,7 @@ export async function uploadPostMedia(
 
     if (error) {
       console.log('Post insert error:', error.message);
-      return null;
+      throw new Error(`Failed to save post: ${error.message}`);
     }
 
     const postId = (data as any).id;

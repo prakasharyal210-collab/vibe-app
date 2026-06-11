@@ -1088,20 +1088,25 @@ export default function CreateScreen() {
             onPost={async (data) => {
               const uri = recordedUri;
               const wasPhoto = capturedIsPhoto;
-              setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null);
-              if (uri && session?.user?.id) {
-                if (wasPhoto || !isVideoMode) {
-                  await uploadPostMedia(session.user.id, uri, data.caption ?? "", {
-                    location: data.location,
-                    taggedUsers: data.taggedUsers,
-                    commentsEnabled: data.commentsEnabled,
-                    downloadsEnabled: data.downloadsEnabled,
-                  });
-                } else {
-                  await uploadReelMedia(session.user.id, uri, data.caption ?? "");
+              try {
+                if (uri && session?.user?.id) {
+                  if (wasPhoto || !isVideoMode) {
+                    await uploadPostMedia(session.user.id, uri, data.caption ?? "", {
+                      location: data.location,
+                      taggedUsers: data.taggedUsers,
+                      commentsEnabled: data.commentsEnabled,
+                      downloadsEnabled: data.downloadsEnabled,
+                    });
+                  } else {
+                    await uploadReelMedia(session.user.id, uri, data.caption ?? "");
+                  }
                 }
+                setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null);
+                setShowCelebration(true);
+              } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : "Unknown error";
+                Alert.alert("Post failed", msg);
               }
-              setShowCelebration(true);
             }}
           />
         </View>

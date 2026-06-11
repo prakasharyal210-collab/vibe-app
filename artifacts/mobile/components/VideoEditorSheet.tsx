@@ -69,7 +69,7 @@ interface Props {
   textOverlays: TextOverlay[];
   stickers: StickerItem[];
   onDiscard: () => void;
-  onPost: (data: PostData) => void;
+  onPost: (data: PostData) => void | Promise<void>;
 }
 
 const TEXT_COLORS = ["#ffffff", "#000000", "#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899"];
@@ -285,18 +285,20 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
   const handlePost = async () => {
     setPosting(true);
-    await new Promise((r) => setTimeout(r, 1400));
-    setPosting(false);
-    onPost({
-      caption,
-      music,
-      audience,
-      tags: taggedUsers.map((u) => u.username),
-      location: location || undefined,
-      taggedUsers: taggedUsers.map((u) => u.id),
-      commentsEnabled: allowComments,
-      downloadsEnabled: allowDownloads,
-    });
+    try {
+      await onPost({
+        caption,
+        music,
+        audience,
+        tags: taggedUsers.map((u) => u.username),
+        location: location || undefined,
+        taggedUsers: taggedUsers.map((u) => u.id),
+        commentsEnabled: allowComments,
+        downloadsEnabled: allowDownloads,
+      });
+    } finally {
+      setPosting(false);
+    }
   };
 
   const trimStartPct = trimStartVal / TRIM_W;
