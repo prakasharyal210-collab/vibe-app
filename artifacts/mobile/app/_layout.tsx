@@ -11,6 +11,7 @@ import * as SplashScreen from "expo-splash-screen";
 import * as Updates from "expo-updates";
 import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -171,7 +172,9 @@ export default function RootLayout() {
     return () => clearTimeout(t);
   }, []);
 
-  if (!updateCheckDone || (!fontsLoaded && !fontError)) return null;
+  if (!updateCheckDone || (!fontsLoaded && !fontError)) {
+    return <View style={{ flex: 1, backgroundColor: "#0A0A0F" }} />;
+  }
 
   return (
     <SafeAreaProvider>

@@ -230,10 +230,11 @@ function StarField({ count = 35 }: { count?: number }) {
     }))
   ).current;
   useEffect(() => {
+    const nativeDriver = Platform.OS !== "web";
     stars.forEach(s => {
       const pulse = () => Animated.sequence([
-        Animated.timing(s.anim, { toValue: 1, duration: 1000 + Math.random() * 1500, useNativeDriver: true }),
-        Animated.timing(s.anim, { toValue: 0.1, duration: 1000 + Math.random() * 1500, useNativeDriver: true }),
+        Animated.timing(s.anim, { toValue: 1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
+        Animated.timing(s.anim, { toValue: 0.1, duration: 1000 + Math.random() * 1500, useNativeDriver: nativeDriver }),
       ]).start(pulse);
       setTimeout(pulse, Math.random() * 2000);
     });
@@ -252,7 +253,7 @@ function StarField({ count = 35 }: { count?: number }) {
 function MandalaRing({ size = 200, color = GOLD }: { size?: number; color?: string }) {
   const rot = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.loop(Animated.timing(rot, { toValue: 1, duration: 30000, useNativeDriver: true })).start();
+    Animated.loop(Animated.timing(rot, { toValue: 1, duration: 30000, useNativeDriver: Platform.OS !== "web" })).start();
   }, []);
   const rotate = rot.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   return (
@@ -268,14 +269,11 @@ function KundaliSetup({ onComplete }: { onComplete: (p: KundaliProfile) => void 
   const [birthTime, setBirthTime] = useState("");
   const [birthPlace, setBirthPlace] = useState("");
   const [error, setError] = useState("");
-  const fadeIn = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(1)).current;
   const slideUp = useRef(new Animated.Value(30)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 700, useNativeDriver: true }),
-      Animated.timing(slideUp, { toValue: 0, duration: 600, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(slideUp, { toValue: 0, duration: 600, useNativeDriver: Platform.OS !== "web" }).start();
   }, []);
 
   const handleStart = () => {
@@ -2539,7 +2537,7 @@ export function JyotishaTab({ userId }: { userId?: string }) {
   if (loading) {
     return <View style={{ flex: 1, backgroundColor: BG, justifyContent: "center", alignItems: "center" }}>
       <ActivityIndicator color={SAFFRON} size="large" />
-      <Text style={{ color: DIM, marginTop: 12, fontFamily: "Poppins_400Regular" }}>ॐ Loading Astrology...</Text>
+      <Text style={{ color: CREAM, marginTop: 12, fontFamily: "Poppins_400Regular", opacity: 0.75 }}>ॐ Loading Astrology...</Text>
     </View>;
   }
 
