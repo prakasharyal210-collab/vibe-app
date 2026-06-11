@@ -333,7 +333,35 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
 }
 
 // ── Main create screen ────────────────────────────────────────────────────────
-export default function CreateScreen() {
+// ── Error boundary — camera crashes must never show pure black ────────────────
+class CameraErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: string | null }
+> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: "#080810", justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>📷</Text>
+          <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 10 }}>Camera failed to load</Text>
+          <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, textAlign: "center", marginBottom: 28 }}>{this.state.error}</Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ error: null })}
+            style={{ backgroundColor: "#7C3AED", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 25 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function CreateScreenInner() {
+  console.log("[CreateScreen] mounting");
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
@@ -422,8 +450,15 @@ export default function CreateScreen() {
   const [aiModal, setAiModal] = useState<{ type: "idea" | "script"; content: string[] } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Safety timeout — if permission hooks never resolve on Android, unblock after 5s
+  const [permTimeout, setPermTimeout] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setPermTimeout(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   const hasPermission = !!(camPermission?.granted && micPermission?.granted);
-  const permissionsLoaded = camPermission !== null && micPermission !== null;
+  const permissionsLoaded = permTimeout || (camPermission !== null && micPermission !== null);
   const needsPermission = permissionsLoaded && !hasPermission;
 
   const isVideoMode = CAPTURE_MODES.find((m) => m.key === captureMode)?.isVideo ?? false;
@@ -1353,3 +1388,11 @@ const s = StyleSheet.create({
   sizePillActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
   sizePillText: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_700Bold" },
 });
+
+export default function CreateScreen() {
+  return (
+    <CameraErrorBoundary>
+      <CreateScreenInner />
+    </CameraErrorBoundary>
+  );
+}

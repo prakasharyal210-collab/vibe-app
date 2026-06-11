@@ -2501,10 +2501,44 @@ const NAV: { id: Section; emoji: string; label: string; labelSa: string }[] = [
   { id: "navamsa",   emoji: "💫", label: "Navamsa",   labelSa: "नवांश D9"  },
 ];
 
-export function JyotishaTab({ userId }: { userId?: string }) {
+// ── Error boundary — astrology crashes must never show pure black ─────────────
+class JyotishaErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: string | null }
+> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: BG, justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>🕉️</Text>
+          <Text style={{ color: CREAM, fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 10 }}>Astrology failed to load</Text>
+          <Text style={{ color: "rgba(253,230,138,0.45)", fontSize: 13, textAlign: "center", marginBottom: 28 }}>{this.state.error}</Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ error: null })}
+            style={{ backgroundColor: GOLD, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 25 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function JyotishaTabInner({ userId }: { userId?: string }) {
+  console.log("[JyotishaTab] mounting");
   const [profile, setProfile] = useState<KundaliProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>("panchang");
+
+  // Safety timeout — if AsyncStorage never resolves, unblock after 5s
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 5000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     AsyncStorage.getItem(KUNDALI_KEY)
@@ -2614,6 +2648,14 @@ export function JyotishaTab({ userId }: { userId?: string }) {
         {section === "navamsa"   && <NavamsaSection profile={profile} />}
       </View>
     </View>
+  );
+}
+
+export function JyotishaTab({ userId }: { userId?: string }) {
+  return (
+    <JyotishaErrorBoundary>
+      <JyotishaTabInner userId={userId} />
+    </JyotishaErrorBoundary>
   );
 }
 

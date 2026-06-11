@@ -67,7 +67,35 @@ const orbStyles = StyleSheet.create({
   },
 });
 
-export default function LoginScreen() {
+// ── Error boundary so a crash never shows pure black ──────────────────────────
+class LoginErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: string | null }
+> {
+  state = { error: null };
+  static getDerivedStateFromError(e: Error) { return { error: e.message }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <View style={{ flex: 1, backgroundColor: "#080810", justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
+          <Text style={{ color: "#fff", fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 10 }}>Sign In failed to load</Text>
+          <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, textAlign: "center", marginBottom: 28 }}>{this.state.error}</Text>
+          <TouchableOpacity
+            onPress={() => this.setState({ error: null })}
+            style={{ backgroundColor: "#7C3AED", paddingHorizontal: 32, paddingVertical: 14, borderRadius: 25 }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function LoginScreen() {
+  console.log("[LoginScreen] mounting");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
@@ -211,3 +239,11 @@ const styles = StyleSheet.create({
     color: "#A78BFA",
   },
 });
+
+export default function LoginScreenWrapper() {
+  return (
+    <LoginErrorBoundary>
+      <LoginScreen />
+    </LoginErrorBoundary>
+  );
+}
