@@ -45,37 +45,45 @@ interface Props {
   selectedTrack: Track | null;
 }
 
-function WaveAnimation({ playing }: { playing: boolean }) {
-  const bars = [useRef(new Animated.Value(0.3)), useRef(new Animated.Value(0.6)), useRef(new Animated.Value(0.4)), useRef(new Animated.Value(0.8)), useRef(new Animated.Value(0.5))];
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+
+function WaveBar({ initialValue, index, playing }: { initialValue: number; index: number; playing: boolean }) {
+  const scale = useSharedValue(initialValue);
   useEffect(() => {
     if (!playing) {
-      bars.forEach((b) => b.current.setValue(0.3));
+      cancelAnimation(scale);
+      scale.value = initialValue;
       return;
     }
-    const animations = bars.map((b, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(b.current, { toValue: 1, duration: 300 + i * 80, useNativeDriver: true }),
-          Animated.timing(b.current, { toValue: 0.2, duration: 300 + i * 80, useNativeDriver: true }),
-        ])
-      )
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 300 + index * 80 }),
+        withTiming(0.2, { duration: 300 + index * 80 })
+      ),
+      -1,
+      false
     );
-    animations.forEach((a) => a.start());
-    return () => animations.forEach((a) => a.stop());
+    return () => cancelAnimation(scale);
   }, [playing]);
+  const barStyle = useAnimatedStyle(() => ({ transform: [{ scaleY: scale.value }] }));
+  return (
+    <RAnimated.View style={[{ width: 2, height: 14, borderRadius: 1, backgroundColor: "#7C3AED" }, barStyle]} />
+  );
+}
+
+function WaveAnimation({ playing }: { playing: boolean }) {
+  const initials = [0.3, 0.6, 0.4, 0.8, 0.5];
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 2, height: 16 }}>
-      {bars.map((b, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            width: 2,
-            height: 14,
-            borderRadius: 1,
-            backgroundColor: "#7C3AED",
-            transform: [{ scaleY: b.current }],
-          }}
-        />
+      {initials.map((val, i) => (
+        <WaveBar key={i} initialValue={val} index={i} playing={playing} />
       ))}
     </View>
   );

@@ -23,6 +23,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
@@ -242,7 +250,8 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
   const cardScale = useRef(new Animated.Value(0.5)).current;
   const fadeIn = useRef(new Animated.Value(0)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
-  const fireScale = useRef(new Animated.Value(1)).current;
+  const fireScale = useSharedValue(1);
+  const fireScaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: fireScale.value }] }));
   const [countdown, setCountdown] = useState(5);
   const confettiAnims = useRef(
     Array.from({ length: CONFETTI_COUNT }, () => ({
@@ -254,7 +263,7 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
   useEffect(() => {
     if (!visible) {
       cardScale.setValue(0.5); fadeIn.setValue(0); checkScale.setValue(0);
-      fireScale.setValue(1); setCountdown(5);
+      fireScale.value = 1; setCountdown(5);
       confettiAnims.forEach((c) => { c.y.setValue(-40); c.opacity.setValue(1); });
       return;
     }
@@ -263,15 +272,14 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
       Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: true }),
     ]).start();
     setTimeout(() => Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start(), 180);
-    let loopRunning = true;
-    const pulse = () => {
-      if (!loopRunning) return;
-      Animated.sequence([
-        Animated.timing(fireScale, { toValue: 1.3, duration: 500, useNativeDriver: true }),
-        Animated.timing(fireScale, { toValue: 1, duration: 500, useNativeDriver: true }),
-      ]).start(() => pulse());
-    };
-    pulse();
+    fireScale.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 500 }),
+        withTiming(1, { duration: 500 })
+      ),
+      -1,
+      false
+    );
     confettiAnims.forEach((c, i) => {
       const delay = Math.random() * 400;
       const xTarget = (Math.random() - 0.5) * W * 1.4;
@@ -289,7 +297,7 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
     setCountdown(5);
     let n = 5;
     const tick = setInterval(() => { n--; setCountdown(n); if (n <= 0) { clearInterval(tick); onGoToProfile(); } }, 1000);
-    return () => { loopRunning = false; clearInterval(tick); };
+    return () => { cancelAnimation(fireScale); clearInterval(tick); };
   }, [visible]);
 
   if (!visible) return null;
@@ -311,7 +319,7 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
           <Animated.View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(16,185,129,0.18)", borderWidth: 2.5, borderColor: "#10B981", alignItems: "center", justifyContent: "center", marginBottom: 14, transform: [{ scale: checkScale }] }}>
             <Ionicons name="checkmark" size={42} color="#10B981" />
           </Animated.View>
-          <Animated.Text style={{ fontSize: 52, transform: [{ scale: fireScale }] }}>🔥</Animated.Text>
+          <RAnimated.Text style={[{ fontSize: 52 }, fireScaleStyle]}>🔥</RAnimated.Text>
           <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 12, textAlign: "center", lineHeight: 34 }}>Posted!{"\n"}You're live on Gundruk!</Text>
           <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: 8 }}>Auto-closing in {countdown}s</Text>
           <View style={{ gap: 12, marginTop: 28, width: 270 }}>
@@ -407,8 +415,8 @@ function CreateScreenInner() {
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isStartingRef = useRef(false);
-  const recordPulse = useRef(new Animated.Value(1)).current;
-  const pulseLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const recordPulse = useSharedValue(1);
+  const recordRingStyle = useAnimatedStyle(() => ({ transform: [{ scale: recordPulse.value }] }));
 
   // ── Display toggles ────────────────────────────────────────────────────────
   const [showGrid, setShowGrid] = useState(false);
@@ -555,19 +563,20 @@ function CreateScreenInner() {
 
   // ── Record pulse ──────────────────────────────────────────────────────────
   const startPulse = useCallback(() => {
-    pulseLoopRef.current = Animated.loop(
-      Animated.sequence([
-        Animated.timing(recordPulse, { toValue: 1.18, duration: 550, useNativeDriver: true }),
-        Animated.timing(recordPulse, { toValue: 1, duration: 550, useNativeDriver: true }),
-      ])
+    recordPulse.value = withRepeat(
+      withSequence(
+        withTiming(1.18, { duration: 550 }),
+        withTiming(1, { duration: 550 })
+      ),
+      -1,
+      false
     );
-    pulseLoopRef.current.start();
-  }, [recordPulse]);
+  }, []);
 
   const stopPulse = useCallback(() => {
-    pulseLoopRef.current?.stop();
-    Animated.timing(recordPulse, { toValue: 1, duration: 150, useNativeDriver: true }).start();
-  }, [recordPulse]);
+    cancelAnimation(recordPulse);
+    recordPulse.value = withTiming(1, { duration: 150 });
+  }, []);
 
   // ── Photo capture ─────────────────────────────────────────────────────────
   const takePhoto = useCallback(async () => {
@@ -1074,7 +1083,7 @@ function CreateScreenInner() {
 
             {/* Capture button */}
             <View style={s.recordWrap}>
-              <Animated.View style={[s.recordRing, recording && { borderColor: "#EF4444" }, { transform: [{ scale: recordPulse }] }]} />
+              <RAnimated.View style={[s.recordRing, recording && { borderColor: "#EF4444" }, recordRingStyle]} />
               <Pressable
                 onPressIn={onRecordPressIn}
                 onPressOut={onRecordPressOut}

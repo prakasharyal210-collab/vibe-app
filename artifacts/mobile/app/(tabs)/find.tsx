@@ -28,6 +28,9 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
@@ -1631,9 +1634,12 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
   const [openingChat, setOpeningChat] = useState<string | null>(null);
   const [newMatchToast, setNewMatchToast] = useState<VibeMatchProfile | null>(null);
   const toastY = useRef(new RNAnimated.Value(-110)).current;
-  const heartY1 = useRef(new RNAnimated.Value(0)).current;
-  const heartY2 = useRef(new RNAnimated.Value(0)).current;
-  const heartY3 = useRef(new RNAnimated.Value(0)).current;
+  const heartY1 = useSharedValue(0);
+  const heartY2 = useSharedValue(0);
+  const heartY3 = useSharedValue(0);
+  const heartStyle1 = useAnimatedStyle(() => ({ transform: [{ translateY: heartY1.value }] }));
+  const heartStyle2 = useAnimatedStyle(() => ({ transform: [{ translateY: heartY2.value }] }));
+  const heartStyle3 = useAnimatedStyle(() => ({ transform: [{ translateY: heartY3.value }] }));
 
   const loadMatches = () => {
     getMyVibeMatches(userId).then(setMatches).catch(() => {}).finally(() => setLoading(false));
@@ -1664,17 +1670,18 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
   // Float hearts animation for empty state
   useEffect(() => {
     if (loading || matches.length > 0) return;
-    const anim = (val: RNAnimated.Value, delay: number) =>
-      RNAnimated.loop(RNAnimated.sequence([
-        RNAnimated.delay(delay),
-        RNAnimated.timing(val, { toValue: -18, duration: 1300, useNativeDriver: true }),
-        RNAnimated.timing(val, { toValue: 0, duration: 1300, useNativeDriver: true }),
-      ]));
-    const a1 = anim(heartY1, 0);
-    const a2 = anim(heartY2, 400);
-    const a3 = anim(heartY3, 800);
-    a1.start(); a2.start(); a3.start();
-    return () => { a1.stop(); a2.stop(); a3.stop(); };
+    const floatAnim = withRepeat(
+      withSequence(
+        withTiming(-18, { duration: 1300 }),
+        withTiming(0, { duration: 1300 })
+      ),
+      -1,
+      false
+    );
+    heartY1.value = floatAnim;
+    heartY2.value = withDelay(400, floatAnim);
+    heartY3.value = withDelay(800, floatAnim);
+    return () => { cancelAnimation(heartY1); cancelAnimation(heartY2); cancelAnimation(heartY3); };
   }, [loading, matches.length]);
 
   const showMatchToast = (match: VibeMatchProfile) => {
@@ -1712,10 +1719,12 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
     return (
       <View style={[styles.emptyDeck, { gap: 0 }]}>
         <View style={{ flexDirection: "row", gap: 20, marginBottom: 24 }}>
-          {[heartY1, heartY2, heartY3].map((y, i) => (
-            <RNAnimated.Text key={i} style={{ fontSize: 36, transform: [{ translateY: y }] }}>
-              {i === 1 ? "💜" : i === 0 ? "🩷" : "💜"}
-            </RNAnimated.Text>
+          {([
+            { style: heartStyle1, emoji: "🩷" },
+            { style: heartStyle2, emoji: "💜" },
+            { style: heartStyle3, emoji: "💜" },
+          ] as const).map(({ style, emoji }, i) => (
+            <Animated.Text key={i} style={[{ fontSize: 36 }, style]}>{emoji}</Animated.Text>
           ))}
         </View>
         <Text style={[styles.emptyTitle, { color: colors.foreground, marginBottom: 8 }]}>No matches yet 💜</Text>

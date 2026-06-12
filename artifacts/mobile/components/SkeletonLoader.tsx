@@ -1,29 +1,36 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, View, ViewStyle } from "react-native";
+import React, { useEffect } from "react";
+import { StyleSheet, View, ViewStyle } from "react-native";
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
 
 function SkeletonBase({ style }: { style?: ViewStyle }) {
   const colors = useColors();
-  const opacity = useRef(new Animated.Value(0.3)).current;
+  const opacity = useSharedValue(0.3);
 
   useEffect(() => {
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 800, useNativeDriver: true }),
-      ])
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 800 }),
+        withTiming(0.3, { duration: 800 })
+      ),
+      -1,
+      false
     );
-    anim.start();
-    return () => anim.stop();
+    return () => cancelAnimation(opacity);
   }, []);
 
+  const animStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
   return (
-    <Animated.View
-      style={[
-        { backgroundColor: colors.muted, borderRadius: 6 },
-        style,
-        { opacity },
-      ]}
+    <RAnimated.View
+      style={[{ backgroundColor: colors.muted, borderRadius: 6 }, style, animStyle]}
     />
   );
 }

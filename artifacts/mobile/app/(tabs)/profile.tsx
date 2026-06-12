@@ -20,6 +20,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -222,25 +230,27 @@ const pvStyles = StyleSheet.create({
 });
 
 function SkeletonGrid() {
-  const pulse = useRef(new Animated.Value(0.35)).current;
+  const pulse = useSharedValue(0.35);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.75, duration: 850, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.35, duration: 850, useNativeDriver: true }),
-      ])
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(0.75, { duration: 850 }),
+        withTiming(0.35, { duration: 850 })
+      ),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(pulse);
   }, []);
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
   return (
     <View>
       {[0, 3, 6].map((row) => (
         <View key={row} style={{ flexDirection: "row", gap: 1.5, marginBottom: 1.5 }}>
           {[0, 1, 2].map((col) => (
-            <Animated.View
+            <RAnimated.View
               key={col}
-              style={{ width: GRID_ITEM, height: GRID_ITEM, backgroundColor: "#2D1B69", opacity: pulse }}
+              style={[{ width: GRID_ITEM, height: GRID_ITEM, backgroundColor: "#2D1B69" }, pulseStyle]}
             />
           ))}
         </View>

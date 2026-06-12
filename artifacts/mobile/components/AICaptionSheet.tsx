@@ -13,6 +13,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { height: H } = Dimensions.get("window");
@@ -33,91 +42,81 @@ function SparkleIcon({ size = 18, color = "#fff" }: { size?: number; color?: str
 }
 
 function SpinningSparkle() {
-  const rotate = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(1)).current;
+  const rotateVal = useSharedValue(0);
+  const scaleVal = useSharedValue(1);
 
   useEffect(() => {
-    const spin = Animated.loop(
-      Animated.timing(rotate, {
-        toValue: 1,
-        duration: 2000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
+    rotateVal.value = withRepeat(withTiming(1, { duration: 2000, easing: Easing.linear }), -1, false);
+    scaleVal.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 700 }),
+        withTiming(0.85, { duration: 700 })
+      ),
+      -1,
+      false
     );
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(scale, { toValue: 1.3, duration: 700, useNativeDriver: true }),
-        Animated.timing(scale, { toValue: 0.85, duration: 700, useNativeDriver: true }),
-      ])
-    );
-    spin.start();
-    pulse.start();
-    return () => {
-      spin.stop();
-      pulse.stop();
-    };
+    return () => { cancelAnimation(rotateVal); cancelAnimation(scaleVal); };
   }, []);
 
-  const rotateInterp = rotate.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const sparkStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotateVal.value * 360}deg` }, { scale: scaleVal.value }],
+  }));
 
   return (
-    <Animated.Text style={{ fontSize: 36, transform: [{ rotate: rotateInterp }, { scale }] }}>
-      ✨
-    </Animated.Text>
+    <RAnimated.Text style={[{ fontSize: 36 }, sparkStyle]}>✨</RAnimated.Text>
+  );
+}
+
+function SparkParticle({ i }: { i: number }) {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.5);
+  const y = useSharedValue(0);
+  const xDir = (i % 2 === 0 ? 1 : -1) * (10 + i * 8);
+  const yTarget = -40 - i * 10;
+  const totalDelay = i * 300;
+
+  useEffect(() => {
+    opacity.value = withDelay(totalDelay, withRepeat(
+      withSequence(
+        withTiming(1, { duration: 400 }),
+        withTiming(1, { duration: 800 }),
+        withTiming(0, { duration: 300 }),
+        withTiming(0, { duration: 0 })
+      ), -1, false
+    ));
+    scale.value = withDelay(totalDelay, withRepeat(
+      withSequence(
+        withTiming(1, { duration: 400 }),
+        withTiming(1, { duration: 1100 }),
+        withTiming(0.5, { duration: 0 })
+      ), -1, false
+    ));
+    y.value = withDelay(totalDelay, withRepeat(
+      withSequence(
+        withTiming(yTarget, { duration: 1200 }),
+        withTiming(yTarget, { duration: 300 }),
+        withTiming(0, { duration: 0 })
+      ), -1, false
+    ));
+    return () => { cancelAnimation(opacity); cancelAnimation(scale); cancelAnimation(y); };
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: y.value }, { translateX: xDir }, { scale: scale.value }],
+  }));
+
+  return (
+    <RAnimated.Text style={[{ position: "absolute", fontSize: 12 + (i % 3) * 4 }, animStyle]}>
+      {(["✨", "⭐", "💫", "✦", "★", "✧"] as const)[i]}
+    </RAnimated.Text>
   );
 }
 
 function FloatingSparkles() {
-  const sparks = useRef(
-    Array.from({ length: 6 }, (_, i) => ({
-      y: new Animated.Value(0),
-      x: new Animated.Value(0),
-      opacity: new Animated.Value(0),
-      scale: new Animated.Value(0.5),
-    }))
-  ).current;
-
-  useEffect(() => {
-    const anims = sparks.map((s, i) => {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 300),
-          Animated.parallel([
-            Animated.timing(s.opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(s.scale, { toValue: 1, duration: 400, useNativeDriver: true }),
-            Animated.timing(s.y, { toValue: -40 - i * 10, duration: 1200, useNativeDriver: true }),
-            Animated.timing(s.x, { toValue: (i % 2 === 0 ? 1 : -1) * (10 + i * 8), duration: 1200, useNativeDriver: true }),
-          ]),
-          Animated.timing(s.opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-          Animated.parallel([
-            Animated.timing(s.y, { toValue: 0, duration: 0, useNativeDriver: true }),
-            Animated.timing(s.x, { toValue: 0, duration: 0, useNativeDriver: true }),
-            Animated.timing(s.scale, { toValue: 0.5, duration: 0, useNativeDriver: true }),
-          ]),
-        ])
-      );
-      loop.start();
-      return loop;
-    });
-    return () => anims.forEach((a) => a.stop());
-  }, []);
-
   return (
     <View style={{ position: "absolute", width: 80, height: 80, alignItems: "center", justifyContent: "center" }} pointerEvents="none">
-      {sparks.map((s, i) => (
-        <Animated.Text
-          key={i}
-          style={{
-            position: "absolute",
-            fontSize: 12 + (i % 3) * 4,
-            opacity: s.opacity,
-            transform: [{ translateY: s.y }, { translateX: s.x }, { scale: s.scale }],
-          }}
-        >
-          {["✨", "⭐", "💫", "✦", "★", "✧"][i]}
-        </Animated.Text>
-      ))}
+      {Array.from({ length: 6 }).map((_, i) => <SparkParticle key={i} i={i} />)}
     </View>
   );
 }

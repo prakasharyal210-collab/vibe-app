@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -13,6 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -63,21 +70,23 @@ async function fetchGiphyStickers(query: string): Promise<GiphySticker[]> {
 }
 
 function SkeletonGrid({ colors }: { colors: any }) {
-  const anim = useRef(new Animated.Value(0.3)).current;
+  const anim = useSharedValue(0.3);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 0.7, duration: 700, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.3, duration: 700, useNativeDriver: true }),
-      ])
+    anim.value = withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: 700 }),
+        withTiming(0.3, { duration: 700 })
+      ),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(anim);
   }, []);
+  const animStyle = useAnimatedStyle(() => ({ opacity: anim.value }));
   return (
     <View style={styles.grid}>
       {Array.from({ length: 12 }).map((_, i) => (
-        <Animated.View key={i} style={[styles.cell, { backgroundColor: colors.muted, opacity: anim }]} />
+        <RAnimated.View key={i} style={[styles.cell, { backgroundColor: colors.muted }, animStyle]} />
       ))}
     </View>
   );

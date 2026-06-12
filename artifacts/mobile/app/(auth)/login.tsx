@@ -1,8 +1,7 @@
 import { router } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
-  Animated,
   Platform,
   StyleSheet,
   Text,
@@ -10,6 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import RAnimated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { GradientButton } from "@/components/GradientButton";
@@ -18,37 +25,26 @@ import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
 function BackgroundOrbs() {
-  const anim1 = useRef(new Animated.Value(0)).current;
-  const anim2 = useRef(new Animated.Value(0)).current;
-  const anim3 = useRef(new Animated.Value(0)).current;
+  const ty1 = useSharedValue(0);
+  const ty2 = useSharedValue(0);
+  const ty3 = useSharedValue(0);
 
   React.useEffect(() => {
-    const loop = (val: Animated.Value, dur: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(val, { toValue: 1, duration: dur, useNativeDriver: true }),
-          Animated.timing(val, { toValue: 0, duration: dur, useNativeDriver: true }),
-        ])
-      ).start();
-    loop(anim1, 4200);
-    loop(anim2, 5800);
-    loop(anim3, 7000);
-    return () => {
-      anim1.stopAnimation();
-      anim2.stopAnimation();
-      anim3.stopAnimation();
-    };
+    ty1.value = withRepeat(withSequence(withTiming(-30, { duration: 4200 }), withTiming(0, { duration: 4200 })), -1, false);
+    ty2.value = withRepeat(withSequence(withTiming(25, { duration: 5800 }), withTiming(0, { duration: 5800 })), -1, false);
+    ty3.value = withRepeat(withSequence(withTiming(-18, { duration: 7000 }), withTiming(0, { duration: 7000 })), -1, false);
+    return () => { cancelAnimation(ty1); cancelAnimation(ty2); cancelAnimation(ty3); };
   }, []);
 
-  const ty1 = anim1.interpolate({ inputRange: [0, 1], outputRange: [0, -30] });
-  const ty2 = anim2.interpolate({ inputRange: [0, 1], outputRange: [0, 25] });
-  const ty3 = anim3.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
+  const s1 = useAnimatedStyle(() => ({ transform: [{ translateY: ty1.value }] }));
+  const s2 = useAnimatedStyle(() => ({ transform: [{ translateY: ty2.value }] }));
+  const s3 = useAnimatedStyle(() => ({ transform: [{ translateY: ty3.value }] }));
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View style={[orbStyles.orb, orbStyles.orb1, { transform: [{ translateY: ty1 }] }]} />
-      <Animated.View style={[orbStyles.orb, orbStyles.orb2, { transform: [{ translateY: ty2 }] }]} />
-      <Animated.View style={[orbStyles.orb, orbStyles.orb3, { transform: [{ translateY: ty3 }] }]} />
+      <RAnimated.View style={[orbStyles.orb, orbStyles.orb1, s1]} />
+      <RAnimated.View style={[orbStyles.orb, orbStyles.orb2, s2]} />
+      <RAnimated.View style={[orbStyles.orb, orbStyles.orb3, s3]} />
     </View>
   );
 }

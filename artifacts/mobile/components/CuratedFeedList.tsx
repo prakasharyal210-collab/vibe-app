@@ -1,14 +1,22 @@
 "use no memo";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import RAnimated, {
+  cancelAnimation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
 import { PexelsCard, PexelsPhoto } from "@/components/PexelsCard";
 import { PexelsVideoCard, PexelsVideo } from "@/components/PexelsVideoCard";
@@ -167,32 +175,34 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
 }
 
 function SkeletonCard({ colors }: { colors: any }) {
-  const shimmer = useRef(new Animated.Value(0)).current;
+  const shimmer = useSharedValue(0);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmer, { toValue: 1, duration: 850, useNativeDriver: true }),
-        Animated.timing(shimmer, { toValue: 0, duration: 850, useNativeDriver: true }),
-      ])
+    shimmer.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 850 }),
+        withTiming(0, { duration: 850 })
+      ),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(shimmer);
   }, []);
-  const opacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.45] });
   const bg = "rgba(255,255,255,0.12)";
+  const shimStyle1 = useAnimatedStyle(() => ({ opacity: interpolate(shimmer.value, [0, 1], [0.2, 0.45]) }));
+  const shimStyle2 = useAnimatedStyle(() => ({ opacity: interpolate(shimmer.value, [0, 1], [0.15, 0.35]) }));
   return (
     <View style={[styles.skelCard, { backgroundColor: colors.card ?? "#0F0F1A", borderColor: "rgba(255,255,255,0.06)" }]}>
       <View style={styles.skelHeader}>
-        <Animated.View style={[styles.skelAvatar, { opacity, backgroundColor: bg }]} />
+        <RAnimated.View style={[styles.skelAvatar, { backgroundColor: bg }, shimStyle1]} />
         <View style={{ flex: 1, gap: 6 }}>
-          <Animated.View style={[styles.skelLine, { width: "55%", opacity, backgroundColor: bg }]} />
-          <Animated.View style={[styles.skelLine, { width: "35%", opacity: shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.35] }), backgroundColor: bg }]} />
+          <RAnimated.View style={[styles.skelLine, { width: "55%", backgroundColor: bg }, shimStyle1]} />
+          <RAnimated.View style={[styles.skelLine, { width: "35%", backgroundColor: bg }, shimStyle2]} />
         </View>
       </View>
-      <Animated.View style={[styles.skelImage, { opacity, backgroundColor: bg }]} />
+      <RAnimated.View style={[styles.skelImage, { backgroundColor: bg }, shimStyle1]} />
       <View style={styles.skelActions}>
         {[0, 1, 2].map((i) => (
-          <Animated.View key={i} style={[styles.skelActionBtn, { opacity, backgroundColor: bg }]} />
+          <RAnimated.View key={i} style={[styles.skelActionBtn, { backgroundColor: bg }, shimStyle1]} />
         ))}
       </View>
     </View>
