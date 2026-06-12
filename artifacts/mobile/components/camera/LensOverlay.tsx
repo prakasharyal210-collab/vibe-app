@@ -137,7 +137,7 @@ function FallingEmoji({
       y.setValue(-60 - Math.random() * 100);
       Animated.sequence([
         Animated.delay(delay),
-        Animated.timing(y, { toValue: H + 80, duration, useNativeDriver: true }),
+        Animated.timing(y, { toValue: H + 80, duration, useNativeDriver: false }),
       ]).start(() => { if (running) run(); });
     };
     run();
@@ -163,10 +163,10 @@ function RisingBubble({ x, delay }: { x: number; delay: number }) {
       y.setValue(H + 20);
       opacity.setValue(0.7);
       Animated.parallel([
-        Animated.timing(y, { toValue: -40, duration: 3500 + Math.random() * 2000, useNativeDriver: true }),
+        Animated.timing(y, { toValue: -40, duration: 3500 + Math.random() * 2000, useNativeDriver: false }),
         Animated.sequence([
           Animated.delay(2500),
-          Animated.timing(opacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 1000, useNativeDriver: false }),
         ]),
       ]).start(() => { if (running) run(); });
     };

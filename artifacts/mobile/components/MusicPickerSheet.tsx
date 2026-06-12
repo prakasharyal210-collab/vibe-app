@@ -108,9 +108,9 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   useEffect(() => {
     if (visible) {
       setLocalSelected(selectedTrack);
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
     } else {
-      Animated.timing(slideAnim, { toValue: H, duration: 280, useNativeDriver: true }).start();
+      Animated.timing(slideAnim, { toValue: H, duration: 280, useNativeDriver: false }).start();
     }
   }, [visible]);
 

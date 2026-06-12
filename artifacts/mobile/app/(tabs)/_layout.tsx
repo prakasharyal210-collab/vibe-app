@@ -5,7 +5,6 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
   AppState,
   DeviceEventEmitter,
   Modal,
@@ -15,6 +14,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import RAnimated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { LoginPrompt } from "@/components/LoginPrompt";
@@ -31,38 +36,40 @@ export const FIND_VIBE_LOCK_EVENT = "findVibeLockChanged";
 // ── RewardToast ───────────────────────────────────────────────────────────────
 function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(80)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useSharedValue(80);
+  const opacity = useSharedValue(0);
   const bottomPad = Platform.OS === "web" ? 100 : insets.bottom + 92;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!visible || coins <= 0) return;
-    translateY.setValue(80);
-    opacity.setValue(0);
-    Animated.parallel([
-      Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 200, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-    ]).start(() => {
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(translateY, { toValue: 80, duration: 280, useNativeDriver: true }),
-          Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
-        ]).start();
-      }, 3000);
-    });
+    translateY.value = 80;
+    opacity.value = 0;
+    translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+    opacity.value = withTiming(1, { duration: 220 });
+    timerRef.current = setTimeout(() => {
+      translateY.value = withTiming(80, { duration: 280 });
+      opacity.value = withTiming(0, { duration: 250 });
+    }, 3000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [visible, coins]);
+
+  const toastAnim = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   if (!visible || coins <= 0) return null;
 
   return (
-    <Animated.View
-      style={[toastStyles.wrap, { bottom: bottomPad, opacity, transform: [{ translateY }] }]}
+    <RAnimated.View
+      style={[toastStyles.wrap, { bottom: bottomPad }, toastAnim]}
       pointerEvents="none"
     >
       <View style={toastStyles.pill}>
         <Text style={toastStyles.text}>🎁 +{coins} coins daily reward claimed!</Text>
       </View>
-    </Animated.View>
+    </RAnimated.View>
   );
 }
 

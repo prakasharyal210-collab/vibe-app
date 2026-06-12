@@ -82,8 +82,8 @@ function useToast() {
   const show = (msg: string) => {
     setMessage(msg);
     opacity.setValue(0);
-    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
-    setTimeout(() => Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(), 2400);
+    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+    setTimeout(() => Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: false }).start(), 2400);
   };
   const ToastView = message ? (
     <Animated.View style={[toastSt.wrap, { opacity }]} pointerEvents="none">
@@ -188,16 +188,16 @@ function SwipeableRow({
       },
       onPanResponderRelease: (_, gs) => {
         if (gs.dx < OPEN_X / 2) {
-          Animated.spring(translateX, { toValue: OPEN_X, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+          Animated.spring(translateX, { toValue: OPEN_X, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
         } else {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
         }
       },
     })
   ).current;
 
   const close = () =>
-    Animated.spring(translateX, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }).start();
+    Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
 
   const actionWidth = 104 / ([onMute, onArchive, onDelete].filter(Boolean).length || 1);
 

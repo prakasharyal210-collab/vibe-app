@@ -39,15 +39,15 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 200 }),
-      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: false, damping: 18, stiffness: 200 }),
+      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: false }),
     ]).start();
   }, []);
 
   const dismiss = () => {
     Animated.parallel([
-      Animated.timing(translateY, { toValue: -120, duration: 250, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: -120, duration: 250, useNativeDriver: false }),
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start(onDismiss);
   };
 

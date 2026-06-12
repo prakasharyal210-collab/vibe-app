@@ -52,8 +52,8 @@ function LeaderboardRow({ entry, index }: { entry: LeaderboardEntry; index: numb
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(slideAnim, { toValue: 0, duration: 350, delay: index * 60, useNativeDriver: true }),
-      Animated.timing(opacityAnim, { toValue: 1, duration: 350, delay: index * 60, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 350, delay: index * 60, useNativeDriver: false }),
+      Animated.timing(opacityAnim, { toValue: 1, duration: 350, delay: index * 60, useNativeDriver: false }),
     ]).start();
   }, []);
 

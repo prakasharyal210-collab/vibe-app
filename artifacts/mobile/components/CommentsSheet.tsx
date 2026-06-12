@@ -96,7 +96,7 @@ export function CommentsSheet({
     if (visible) {
       Animated.spring(translateY, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: false,
         damping: 20,
         stiffness: 150,
       }).start();
@@ -105,7 +105,7 @@ export function CommentsSheet({
       Animated.timing(translateY, {
         toValue: SHEET_HEIGHT,
         duration: 260,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     }
   }, [visible, postId]);

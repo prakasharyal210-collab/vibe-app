@@ -142,12 +142,12 @@ export function AICaptionSheet({
           toValue: 0,
           tension: 68,
           friction: 12,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 1,
           duration: 280,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start();
     } else {
@@ -155,12 +155,12 @@ export function AICaptionSheet({
         Animated.timing(slideAnim, {
           toValue: H,
           duration: 260,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 0,
           duration: 220,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]).start();
     }

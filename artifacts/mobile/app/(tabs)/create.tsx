@@ -114,10 +114,10 @@ function FocusRing({ point, visible }: { point: { x: number; y: number } | null;
     if (visible && point) {
       scale.setValue(1.5); opacity.setValue(1);
       Animated.parallel([
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5, tension: 200 }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 5, tension: 200 }),
         Animated.sequence([
           Animated.delay(800),
-          Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: false }),
         ]),
       ]).start();
     }
@@ -268,10 +268,10 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
       return;
     }
     Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 260, useNativeDriver: true }),
-      Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: true }),
+      Animated.timing(fadeIn, { toValue: 1, duration: 260, useNativeDriver: false }),
+      Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: false }),
     ]).start();
-    setTimeout(() => Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start(), 180);
+    setTimeout(() => Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: false }).start(), 180);
     fireScale.value = withRepeat(
       withSequence(
         withTiming(1.3, { duration: 500 }),
@@ -287,10 +287,10 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
       c.y.setValue(-40); c.x.setValue(0); c.rotate.setValue(0); c.opacity.setValue(1);
       setTimeout(() => {
         Animated.parallel([
-          Animated.timing(c.y, { toValue: H * 0.85, duration, useNativeDriver: true }),
-          Animated.timing(c.x, { toValue: xTarget, duration, useNativeDriver: true }),
-          Animated.timing(c.rotate, { toValue: 6, duration, useNativeDriver: true }),
-          Animated.sequence([Animated.delay(duration * 0.6), Animated.timing(c.opacity, { toValue: 0, duration: duration * 0.4, useNativeDriver: true })]),
+          Animated.timing(c.y, { toValue: H * 0.85, duration, useNativeDriver: false }),
+          Animated.timing(c.x, { toValue: xTarget, duration, useNativeDriver: false }),
+          Animated.timing(c.rotate, { toValue: 6, duration, useNativeDriver: false }),
+          Animated.sequence([Animated.delay(duration * 0.6), Animated.timing(c.opacity, { toValue: 0, duration: duration * 0.4, useNativeDriver: false })]),
         ]).start();
       }, delay);
     });
@@ -473,7 +473,7 @@ function CreateScreenInner() {
 
   // ── Fade controls during recording ────────────────────────────────────────
   useEffect(() => {
-    Animated.timing(controlsOpacity, { toValue: recording ? 0 : 1, duration: 220, useNativeDriver: true }).start();
+    Animated.timing(controlsOpacity, { toValue: recording ? 0 : 1, duration: 220, useNativeDriver: false }).start();
   }, [recording]);
 
   // ── Night mode: auto-boost exposure ────────────────────────────────────────
@@ -551,12 +551,12 @@ function CreateScreenInner() {
       const tick = () => {
         remaining--;
         timerScaleAnim.setValue(1.6);
-        Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: true }).start();
+        Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: false }).start();
         if (remaining <= 0) { setTimerCount(null); resolve(); }
         else { setTimerCount(remaining); timerRef.current = setTimeout(tick, 1000); }
       };
       timerScaleAnim.setValue(1.6);
-      Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: true }).start();
+      Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: false }).start();
       timerRef.current = setTimeout(tick, 1000);
     });
   }, [timerSecs, timerScaleAnim]);

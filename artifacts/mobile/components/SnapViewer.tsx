@@ -181,7 +181,7 @@ export function SnapCaptureSheet({
       toValue: 0,
       tension: 75,
       friction: 13,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, []);
 

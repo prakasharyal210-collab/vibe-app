@@ -715,7 +715,7 @@ export default function FeedScreen() {
                     toValue: dy > 0 ? -headerHeight : 0,
                     duration: 300,
                     easing: Easing.out(Easing.ease),
-                    useNativeDriver: true,
+                    useNativeDriver: false,
                   }).start();
                 }}
                 ListHeaderComponent={() => {

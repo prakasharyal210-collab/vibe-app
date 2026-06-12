@@ -178,8 +178,8 @@ export function VibeSetupWizard({ visible, onComplete, onSkip, isReturning, init
   const goTo = (next: number) => {
     const dir = next > step ? -1 : 1;
     Animated.sequence([
-      Animated.timing(slideAnim, { toValue: dir * 40, duration: 120, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: dir * 40, duration: 120, useNativeDriver: false }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
     ]).start();
     setStep(next);
   };

@@ -1481,9 +1481,9 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
     setToastMsg(msg);
     toastOpacity.setValue(0);
     RNAnimated.sequence([
-      RNAnimated.timing(toastOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
+      RNAnimated.timing(toastOpacity, { toValue: 1, duration: 250, useNativeDriver: false }),
       RNAnimated.delay(1600),
-      RNAnimated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
+      RNAnimated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: false }),
     ]).start(() => setToastMsg(null));
   };
 
@@ -1688,9 +1688,9 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
     setNewMatchToast(match);
     toastY.setValue(-110);
     RNAnimated.sequence([
-      RNAnimated.spring(toastY, { toValue: 0, useNativeDriver: true, tension: 80, friction: 12 }),
+      RNAnimated.spring(toastY, { toValue: 0, useNativeDriver: false, tension: 80, friction: 12 }),
       RNAnimated.delay(3500),
-      RNAnimated.timing(toastY, { toValue: -110, duration: 300, useNativeDriver: true }),
+      RNAnimated.timing(toastY, { toValue: -110, duration: 300, useNativeDriver: false }),
     ]).start(() => setNewMatchToast(null));
   };
 

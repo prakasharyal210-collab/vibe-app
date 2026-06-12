@@ -43,7 +43,7 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
     if (visible) {
       Animated.spring(translateY, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: false,
         damping: 20,
         stiffness: 150,
       }).start();
@@ -51,7 +51,7 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
       Animated.timing(translateY, {
         toValue: SHEET_HEIGHT,
         duration: 240,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     }
   }, [visible]);

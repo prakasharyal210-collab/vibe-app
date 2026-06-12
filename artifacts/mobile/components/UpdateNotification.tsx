@@ -5,9 +5,7 @@ import * as Updates from "expo-updates";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Dimensions,
-  Easing,
   Modal,
   Platform,
   StyleSheet,
@@ -17,10 +15,12 @@ import {
 } from "react-native";
 import RAnimated, {
   cancelAnimation,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,25 +44,20 @@ export function UpdateBanner({
   onPress: () => void;
   onDismiss: () => void;
 }) {
-  const slideY = useRef(new Animated.Value(-80)).current;
+  const slideY = useSharedValue(-80);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideY, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 90,
-        friction: 14,
-      }).start();
+      slideY.value = withSpring(0, { stiffness: 90, damping: 14 });
     } else {
-      Animated.timing(slideY, {
-        toValue: -80,
-        duration: 260,
-        useNativeDriver: true,
-      }).start();
+      slideY.value = withTiming(-80, { duration: 260 });
     }
   }, [visible]);
+
+  const bannerSlideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideY.value }],
+  }));
 
   const label = downloading
     ? `Downloading… ${Math.round(progress * 100)}%`
@@ -83,10 +78,11 @@ export function UpdateBanner({
     : "✨  Update available! Tap to install";
 
   return (
-    <Animated.View
+    <RAnimated.View
       style={[
         bannerStyles.container,
-        { paddingTop: insets.top + 4, transform: [{ translateY: slideY }] },
+        { paddingTop: insets.top + 4 },
+        bannerSlideStyle,
       ]}
       pointerEvents={visible ? "box-none" : "none"}
     >
@@ -112,7 +108,7 @@ export function UpdateBanner({
             </Text>
             {downloading && (
               <View style={bannerStyles.progressTrack}>
-                <Animated.View
+                <View
                   style={[
                     bannerStyles.progressFill,
                     { width: `${Math.round(progress * 100)}%` as any },
@@ -132,7 +128,7 @@ export function UpdateBanner({
           </TouchableOpacity>
         </LinearGradient>
       </View>
-    </Animated.View>
+    </RAnimated.View>
   );
 }
 
@@ -178,18 +174,13 @@ export function UpdateBottomSheet({
   onSkipVersion?: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const slideY = useRef(new Animated.Value(H)).current;
+  const slideY = useSharedValue(H);
   const sparkleScale = useSharedValue(1);
   const sparkleRotate = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideY, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 13,
-      }).start();
+      slideY.value = withSpring(0, { stiffness: 65, damping: 13 });
 
       sparkleScale.value = withRepeat(
         withSequence(
@@ -206,13 +197,13 @@ export function UpdateBottomSheet({
       cancelAnimation(sparkleRotate);
       sparkleScale.value = 1;
       sparkleRotate.value = 0;
-      Animated.timing(slideY, {
-        toValue: H,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      slideY.value = withTiming(H, { duration: 300 });
     }
   }, [visible]);
+
+  const sheetSlideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideY.value }],
+  }));
 
   const sparkleStyle = useAnimatedStyle(() => ({
     transform: [
@@ -235,10 +226,11 @@ export function UpdateBottomSheet({
     >
       <View style={sheetStyles.backdrop}>
         {/* No backdrop tap dismiss — only explicit buttons can close */}
-        <Animated.View
+        <RAnimated.View
           style={[
             sheetStyles.sheet,
-            { paddingBottom: insets.bottom + 28, transform: [{ translateY: slideY }] },
+            { paddingBottom: insets.bottom + 28 },
+            sheetSlideStyle,
           ]}
         >
           {/* Handle */}
@@ -289,7 +281,7 @@ export function UpdateBottomSheet({
                 <Text style={sheetStyles.progressPct}>{Math.round(progress * 100)}%</Text>
               </View>
               <View style={sheetStyles.progressTrack}>
-                <Animated.View
+                <View
                   style={[
                     sheetStyles.progressFill,
                     { width: `${Math.round(progress * 100)}%` as any },
@@ -338,7 +330,7 @@ export function UpdateBottomSheet({
               )}
             </>
           )}
-        </Animated.View>
+        </RAnimated.View>
       </View>
     </Modal>
   );
@@ -381,12 +373,16 @@ export function ForceUpdateScreen({
   onUpdate: () => void;
   onSkip?: () => void;
 }) {
-  const logoScale = useRef(new Animated.Value(0.8)).current;
+  const logoScale = useSharedValue(0.8);
 
   useEffect(() => {
     if (!visible) return;
-    Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, tension: 80, friction: 10 }).start();
+    logoScale.value = withSpring(1, { stiffness: 80, damping: 10 });
   }, [visible]);
+
+  const logoScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+  }));
 
   if (!visible) return null;
 
@@ -398,7 +394,7 @@ export function ForceUpdateScreen({
           style={StyleSheet.absoluteFill}
         />
 
-        <Animated.View style={[forceStyles.logoWrap, { transform: [{ scale: logoScale }] }]}>
+        <RAnimated.View style={[forceStyles.logoWrap, logoScaleStyle]}>
           <LinearGradient
             colors={["#7C3AED", "#EC4899", "#F97316"]}
             start={{ x: 0, y: 0 }}
@@ -408,7 +404,7 @@ export function ForceUpdateScreen({
             <Text style={{ fontSize: 48 }}>💜</Text>
           </LinearGradient>
           <Text style={forceStyles.appName}>Gundruk</Text>
-        </Animated.View>
+        </RAnimated.View>
 
         <Text style={forceStyles.title}>Update Required</Text>
         <Text style={forceStyles.sub}>

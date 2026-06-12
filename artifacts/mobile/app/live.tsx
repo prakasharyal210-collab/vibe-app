@@ -58,7 +58,7 @@ const FAKE_COMMENTS = [
 
 function GiftAnimation({ gift, onDone }: { gift: { id: string; icon: string; y: Animated.Value }; onDone: () => void }) {
   useEffect(() => {
-    Animated.timing(gift.y, { toValue: -200, duration: 2000, useNativeDriver: true }).start(onDone);
+    Animated.timing(gift.y, { toValue: -200, duration: 2000, useNativeDriver: false }).start(onDone);
   }, []);
   return (
     <Animated.View style={[styles.giftFloat, { transform: [{ translateY: gift.y }] }]}>

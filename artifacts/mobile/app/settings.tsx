@@ -86,11 +86,11 @@ function useToast() {
     opacity.setValue(0);
     translateY.setValue(20);
     RNAnimated.parallel([
-      RNAnimated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-      RNAnimated.spring(translateY, { toValue: 0, useNativeDriver: true, tension: 120, friction: 14 }),
+      RNAnimated.timing(opacity, { toValue: 1, duration: 250, useNativeDriver: false }),
+      RNAnimated.spring(translateY, { toValue: 0, useNativeDriver: false, tension: 120, friction: 14 }),
     ]).start();
     setTimeout(() => {
-      RNAnimated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      RNAnimated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: false }).start();
     }, 2500);
   };
 

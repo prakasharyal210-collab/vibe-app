@@ -94,7 +94,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
 
   useEffect(() => {
     if (!loadingMain) {
-      Animated.timing(fadeAnim, { toValue: 1, duration: 420, useNativeDriver: true }).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 420, useNativeDriver: false }).start();
     }
   }, [loadingMain]);
 

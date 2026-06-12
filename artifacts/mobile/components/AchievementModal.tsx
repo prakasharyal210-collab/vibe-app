@@ -24,8 +24,8 @@ function Sparkle({ delay, x, y }: { delay: number; x: number; y: number }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 400, useNativeDriver: false }),
+        Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: false }),
       ]).start();
     }, delay);
     return () => clearTimeout(timer);
@@ -56,11 +56,11 @@ export function AchievementModal({ visible, achievement, onClose }: AchievementM
 
       Animated.sequence([
         Animated.parallel([
-          Animated.spring(slideAnim, { toValue: 0, damping: 15, stiffness: 200, useNativeDriver: true }),
-          Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.spring(slideAnim, { toValue: 0, damping: 15, stiffness: 200, useNativeDriver: false }),
+          Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: false }),
         ]),
-        Animated.spring(badgeScale, { toValue: 1, damping: 10, stiffness: 200, useNativeDriver: true }),
-        Animated.timing(shineAnim, { toValue: 2, duration: 800, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+        Animated.spring(badgeScale, { toValue: 1, damping: 10, stiffness: 200, useNativeDriver: false }),
+        Animated.timing(shineAnim, { toValue: 2, duration: 800, easing: Easing.out(Easing.quad), useNativeDriver: false }),
       ]).start();
     }
   }, [visible]);

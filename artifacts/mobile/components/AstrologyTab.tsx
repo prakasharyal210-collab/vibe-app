@@ -94,8 +94,8 @@ function StarField() {
     stars.forEach((s) => {
       const pulse = () => {
         Animated.sequence([
-          Animated.timing(s.anim, { toValue: 1, duration: 800 + Math.random() * 1200, useNativeDriver: true }),
-          Animated.timing(s.anim, { toValue: 0.2, duration: 800 + Math.random() * 1200, useNativeDriver: true }),
+          Animated.timing(s.anim, { toValue: 1, duration: 800 + Math.random() * 1200, useNativeDriver: false }),
+          Animated.timing(s.anim, { toValue: 0.2, duration: 800 + Math.random() * 1200, useNativeDriver: false }),
         ]).start(pulse);
       };
       setTimeout(pulse, Math.random() * 2000);
@@ -134,8 +134,8 @@ function AstrologySetup({ onComplete }: { onComplete: (birthDate: string) => voi
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(slideIn, { toValue: 0, duration: 500, useNativeDriver: true }),
-      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(slideIn, { toValue: 0, duration: 500, useNativeDriver: false }),
+      Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: false }),
     ]).start();
   }, []);
 

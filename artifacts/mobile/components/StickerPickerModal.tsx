@@ -115,10 +115,10 @@ export function StickerPickerModal({ visible, onClose, onSelect }: Props) {
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
       loadStickers("");
     } else {
-      Animated.timing(slideAnim, { toValue: H, duration: 260, useNativeDriver: true }).start();
+      Animated.timing(slideAnim, { toValue: H, duration: 260, useNativeDriver: false }).start();
     }
   }, [visible]);
 

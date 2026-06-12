@@ -62,13 +62,13 @@ function InterestBubble({
         damping: 12,
         stiffness: 180,
         delay: index * 30,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.timing(opacityAnim, {
         toValue: 1,
         duration: 250,
         delay: index * 30,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, []);
@@ -76,8 +76,8 @@ function InterestBubble({
   const handlePress = () => {
     pressScale.setValue(1);
     Animated.sequence([
-      Animated.timing(pressScale, { toValue: 0.88, duration: 80, useNativeDriver: true }),
-      Animated.spring(pressScale, { toValue: 1, damping: 8, stiffness: 300, useNativeDriver: true }),
+      Animated.timing(pressScale, { toValue: 0.88, duration: 80, useNativeDriver: false }),
+      Animated.spring(pressScale, { toValue: 1, damping: 8, stiffness: 300, useNativeDriver: false }),
     ]).start();
     onToggle();
   };
@@ -118,8 +118,8 @@ export function OnboardingInterestPicker({ visible, onComplete }: Props) {
       slideAnim.setValue(60);
       opacityAnim.setValue(0);
       Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: true }),
+        Animated.timing(opacityAnim, { toValue: 1, duration: 350, useNativeDriver: false }),
+        Animated.spring(slideAnim, { toValue: 0, damping: 20, stiffness: 200, useNativeDriver: false }),
       ]).start();
     }
   }, [visible]);
@@ -129,7 +129,7 @@ export function OnboardingInterestPicker({ visible, onComplete }: Props) {
       toValue: selected.size >= 3 ? 1 : 0.92,
       damping: 10,
       stiffness: 200,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [selected.size]);
 

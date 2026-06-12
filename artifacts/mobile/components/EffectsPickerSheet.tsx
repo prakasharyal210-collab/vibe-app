@@ -135,9 +135,9 @@ export function EffectsPickerSheet({
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
+      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
     } else {
-      Animated.timing(slideAnim, { toValue: H, duration: 260, useNativeDriver: true }).start();
+      Animated.timing(slideAnim, { toValue: H, duration: 260, useNativeDriver: false }).start();
     }
   }, [visible]);
 

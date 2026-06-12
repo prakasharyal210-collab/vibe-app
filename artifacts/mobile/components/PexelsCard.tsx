@@ -71,8 +71,8 @@ export function PexelsCard({ photo, category }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setLiked((v) => !v);
     Animated.sequence([
-      Animated.spring(heartScale, { toValue: 1.35, useNativeDriver: true, speed: 200 }),
-      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, speed: 200 }),
+      Animated.spring(heartScale, { toValue: 1.35, useNativeDriver: false, speed: 200 }),
+      Animated.spring(heartScale, { toValue: 1, useNativeDriver: false, speed: 200 }),
     ]).start();
   };
 

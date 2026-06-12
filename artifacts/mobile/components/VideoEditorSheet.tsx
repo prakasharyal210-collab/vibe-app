@@ -212,9 +212,9 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
   const animateSparkle = () => {
     Animated.sequence([
-      Animated.timing(sparkleAnim, { toValue: 1.18, duration: 180, useNativeDriver: true }),
-      Animated.timing(sparkleAnim, { toValue: 0.92, duration: 120, useNativeDriver: true }),
-      Animated.timing(sparkleAnim, { toValue: 1, duration: 140, useNativeDriver: true }),
+      Animated.timing(sparkleAnim, { toValue: 1.18, duration: 180, useNativeDriver: false }),
+      Animated.timing(sparkleAnim, { toValue: 0.92, duration: 120, useNativeDriver: false }),
+      Animated.timing(sparkleAnim, { toValue: 1, duration: 140, useNativeDriver: false }),
     ]).start();
   };
 
