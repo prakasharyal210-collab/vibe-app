@@ -179,8 +179,8 @@ export function UpdateBottomSheet({
 }) {
   const insets = useSafeAreaInsets();
   const slideY = useRef(new Animated.Value(H)).current;
-  const sparkleScale = useRef(new Animated.Value(1)).current;
-  const sparkleRotate = useRef(new Animated.Value(0)).current;
+  const sparkleScale = useSharedValue(1);
+  const sparkleRotate = useSharedValue(0);
 
   useEffect(() => {
     if (visible) {
@@ -191,19 +191,21 @@ export function UpdateBottomSheet({
         friction: 13,
       }).start();
 
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(sparkleScale, { toValue: 1.2, duration: 900, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-          Animated.timing(sparkleScale, { toValue: 1.0, duration: 900, useNativeDriver: true, easing: Easing.in(Easing.ease) }),
-        ])
+      sparkleScale.value = withRepeat(
+        withSequence(
+          withTiming(1.2, { duration: 900, easing: Easing.out(Easing.ease) }),
+          withTiming(1.0, { duration: 900, easing: Easing.in(Easing.ease) })
+        ), -1, false
       );
-      const spin = Animated.loop(
-        Animated.timing(sparkleRotate, { toValue: 1, duration: 6000, useNativeDriver: true, easing: Easing.linear })
+      sparkleRotate.value = withRepeat(
+        withTiming(1, { duration: 6000, easing: Easing.linear }), -1, false
       );
-      pulse.start();
-      spin.start();
-      return () => { pulse.stop(); spin.stop(); };
+      return () => { cancelAnimation(sparkleScale); cancelAnimation(sparkleRotate); };
     } else {
+      cancelAnimation(sparkleScale);
+      cancelAnimation(sparkleRotate);
+      sparkleScale.value = 1;
+      sparkleRotate.value = 0;
       Animated.timing(slideY, {
         toValue: H,
         duration: 300,
@@ -212,10 +214,12 @@ export function UpdateBottomSheet({
     }
   }, [visible]);
 
-  const rotation = sparkleRotate.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+  const sparkleStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: sparkleScale.value },
+      { rotate: `${sparkleRotate.value * 360}deg` },
+    ],
+  }));
 
   const items = whatsNew.length > 0
     ? whatsNew
@@ -242,7 +246,7 @@ export function UpdateBottomSheet({
 
           {/* Animated logo */}
           <View style={sheetStyles.logoRow}>
-            <Animated.View style={{ transform: [{ scale: sparkleScale }, { rotate: rotation }] }}>
+            <RAnimated.View style={sparkleStyle}>
               <LinearGradient
                 colors={["#7C3AED", "#EC4899", "#F97316"]}
                 start={{ x: 0, y: 0 }}
@@ -251,7 +255,7 @@ export function UpdateBottomSheet({
               >
                 <Text style={{ fontSize: 36 }}>💜</Text>
               </LinearGradient>
-            </Animated.View>
+            </RAnimated.View>
             <Text style={sheetStyles.appName}>Gundruk</Text>
           </View>
 
@@ -377,28 +381,11 @@ export function ForceUpdateScreen({
   onUpdate: () => void;
   onSkip?: () => void;
 }) {
-  const dotAnims = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
   const logoScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
     if (!visible) return;
     Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, tension: 80, friction: 10 }).start();
-    const anims = dotAnims.map((dot, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 160),
-          Animated.timing(dot, { toValue: -8, duration: 350, useNativeDriver: true, easing: Easing.out(Easing.ease) }),
-          Animated.timing(dot, { toValue: 0, duration: 350, useNativeDriver: true, easing: Easing.in(Easing.ease) }),
-          Animated.delay(640 - i * 160),
-        ])
-      )
-    );
-    anims.forEach((a) => a.start());
-    return () => anims.forEach((a) => a.stop());
   }, [visible]);
 
   if (!visible) return null;
@@ -481,6 +468,25 @@ const forceStyles = StyleSheet.create({
   skipText: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center" },
 });
 
+// ─── DotPulse sub-component (used by MaintenanceScreen) ──────────────────────
+function DotPulse({ index }: { index: number }) {
+  const opacity = useSharedValue(0.2);
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.2, { duration: index * 200 }),
+        withTiming(1, { duration: 400 }),
+        withTiming(0.2, { duration: 400 }),
+        withTiming(0.2, { duration: Math.max(0, 400 - index * 200) })
+      ),
+      -1, false
+    );
+    return () => cancelAnimation(opacity);
+  }, [index]);
+  const dotStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  return <RAnimated.View style={[maintStyles.dot, dotStyle]} />;
+}
+
 // ─── Maintenance Screen ───────────────────────────────────────────────────────
 
 export function MaintenanceScreen({
@@ -496,35 +502,21 @@ export function MaintenanceScreen({
   onRetry: () => void;
   onSkip?: () => void;
 }) {
-  const dotAnims = useRef([
-    new Animated.Value(0),
-    new Animated.Value(0),
-    new Animated.Value(0),
-  ]).current;
-  const wrenchBob = useRef(new Animated.Value(0)).current;
+  const wrenchBob = useSharedValue(0);
 
   useEffect(() => {
     if (!visible) return;
-    const bob = Animated.loop(
-      Animated.sequence([
-        Animated.timing(wrenchBob, { toValue: -10, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        Animated.timing(wrenchBob, { toValue: 0, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-      ])
+    wrenchBob.value = withRepeat(
+      withSequence(
+        withTiming(-10, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0, { duration: 800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1, false
     );
-    const dots = dotAnims.map((dot, i) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(i * 200),
-          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(dot, { toValue: 0.2, duration: 400, useNativeDriver: true }),
-          Animated.delay(400 - i * 200),
-        ])
-      )
-    );
-    bob.start();
-    dots.forEach((d) => d.start());
-    return () => { bob.stop(); dots.forEach((d) => d.stop()); };
+    return () => cancelAnimation(wrenchBob);
   }, [visible]);
+
+  const wrenchStyle = useAnimatedStyle(() => ({ transform: [{ translateY: wrenchBob.value }] }));
 
   if (!visible) return null;
 
@@ -536,11 +528,9 @@ export function MaintenanceScreen({
           style={StyleSheet.absoluteFill}
         />
 
-        <Animated.Text
-          style={[maintStyles.wrench, { transform: [{ translateY: wrenchBob }] }]}
-        >
+        <RAnimated.Text style={[maintStyles.wrench, wrenchStyle]}>
           🔧
-        </Animated.Text>
+        </RAnimated.Text>
 
         <Text style={maintStyles.title}>We'll be right back!</Text>
         <Text style={maintStyles.sub}>
@@ -554,9 +544,7 @@ export function MaintenanceScreen({
         ) : null}
 
         <View style={maintStyles.dotsRow}>
-          {dotAnims.map((dot, i) => (
-            <Animated.View key={i} style={[maintStyles.dot, { opacity: dot }]} />
-          ))}
+          <DotPulse index={0} /><DotPulse index={1} /><DotPulse index={2} />
         </View>
 
         <TouchableOpacity

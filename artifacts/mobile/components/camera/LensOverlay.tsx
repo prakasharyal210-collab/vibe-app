@@ -1,6 +1,16 @@
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import { Animated, Dimensions, StyleSheet, Text, View } from "react-native";
+import RAnimated, {
+  cancelAnimation,
+  interpolate,
+  SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import Svg, {
   Circle,
   Defs,
@@ -67,34 +77,53 @@ const CHAKRA_DATA = [
 ];
 
 // ── Generic particle helpers ──────────────────────────────────────────────────
-function usePulse(duration = 1200) {
-  const anim = useRef(new Animated.Value(1)).current;
+function usePulse(duration = 1200): SharedValue<number> {
+  const sv = useSharedValue(1);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1.18, duration, useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 1,    duration, useNativeDriver: true }),
-      ])
+    sv.value = withRepeat(
+      withSequence(withTiming(1.18, { duration }), withTiming(1, { duration })),
+      -1, false
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(sv);
   }, []);
-  return anim;
+  return sv;
 }
 
-function useFloat(duration = 2400, range = 8) {
-  const anim = useRef(new Animated.Value(0)).current;
+function useFloat(duration = 2400, range = 8): SharedValue<number> {
+  const sv = useSharedValue(0);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(anim, { toValue: -range, duration, useNativeDriver: true }),
-        Animated.timing(anim, { toValue:  range, duration, useNativeDriver: true }),
-      ])
+    sv.value = withRepeat(
+      withSequence(withTiming(-range, { duration }), withTiming(range, { duration })),
+      -1, false
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(sv);
   }, []);
-  return anim;
+  return sv;
+}
+
+function FloatItem({
+  sv, children, style, reverse = false, mult = 1,
+}: {
+  sv: SharedValue<number>;
+  children: React.ReactNode;
+  style?: object;
+  reverse?: boolean;
+  mult?: number;
+}) {
+  const m = reverse ? -mult : mult;
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sv.value * m }] }));
+  return <RAnimated.Text style={[style, animStyle]}>{children}</RAnimated.Text>;
+}
+
+function FloatViewItem({
+  sv, children, style,
+}: {
+  sv: SharedValue<number>;
+  children?: React.ReactNode;
+  style?: object;
+}) {
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sv.value }] }));
+  return <RAnimated.View style={[style, animStyle]}>{children}</RAnimated.View>;
 }
 
 function FallingEmoji({
@@ -343,18 +372,14 @@ function NaturalGlowLens() {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,240,220,0.12)" }]} />
       {sparkles.map((s, i) => (
-        <Animated.Text
+        <FloatItem
           key={i}
-          style={{
-            position: "absolute",
-            left: positions[i].x,
-            top: positions[i].y,
-            fontSize: 20 + (i % 3) * 4,
-            transform: [{ translateY: i % 2 === 0 ? floatY : Animated.multiply(floatY, -1) }],
-          }}
+          sv={floatY}
+          mult={i % 2 === 0 ? 1 : -1}
+          style={{ position: "absolute", left: positions[i].x, top: positions[i].y, fontSize: 20 + (i % 3) * 4 }}
         >
           {s}
-        </Animated.Text>
+        </FloatItem>
       ))}
       <BlushCheeks color="rgba(251,191,36,0.18)" />
     </View>
@@ -380,18 +405,18 @@ function FullGlamLens() {
         <Ellipse cx={MOUTH.x} cy={MOUTH.y} rx={30} ry={12} fill="rgba(220,38,38,0.4)" />
       </Svg>
       {["✨", "💫", "⭐", "✨"].map((s, i) => (
-        <Animated.Text
+        <FloatItem
           key={i}
+          sv={floatY}
           style={{
             position: "absolute",
             left: [W * 0.08, W * 0.85, W * 0.04, W * 0.90][i],
             top:  [H * 0.20, H * 0.22, H * 0.38, H * 0.35][i],
             fontSize: 18 + i * 2,
-            transform: [{ translateY: floatY }],
           }}
         >
           {s}
-        </Animated.Text>
+        </FloatItem>
       ))}
     </View>
   );
@@ -421,6 +446,7 @@ function KoreanBeautyLens() {
 
 function BoldLipLens() {
   const pulse = usePulse(900);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={W} height={H}>
@@ -430,13 +456,9 @@ function BoldLipLens() {
         {/* Lip shine */}
         <Ellipse cx={MOUTH.x - 6} cy={MOUTH.y - 6} rx={10} ry={4} fill="rgba(255,255,255,0.28)" />
       </Svg>
-      <Animated.Text style={{
-        position: "absolute",
-        left: W * 0.04,
-        top: H * 0.06,
-        fontSize: 22,
-        transform: [{ scale: pulse }],
-      }}>💋</Animated.Text>
+      <RAnimated.Text style={[{ position: "absolute", left: W * 0.04, top: H * 0.06, fontSize: 22 }, pulseStyle]}>
+        💋
+      </RAnimated.Text>
     </View>
   );
 }
@@ -478,18 +500,14 @@ function FlowerCrownLens() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {flowers.map((f, i) => (
-        <Animated.Text
+        <FloatItem
           key={i}
-          style={{
-            position: "absolute",
-            left: startX + i * spacing - 14,
-            top: CROWN.y - 10,
-            fontSize: i % 2 === 1 ? 26 : 20,
-            transform: [{ translateY: i % 3 === 0 ? floatY : Animated.multiply(floatY, -0.6) }],
-          }}
+          sv={floatY}
+          mult={i % 3 === 0 ? 1 : -0.6}
+          style={{ position: "absolute", left: startX + i * spacing - 14, top: CROWN.y - 10, fontSize: i % 2 === 1 ? 26 : 20 }}
         >
           {f}
-        </Animated.Text>
+        </FloatItem>
       ))}
     </View>
   );
@@ -522,10 +540,12 @@ function CryingSparklesLens() {
 
 function RainbowMouthLens() {
   const floatY = useFloat(1600, 5);
+  const fwdStyle = useAnimatedStyle(() => ({ transform: [{ translateY: floatY.value }] }));
+  const revStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -floatY.value }] }));
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View
-        style={{
+      <RAnimated.View
+        style={[{
           position: "absolute",
           left: MOUTH.x - 55,
           top: MOUTH.y - 18,
@@ -533,8 +553,7 @@ function RainbowMouthLens() {
           height: 36,
           borderRadius: 18,
           overflow: "hidden",
-          transform: [{ translateY: floatY }],
-        }}
+        }, fwdStyle]}
       >
         <LinearGradient
           colors={["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6"]}
@@ -542,20 +561,19 @@ function RainbowMouthLens() {
           end={{ x: 1, y: 0 }}
           style={{ flex: 1, opacity: 0.75 }}
         />
-      </Animated.View>
+      </RAnimated.View>
       {["🌈", "🌈"].map((e, i) => (
-        <Animated.Text
+        <RAnimated.Text
           key={i}
-          style={{
+          style={[{
             position: "absolute",
             left: i === 0 ? W * 0.06 : W * 0.82,
             top: H * 0.38,
             fontSize: 28,
-            transform: [{ translateY: Animated.multiply(floatY, i === 0 ? 1 : -1) }],
-          }}
+          }, i === 0 ? fwdStyle : revStyle]}
         >
           {e}
-        </Animated.Text>
+        </RAnimated.Text>
       ))}
     </View>
   );
@@ -563,6 +581,7 @@ function RainbowMouthLens() {
 
 function GiantEyesLens() {
   const pulse = usePulse(1600);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={W} height={H}>
@@ -579,21 +598,21 @@ function GiantEyesLens() {
         <Circle cx={EYE_L.x + 10} cy={EYE_L.y + 6} r={3} fill="white" />
         <Circle cx={EYE_R.x + 10} cy={EYE_R.y + 6} r={3} fill="white" />
       </Svg>
-      <Animated.Text style={{
-        position: "absolute", left: W * 0.82, top: H * 0.20, fontSize: 20,
-        transform: [{ scale: pulse }],
-      }}>✨</Animated.Text>
+      <RAnimated.Text style={[{ position: "absolute", left: W * 0.82, top: H * 0.20, fontSize: 20 }, pulseStyle]}>
+        ✨
+      </RAnimated.Text>
     </View>
   );
 }
 
 function NeonGlowLens() {
   const pulse = usePulse(800);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   const NEON_COLORS = ["#A78BFA", "#F97316", "#34D399"];
   const color = NEON_COLORS[0];
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View
+      <RAnimated.View
         style={[
           {
             position: "absolute",
@@ -612,7 +631,7 @@ function NeonGlowLens() {
             shadowRadius: 20,
             elevation: 10,
           },
-          { transform: [{ scale: pulse }] },
+          pulseStyle,
         ]}
       />
       <Svg width={W} height={H}>
@@ -668,18 +687,18 @@ function AnimeLens() {
         <Rect x={CHEEK_R.x - 20} y={CHEEK_R.y - 4} width={40} height={8} rx={4} fill="rgba(251,113,133,0.55)" />
       </Svg>
       {["⭐", "✨", "💫"].map((s, i) => (
-        <Animated.Text
+        <FloatItem
           key={i}
+          sv={floatY}
           style={{
             position: "absolute",
             left: [W * 0.08, W * 0.82, W * 0.48][i],
             top:  [H * 0.16, H * 0.18, H * 0.08][i],
             fontSize: 22,
-            transform: [{ translateY: floatY }],
           }}
         >
           {s}
-        </Animated.Text>
+        </FloatItem>
       ))}
     </View>
   );
@@ -689,7 +708,7 @@ function CrownLens() {
   const floatY = useFloat(1800, 6);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View style={{ transform: [{ translateY: floatY }] }}>
+      <FloatViewItem sv={floatY}>
         <Svg width={W} height={H}>
           {/* Crown body */}
           <Path
@@ -714,13 +733,12 @@ function CrownLens() {
           <Circle cx={CROWN.x + 60} cy={CROWN.y + 10} r={2} fill="#FDE68A" opacity={0.7} />
           <Circle cx={CROWN.x}      cy={CROWN.y - 44} r={2.5} fill="#FDE68A" opacity={0.8} />
         </Svg>
-      </Animated.View>
+      </FloatViewItem>
     </View>
   );
 }
 
 function MaskSwapLens() {
-  const pulse = usePulse(1400);
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={W} height={H}>
@@ -744,25 +762,28 @@ function MaskSwapLens() {
 }
 
 function DistortionLens() {
-  const wiggle = useRef(new Animated.Value(0)).current;
+  const wiggle = useSharedValue(0);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(wiggle, { toValue:  8, duration: 120, useNativeDriver: true }),
-        Animated.timing(wiggle, { toValue: -8, duration: 120, useNativeDriver: true }),
-        Animated.timing(wiggle, { toValue:  5, duration: 90,  useNativeDriver: true }),
-        Animated.timing(wiggle, { toValue: -5, duration: 90,  useNativeDriver: true }),
-        Animated.timing(wiggle, { toValue:  0, duration: 400, useNativeDriver: true }),
-        Animated.delay(600),
-      ])
+    wiggle.value = withRepeat(
+      withSequence(
+        withTiming(8, { duration: 120 }),
+        withTiming(-8, { duration: 120 }),
+        withTiming(5, { duration: 90 }),
+        withTiming(-5, { duration: 90 }),
+        withTiming(0, { duration: 400 }),
+        withTiming(0, { duration: 600 })
+      ),
+      -1, false
     );
-    loop.start();
-    return () => loop.stop();
+    return () => cancelAnimation(wiggle);
   }, []);
+  const wiggleStyle = useAnimatedStyle(() => ({
+    transform: [{ skewX: `${interpolate(wiggle.value, [-8, 8], [-4, 4])}deg` }],
+  }));
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Animated.View
-        style={{
+      <RAnimated.View
+        style={[{
           position: "absolute",
           left: FC.x - FW * 0.55,
           top: CROWN.y - 10,
@@ -771,8 +792,7 @@ function DistortionLens() {
           borderRadius: 12,
           borderWidth: 2,
           borderColor: "rgba(167,139,250,0.5)",
-          transform: [{ skewX: wiggle.interpolate({ inputRange: [-8, 8], outputRange: ["-4deg", "4deg"] }) }],
-        }}
+        }, wiggleStyle]}
       />
       <Text style={{ position: "absolute", left: W * 0.04, top: H * 0.08, color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>
         🫠 Distortion
@@ -800,37 +820,36 @@ function SnowLens() {
 }
 
 function Butterfly({ x, y, idx }: { x: number; y: number; idx: number }) {
-  const floatX = useRef(new Animated.Value(0)).current;
-  const floatY2 = useRef(new Animated.Value(0)).current;
+  const floatX = useSharedValue(0);
+  const floatY2 = useSharedValue(0);
   const range = 25 + idx * 8;
   useEffect(() => {
     const dur = 2000 + idx * 300;
-    const loopX = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatX, { toValue: range,         duration: dur,       useNativeDriver: true }),
-        Animated.timing(floatX, { toValue: -range * 0.5,  duration: dur * 0.8, useNativeDriver: true }),
-      ])
-    );
-    const loopY = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatY2, { toValue: -20, duration: dur * 0.7, useNativeDriver: true }),
-        Animated.timing(floatY2, { toValue:  15, duration: dur,       useNativeDriver: true }),
-      ])
-    );
-    const t = setTimeout(() => { loopX.start(); loopY.start(); }, idx * 200);
-    return () => { clearTimeout(t); loopX.stop(); loopY.stop(); };
+    const t = setTimeout(() => {
+      floatX.value = withRepeat(
+        withSequence(
+          withTiming(range, { duration: dur }),
+          withTiming(-range * 0.5, { duration: dur * 0.8 })
+        ),
+        -1, false
+      );
+      floatY2.value = withRepeat(
+        withSequence(
+          withTiming(-20, { duration: dur * 0.7 }),
+          withTiming(15, { duration: dur })
+        ),
+        -1, false
+      );
+    }, idx * 200);
+    return () => { clearTimeout(t); cancelAnimation(floatX); cancelAnimation(floatY2); };
   }, []);
+  const flyStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: floatX.value }, { translateY: floatY2.value }],
+  }));
   return (
-    <Animated.Text
-      style={{
-        position: "absolute",
-        left: x, top: y,
-        fontSize: 22 + idx % 3 * 4,
-        transform: [{ translateX: floatX }, { translateY: floatY2 }],
-      }}
-    >
+    <RAnimated.Text style={[{ position: "absolute", left: x, top: y, fontSize: 22 + idx % 3 * 4 }, flyStyle]}>
       🦋
-    </Animated.Text>
+    </RAnimated.Text>
   );
 }
 
@@ -902,13 +921,11 @@ function HaloWingsLens() {
         />
       </Svg>
       {["✨", "⭐"].map((s, i) => (
-        <Animated.Text key={i} style={{
-          position: "absolute",
-          left: i === 0 ? W * 0.05 : W * 0.86,
-          top: H * 0.25,
-          fontSize: 20,
-          transform: [{ translateY: floatY }],
-        }}>{s}</Animated.Text>
+        <FloatItem
+          key={i}
+          sv={floatY}
+          style={{ position: "absolute", left: i === 0 ? W * 0.05 : W * 0.86, top: H * 0.25, fontSize: 20 }}
+        >{s}</FloatItem>
       ))}
     </View>
   );
@@ -928,19 +945,14 @@ function SpaceLens() {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(3,7,30,0.45)" }]} />
       {starPos.map((s, i) => (
-        <Animated.Text
+        <FloatItem
           key={i}
-          style={{
-            position: "absolute",
-            left: s.x,
-            top: s.y,
-            fontSize: s.size,
-            opacity: 0.6 + (i % 4) * 0.1,
-            transform: [{ translateY: i % 3 === 0 ? floatY : Animated.multiply(floatY, -0.5) }],
-          }}
+          sv={floatY}
+          mult={i % 3 === 0 ? 1 : -0.5}
+          style={{ position: "absolute", left: s.x, top: s.y, fontSize: s.size, opacity: 0.6 + (i % 4) * 0.1 }}
         >
           {i % 7 === 0 ? "🌙" : i % 11 === 0 ? "🪐" : i % 5 === 0 ? "💫" : "⭐"}
-        </Animated.Text>
+        </FloatItem>
       ))}
     </View>
   );
@@ -1027,7 +1039,6 @@ function ZodiacAuraLens({ rashi }: { rashi?: string }) {
   const key   = (rashi ?? "scorpio").toLowerCase();
   const [c1, c2] = RASHI_COLORS[key] ?? RASHI_COLORS.scorpio;
   const symbol = RASHI_SYMBOLS[key] ?? "♏";
-  const pulse  = usePulse(1400);
   const floatY = useFloat(2000, 8);
 
   return (
@@ -1059,27 +1070,22 @@ function ZodiacAuraLens({ rashi }: { rashi?: string }) {
         })}
       </Svg>
       {/* Zodiac symbol */}
-      <Animated.Text
-        style={{
-          position: "absolute",
-          left: FC.x - 22,
-          top: CROWN.y - 44,
-          fontSize: 42,
-          color: c1,
-          transform: [{ translateY: floatY }],
-        }}
+      <FloatItem
+        sv={floatY}
+        style={{ position: "absolute", left: FC.x - 22, top: CROWN.y - 44, fontSize: 42, color: c1 }}
       >
         {symbol}
-      </Animated.Text>
+      </FloatItem>
     </View>
   );
 }
 
 function ChakraOrb({ chakra, index }: { chakra: typeof CHAKRA_DATA[0]; index: number }) {
   const pulse = usePulse(1000 + index * 120);
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   return (
-    <Animated.View
-      style={{
+    <RAnimated.View
+      style={[{
         position: "absolute",
         left: FC.x - 14,
         top: chakra.y - 14,
@@ -1090,8 +1096,7 @@ function ChakraOrb({ chakra, index }: { chakra: typeof CHAKRA_DATA[0]; index: nu
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.9, shadowRadius: 12,
         elevation: 6,
-        transform: [{ scale: pulse }],
-      }}
+      }, pulseStyle]}
     />
   );
 }
@@ -1115,7 +1120,6 @@ function ChakraLens() {
 }
 
 function GoddessLens() {
-  const pulse  = usePulse(1600);
   const floatY = useFloat(2200, 6);
 
   return (
@@ -1149,31 +1153,30 @@ function GoddessLens() {
             transform={`rotate(${dx * 1.2} ${FC.x + dx} ${FC.y + FH * 0.65})`} />
         ))}
       </Svg>
-      <Animated.Text style={{
-        position: "absolute",
-        left: FC.x - 14,
-        top: H * 0.07,
-        fontSize: 24,
-        transform: [{ translateY: floatY }],
-      }}>🌸</Animated.Text>
+      <FloatItem
+        sv={floatY}
+        style={{ position: "absolute", left: FC.x - 14, top: H * 0.07, fontSize: 24 }}
+      >🌸</FloatItem>
     </View>
   );
 }
 
 function OmAuraLens() {
-  const pulse  = usePulse(1200);
-  const rotate = useRef(new Animated.Value(0)).current;
-  const floatY = useFloat(2600, 8);
+  const pulse   = usePulse(1200);
+  const rotateSV = useSharedValue(0);
+  const floatY  = useFloat(2600, 8);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(rotate, { toValue: 1, duration: 12000, useNativeDriver: true })
-    );
-    loop.start();
-    return () => loop.stop();
+    rotateSV.value = withRepeat(withTiming(1, { duration: 12000 }), -1, false);
+    return () => cancelAnimation(rotateSV);
   }, []);
 
-  const spin = rotate.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const rotStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rotateSV.value * 360}deg` }],
+  }));
+  const omStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }, { translateY: floatY.value }],
+  }));
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -1188,15 +1191,14 @@ function OmAuraLens() {
         <Rect x={0} y={0} width={W} height={H} fill="url(#omglow)" />
       </Svg>
       {/* Rotating sacred geometry */}
-      <Animated.View
-        style={{
+      <RAnimated.View
+        style={[{
           position: "absolute",
           left: FC.x - 80,
           top: FC.y - FH * 0.75 - 80,
           width: 160,
           height: 160,
-          transform: [{ rotate: spin }],
-        }}
+        }, rotStyle]}
       >
         <Svg width={160} height={160}>
           {/* Sri Yantra simplified - two triangles */}
@@ -1205,10 +1207,10 @@ function OmAuraLens() {
           <Circle cx={80} cy={80} r={70} fill="none" stroke="rgba(245,158,11,0.2)" strokeWidth={1} />
           <Circle cx={80} cy={80} r={55} fill="none" stroke="rgba(245,158,11,0.15)" strokeWidth={1} />
         </Svg>
-      </Animated.View>
+      </RAnimated.View>
       {/* Om symbol */}
-      <Animated.Text
-        style={{
+      <RAnimated.Text
+        style={[{
           position: "absolute",
           left: FC.x - 30,
           top: CROWN.y - 56,
@@ -1217,11 +1219,10 @@ function OmAuraLens() {
           textShadowColor: "rgba(245,158,11,0.8)",
           textShadowOffset: { width: 0, height: 0 },
           textShadowRadius: 14,
-          transform: [{ scale: pulse }, { translateY: floatY }],
-        }}
+        }, omStyle]}
       >
         ॐ
-      </Animated.Text>
+      </RAnimated.Text>
     </View>
   );
 }
@@ -1230,6 +1231,9 @@ function NavagrahaLens() {
   // Default: Jupiter (most benefic, golden glow)
   const pulse  = usePulse(1400);
   const floatY = useFloat(2000, 7);
+  const symStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }, { translateY: floatY.value }],
+  }));
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -1248,8 +1252,8 @@ function NavagrahaLens() {
           stroke="rgba(245,158,11,0.35)" strokeWidth={2} strokeDasharray="14,8" />
       </Svg>
       {/* Jupiter symbol ♃ */}
-      <Animated.Text
-        style={{
+      <RAnimated.Text
+        style={[{
           position: "absolute",
           left: FC.x - 24,
           top: CROWN.y - 50,
@@ -1258,11 +1262,10 @@ function NavagrahaLens() {
           textShadowColor: "rgba(245,158,11,0.7)",
           textShadowOffset: { width: 0, height: 0 },
           textShadowRadius: 12,
-          transform: [{ scale: pulse }, { translateY: floatY }],
-        }}
+        }, symStyle]}
       >
         ♃
-      </Animated.Text>
+      </RAnimated.Text>
       {/* Planets orbiting */}
       {["☉", "☽", "♂", "♀", "☿"].map((sym, i) => {
         const angle = (i / 5) * Math.PI * 2;

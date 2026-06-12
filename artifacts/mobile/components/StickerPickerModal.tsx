@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Dimensions,
   FlatList,
   Image,

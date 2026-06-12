@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, View, ViewStyle } from "react-native";
+import { StyleSheet, StyleProp, View, ViewStyle } from "react-native";
 import RAnimated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -10,7 +10,7 @@ import RAnimated, {
 } from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
 
-function SkeletonBase({ style }: { style?: ViewStyle }) {
+function SkeletonBase({ style }: { style?: StyleProp<ViewStyle> }) {
   const colors = useColors();
   const opacity = useSharedValue(0.3);
 
@@ -35,7 +35,7 @@ function SkeletonBase({ style }: { style?: ViewStyle }) {
   );
 }
 
-export function SkeletonCircle({ size = 40, style }: { size?: number; style?: ViewStyle }) {
+export function SkeletonCircle({ size = 40, style }: { size?: number; style?: StyleProp<ViewStyle> }) {
   return (
     <SkeletonBase
       style={[{ width: size, height: size, borderRadius: size / 2 }, style]}
@@ -43,11 +43,11 @@ export function SkeletonCircle({ size = 40, style }: { size?: number; style?: Vi
   );
 }
 
-export function SkeletonText({ width = "100%", height = 14, style }: { width?: number | string; height?: number; style?: ViewStyle }) {
+export function SkeletonText({ width = "100%", height = 14, style }: { width?: number | string; height?: number; style?: StyleProp<ViewStyle> }) {
   return <SkeletonBase style={[{ width: width as any, height, borderRadius: 7 }, style]} />;
 }
 
-export function SkeletonRect({ width = "100%", height = 200, borderRadius = 12, style }: { width?: number | string; height?: number; borderRadius?: number; style?: ViewStyle }) {
+export function SkeletonRect({ width = "100%", height = 200, borderRadius = 12, style }: { width?: number | string; height?: number; borderRadius?: number; style?: StyleProp<ViewStyle> }) {
   return <SkeletonBase style={[{ width: width as any, height, borderRadius }, style]} />;
 }
 
