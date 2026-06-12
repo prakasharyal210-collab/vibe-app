@@ -1,6 +1,6 @@
 ---
-name: Crash fixes — expo-glass-effect + React Compiler
-description: Two root causes of the persistent "Invalid hook call" / "Something went wrong" crash on all platforms.
+name: Crash fixes — expo-glass-effect, React Compiler, Reanimated mixed imports
+description: Root causes of persistent crashes on Android/iOS in this app.
 ---
 
 ## Fix 1 — expo-glass-effect native module guard (`(tabs)/_layout.tsx`)
@@ -35,3 +35,21 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 **Why:** The beta React Compiler mis-transforms complex components with many hooks, causing native-only crashes. Web preview uses a different code path and does not reproduce the crash.
 
 **How to apply:** If "Something went wrong" appears on Android/iOS but web looks fine — first check `app.json` experiments.reactCompiler. Set it to `false`. Do NOT try to fix it with `"use no memo"` per component — that approach is incomplete and misses components.
+
+---
+
+## Fix 3 — Reanimated 4 mixed imports (`rafCallback` / "Object is not a function")
+
+**Symptom:** "Object is not a function" crash originating from `rafCallback`/`onAnimationFrame` in the Reanimated worklet runtime. Appears on Android/iOS, not on web.
+
+**Root cause:** Any file that imports `Animated` from BOTH `react-native` (old API) AND `react-native-reanimated` (new API) causes the Reanimated frame scheduler to conflict with the legacy Animated frame callback. Reanimated 4 (Expo SDK 54) has zero tolerance for this — even `useNativeDriver: false` on the old API is not safe if BOTH libraries are imported in the same file.
+
+**Files that had this bug:**
+- `components/camera/LensOverlay.tsx` — imported `{ Animated }` from `react-native` (for FallingEmoji/RisingBubble) AND `RAnimated` from `react-native-reanimated`
+- `app/(tabs)/find.tsx` — imported `Animated as RNAnimated` from `react-native` (for toast animations) AND `Animated` from `react-native-reanimated`
+
+**Fix:** Remove ALL old-API Animated imports from `react-native` in any file that also uses `react-native-reanimated`. Convert every `Animated.Value`/`Animated.timing`/`Animated.spring`/`Animated.sequence`/`Animated.parallel`/`Animated.loop` in that file to Reanimated equivalents (`useSharedValue`, `withTiming`, `withSpring`, `withSequence`, `withRepeat`, `withDelay`). Replace `<Animated.View>` → `<RAnimated.View style={useAnimatedStyle(...)}>`.
+
+**How to detect:** `grep -rln "react-native-reanimated" app/ components/ | xargs grep -l "{ Animated\|Animated as RN"` — any hit is a mixed-import crash.
+
+**How to apply:** Before adding any animation to a file already using Reanimated — check imports. Never mix. If the file uses `react-native-reanimated`, ALL animations must use Reanimated.

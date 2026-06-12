@@ -1,12 +1,14 @@
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
-import { Animated, Dimensions, StyleSheet, Text, View } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 import RAnimated, {
   cancelAnimation,
   interpolate,
+  runOnJS,
   SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withTiming,
@@ -129,61 +131,49 @@ function FloatViewItem({
 function FallingEmoji({
   emoji, x, delay, duration, size,
 }: { emoji: string; x: number; delay: number; duration: number; size: number }) {
-  const y = useRef(new Animated.Value(-60)).current;
+  const y = useSharedValue(-60);
   useEffect(() => {
-    let running = true;
-    const run = () => {
-      if (!running) return;
-      y.setValue(-60 - Math.random() * 100);
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(y, { toValue: H + 80, duration, useNativeDriver: false }),
-      ]).start(() => { if (running) run(); });
-    };
-    run();
-    return () => { running = false; };
+    y.value = withDelay(delay, withRepeat(withTiming(H + 80, { duration }), -1, false));
+    return () => cancelAnimation(y);
   }, []);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.value }] }));
   return (
-    <Animated.Text
-      style={{ position: "absolute", left: x, fontSize: size, transform: [{ translateY: y }] }}
-    >
+    <RAnimated.Text style={[{ position: "absolute", left: x, fontSize: size }, animStyle]}>
       {emoji}
-    </Animated.Text>
+    </RAnimated.Text>
   );
 }
 
 function RisingBubble({ x, delay }: { x: number; delay: number }) {
-  const y = useRef(new Animated.Value(H + 20)).current;
-  const opacity = useRef(new Animated.Value(0.7)).current;
-  const size = 8 + Math.floor(Math.random() * 14);
+  const y = useSharedValue(H + 20);
+  const opacity = useSharedValue(0.7);
+  const size = useRef(8 + Math.floor(Math.random() * 14)).current;
+  const dur = useRef(3500 + Math.random() * 2000).current;
   useEffect(() => {
-    let running = true;
-    const run = () => {
-      if (!running) return;
-      y.setValue(H + 20);
-      opacity.setValue(0.7);
-      Animated.parallel([
-        Animated.timing(y, { toValue: -40, duration: 3500 + Math.random() * 2000, useNativeDriver: false }),
-        Animated.sequence([
-          Animated.delay(2500),
-          Animated.timing(opacity, { toValue: 0, duration: 1000, useNativeDriver: false }),
-        ]),
-      ]).start(() => { if (running) run(); });
-    };
-    setTimeout(run, delay);
-    return () => { running = false; };
+    y.value = withDelay(delay, withRepeat(withTiming(-40, { duration: dur }), -1, false));
+    opacity.value = withDelay(delay, withRepeat(
+      withSequence(
+        withTiming(0.7, { duration: dur - 1000 }),
+        withTiming(0, { duration: 1000 }),
+      ),
+      -1,
+      false,
+    ));
+    return () => { cancelAnimation(y); cancelAnimation(opacity); };
   }, []);
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: y.value }],
+  }));
   return (
-    <Animated.View
-      style={{
+    <RAnimated.View
+      style={[{
         position: "absolute",
         left: x,
         width: size, height: size, borderRadius: size / 2,
         borderWidth: 1.5, borderColor: "rgba(147,210,255,0.7)",
         backgroundColor: "transparent",
-        opacity,
-        transform: [{ translateY: y }],
-      }}
+      }, animStyle]}
     />
   );
 }

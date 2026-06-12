@@ -7,7 +7,6 @@ import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
-  Animated as RNAnimated,
   Dimensions,
   Image,
   Modal,
@@ -1462,7 +1461,8 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
   const [sentVibes, setSentVibes] = useState<Set<string>>(new Set());
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const toastOpacity = useRef(new RNAnimated.Value(0)).current;
+  const toastOpacity = useSharedValue(0);
+  const toastFadeStyle = useAnimatedStyle(() => ({ opacity: toastOpacity.value }));
 
   const goalInfo = goalValue ? getGoalInfo(goalValue) : null;
 
@@ -1479,12 +1479,13 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    toastOpacity.setValue(0);
-    RNAnimated.sequence([
-      RNAnimated.timing(toastOpacity, { toValue: 1, duration: 250, useNativeDriver: false }),
-      RNAnimated.delay(1600),
-      RNAnimated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: false }),
-    ]).start(() => setToastMsg(null));
+    toastOpacity.value = 0;
+    toastOpacity.value = withSequence(
+      withTiming(1, { duration: 250 }),
+      withDelay(1600, withTiming(0, { duration: 300 }, (finished) => {
+        if (finished) runOnJS(setToastMsg)(null);
+      })),
+    );
   };
 
   const handleVibe = (targetId: string, name: string) => {
@@ -1570,9 +1571,9 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
         )}
       </View>
       {toastMsg && (
-        <RNAnimated.View style={[gusStyles.toast, { opacity: toastOpacity }]} pointerEvents="none">
+        <Animated.View style={[gusStyles.toast, toastFadeStyle]} pointerEvents="none">
           <Text style={gusStyles.toastText}>{toastMsg}</Text>
-        </RNAnimated.View>
+        </Animated.View>
       )}
       {profileCard && (
         <ProfileModal
@@ -1633,7 +1634,8 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [openingChat, setOpeningChat] = useState<string | null>(null);
   const [newMatchToast, setNewMatchToast] = useState<VibeMatchProfile | null>(null);
-  const toastY = useRef(new RNAnimated.Value(-110)).current;
+  const toastY = useSharedValue(-110);
+  const toastYStyle = useAnimatedStyle(() => ({ transform: [{ translateY: toastY.value }] }));
   const heartY1 = useSharedValue(0);
   const heartY2 = useSharedValue(0);
   const heartY3 = useSharedValue(0);
@@ -1686,12 +1688,13 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
 
   const showMatchToast = (match: VibeMatchProfile) => {
     setNewMatchToast(match);
-    toastY.setValue(-110);
-    RNAnimated.sequence([
-      RNAnimated.spring(toastY, { toValue: 0, useNativeDriver: false, tension: 80, friction: 12 }),
-      RNAnimated.delay(3500),
-      RNAnimated.timing(toastY, { toValue: -110, duration: 300, useNativeDriver: false }),
-    ]).start(() => setNewMatchToast(null));
+    toastY.value = -110;
+    toastY.value = withSequence(
+      withSpring(0, { damping: 12, stiffness: 80 }),
+      withDelay(3500, withTiming(-110, { duration: 300 }, (finished) => {
+        if (finished) runOnJS(setNewMatchToast)(null);
+      })),
+    );
   };
 
   const openChat = async (m: VibeMatchProfile) => {
@@ -1744,7 +1747,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
     <View style={{ flex: 1 }}>
       {/* New match toast */}
       {newMatchToast && (
-        <RNAnimated.View style={[matchTabStyles.newMatchToast, { transform: [{ translateY: toastY }] }]} pointerEvents="box-none">
+        <Animated.View style={[matchTabStyles.newMatchToast, toastYStyle]} pointerEvents="box-none">
           <TouchableOpacity
             onPress={() => { setNewMatchToast(null); router.push({ pathname: "/chat/[userId]", params: { userId: newMatchToast.id, username: newMatchToast.name, isVibeMatch: "true" } }); }}
             style={matchTabStyles.newMatchToastInner}
@@ -1757,7 +1760,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
             </View>
             <Text style={matchTabStyles.toastCta}>Chat →</Text>
           </TouchableOpacity>
-        </RNAnimated.View>
+        </Animated.View>
       )}
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
