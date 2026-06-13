@@ -1077,7 +1077,7 @@ function CreateScreenInner() {
         </RAnimated.View>
 
         {/* ── FILTER STRIP ── */}
-        <RAnimated.View style={[StyleSheet.absoluteFill, controlsStyle]} pointerEvents="box-none">
+        <RAnimated.View style={[StyleSheet.absoluteFill, controlsStyle, { zIndex: 100 }]} pointerEvents="box-none">
           <CameraFilterStrip
             visible={showFilterStrip}
             activeFilter={cameraFilter.id}
@@ -1111,7 +1111,10 @@ function CreateScreenInner() {
 
           {/* Duration pills — video modes only */}
           {isVideoMode && (
-            <RAnimated.View style={[s.durationRow, controlsStyle]} pointerEvents={recording ? "none" : "box-none"}>
+            <RAnimated.View
+              style={[s.durationRow, controlsStyle, (showFilterStrip || showBeauty) && s.panelHidden]}
+              pointerEvents={recording || showFilterStrip || showBeauty ? "none" : "box-none"}
+            >
               {DURATIONS.map((d) => (
                 <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)} style={[s.durationPill, selectedDuration === d && s.durationPillActive]}>
                   <Text style={[s.durationText, selectedDuration === d && s.durationTextActive]}>{d}</Text>
@@ -1121,7 +1124,10 @@ function CreateScreenInner() {
           )}
 
           {/* Mode selector — horizontal scroll */}
-          <RAnimated.View style={controlsStyle} pointerEvents={recording ? "none" : "box-none"}>
+          <RAnimated.View
+            style={[controlsStyle, (showFilterStrip || showBeauty) && s.panelHidden]}
+            pointerEvents={recording || showFilterStrip || showBeauty ? "none" : "box-none"}
+          >
             <ScrollView
               ref={modeScrollRef}
               horizontal
@@ -1434,6 +1440,7 @@ const s = StyleSheet.create({
   nightBadgeText: { color: "#60A5FA", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
 
   bottomArea: { position: "absolute", bottom: 0, left: 0, right: 0 },
+  panelHidden: { opacity: 0 },
   durationRow: { flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 10 },
   durationPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
   durationPillActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
