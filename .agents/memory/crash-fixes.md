@@ -104,6 +104,43 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 
 **Why the crash shows as rafCallback:** Reanimated's animation loop (rafCallback) processes each animation frame and invokes the callback passed to `withSpring/withTiming/etc`. When that callback is an uncompiled plain function (not a worklet), calling it on the UI thread produces "Object is not a function".
 
+---
+
+## Fix 6 — Calling JS globals (setTimeout, setInterval) inside withSpring/withTiming callbacks
+
+**Symptom:** "Object is not a function" / rafCallback crash on Android immediately after the Find Vibe tab mounts. No error in Metro logs. Crash happens ~1 second after mount (animation start delay).
+
+**Root cause:** The `withSpring(value, config, callback)` third argument runs on the **UI thread** (it is a worklet). Any JS-only global — `setTimeout`, `setInterval`, `console.log`, `Alert`, `fetch`, etc. — does not exist in the worklet runtime. Calling `setTimeout(fn, ms)` from inside that callback crashes with "Object is not a function" because `setTimeout` is `undefined` in the worklet context.
+
+**Example crash pattern (find.tsx `DailyVibeSection`):**
+```js
+// WRONG — setTimeout called from UI thread (worklet) context
+pulse.value = withSpring(1.03, {}, () => {
+  pulse.value = withSpring(1, {});
+  setTimeout(doPulse, 2500); // ← CRASH: setTimeout is undefined in worklet
+});
+```
+
+**Fix:** Never call JS globals inside `withSpring/withTiming/withSequence` callbacks. Either:
+1. Use `runOnJS(myJsFunction)()` for any JS-thread call inside the callback
+2. Better: avoid completion callbacks entirely — use `withSequence` + JS-thread `setInterval` to schedule repeating animations:
+```js
+// CORRECT — animation driven by JS-thread setInterval, no callback needed
+const doPulse = () => {
+  pulse.value = withSequence(withSpring(1.03, {}), withSpring(1, {}));
+};
+doPulse();
+const timer = setInterval(doPulse, 2500);
+return () => { clearInterval(timer); cancelAnimation(pulse); };
+```
+
+**How to find all occurrences:**
+```bash
+grep -rn "withSpring\|withTiming" --include="*.tsx" | grep -E "setTimeout|setInterval|console\." | grep -v "runOnJS" | grep -v "onPress"
+```
+
+**Rule:** Everything inside a `withSpring/withTiming/withRepeat` callback is a worklet. Treat it like a `'worklet'` function — no JS globals, no closure variables from the JS thread (unless they were also passed through the worklet serializer).
+
 **How to detect mixed files:**
 ```bash
 grep -rln "react-native-reanimated" app/ components/ | while read f; do

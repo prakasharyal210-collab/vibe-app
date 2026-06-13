@@ -473,17 +473,19 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
   const activeCard = SKIP_CARDS[skipIdx % SKIP_CARDS.length];
 
   useEffect(() => {
-    const timer = setInterval(() => setCountdown(getDailyCountdown()), 1000);
-    let running = true;
+    const countdownTimer = setInterval(() => setCountdown(getDailyCountdown()), 1000);
+    // Use withSequence + JS-thread setInterval — avoids calling setTimeout
+    // inside a withSpring callback (which runs on the UI thread and has no
+    // access to JS globals like setTimeout).
     const doPulse = () => {
-      if (!running) return;
-      pulse.value = withSpring(1.03, { damping: 8, stiffness: 100 }, () => {
-        pulse.value = withSpring(1, { damping: 8, stiffness: 100 });
-        setTimeout(doPulse, 2500);
-      });
+      pulse.value = withSequence(
+        withSpring(1.03, { damping: 8, stiffness: 100 }),
+        withSpring(1, { damping: 8, stiffness: 100 }),
+      );
     };
-    setTimeout(doPulse, 1000);
-    return () => { running = false; clearInterval(timer); cancelAnimation(pulse); };
+    doPulse();
+    const pulseTimer = setInterval(doPulse, 2500);
+    return () => { clearInterval(countdownTimer); clearInterval(pulseTimer); cancelAnimation(pulse); };
   }, []);
 
   const cardAnim = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
