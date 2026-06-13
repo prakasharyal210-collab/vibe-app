@@ -390,6 +390,29 @@ export default function ChatScreen() {
     };
   }, [myId, otherId]);
 
+  // ── Polling fallback (15 s) — catches messages that realtime misses ────────
+  useEffect(() => {
+    if (!myId || !otherId) return;
+    const interval = setInterval(async () => {
+      try {
+        const msgs = await fetchMessages(myId, otherId);
+        if (msgs.length > 0) {
+          setMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
+            if (newMsgs.length === 0) return prev;
+            const merged = [...prev, ...newMsgs].sort(
+              (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
+            setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 50);
+            return merged;
+          });
+        }
+      } catch {}
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [myId, otherId]);
+
   // ── Smart reply suggestions ────────────────────────────────────────────────
   useEffect(() => {
     const lastFromThem = [...messages].reverse().find(

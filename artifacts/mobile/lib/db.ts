@@ -849,37 +849,13 @@ export async function fetchFriendStories(myUserId: string): Promise<StoryEntry[]
 // ─── Conversations / Messages ─────────────────────────────────────────────────
 
 export async function fetchConversations(userId: string): Promise<Conversation[]> {
+  // Route through API server — bypasses RLS + avoids Android Supabase client hang
   try {
-    const { data, error } = await supabase
-      .from("messages")
-      .select(
-        "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
-      )
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (!error && data && data.length > 0) {
-      const seen = new Set<string>();
-      const convos: Conversation[] = [];
-      for (const msg of data as any[]) {
-        const otherId = msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
-        const otherUser = msg.sender_id === userId ? msg.receiver : msg.sender;
-        if (!seen.has(otherId) && otherUser) {
-          seen.add(otherId);
-          convos.push({
-            id: `conv_${otherId}`,
-            other_user: {
-              id: otherId,
-              username: otherUser.username,
-              avatar_url: otherUser.avatar_url,
-            },
-            last_message: msg.text,
-            last_message_at: msg.created_at,
-            unread_count: 0,
-          });
-        }
-      }
+    const url = `${API_BASE}/messages/conversations?userId=${encodeURIComponent(userId)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const json = await res.json();
+      const convos: Conversation[] = json.conversations ?? [];
       if (convos.length > 0) return convos;
     }
   } catch {}
@@ -887,16 +863,14 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
 }
 
 export async function fetchMessages(myId: string, otherId: string): Promise<import("./supabase").Message[]> {
+  // Route through API server — bypasses RLS + avoids Android Supabase client hang
   try {
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*")
-      .or(
-        `and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`
-      )
-      .order("created_at", { ascending: true })
-      .limit(100);
-    if (!error && data && data.length > 0) return data as import("./supabase").Message[];
+    const params = new URLSearchParams({ myId, otherId, limit: "100" });
+    const res = await fetch(`${API_BASE}/messages?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json();
+      return (json.messages ?? []) as import("./supabase").Message[];
+    }
   } catch {}
   return [];
 }
@@ -906,13 +880,17 @@ export async function sendMessageToUser(
   receiverId: string,
   text: string
 ): Promise<import("./supabase").Message | null> {
+  // Route through API server — bypasses RLS + avoids Android Supabase client hang
   try {
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({ sender_id: senderId, receiver_id: receiverId, text })
-      .select()
-      .single();
-    if (!error && data) return data as import("./supabase").Message;
+    const res = await fetch(`${API_BASE}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senderId, receiverId, text }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return json.message as import("./supabase").Message;
+    }
   } catch {}
   return null;
 }

@@ -13,6 +13,7 @@ import usersSearchRouter from "./users/search";
 import usersSocialRouter from "./users/social";
 import usersNotificationsRouter from "./users/notifications";
 import engageRouter from "./engage";
+import messagesRouter from "./messages";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/users", usersSearchRouter);
 router.use("/users/social", usersSocialRouter);
 router.use("/users/notifications", usersNotificationsRouter);
 router.use("/engage", engageRouter);
+router.use("/messages", messagesRouter);
 
 export default router;
