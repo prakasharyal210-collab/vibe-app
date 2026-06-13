@@ -44,12 +44,34 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 
 **Root cause:** Any file that imports `Animated` from BOTH `react-native` (old API) AND `react-native-reanimated` (new API) causes the Reanimated frame scheduler to conflict with the legacy Animated frame callback. Reanimated 4 (Expo SDK 54) has zero tolerance for this — even `useNativeDriver: false` on the old API is not safe if BOTH libraries are imported in the same file.
 
-**Files that had this bug:**
-- `components/camera/LensOverlay.tsx` — imported `{ Animated }` from `react-native` (for FallingEmoji/RisingBubble) AND `RAnimated` from `react-native-reanimated`
-- `app/(tabs)/find.tsx` — imported `Animated as RNAnimated` from `react-native` (for toast animations) AND `Animated` from `react-native-reanimated`
+**All files fixed (complete list as of this session):**
+- `components/camera/LensOverlay.tsx` — was MIXED (FallingEmoji/RisingBubble used old Animated)
+- `app/(tabs)/find.tsx` — was MIXED (toast used old Animated)
+- `components/AICaptionSheet.tsx` — was MIXED (sheet slide used old Animated.timing)
+- `components/MusicPickerSheet.tsx` — was MIXED (sheet slide used old Animated.timing)
+- `components/StickerPickerModal.tsx` — was MIXED (sheet slide used old Animated.timing)
+- `components/CuratedFeedList.tsx` — was MIXED (fadeAnim used old Animated.timing)
+- `components/AchievementModal.tsx` — was OLD-ONLY but mounted inside find.tsx; converted to pure Reanimated (Sparkle component, slideAnim/opacityAnim/badgeScale/shineAnim)
+- `app/(tabs)/create.tsx` — was MIXED (26 old calls: FocusRing, DraggableTextOverlay, CelebrationModal confetti, controlsOpacity, timerScaleAnim)
+
+**create.tsx conversion details:**
+- FocusRing: `useRef(new Animated.Value)` → `useSharedValue` + `withSpring` + `withDelay`
+- DraggableTextOverlay: `PanResponder` + `Animated.ValueXY` + `Animated.event` → `Gesture.Pan()` + `GestureDetector` + `runOnJS` (from react-native-gesture-handler)
+- CelebrationModal: extracted `ConfettiParticle` sub-component (each particle owns its own shared values); `cardScale/fadeIn/checkScale` → `useSharedValue` + `withSpring/withTiming/withDelay`
+- `controlsOpacity` + `timerScaleAnim`: `useRef(new Animated.Value)` → `useSharedValue` + `useAnimatedStyle`; 9 `<Animated.View/Text>` JSX usages → `<RAnimated.View/Text style={controlsStyle/timerScaleStyle}>`
+- `PanResponder` (ZoomSlider) retained in react-native import — PanResponder alone without old Animated is safe; only `Animated` was removed
 
 **Fix:** Remove ALL old-API Animated imports from `react-native` in any file that also uses `react-native-reanimated`. Convert every `Animated.Value`/`Animated.timing`/`Animated.spring`/`Animated.sequence`/`Animated.parallel`/`Animated.loop` in that file to Reanimated equivalents (`useSharedValue`, `withTiming`, `withSpring`, `withSequence`, `withRepeat`, `withDelay`). Replace `<Animated.View>` → `<RAnimated.View style={useAnimatedStyle(...)}>`.
 
-**How to detect:** `grep -rln "react-native-reanimated" app/ components/ | xargs grep -l "{ Animated\|Animated as RN"` — any hit is a mixed-import crash.
+**Easing from Reanimated:** When using `Easing` with Reanimated's `withTiming`, import `Easing` from `react-native-reanimated`, NOT from `react-native`.
 
-**How to apply:** Before adding any animation to a file already using Reanimated — check imports. Never mix. If the file uses `react-native-reanimated`, ALL animations must use Reanimated.
+**How to detect mixed files:**
+```bash
+grep -rln "react-native-reanimated" app/ components/ | while read f; do
+  n=$(grep -c "new Animated\.Value\|Animated\.timing\|Animated\.spring\|Animated\.sequence\|Animated\.parallel" "$f")
+  echo "$n $f"
+done | grep -v "^0 "
+```
+Any output = MIXED file that will crash on Android.
+
+**How to apply:** Before adding any animation to a file already using Reanimated — check imports. Never mix. If the file uses `react-native-reanimated`, ALL animations must use Reanimated. `PanResponder` (gesture tracking only, no Animated.Value) is safe to keep alongside Reanimated.

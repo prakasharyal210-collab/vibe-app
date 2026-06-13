@@ -1,14 +1,21 @@
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
-  Animated,
-  Easing,
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Achievement } from "@/lib/db";
 
@@ -19,22 +26,25 @@ interface AchievementModalProps {
 }
 
 function Sparkle({ delay, x, y }: { delay: number; x: number; y: number }) {
-  const anim = useRef(new Animated.Value(0)).current;
+  const anim = useSharedValue(0);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 400, useNativeDriver: false }),
-        Animated.timing(anim, { toValue: 0, duration: 400, useNativeDriver: false }),
-      ]).start();
+      anim.value = withSequence(
+        withTiming(1, { duration: 400 }),
+        withTiming(0, { duration: 400 }),
+      );
     }, delay);
     return () => clearTimeout(timer);
   }, [delay]);
 
-  const scale = anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 1.2, 0] });
+  const sparkleStyle = useAnimatedStyle(() => {
+    const scale = interpolate(anim.value, [0, 0.5, 1], [0, 1.2, 0]);
+    return { transform: [{ scale }] };
+  });
 
   return (
-    <Animated.Text style={[styles.sparkle, { left: x, top: y, transform: [{ scale }] }]}>
+    <Animated.Text style={[styles.sparkle, { left: x, top: y }, sparkleStyle]}>
       ✨
     </Animated.Text>
   );
@@ -42,33 +52,36 @@ function Sparkle({ delay, x, y }: { delay: number; x: number; y: number }) {
 
 export function AchievementModal({ visible, achievement, onClose }: AchievementModalProps) {
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(-200)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const badgeScale = useRef(new Animated.Value(0)).current;
-  const shineAnim = useRef(new Animated.Value(-1)).current;
+  const slideAnim = useSharedValue(-200);
+  const opacityAnim = useSharedValue(0);
+  const badgeScale = useSharedValue(0);
+  const shineAnim = useSharedValue(-1);
+
+  const bannerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideAnim.value }],
+    opacity: opacityAnim.value,
+  }));
+  const badgeStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: badgeScale.value }],
+  }));
+  const shineStyle = useAnimatedStyle(() => {
+    const translateX = interpolate(shineAnim.value, [-1, 2], [-120, 320]);
+    return { transform: [{ translateX }, { rotate: "20deg" }] };
+  });
 
   useEffect(() => {
     if (visible) {
-      slideAnim.setValue(-200);
-      opacityAnim.setValue(0);
-      badgeScale.setValue(0);
-      shineAnim.setValue(-1);
+      slideAnim.value = -200;
+      opacityAnim.value = 0;
+      badgeScale.value = 0;
+      shineAnim.value = -1;
 
-      Animated.sequence([
-        Animated.parallel([
-          Animated.spring(slideAnim, { toValue: 0, damping: 15, stiffness: 200, useNativeDriver: false }),
-          Animated.timing(opacityAnim, { toValue: 1, duration: 300, useNativeDriver: false }),
-        ]),
-        Animated.spring(badgeScale, { toValue: 1, damping: 10, stiffness: 200, useNativeDriver: false }),
-        Animated.timing(shineAnim, { toValue: 2, duration: 800, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-      ]).start();
+      slideAnim.value = withSpring(0, { damping: 15, stiffness: 200 });
+      opacityAnim.value = withTiming(1, { duration: 300 });
+      badgeScale.value = withDelay(350, withSpring(1, { damping: 10, stiffness: 200 }));
+      shineAnim.value = withDelay(700, withTiming(2, { duration: 800 }));
     }
   }, [visible]);
-
-  const shineTranslate = shineAnim.interpolate({
-    inputRange: [-1, 2],
-    outputRange: [-120, 320],
-  });
 
   if (!achievement) return null;
 
@@ -88,11 +101,8 @@ export function AchievementModal({ visible, achievement, onClose }: AchievementM
         <Animated.View
           style={[
             styles.banner,
-            {
-              transform: [{ translateY: slideAnim }],
-              opacity: opacityAnim,
-              marginTop: insets.top + 12,
-            },
+            { marginTop: insets.top + 12 },
+            bannerStyle,
           ]}
         >
           <LinearGradient
@@ -106,7 +116,7 @@ export function AchievementModal({ visible, achievement, onClose }: AchievementM
 
           {visible && SPARKLES.map((s, i) => <Sparkle key={i} {...s} />)}
 
-          <Animated.View style={[styles.badgeWrap, { transform: [{ scale: badgeScale }] }]}>
+          <Animated.View style={[styles.badgeWrap, badgeStyle]}>
             <LinearGradient
               colors={["#7C3AED", "#F97316"]}
               style={styles.badge}
@@ -115,10 +125,7 @@ export function AchievementModal({ visible, achievement, onClose }: AchievementM
             </LinearGradient>
             <View style={styles.shine}>
               <Animated.View
-                style={[
-                  styles.shineBar,
-                  { transform: [{ translateX: shineTranslate }, { rotate: "20deg" }] },
-                ]}
+                style={[styles.shineBar, shineStyle]}
               />
             </View>
           </Animated.View>

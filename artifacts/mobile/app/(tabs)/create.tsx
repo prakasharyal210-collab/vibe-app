@@ -9,7 +9,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Dimensions,
   Image,
   Modal,
@@ -22,13 +21,17 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import RAnimated, {
   cancelAnimation,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { GradientButton } from "@/components/GradientButton";
@@ -108,25 +111,24 @@ const pano = StyleSheet.create({
 
 // ── Focus ring ───────────────────────────────────────────────────────────────
 function FocusRing({ point, visible }: { point: { x: number; y: number } | null; visible: boolean }) {
-  const scale = useRef(new Animated.Value(1.5)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useSharedValue(1.5);
+  const opacity = useSharedValue(0);
+  const focusStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
   useEffect(() => {
     if (visible && point) {
-      scale.setValue(1.5); opacity.setValue(1);
-      Animated.parallel([
-        Animated.spring(scale, { toValue: 1, useNativeDriver: false, friction: 5, tension: 200 }),
-        Animated.sequence([
-          Animated.delay(800),
-          Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: false }),
-        ]),
-      ]).start();
+      scale.value = 1.5; opacity.value = 1;
+      scale.value = withSpring(1, { damping: 5, stiffness: 200 });
+      opacity.value = withDelay(800, withTiming(0, { duration: 300 }));
     }
   }, [visible, point]);
   if (!point || !visible) return null;
   return (
-    <Animated.View
+    <RAnimated.View
       pointerEvents="none"
-      style={{
+      style={[{
         position: "absolute",
         left: point.x - 30,
         top: point.y - 30,
@@ -134,9 +136,7 @@ function FocusRing({ point, visible }: { point: { x: number; y: number } | null;
         borderRadius: 30,
         borderWidth: 2,
         borderColor: "#FBBF24",
-        transform: [{ scale }],
-        opacity,
-      }}
+      }, focusStyle]}
     />
   );
 }
@@ -213,87 +213,117 @@ const es = StyleSheet.create({
 
 // ── Draggable text overlay ────────────────────────────────────────────────────
 function DraggableTextOverlay({ item, onMove }: { item: TextOverlayItem; onMove: (id: string, x: number, y: number) => void }) {
-  const lastPos = useRef({ x: item.x, y: item.y });
-  const pan = useRef(new Animated.ValueXY({ x: item.x, y: item.y })).current;
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        pan.setOffset(lastPos.current);
-        pan.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-      onPanResponderRelease: (_, { dx, dy }) => {
-        pan.flattenOffset();
-        const newX = Math.max(0, Math.min(W - 80, lastPos.current.x + dx));
-        const newY = Math.max(60, Math.min(H - 120, lastPos.current.y + dy));
-        lastPos.current = { x: newX, y: newY };
-        pan.setValue({ x: newX, y: newY });
-        onMove(item.id, newX, newY);
-      },
+  const translateX = useSharedValue(item.x);
+  const translateY = useSharedValue(item.y);
+  const startX = useSharedValue(item.x);
+  const startY = useSharedValue(item.y);
+
+  const overlayStyle = useAnimatedStyle(() => ({
+    position: "absolute" as const,
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
+  }));
+
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
     })
-  ).current;
+    .onUpdate(({ translationX, translationY }) => {
+      translateX.value = Math.max(0, Math.min(W - 80, startX.value + translationX));
+      translateY.value = Math.max(60, Math.min(H - 120, startY.value + translationY));
+    })
+    .onEnd(() => {
+      runOnJS(onMove)(item.id, translateX.value, translateY.value);
+    });
+
   return (
-    <Animated.View style={[{ position: "absolute" }, { transform: pan.getTranslateTransform() }]} {...panResponder.panHandlers}>
-      <Text style={{ color: item.color, fontSize: item.fontSize, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 }}>
-        {item.text}
-      </Text>
-    </Animated.View>
+    <GestureDetector gesture={pan}>
+      <RAnimated.View style={overlayStyle}>
+        <Text style={{ color: item.color, fontSize: item.fontSize, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 4 }}>
+          {item.text}
+        </Text>
+      </RAnimated.View>
+    </GestureDetector>
   );
 }
 
-// ── Celebration modal (unchanged) ─────────────────────────────────────────────
+// ── Confetti particle (pure Reanimated) ───────────────────────────────────────
+type ConfettiConfig = { xTarget: number; duration: number; delay: number; color: string; size: number };
+
+function ConfettiParticle({ index, startXPos, delay, duration, xTarget, color, size }: {
+  index: number; startXPos: number; delay: number; duration: number; xTarget: number; color: string; size: number;
+}) {
+  const y = useSharedValue(-40);
+  const x = useSharedValue(0);
+  const rotate = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  const particleStyle = useAnimatedStyle(() => {
+    const rotateDir = index % 2 === 0 ? 1 : -1;
+    return {
+      position: "absolute" as const,
+      left: startXPos,
+      top: H * 0.22,
+      width: size,
+      height: size * (index % 3 === 1 ? 2.2 : 1),
+      borderRadius: index % 3 === 2 ? size / 2 : 2,
+      backgroundColor: color,
+      opacity: opacity.value,
+      transform: [
+        { translateY: y.value },
+        { translateX: x.value },
+        { rotate: `${rotate.value * 360 * 3 * rotateDir}deg` },
+      ],
+    };
+  });
+
+  useEffect(() => {
+    y.value = -40; x.value = 0; rotate.value = 0; opacity.value = 1;
+    y.value = withDelay(delay, withTiming(H * 0.85, { duration }));
+    x.value = withDelay(delay, withTiming(xTarget, { duration }));
+    rotate.value = withDelay(delay, withTiming(6, { duration }));
+    opacity.value = withDelay(delay + duration * 0.6, withTiming(0, { duration: duration * 0.4 }));
+  }, []);
+
+  return <RAnimated.View style={particleStyle} />;
+}
+
+// ── Celebration modal ──────────────────────────────────────────────────────────
 function CelebrationModal({ visible, onGoToProfile, onClose }: {
   visible: boolean; onGoToProfile: () => void; onClose: () => void;
 }) {
-  const cardScale = useRef(new Animated.Value(0.5)).current;
-  const fadeIn = useRef(new Animated.Value(0)).current;
-  const checkScale = useRef(new Animated.Value(0)).current;
+  const cardScale = useSharedValue(0.5);
+  const fadeIn = useSharedValue(0);
+  const checkScale = useSharedValue(0);
   const fireScale = useSharedValue(1);
   const fireScaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: fireScale.value }] }));
+  const cardStyle = useAnimatedStyle(() => ({ transform: [{ scale: cardScale.value }] }));
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fadeIn.value }));
+  const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
   const [countdown, setCountdown] = useState(5);
-  const confettiAnims = useRef(
-    Array.from({ length: CONFETTI_COUNT }, () => ({
-      y: new Animated.Value(-40), x: new Animated.Value(0),
-      rotate: new Animated.Value(0), opacity: new Animated.Value(1),
-    }))
-  ).current;
+  const [confettiConfigs, setConfettiConfigs] = useState<ConfettiConfig[]>([]);
 
   useEffect(() => {
     if (!visible) {
-      cardScale.setValue(0.5); fadeIn.setValue(0); checkScale.setValue(0);
-      fireScale.value = 1; setCountdown(5);
-      confettiAnims.forEach((c) => { c.y.setValue(-40); c.opacity.setValue(1); });
+      cardScale.value = 0.5; fadeIn.value = 0; checkScale.value = 0;
+      fireScale.value = 1; setCountdown(5); setConfettiConfigs([]);
       return;
     }
-    Animated.parallel([
-      Animated.timing(fadeIn, { toValue: 1, duration: 260, useNativeDriver: false }),
-      Animated.spring(cardScale, { toValue: 1, friction: 7, tension: 100, useNativeDriver: false }),
-    ]).start();
-    setTimeout(() => Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: false }).start(), 180);
+    const configs: ConfettiConfig[] = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+      xTarget: (Math.random() - 0.5) * W * 1.4,
+      duration: 1400 + Math.random() * 800,
+      delay: Math.random() * 400,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      size: 6 + (i % 3) * 4,
+    }));
+    setConfettiConfigs(configs);
+    fadeIn.value = withTiming(1, { duration: 260 });
+    cardScale.value = withSpring(1, { damping: 7, stiffness: 100 });
+    checkScale.value = withDelay(180, withSpring(1, { damping: 5, stiffness: 120 }));
     fireScale.value = withRepeat(
-      withSequence(
-        withTiming(1.3, { duration: 500 }),
-        withTiming(1, { duration: 500 })
-      ),
-      -1,
-      false
+      withSequence(withTiming(1.3, { duration: 500 }), withTiming(1, { duration: 500 })),
+      -1, false
     );
-    confettiAnims.forEach((c, i) => {
-      const delay = Math.random() * 400;
-      const xTarget = (Math.random() - 0.5) * W * 1.4;
-      const duration = 1400 + Math.random() * 800;
-      c.y.setValue(-40); c.x.setValue(0); c.rotate.setValue(0); c.opacity.setValue(1);
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(c.y, { toValue: H * 0.85, duration, useNativeDriver: false }),
-          Animated.timing(c.x, { toValue: xTarget, duration, useNativeDriver: false }),
-          Animated.timing(c.rotate, { toValue: 6, duration, useNativeDriver: false }),
-          Animated.sequence([Animated.delay(duration * 0.6), Animated.timing(c.opacity, { toValue: 0, duration: duration * 0.4, useNativeDriver: false })]),
-        ]).start();
-      }, delay);
-    });
     setCountdown(5);
     let n = 5;
     const tick = setInterval(() => { n--; setCountdown(n); if (n <= 0) { clearInterval(tick); onGoToProfile(); } }, 1000);
@@ -303,22 +333,25 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
   if (!visible) return null;
   return (
     <Modal visible transparent animationType="none">
-      <Animated.View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center", opacity: fadeIn }}>
+      <RAnimated.View style={[{ flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center" }, fadeStyle]}>
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          {confettiAnims.map((c, i) => {
-            const color = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
-            const size = 6 + (i % 3) * 4;
-            const startX = (W / CONFETTI_COUNT) * i;
-            const spin = c.rotate.interpolate({ inputRange: [0, 6], outputRange: ["0deg", `${360 * 3 * (i % 2 === 0 ? 1 : -1)}deg`] });
-            return (
-              <Animated.View key={i} style={{ position: "absolute", left: startX, top: H * 0.22, width: size, height: size * (i % 3 === 1 ? 2.2 : 1), borderRadius: i % 3 === 2 ? size / 2 : 2, backgroundColor: color, opacity: c.opacity, transform: [{ translateY: c.y }, { translateX: c.x }, { rotate: spin }] }} />
-            );
-          })}
+          {confettiConfigs.map((cfg, i) => (
+            <ConfettiParticle
+              key={i}
+              index={i}
+              startXPos={(W / CONFETTI_COUNT) * i}
+              delay={cfg.delay}
+              duration={cfg.duration}
+              xTarget={cfg.xTarget}
+              color={cfg.color}
+              size={cfg.size}
+            />
+          ))}
         </View>
-        <Animated.View style={{ alignItems: "center", paddingHorizontal: 32, transform: [{ scale: cardScale }] }}>
-          <Animated.View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(16,185,129,0.18)", borderWidth: 2.5, borderColor: "#10B981", alignItems: "center", justifyContent: "center", marginBottom: 14, transform: [{ scale: checkScale }] }}>
+        <RAnimated.View style={[{ alignItems: "center", paddingHorizontal: 32 }, cardStyle]}>
+          <RAnimated.View style={[{ width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(16,185,129,0.18)", borderWidth: 2.5, borderColor: "#10B981", alignItems: "center", justifyContent: "center", marginBottom: 14 }, checkStyle]}>
             <Ionicons name="checkmark" size={42} color="#10B981" />
-          </Animated.View>
+          </RAnimated.View>
           <RAnimated.Text style={[{ fontSize: 52 }, fireScaleStyle]}>🔥</RAnimated.Text>
           <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 12, textAlign: "center", lineHeight: 34 }}>Posted!{"\n"}You're live on Gundruk!</Text>
           <Text style={{ color: "rgba(255,255,255,0.45)", fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: 8 }}>Auto-closing in {countdown}s</Text>
@@ -334,8 +367,8 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
               <Text style={{ color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Post Another</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
-      </Animated.View>
+        </RAnimated.View>
+      </RAnimated.View>
     </Modal>
   );
 }
@@ -388,7 +421,8 @@ function CreateScreenInner() {
   const [zoom, setZoom] = useState(0);
   const prevPinchDist = useRef<number | null>(null);
   const baseZoom = useRef(0);
-  const controlsOpacity = useRef(new Animated.Value(1)).current;
+  const controlsOpacity = useSharedValue(1);
+  const controlsStyle = useAnimatedStyle(() => ({ opacity: controlsOpacity.value }));
 
   // ── Zoom ──────────────────────────────────────────────────────────────────
   const [showZoomSlider, setShowZoomSlider] = useState(true);
@@ -409,7 +443,8 @@ function CreateScreenInner() {
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const [timerSecs, setTimerSecs] = useState<TimerValue>(0);
   const [timerCount, setTimerCount] = useState<number | null>(null);
-  const timerScaleAnim = useRef(new Animated.Value(1)).current;
+  const timerScaleAnim = useSharedValue(1);
+  const timerScaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: timerScaleAnim.value }] }));
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pressStartRef = useRef<number | null>(null);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -473,7 +508,7 @@ function CreateScreenInner() {
 
   // ── Fade controls during recording ────────────────────────────────────────
   useEffect(() => {
-    Animated.timing(controlsOpacity, { toValue: recording ? 0 : 1, duration: 220, useNativeDriver: false }).start();
+    controlsOpacity.value = withTiming(recording ? 0 : 1, { duration: 220 });
   }, [recording]);
 
   // ── Night mode: auto-boost exposure ────────────────────────────────────────
@@ -550,13 +585,13 @@ function CreateScreenInner() {
       setTimerCount(remaining);
       const tick = () => {
         remaining--;
-        timerScaleAnim.setValue(1.6);
-        Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: false }).start();
+        timerScaleAnim.value = 1.6;
+        timerScaleAnim.value = withTiming(1, { duration: 750 });
         if (remaining <= 0) { setTimerCount(null); resolve(); }
         else { setTimerCount(remaining); timerRef.current = setTimeout(tick, 1000); }
       };
-      timerScaleAnim.setValue(1.6);
-      Animated.timing(timerScaleAnim, { toValue: 1, duration: 750, useNativeDriver: false }).start();
+      timerScaleAnim.value = 1.6;
+      timerScaleAnim.value = withTiming(1, { duration: 750 });
       timerRef.current = setTimeout(tick, 1000);
     });
   }, [timerSecs, timerScaleAnim]);
@@ -832,9 +867,9 @@ function CreateScreenInner() {
         {/* ── TIMER COUNTDOWN ── */}
         {timerCount !== null && (
           <View style={s.timerOverlay} pointerEvents="none">
-            <Animated.Text style={[s.timerNumber, { transform: [{ scale: timerScaleAnim }] }]}>
+            <RAnimated.Text style={[s.timerNumber, timerScaleStyle]}>
               {timerCount}
-            </Animated.Text>
+            </RAnimated.Text>
           </View>
         )}
 
@@ -891,14 +926,14 @@ function CreateScreenInner() {
         <FocusRing point={focusPoint} visible={showFocusRing} />
 
         {/* ── ZOOM SLIDER (left) ── */}
-        <Animated.View style={{ opacity: controlsOpacity }} pointerEvents={recording ? "none" : "box-none"}>
+        <RAnimated.View style={controlsStyle} pointerEvents={recording ? "none" : "box-none"}>
           <ZoomSlider zoom={zoom} onChange={setZoom} />
-        </Animated.View>
+        </RAnimated.View>
 
         {/* ── EXPOSURE SLIDER (right, after focus) ── */}
-        <Animated.View style={{ opacity: controlsOpacity }} pointerEvents={recording ? "none" : "box-none"}>
+        <RAnimated.View style={controlsStyle} pointerEvents={recording ? "none" : "box-none"}>
           <ExposureSlider value={exposureValue} onChange={setExposureValue} visible={showExposure} />
-        </Animated.View>
+        </RAnimated.View>
 
         {/* ── TOP BAR ── */}
         <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
@@ -925,7 +960,7 @@ function CreateScreenInner() {
         </View>
 
         {/* ── RIGHT SIDE TOOLS ── */}
-        <Animated.View style={[s.sideTools, { bottom: insets.bottom + 268, opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
+        <RAnimated.View style={[s.sideTools, { bottom: insets.bottom + 268 }, controlsStyle]} pointerEvents={recording ? "none" : "box-none"}>
 
           <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
             <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={22} color="#fff" /></View>
@@ -1002,10 +1037,10 @@ function CreateScreenInner() {
             </TouchableOpacity>
           )}
 
-        </Animated.View>
+        </RAnimated.View>
 
         {/* ── FILTER STRIP ── */}
-        <Animated.View style={{ opacity: controlsOpacity }}>
+        <RAnimated.View style={controlsStyle}>
           <CameraFilterStrip
             visible={showFilterStrip}
             activeFilter={cameraFilter.id}
@@ -1013,7 +1048,7 @@ function CreateScreenInner() {
             onFilterChange={setCameraFilter}
             onIntensityChange={setFilterIntensity}
           />
-        </Animated.View>
+        </RAnimated.View>
 
         {/* ── LENS SELECTOR (Modal — renders above everything) ── */}
         <LensSelector
@@ -1038,17 +1073,17 @@ function CreateScreenInner() {
 
           {/* Duration pills — video modes only */}
           {isVideoMode && (
-            <Animated.View style={[s.durationRow, { opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
+            <RAnimated.View style={[s.durationRow, controlsStyle]} pointerEvents={recording ? "none" : "box-none"}>
               {DURATIONS.map((d) => (
                 <TouchableOpacity key={d} onPress={() => setSelectedDuration(d)} style={[s.durationPill, selectedDuration === d && s.durationPillActive]}>
                   <Text style={[s.durationText, selectedDuration === d && s.durationTextActive]}>{d}</Text>
                 </TouchableOpacity>
               ))}
-            </Animated.View>
+            </RAnimated.View>
           )}
 
           {/* Mode selector — horizontal scroll */}
-          <Animated.View style={[{ opacity: controlsOpacity }]} pointerEvents={recording ? "none" : "box-none"}>
+          <RAnimated.View style={controlsStyle} pointerEvents={recording ? "none" : "box-none"}>
             <ScrollView
               ref={modeScrollRef}
               horizontal
@@ -1067,19 +1102,19 @@ function CreateScreenInner() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </Animated.View>
+          </RAnimated.View>
 
           {/* Record row */}
           <View style={s.recordRow}>
             {/* Gallery */}
-            <Animated.View style={{ opacity: controlsOpacity }}>
+            <RAnimated.View style={controlsStyle}>
               <TouchableOpacity onPress={pickFromGallery} style={s.sideAction} disabled={recording}>
                 <View style={s.sideActionCircle}>
                   <Ionicons name="images-outline" size={26} color="#fff" />
                 </View>
                 <Text style={s.sideActionLabel}>Gallery</Text>
               </TouchableOpacity>
-            </Animated.View>
+            </RAnimated.View>
 
             {/* Capture button */}
             <View style={s.recordWrap}>
@@ -1103,20 +1138,20 @@ function CreateScreenInner() {
                   </>
                 )}
               </Pressable>
-              <Animated.Text style={[s.recordHint, { opacity: controlsOpacity }]}>
+              <RAnimated.Text style={[s.recordHint, controlsStyle]}>
                 {isBoomerang ? "Tap · 2.5 s boomerang" : isVideoMode ? "Tap · start   Tap · stop" : "Tap to capture"}
-              </Animated.Text>
+              </RAnimated.Text>
             </View>
 
             {/* Flip */}
-            <Animated.View style={{ opacity: controlsOpacity }}>
+            <RAnimated.View style={controlsStyle}>
               <TouchableOpacity onPress={() => setFacing((f) => f === "back" ? "front" : "back")} style={s.sideAction} disabled={recording}>
                 <View style={s.sideActionCircle}>
                   <Ionicons name="camera-reverse-outline" size={26} color="#fff" />
                 </View>
                 <Text style={s.sideActionLabel}>Flip</Text>
               </TouchableOpacity>
-            </Animated.View>
+            </RAnimated.View>
           </View>
         </View>
 

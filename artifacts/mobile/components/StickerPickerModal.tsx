@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -19,6 +18,7 @@ import RAnimated, {
   useSharedValue,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useColors } from "@/hooks/useColors";
@@ -111,14 +111,15 @@ export function StickerPickerModal({ visible, onClose, onSelect }: Props) {
   const [loading, setLoading] = useState(false);
   const [activeTag, setActiveTag] = useState("");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const slideAnim = useRef(new Animated.Value(H)).current;
+  const slideAnim = useSharedValue(H);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slideAnim.value }] }));
 
   useEffect(() => {
     if (visible) {
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
+      slideAnim.value = withSpring(0, { damping: 11, stiffness: 65 });
       loadStickers("");
     } else {
-      Animated.timing(slideAnim, { toValue: H, duration: 260, useNativeDriver: false }).start();
+      slideAnim.value = withTiming(H, { duration: 260 });
     }
   }, [visible]);
 
@@ -154,8 +155,8 @@ export function StickerPickerModal({ visible, onClose, onSelect }: Props) {
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={handleClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
-      <Animated.View
-        style={[styles.sheet, { backgroundColor: colors.background, transform: [{ translateY: slideAnim }] }]}
+      <RAnimated.View
+        style={[styles.sheet, { backgroundColor: colors.background }, slideStyle]}
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
@@ -238,7 +239,7 @@ export function StickerPickerModal({ visible, onClose, onSelect }: Props) {
             }
           />
         )}
-      </Animated.View>
+      </RAnimated.View>
     </Modal>
   );
 }

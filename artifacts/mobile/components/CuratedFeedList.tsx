@@ -1,9 +1,8 @@
 "use no memo";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Animated,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -57,14 +56,15 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
   const [errorMain, setErrorMain] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useSharedValue(0);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fadeAnim.value }));
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? "";
 
   useEffect(() => {
     let cancelled = false;
     setLoadingMain(true);
     setErrorMain(false);
-    fadeAnim.setValue(0);
+    fadeAnim.value = 0;
 
     let photoDone = false;
     let videoDone = false;
@@ -94,7 +94,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
 
   useEffect(() => {
     if (!loadingMain) {
-      Animated.timing(fadeAnim, { toValue: 1, duration: 420, useNativeDriver: false }).start();
+      fadeAnim.value = withTiming(1, { duration: 420 });
     }
   }, [loadingMain]);
 
@@ -143,7 +143,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
           </TouchableOpacity>
         </View>
       ) : (
-        <Animated.View style={{ opacity: fadeAnim }}>
+        <RAnimated.View style={fadeStyle}>
           {/* ── Interleaved: Pexels photos + Pexels videos ── */}
           {items.map((item) =>
             item.kind === "photo" ? (
@@ -169,7 +169,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
               <Text style={[styles.attrText, { color: colors.mutedForeground }]}>Photos & Videos by Pexels</Text>
             </View>
           </View>
-        </Animated.View>
+        </RAnimated.View>
       )}
     </View>
   );

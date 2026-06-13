@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -51,6 +50,7 @@ import RAnimated, {
   useSharedValue,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
@@ -103,14 +103,15 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   const [localSelected, setLocalSelected] = useState<Track | null>(selectedTrack);
   const soundRef = useRef<Audio.Sound | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const slideAnim = useRef(new Animated.Value(H)).current;
+  const slideAnim = useSharedValue(H);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slideAnim.value }] }));
 
   useEffect(() => {
     if (visible) {
       setLocalSelected(selectedTrack);
-      Animated.spring(slideAnim, { toValue: 0, useNativeDriver: false, tension: 65, friction: 11 }).start();
+      slideAnim.value = withSpring(0, { damping: 11, stiffness: 65 });
     } else {
-      Animated.timing(slideAnim, { toValue: H, duration: 280, useNativeDriver: false }).start();
+      slideAnim.value = withTiming(H, { duration: 280 });
     }
   }, [visible]);
 
@@ -327,8 +328,8 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => { stopSound(); onClose(); }} />
-      <Animated.View
-        style={[styles.sheet, { backgroundColor: colors.background, transform: [{ translateY: slideAnim }] }]}
+      <RAnimated.View
+        style={[styles.sheet, { backgroundColor: colors.background }, slideStyle]}
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
@@ -473,7 +474,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
             contentContainerStyle={{ paddingBottom: 40 }}
           />
         )}
-      </Animated.View>
+      </RAnimated.View>
     </Modal>
   );
 }

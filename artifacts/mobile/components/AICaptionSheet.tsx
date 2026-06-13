@@ -1,10 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import {
-  Animated,
   Dimensions,
-  Easing,
   Modal,
   Pressable,
   ScrollView,
@@ -15,11 +13,13 @@ import {
 } from "react-native";
 import RAnimated, {
   cancelAnimation,
+  Easing,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -132,37 +132,18 @@ export function AICaptionSheet({
   onClose,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(H)).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const slideAnim = useSharedValue(H);
+  const backdropOpacity = useSharedValue(0);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateY: slideAnim.value }] }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          tension: 68,
-          friction: 12,
-          useNativeDriver: false,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 280,
-          useNativeDriver: false,
-        }),
-      ]).start();
+      slideAnim.value = withSpring(0, { damping: 12, stiffness: 68 });
+      backdropOpacity.value = withTiming(1, { duration: 280 });
     } else {
-      Animated.parallel([
-        Animated.timing(slideAnim, {
-          toValue: H,
-          duration: 260,
-          useNativeDriver: false,
-        }),
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: false,
-        }),
-      ]).start();
+      slideAnim.value = withTiming(H, { duration: 260 });
+      backdropOpacity.value = withTiming(0, { duration: 220 });
     }
   }, [visible]);
 
@@ -170,14 +151,15 @@ export function AICaptionSheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+      <RAnimated.View style={[styles.backdrop, backdropStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      </Animated.View>
+      </RAnimated.View>
 
-      <Animated.View
+      <RAnimated.View
         style={[
           styles.sheet,
-          { paddingBottom: insets.bottom + 16, transform: [{ translateY: slideAnim }] },
+          { paddingBottom: insets.bottom + 16 },
+          slideStyle,
         ]}
       >
         <View style={styles.handle} />
@@ -296,7 +278,7 @@ export function AICaptionSheet({
             )}
           </ScrollView>
         )}
-      </Animated.View>
+      </RAnimated.View>
     </Modal>
   );
 }
