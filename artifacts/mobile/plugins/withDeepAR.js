@@ -4,16 +4,23 @@ const path = require("path");
 
 const DEEPAR_MAVEN = "https://sdk.developer.deepar.ai/maven-android-repository/releases/";
 
+// react-native-deepar uses safeExtGet('Deepar_compileSdkVersion', 29) etc.
+// Its default of 29 is too old for Java 9+ source (needs >= 30).
+// We inject these ext properties into the root build.gradle so the library
+// picks them up and compiles correctly.
+const DEEPAR_EXT_BLOCK = `
+// DeepAR SDK version overrides (react-native-deepar defaults to compileSdk 29
+// which fails on Java 9+ source; override to match the app's target SDK).
+ext {
+    Deepar_compileSdkVersion = 35
+    Deepar_buildToolsVersion = "35.0.0"
+    Deepar_targetSdkVersion  = 35
+    Deepar_minSdkVersion     = 24
+}
+`;
+
 function addMavenRepo(contents) {
   if (contents.includes(DEEPAR_MAVEN)) return contents;
-
-  if (contents.includes("dependencyResolutionManagement")) {
-    return contents.replace(
-      /dependencyResolutionManagement\s*\{([^}]*repositories\s*\{)/s,
-      (match, inner) =>
-        match.replace(inner, inner + `\n        maven { url "${DEEPAR_MAVEN}" }`)
-    );
-  }
 
   if (contents.includes("allprojects")) {
     return contents.replace(
@@ -26,6 +33,12 @@ function addMavenRepo(contents) {
     contents +
     `\nallprojects {\n  repositories {\n    maven { url "${DEEPAR_MAVEN}" }\n  }\n}\n`
   );
+}
+
+function addDeepARExtBlock(contents) {
+  if (contents.includes("Deepar_compileSdkVersion")) return contents;
+  // Prepend before the first top-level block so ext is available to all subprojects
+  return DEEPAR_EXT_BLOCK + contents;
 }
 
 function withDeepARAndroid(config) {
@@ -54,8 +67,21 @@ function withDeepARAndroid(config) {
       const buildPath = path.join(root, "build.gradle");
       if (fs.existsSync(buildPath)) {
         let build = fs.readFileSync(buildPath, "utf8");
+        let changed = false;
+
+        // 1. Add DeepAR maven repository
         if (!build.includes(DEEPAR_MAVEN)) {
           build = addMavenRepo(build);
+          changed = true;
+        }
+
+        // 2. Add ext block so react-native-deepar picks up the correct SDK versions
+        if (!build.includes("Deepar_compileSdkVersion")) {
+          build = addDeepARExtBlock(build);
+          changed = true;
+        }
+
+        if (changed) {
           fs.writeFileSync(buildPath, build);
         }
       }
