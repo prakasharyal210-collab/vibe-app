@@ -437,7 +437,7 @@ class CameraErrorBoundary extends React.Component<
   }
 }
 
-function CreateScreenInner({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
+function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeight?: number; onSetPagerEnabled?: (v: boolean) => void }) {
   const insets = useSafeAreaInsets();
   React.useEffect(() => { console.log("[CreateScreen] mounted"); }, []);
   const { session } = useAuth();
@@ -1186,24 +1186,32 @@ function CreateScreenInner({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
             style={[controlsStyle, (showFilterStrip || showBeauty) && s.panelHidden]}
             pointerEvents={recording || showFilterStrip || showBeauty ? "none" : "box-none"}
           >
-            <ScrollView
-              ref={modeScrollRef}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.modeScroll}
+            {/* Intercept touches here so the outer Reels↔Post pager doesn't steal them */}
+            <View
+              onTouchStart={() => onSetPagerEnabled?.(false)}
+              onTouchEnd={() => onSetPagerEnabled?.(true)}
+              onTouchCancel={() => onSetPagerEnabled?.(true)}
             >
-              {CAPTURE_MODES.map((m) => (
-                <TouchableOpacity
-                  key={m.key}
-                  onPress={() => setCaptureMode(m.key)}
-                  style={[s.modeTab, captureMode === m.key && s.modeTabActive]}
-                >
-                  <Text style={[s.modeTabText, captureMode === m.key && s.modeTabTextActive]}>
-                    {m.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+              <ScrollView
+                ref={modeScrollRef}
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.modeScroll}
+              >
+                {CAPTURE_MODES.map((m) => (
+                  <TouchableOpacity
+                    key={m.key}
+                    onPress={() => setCaptureMode(m.key)}
+                    style={[s.modeTab, captureMode === m.key && s.modeTabActive]}
+                  >
+                    <Text style={[s.modeTabText, captureMode === m.key && s.modeTabTextActive]}>
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
           </RAnimated.View>
 
           {/* Record row */}
@@ -1537,10 +1545,10 @@ const s = StyleSheet.create({
 });
 
 // ── Reels page (existing camera flow wrapped in error boundary) ────────────────
-function ReelsPage({ tabBarHeight }: { tabBarHeight: number }) {
+function ReelsPage({ tabBarHeight, onSetPagerEnabled }: { tabBarHeight: number; onSetPagerEnabled?: (v: boolean) => void }) {
   return (
     <CameraErrorBoundary>
-      <CreateScreenInner tabBarHeight={tabBarHeight} />
+      <CreateScreenInner tabBarHeight={tabBarHeight} onSetPagerEnabled={onSetPagerEnabled} />
     </CameraErrorBoundary>
   );
 }
@@ -1591,6 +1599,9 @@ export default function CreateScreen() {
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState(0);
+  // Disabled while the user is touching the mode-selector row inside ReelsPage,
+  // so the inner touch events don't get stolen by this outer pagingEnabled ScrollView.
+  const [pagerEnabled, setPagerEnabled] = useState(true);
 
   const tabBarTop = insets.top + 6;
   const reelsTabBarHeight = insets.top + TAB_BAR_HEIGHT;
@@ -1607,18 +1618,21 @@ export default function CreateScreen() {
         ref={scrollRef}
         horizontal
         pagingEnabled
+        scrollEnabled={pagerEnabled}
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
         bounces={false}
         onMomentumScrollEnd={(e) => {
           const idx = Math.round(e.nativeEvent.contentOffset.x / W);
           setActiveTab(idx);
+          // Always re-enable pager after a page change
+          setPagerEnabled(true);
         }}
         style={StyleSheet.absoluteFill}
       >
         {/* Page 0 — Reels */}
         <View style={{ width: W, height: H }}>
-          <ReelsPage tabBarHeight={reelsTabBarHeight} />
+          <ReelsPage tabBarHeight={reelsTabBarHeight} onSetPagerEnabled={setPagerEnabled} />
         </View>
         {/* Page 1 — Post */}
         <View style={{ width: W, height: H }}>
