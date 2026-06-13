@@ -2,7 +2,7 @@
 - [Vibe ads system](ads-system.md) — feed ads every 4 posts, reel ads every 3 reels; house ads fallback; AdCard + ReelAdCard + advertise screen all wired in.
 - [Vibe design system](vibe-design-system.md) — Dark Luxury palette and floating glass pill tab bar; never change AdCard/ReelAdCard/ads.ts colors.
 - [Snap message feature](snap-feature.md) — Snapchat-style snaps encoded in message text field as __SNAP__:{...}; no DB migration needed.
-- [Crash fixes: expo-glass-effect + React Compiler](crash-fixes.md) — two fixes that stopped the persistent "Invalid hook call" / "Something went wrong" crash.
+- [Crash fixes: expo-glass-effect + React Compiler + Reanimated worklets](crash-fixes.md) — 6 fixes total; latest: never call setTimeout/setInterval inside withSpring/withTiming callbacks (they run on UI thread).
 - [Android black screen: iOS-only imports](expo-go-native-crashes.md) — top-level import of any iOS-only module (expo-glass-effect, unstable-native-tabs) crashes the whole tab layout on Android; use platform files or inline require().
 - [AI caption generator](ai-caption-feature.md) — API route at /api/ai/caption uses claude-sonnet-4-5; AICaptionSheet + VideoEditorSheet wired; ai_caption_requests Supabase table; EXPO_PUBLIC_API_URL="" (empty = relative URL, works via Replit proxy).
 - [EAS Android build fixes](eas-android-build.md) — hermesc linux64-bin (HBC v96, RN 0.81.5) can't compile class declarations OR async arrow functions; babel preset-reversal pattern fixes both.
