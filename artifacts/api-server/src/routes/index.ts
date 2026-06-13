@@ -9,6 +9,7 @@ import musicDeezerRouter from "./music/deezer";
 import postsCreateRouter from "./posts/create";
 import reelsCreateRouter from "./reels/create";
 import reelsWatchRouter from "./reels/watch";
+import usersSearchRouter from "./users/search";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use("/music", musicDeezerRouter);
 router.use("/posts", postsCreateRouter);
 router.use("/reels", reelsCreateRouter);
 router.use("/reels", reelsWatchRouter);
+router.use("/users", usersSearchRouter);
 
 export default router;

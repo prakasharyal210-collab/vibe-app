@@ -931,45 +931,24 @@ export async function sendMessageToUser(
 
 export async function searchProfiles(query: string): Promise<Profile[]> {
   const q = query.trim();
-  console.log('[searchProfiles] query:', JSON.stringify(q));
+  console.log('[searchProfiles] querying API for:', JSON.stringify(q));
 
   try {
-    // Use select("*") to avoid column-not-found errors on optional columns like full_name
-    // Filter by username ILIKE — the safest column guaranteed to exist
-    const { data, error } = q
-      ? await supabase
-          .from("profiles")
-          .select("*")
-          .ilike("username", `%${q}%`)
-          .order("followers_count", { ascending: false, nullsFirst: false })
-          .limit(20)
-      : await supabase
-          .from("profiles")
-          .select("*")
-          .order("followers_count", { ascending: false, nullsFirst: false })
-          .limit(20);
-
-    console.log('[searchProfiles] result count:', data?.length ?? 0, 'error:', error?.message ?? 'none');
-    if (!error && data) {
-      // Also filter by full_name client-side if the column exists in the result
-      if (q && data.length === 0) {
-        // Try bio search as secondary fallback
-        const { data: bioData, error: bioError } = await supabase
-          .from("profiles")
-          .select("*")
-          .ilike("bio", `%${q}%`)
-          .order("followers_count", { ascending: false, nullsFirst: false })
-          .limit(20);
-        console.log('[searchProfiles] bio fallback count:', bioData?.length ?? 0, 'error:', bioError?.message ?? 'none');
-        if (!bioError && bioData && bioData.length > 0) return bioData as Profile[];
-      }
-      return data as Profile[];
+    const url = `${API_BASE}/users/search?q=${encodeURIComponent(q)}&limit=20`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.warn('[searchProfiles] API error', res.status, text);
+      return [];
     }
-    console.log('[searchProfiles] query failed:', error?.message);
+    const json = await res.json();
+    const profiles: Profile[] = json.profiles ?? [];
+    console.log('[searchProfiles] API returned', profiles.length, 'profiles');
+    return profiles;
   } catch (e: any) {
-    console.log('[searchProfiles] exception:', e?.message);
+    console.warn('[searchProfiles] fetch exception:', String(e));
+    return [];
   }
-  return [];
 }
 
 export async function searchHashtags(query: string): Promise<Hashtag[]> {

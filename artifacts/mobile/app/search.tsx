@@ -110,7 +110,9 @@ export default function SearchScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+      <View style={styles.header}>
+        <View style={{ height: topInset + 8 }} />
+        <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={26} color={colors.foreground} />
         </TouchableOpacity>
@@ -120,7 +122,7 @@ export default function SearchScreen() {
             { backgroundColor: colors.muted, borderColor: colors.border },
           ]}
         >
-          <Ionicons name="search-outline" size={18} color={colors.mutedForeground} />
+          <Ionicons name="search" size={18} color={colors.mutedForeground} />
           <TextInput
             ref={inputRef}
             autoFocus
@@ -138,6 +140,7 @@ export default function SearchScreen() {
               <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
             </TouchableOpacity>
           )}
+        </View>
         </View>
       </View>
 
@@ -194,7 +197,7 @@ export default function SearchScreen() {
                     style={[styles.historyRow, { borderBottomColor: colors.border }]}
                     onPress={() => setQuery(item.query)}
                   >
-                    <Ionicons name="time-outline" size={16} color={colors.mutedForeground} />
+                    <Ionicons name="time" size={16} color={colors.mutedForeground} />
                     <Text style={[styles.historyText, { color: colors.foreground }]}>{item.query}</Text>
                     <TouchableOpacity onPress={() => handleDeleteHistoryItem(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Ionicons name="close" size={14} color={colors.mutedForeground} />
@@ -414,10 +417,13 @@ function AccountRow({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     paddingHorizontal: 12,
     paddingBottom: 12,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   backBtn: { padding: 2 },
