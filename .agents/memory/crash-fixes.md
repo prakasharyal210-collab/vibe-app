@@ -87,6 +87,23 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 
 **Always check:** If `babel-preset-expo` version ≠ Expo SDK major version, it will print a warning like `babel-preset-expo@56.0.14 - expected version: ~54.0.10`. Treat this warning as a critical error — downgrade immediately.
 
+---
+
+## Fix 5 — Wrong worklets babel plugin (react-native-reanimated/plugin vs react-native-worklets/plugin)
+
+**Symptom:** "Object is not a function" / rafCallback crash on Android when interacting with swipe cards or any animated component. Metro logs show clean load. The `withSpring(..., callback)` or `withTiming(..., callback)` callback is the crash site — it runs on the UI thread and must be a worklet, but it isn't.
+
+**Root cause:** Reanimated 4.x uses `react-native-worklets` as a standalone worklet engine. The correct babel plugin is `react-native-worklets/plugin`, NOT `react-native-reanimated/plugin`. When `react-native-worklets` is installed:
+- `babel-preset-expo` v54 auto-detects it and uses `react-native-worklets/plugin`
+- Using `react-native-reanimated/plugin` instead fails to compile animation callbacks as worklets
+- Result: callbacks passed to `withSpring`, `withTiming`, `withRepeat` etc. are plain JS functions — they crash when Reanimated tries to invoke them on the UI thread
+
+**Fix:** In `babel.config.js`, use `'react-native-worklets/plugin'` (NOT `'react-native-reanimated/plugin'`) as the last plugin in classTransformPreset. Set `reanimated: false` in babel-preset-expo options to prevent double-inclusion.
+
+**How to detect which plugin to use:** Check `package.json` for `react-native-worklets`. If present → use `react-native-worklets/plugin`. If absent → use `react-native-reanimated/plugin`. babel-preset-expo v54's auto-selection logic mirrors this.
+
+**Why the crash shows as rafCallback:** Reanimated's animation loop (rafCallback) processes each animation frame and invokes the callback passed to `withSpring/withTiming/etc`. When that callback is an uncompiled plain function (not a worklet), calling it on the UI thread produces "Object is not a function".
+
 **How to detect mixed files:**
 ```bash
 grep -rln "react-native-reanimated" app/ components/ | while read f; do
