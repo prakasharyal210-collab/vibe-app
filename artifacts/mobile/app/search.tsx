@@ -219,7 +219,7 @@ export default function SearchScreen() {
                 👥 Suggested Accounts
               </Text>
               {suggestedAccounts.slice(0, 4).map((account) => (
-                <AccountRow key={account.id} account={account} colors={colors} />
+                <AccountRow key={account.id} account={account} colors={colors} myId={session?.user?.id} />
               ))}
             </View>
           </>
@@ -231,7 +231,7 @@ export default function SearchScreen() {
                   <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Accounts</Text>
                 )}
                 {filteredAccounts.map((account) => (
-                  <AccountRow key={account.id} account={account} colors={colors} />
+                  <AccountRow key={account.id} account={account} colors={colors} myId={session?.user?.id} />
                 ))}
               </View>
             )}
@@ -307,8 +307,28 @@ export default function SearchScreen() {
   );
 }
 
-function AccountRow({ account, colors }: { account: any; colors: any }) {
+function AccountRow({ account, colors, myId }: { account: any; colors: any; myId?: string }) {
   const [following, setFollowing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleFollow = async () => {
+    if (!myId || myId === account.id) return;
+    const nowFollowing = !following;
+    setFollowing(nowFollowing);
+    setLoading(true);
+    try {
+      const { supabase } = await import("@/lib/supabase");
+      if (nowFollowing) {
+        await supabase.from("follows").insert({ follower_id: myId, following_id: account.id });
+      } else {
+        await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", account.id);
+      }
+    } catch {
+      setFollowing(!nowFollowing); // revert on error
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.accountRow}>
@@ -332,20 +352,17 @@ function AccountRow({ account, colors }: { account: any; colors: any }) {
         </Text>
       </TouchableOpacity>
       <TouchableOpacity
-        onPress={() => setFollowing((f) => !f)}
+        onPress={handleFollow}
+        disabled={loading || !myId || myId === account.id}
         style={[
           styles.followBtn,
           following
             ? { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }
             : { backgroundColor: "#7C3AED" },
+          (loading || !myId || myId === account.id) && { opacity: 0.6 },
         ]}
       >
-        <Text
-          style={[
-            styles.followBtnText,
-            { color: following ? colors.foreground : "#fff" },
-          ]}
-        >
+        <Text style={[styles.followBtnText, { color: following ? colors.foreground : "#fff" }]}>
           {following ? "Following" : "Follow"}
         </Text>
       </TouchableOpacity>
