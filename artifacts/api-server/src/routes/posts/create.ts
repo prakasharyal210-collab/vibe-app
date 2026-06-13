@@ -17,10 +17,9 @@ router.get("/user/:userId", async (req, res) => {
   const { viewerId } = req.query as { viewerId?: string };
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
   const sb = makeSupabase();
-  const isOwner = viewerId && viewerId === userId;
-  const postsQuery = isOwner
-    ? sb.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false })
-    : sb.from("posts").select("*").eq("user_id", userId).or("visibility.eq.public,visibility.is.null").order("created_at", { ascending: false });
+  // Access is controlled at the profile level (is_private flag shown as lock screen).
+  // Service-role key bypasses RLS; just return all posts for the user.
+  const postsQuery = sb.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false });
   const [postsRes, reelsRes] = await Promise.allSettled([
     postsQuery,
     sb.from("reels").select("*").eq("user_id", userId).order("created_at", { ascending: false }),

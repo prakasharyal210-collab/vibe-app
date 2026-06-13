@@ -83,10 +83,10 @@ router.get("/profile/:username", async (req, res) => {
 
     // Live COUNT queries run in parallel — not stale cached columns
     const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
-      sb.from("posts").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
-      sb.from("reels").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
-      sb.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
-      sb.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
+      sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
+      sb.from("reels").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
+      sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
+      sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("follower_id", profile.id),
     ]);
 
     const posts_count =
