@@ -1100,6 +1100,7 @@ function CreateScreenInner() {
           settings={beautySettings}
           onChange={(key, val) => setBeautySettings((prev) => ({ ...prev, [key]: val }))}
           onClose={() => setShowBeauty(false)}
+          bottomOffset={insets.bottom + 210}
         />
 
         {/* ── BOTTOM AREA ── */}

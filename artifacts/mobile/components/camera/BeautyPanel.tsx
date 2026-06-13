@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef } from "react";
 import {
@@ -22,6 +21,7 @@ interface Props {
   settings: BeautySettings;
   onChange: (key: keyof BeautySettings, val: number) => void;
   onClose: () => void;
+  bottomOffset?: number;
 }
 
 const SLIDERS: { key: keyof BeautySettings; label: string; emoji: string; color: string }[] = [
@@ -91,18 +91,18 @@ function BeautySlider({
 }
 
 // ── Panel ──────────────────────────────────────────────────────────────────
-export function BeautyPanel({ visible, settings, onChange, onClose }: Props) {
+export function BeautyPanel({ visible, settings, onChange, onClose, bottomOffset = 200 }: Props) {
   if (!visible) return null;
 
   const allZero = Object.values(settings).every((v) => v === 0);
 
   return (
-    <View style={styles.panel}>
+    <View style={[styles.panel, { bottom: bottomOffset }]}>
       <View style={styles.handle} />
 
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Ionicons name="color-wand" size={16} color="#EC4899" />
+          <Text style={{ fontSize: 14 }}>🪄</Text>
           <Text style={styles.title}>Beauty</Text>
         </View>
         <View style={styles.headerRight}>
@@ -119,7 +119,7 @@ export function BeautyPanel({ visible, settings, onChange, onClose }: Props) {
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={18} color="rgba(255,255,255,0.6)" />
+            <Text style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>✕</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -221,7 +221,6 @@ export function BeautyOverlay({ settings }: { settings: BeautySettings }) {
 const styles = StyleSheet.create({
   panel: {
     position: "absolute",
-    bottom: 200,
     left: 16,
     right: 16,
     backgroundColor: "rgba(10,10,20,0.94)",
