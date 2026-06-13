@@ -45,14 +45,14 @@ export default function SearchScreen() {
   const [followingSet, setFollowingSet] = useState<Set<string>>(new Set());
 
   // Load who the current user already follows (to pre-populate Follow buttons)
+  // Route through API server — avoids Android Supabase direct-client hang
   useEffect(() => {
     if (!myId) return;
-    supabase
-      .from("follows")
-      .select("following_id")
-      .eq("follower_id", myId)
-      .then(({ data }) => {
-        if (data) setFollowingSet(new Set(data.map((r: any) => r.following_id)));
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    fetch(`${apiBase}/users/social/following-ids?userId=${encodeURIComponent(myId)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((json) => {
+        if (json?.followingIds) setFollowingSet(new Set<string>(json.followingIds));
       })
       .catch(() => {});
   }, [myId]);
@@ -342,18 +342,21 @@ function AccountRow({
 
   const handleFollow = async () => {
     if (!myId || isMe) return;
-    const nowFollowing = !following;
-    setFollowing(nowFollowing);
     setLoading(true);
     try {
-      const { supabase } = await import("@/lib/supabase");
-      if (nowFollowing) {
-        await supabase.from("follows").insert({ follower_id: myId, following_id: account.id });
-      } else {
-        await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", account.id);
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+      const res = await fetch(`${apiBase}/users/social/toggle-follow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followerId: myId, followingId: account.id }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setFollowing(json.isFollowing);
       }
     } catch {
-      setFollowing(!nowFollowing);
+      // optimistic toggle on error
+      setFollowing((f) => !f);
     } finally {
       setLoading(false);
     }

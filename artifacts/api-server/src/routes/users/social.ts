@@ -316,4 +316,67 @@ router.get("/following/:username", async (req, res) => {
   }
 });
 
+// POST /api/users/social/toggle-follow  body: { followerId, followingId }
+// Atomically checks + flips follow state. Returns { isFollowing: boolean }.
+router.post("/toggle-follow", async (req, res) => {
+  const { followerId, followingId } = req.body as { followerId?: string; followingId?: string };
+  if (!followerId || !followingId) {
+    res.status(400).json({ error: "followerId and followingId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const { data: existing } = await sb
+      .from("follows")
+      .select("follower_id")
+      .eq("follower_id", followerId)
+      .eq("following_id", followingId)
+      .maybeSingle();
+
+    if (existing) {
+      await sb.from("follows").delete().eq("follower_id", followerId).eq("following_id", followingId);
+      res.json({ isFollowing: false });
+    } else {
+      await sb.from("follows").upsert(
+        { follower_id: followerId, following_id: followingId },
+        { onConflict: "follower_id,following_id" }
+      );
+      // Send follow notification (non-blocking)
+      void sb.from("notifications")
+        .insert({ user_id: followingId, actor_id: followerId, type: "follow", message: "started following you", read: false })
+        .then(({ error: ne }) => { if (ne) req.log.warn({ error: ne.message }, "follow notif failed"); });
+      res.json({ isFollowing: true });
+    }
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "toggle-follow exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /api/users/social/following-ids?userId=
+// Returns the flat list of user IDs that userId follows — fast lookup for
+// pre-populating Follow/Unfollow buttons without loading full profiles.
+router.get("/following-ids", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", userId);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    res.json({ followingIds: (data ?? []).map((r: any) => r.following_id) });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "following-ids exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
 export default router;

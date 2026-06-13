@@ -14,6 +14,7 @@ import usersSocialRouter from "./users/social";
 import usersNotificationsRouter from "./users/notifications";
 import engageRouter from "./engage";
 import messagesRouter from "./messages";
+import usersSetupRouter from "./users/setup";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/users/social", usersSocialRouter);
 router.use("/users/notifications", usersNotificationsRouter);
 router.use("/engage", engageRouter);
 router.use("/messages", messagesRouter);
+router.use("/users", usersSetupRouter);
 
 export default router;

@@ -859,7 +859,7 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
       if (convos.length > 0) return convos;
     }
   } catch {}
-  return MOCK_CONVERSATIONS;
+  return [];
 }
 
 export async function fetchMessages(myId: string, otherId: string): Promise<import("./supabase").Message[]> {
@@ -1990,15 +1990,23 @@ export async function searchVibeUsers(
 ): Promise<SocialMatchUser[]> {
   const q = query.replace(/^@/, "").toLowerCase().trim();
   if (!q || q.length < 2) return [];
+  // Route through API server — bypasses RLS + avoids Android Supabase hang
   try {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url, bio, followers_count, is_verified")
-      .ilike("username", `%${q}%`)
-      .neq("id", myUserId)
-      .order("followers_count", { ascending: false })
-      .limit(limit);
-    if (data?.length) return data as SocialMatchUser[];
+    const params = new URLSearchParams({ q, limit: String(limit), viewer_id: myUserId });
+    const res = await fetch(`${API_BASE}/users/search?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json();
+      return ((json.profiles ?? []) as any[])
+        .filter((p: any) => p.id !== myUserId)
+        .map((p: any) => ({
+          id: p.id,
+          username: p.username,
+          avatar_url: p.avatar_url,
+          bio: p.bio,
+          followers_count: p.followers_count,
+          is_verified: p.is_verified,
+        }));
+    }
   } catch {}
   return [];
 }
@@ -2007,32 +2015,39 @@ export async function getSuggestedUsersForFindFriends(
   userId: string,
   limit = 15,
 ): Promise<SocialMatchUser[]> {
+  // Route through API server — bypasses RLS + avoids Android Supabase hang
   try {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url, bio, followers_count, is_verified")
-      .neq("id", userId)
-      .order("followers_count", { ascending: false })
-      .limit(limit);
-    if (data?.length) return data as SocialMatchUser[];
+    const params = new URLSearchParams({ q: "", limit: String(limit), viewer_id: userId });
+    const res = await fetch(`${API_BASE}/users/search?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json();
+      const profiles = ((json.profiles ?? []) as any[]).filter((p: any) => p.id !== userId);
+      if (profiles.length > 0) {
+        return profiles.map((p: any) => ({
+          id: p.id,
+          username: p.username,
+          avatar_url: p.avatar_url,
+          bio: p.bio,
+          followers_count: p.followers_count,
+          is_verified: p.is_verified,
+        }));
+      }
+    }
   } catch {}
   return MOCK_SOCIAL_SUGGESTED;
 }
 
 export async function toggleFollowUser(myId: string, otherId: string): Promise<boolean> {
+  // Route through API server — bypasses RLS + avoids Android Supabase hang
   try {
-    const { data: existing } = await supabase
-      .from("follows")
-      .select("id")
-      .eq("follower_id", myId)
-      .eq("following_id", otherId)
-      .maybeSingle();
-    if (existing) {
-      await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", otherId);
-      return false;
-    } else {
-      await supabase.from("follows").insert({ follower_id: myId, following_id: otherId });
-      return true;
+    const res = await fetch(`${API_BASE}/users/social/toggle-follow`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ followerId: myId, followingId: otherId }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return json.isFollowing as boolean;
     }
   } catch {}
   return false;
@@ -2085,29 +2100,14 @@ export async function checkIsFollowing(followerId: string, followingId: string):
 }
 
 export async function ensureUserSetup(userId: string, username: string, email?: string): Promise<void> {
+  // Route through API server (service-role) — all 4 upserts in one call,
+  // bypasses RLS + avoids the Android Supabase direct-client hang on INSERT.
   try {
-    const { data: existing } = await supabase.from("profiles").select("id").eq("id", userId).maybeSingle();
-    if (!existing) {
-      await supabase.from("profiles").insert({ id: userId, username, email });
-    }
-  } catch {}
-  try {
-    const { data: wallet } = await supabase.from("wallet").select("id").eq("user_id", userId).maybeSingle();
-    if (!wallet) {
-      await supabase.from("wallet").insert({ user_id: userId, coins: 100, total_earnings: 0 });
-    }
-  } catch {}
-  try {
-    const { data: settings } = await supabase.from("user_settings").select("id").eq("user_id", userId).maybeSingle();
-    if (!settings) {
-      await supabase.from("user_settings").insert({ user_id: userId });
-    }
-  } catch {}
-  try {
-    const { data: vs } = await supabase.from("vibe_scores").select("id").eq("user_id", userId).maybeSingle();
-    if (!vs) {
-      await supabase.from("vibe_scores").insert({ user_id: userId, score: 100, level: 1 });
-    }
+    await fetch(`${API_BASE}/users/setup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, username, email }),
+    });
   } catch {}
 }
 
