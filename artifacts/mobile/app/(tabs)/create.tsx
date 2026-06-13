@@ -1209,7 +1209,7 @@ function CreateScreenInner() {
 
       {/* ── VIDEO EDITOR (full screen overlay) ── */}
       {recordedUri && (
-        <View style={StyleSheet.absoluteFill}>
+        <View style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}>
           <VideoEditorSheet
             uri={recordedUri}
             isPhoto={capturedIsPhoto}

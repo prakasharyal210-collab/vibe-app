@@ -1,7 +1,6 @@
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -165,18 +164,30 @@ interface TabIconProps {
   locked?: boolean;
 }
 
+const TAB_EMOJI: Record<string, string> = {
+  "play-circle": "▶",
+  "play-circle-outline": "▶",
+  "home": "⌂",
+  "home-outline": "⌂",
+  "heart": "♥",
+  "heart-outline": "♡",
+  "person": "◉",
+  "person-outline": "○",
+};
+
 function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
   if (locked) {
     return (
       <View style={tabIconStyles.wrap}>
-        <Ionicons name="lock-closed" size={21} color={INACTIVE} />
+        <Text style={{ fontSize: 19, lineHeight: 24, color: INACTIVE }}>🔒</Text>
         <Text style={[tabIconStyles.label, { color: INACTIVE }]}>Locked</Text>
       </View>
     );
   }
+  const icon = TAB_EMOJI[iconName] ?? "•";
   return (
     <View style={tabIconStyles.wrap}>
-      <Ionicons name={iconName as any} size={22} color={color} />
+      <Text style={{ fontSize: 22, lineHeight: 26, color, textAlign: "center" }}>{icon}</Text>
       <Text style={[tabIconStyles.label, { color }]}>{label}</Text>
       {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
@@ -200,7 +211,7 @@ function CreateIcon() {
         end={{ x: 1, y: 1 }}
         style={styles.createIcon}
       >
-        <Ionicons name="add" size={28} color="#fff" />
+        <Text style={{ fontSize: 30, color: "#fff", lineHeight: 32, textAlign: "center", includeFontPadding: false }}>+</Text>
       </LinearGradient>
     </View>
   );

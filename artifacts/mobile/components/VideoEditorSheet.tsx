@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system";
 import * as Location from "expo-location";
@@ -32,6 +31,36 @@ import { supabase } from "@/lib/supabase";
 import { searchProfiles } from "@/lib/db";
 
 const { width: W } = Dimensions.get("window");
+
+// ── Lightweight icon replacement (no font file needed) ─────────────────────
+const ICON_MAP: Record<string, string> = {
+  "close": "✕",
+  "close-circle": "✕",
+  "arrow-back-outline": "←",
+  "musical-notes": "♫",
+  "trash-outline": "🗑",
+  "return-up-back-outline": "↩",
+  "return-up-forward-outline": "↪",
+  "swap-horizontal-outline": "⇄",
+  "refresh-outline": "↺",
+  "sparkles-outline": "✨",
+  "location-outline": "📍",
+  "chevron-forward": "›",
+  "person-add-outline": "👤",
+  "chatbubbles-outline": "💬",
+  "download-outline": "↓",
+  "search-outline": "🔍",
+  "person": "●",
+  "checkmark-circle": "✓",
+};
+function Icon({ name, size, color }: { name: string; size: number; color: string }) {
+  const ch = ICON_MAP[name] ?? "·";
+  return (
+    <Text style={{ fontSize: size * 0.9, color, lineHeight: size + 6, textAlign: "center", includeFontPadding: false }}>
+      {ch}
+    </Text>
+  );
+}
 
 // ── Adjust settings ───────────────────────────────────────────────────────────
 interface AdjustSettings {
@@ -88,7 +117,7 @@ function FilterSwatch({ filter, active, onPress }: { filter: FilterConfig; activ
         {filter.id !== "none" && (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: filter.blendHex, opacity: filter.opacity * 2.5, borderRadius: 8 }]} />
         )}
-        {filter.id === "none" && <Ionicons name="close" size={14} color="rgba(255,255,255,0.4)" />}
+        {filter.id === "none" && <Icon name="close" size={14} color="rgba(255,255,255,0.4)" />}
       </View>
       <Text style={[styles.filterSwatchLabel, active && { color: "#7C3AED" }]}>{filter.label}</Text>
     </TouchableOpacity>
@@ -444,7 +473,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
         <View style={[styles.previewTopBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onDiscard} style={styles.topBtn}>
-            <Ionicons name="arrow-back-outline" size={22} color="#fff" />
+            <Icon name="arrow-back-outline" size={22} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.previewTitle}>{isPhoto ? "Photo Editor" : "Video Editor"}</Text>
           {activeTab === "adjust" && hasAdjust ? (
@@ -458,7 +487,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
         {music && (
           <View style={styles.musicBar}>
-            <Ionicons name="musical-notes" size={13} color="#fff" />
+            <Icon name="musical-notes" size={13} color="#fff" />
             <Text style={styles.musicBarText} numberOfLines={1}>{music.title} · {music.artist}</Text>
           </View>
         )}
@@ -518,7 +547,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             {music && (
               <View style={[styles.musicCard, { backgroundColor: colors.muted, borderColor: "#7C3AED44" }]}>
                 <View style={[styles.musicCardIcon, { backgroundColor: music.coverColor + "33" }]}>
-                  <Ionicons name="musical-notes" size={18} color={music.coverColor} />
+                  <Icon name="musical-notes" size={18} color={music.coverColor} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.musicCardTitle, { color: colors.foreground }]}>{music.title}</Text>
@@ -528,7 +557,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                   <Text style={{ color: "#7C3AED", fontSize: 13, fontFamily: "Poppins_600SemiBold" }}>Change</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => setMusic(null)} style={{ padding: 4 }}>
-                  <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
+                  <Icon name="close-circle" size={18} color={colors.mutedForeground} />
                 </TouchableOpacity>
               </View>
             )}
@@ -549,7 +578,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                   <View key={t.id} style={[styles.overlayRow, { backgroundColor: colors.muted }]}>
                     <Text style={[styles.overlayPreview, { color: t.color, backgroundColor: t.color + "22", borderRadius: 6, padding: 4 }]}>{t.text}</Text>
                     <TouchableOpacity onPress={() => setTextOverlays((prev) => prev.filter((x) => x.id !== t.id))}>
-                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                      <Icon name="trash-outline" size={18} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -573,7 +602,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 ].map((btn) => (
                   <TouchableOpacity key={btn.label} style={styles.toolBtn} onPress={btn.action}>
                     <View style={[styles.toolIconWrap, { backgroundColor: btn.color + "22" }]}>
-                      <Ionicons name={btn.icon as any} size={22} color={btn.color} />
+                      <Icon name={btn.icon} size={22} color={btn.color} />
                     </View>
                     <Text style={[styles.toolLabel, { color: colors.mutedForeground }]}>{btn.label}</Text>
                   </TouchableOpacity>
@@ -635,7 +664,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                   <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.aiCaptionGrad}>
                     <Text style={{ fontSize: 16 }}>✨</Text>
                     <Text style={styles.aiCaptionText}>Generate AI Caption</Text>
-                    <Ionicons name="sparkles-outline" size={16} color="rgba(255,255,255,0.8)" />
+                    <Icon name="sparkles-outline" size={16} color="rgba(255,255,255,0.8)" />
                   </LinearGradient>
                 </TouchableOpacity>
               </Animated.View>
@@ -658,15 +687,15 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 style={[styles.postOptionRow, { borderBottomColor: colors.border }]}
                 onPress={location ? () => setLocation("") : fetchLocation}
               >
-                <Ionicons name="location-outline" size={18} color="#F97316" />
+                <Icon name="location-outline" size={18} color="#F97316" />
                 <Text style={[styles.postOptionText, { color: location ? "#F97316" : colors.foreground }]} numberOfLines={1}>
                   {location || "Add Location"}
                 </Text>
                 {locationLoading
                   ? <ActivityIndicator size="small" color="#F97316" />
                   : location
-                    ? <Ionicons name="close-circle" size={18} color={colors.mutedForeground} />
-                    : <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                    ? <Icon name="close-circle" size={18} color={colors.mutedForeground} />
+                    : <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
                 }
               </TouchableOpacity>
 
@@ -675,18 +704,18 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 style={[styles.postOptionRow, { borderBottomColor: colors.border }]}
                 onPress={() => setShowTagPicker(true)}
               >
-                <Ionicons name="person-add-outline" size={18} color="#7C3AED" />
+                <Icon name="person-add-outline" size={18} color="#7C3AED" />
                 <Text style={[styles.postOptionText, { color: taggedUsers.length > 0 ? "#7C3AED" : colors.foreground }]}>
                   {taggedUsers.length > 0
                     ? `${taggedUsers.length} ${taggedUsers.length === 1 ? "person" : "people"} tagged`
                     : "Tag People"}
                 </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+                <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
               </TouchableOpacity>
 
               {/* Allow Comments */}
               <View style={[styles.postOptionRow, { borderBottomColor: colors.border }]}>
-                <Ionicons name="chatbubbles-outline" size={18} color="#10B981" />
+                <Icon name="chatbubbles-outline" size={18} color="#10B981" />
                 <Text style={[styles.postOptionText, { color: colors.foreground }]}>Allow Comments</Text>
                 <Switch
                   value={allowComments}
@@ -698,7 +727,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
               {/* Allow Downloads */}
               <View style={[styles.postOptionRow, { borderBottomWidth: 0 }]}>
-                <Ionicons name="download-outline" size={18} color="#3B82F6" />
+                <Icon name="download-outline" size={18} color="#3B82F6" />
                 <Text style={[styles.postOptionText, { color: colors.foreground }]}>Allow Downloads</Text>
                 <Switch
                   value={allowDownloads}
@@ -734,12 +763,12 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             <View style={tagStyles.header}>
               <Text style={[tagStyles.title, { color: colors.foreground }]}>Tag People</Text>
               <TouchableOpacity onPress={() => setShowTagPicker(false)}>
-                <Ionicons name="close" size={22} color={colors.foreground} />
+                <Icon name="close" size={22} color={colors.foreground} />
               </TouchableOpacity>
             </View>
 
             <View style={[tagStyles.searchRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-              <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+              <Icon name="search-outline" size={16} color={colors.mutedForeground} />
               <TextInput
                 value={tagSearch}
                 onChangeText={async (q) => {
@@ -767,7 +796,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                     onPress={() => setTaggedUsers((prev) => prev.filter((x) => x.id !== u.id))}
                   >
                     <Text style={tagStyles.chipText}>@{u.username}</Text>
-                    <Ionicons name="close" size={11} color="#fff" />
+                    <Icon name="close" size={11} color="#fff" />
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -792,14 +821,14 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                       <Image source={{ uri: item.avatar_url }} style={tagStyles.avatar} />
                     ) : (
                       <View style={[tagStyles.avatar, tagStyles.avatarPlaceholder]}>
-                        <Ionicons name="person" size={16} color="rgba(255,255,255,0.4)" />
+                        <Icon name="person" size={16} color="rgba(255,255,255,0.4)" />
                       </View>
                     )}
                     <View style={{ flex: 1 }}>
                       <Text style={[tagStyles.username, { color: colors.foreground }]}>@{item.username}</Text>
                       {item.full_name ? <Text style={[tagStyles.fullName, { color: colors.mutedForeground }]}>{item.full_name}</Text> : null}
                     </View>
-                    {isSelected && <Ionicons name="checkmark-circle" size={20} color="#7C3AED" />}
+                    {isSelected && <Icon name="checkmark-circle" size={20} color="#7C3AED" />}
                   </TouchableOpacity>
                 );
               }}
@@ -852,7 +881,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             <View style={styles.stickerHeader}>
               <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Sticker</Text>
               <TouchableOpacity onPress={() => setShowStickerModal(false)}>
-                <Ionicons name="close" size={22} color={colors.foreground} />
+                <Icon name="close" size={22} color={colors.foreground} />
               </TouchableOpacity>
             </View>
             <View style={styles.stickerGrid}>
