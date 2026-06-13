@@ -49,13 +49,8 @@ function withDeepARAndroid(config) {
     async (cfg) => {
       const root = cfg.modRequest.platformProjectRoot;
 
-      const settingsPath = path.join(root, "settings.gradle");
-      if (fs.existsSync(settingsPath)) {
-        let settings = fs.readFileSync(settingsPath, "utf8");
-        settings = addMavenRepo(settings);
-        fs.writeFileSync(settingsPath, settings);
-      }
-
+      // Only modify build.gradle — adding allprojects{} to settings.gradle
+      // causes "Projects for build ':' have not been registered yet" in Gradle 8+
       const buildPath = path.join(root, "build.gradle");
       if (fs.existsSync(buildPath)) {
         let build = fs.readFileSync(buildPath, "utf8");
