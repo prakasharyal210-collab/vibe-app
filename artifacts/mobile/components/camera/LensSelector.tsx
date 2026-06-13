@@ -202,7 +202,7 @@ const st = StyleSheet.create({
     color: "#fff",
   },
   gridScroll: {
-    flex: 1,
+    height: 300,
   },
   grid: {
     flexDirection: "row",

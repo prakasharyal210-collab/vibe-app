@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
@@ -79,6 +78,41 @@ interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; 
 const CONFETTI_COLORS = ["#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899", "#A78BFA"];
 const CONFETTI_COUNT = 28;
 
+// ── Icon helper (replaces @expo/vector-icons Ionicons — font won't load with newArchEnabled) ──
+const CAMERA_ICON_MAP: Record<string, string> = {
+  "arrow-forward": "→",
+  "add": "+",
+  "remove": "−",
+  "sunny": "☀",
+  "sunny-outline": "○",
+  "checkmark": "✓",
+  "person-outline": "👤",
+  "add-circle-outline": "⊕",
+  "camera-outline": "📷",
+  "aperture-outline": "◎",
+  "moon": "🌙",
+  "musical-notes": "♫",
+  "musical-notes-outline": "♫",
+  "close": "✕",
+  "camera-reverse-outline": "🔄",
+  "flash-off-outline": "⚡",
+  "flash-outline": "⚡",
+  "timer": "⏱",
+  "timer-outline": "⏱",
+  "grid-outline": "⊞",
+  "color-filter-outline": "🎨",
+  "color-wand-outline": "🪄",
+  "text-outline": "T",
+  "bulb-outline": "💡",
+  "document-text-outline": "📄",
+  "images-outline": "🖼",
+  "sparkles": "✨",
+};
+function CI({ name, size, color }: { name: string; size: number; color: string }) {
+  const label = CAMERA_ICON_MAP[name] ?? "•";
+  return <Text style={{ fontSize: size * 0.85, color, lineHeight: size * 1.1, textAlign: "center" }}>{label}</Text>;
+}
+
 // ── Grid overlay ─────────────────────────────────────────────────────────────
 function GridOverlay() {
   return (
@@ -97,7 +131,7 @@ function PanoramaGuide() {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={pano.centerLine} />
       <View style={pano.arrowWrap}>
-        <Ionicons name="arrow-forward" size={24} color="rgba(255,255,255,0.6)" />
+        <CI name="arrow-forward" size={24} color="rgba(255,255,255,0.6)" />
         <Text style={pano.hint}>Pan slowly to the right</Text>
       </View>
     </View>
@@ -161,12 +195,12 @@ function ZoomSlider({ zoom, onChange }: { zoom: number; onChange: (v: number) =>
   const label = zoom < 0.08 ? "1×" : zoom < 0.22 ? "2×" : zoom < 0.45 ? "3×" : zoom < 0.7 ? "5×" : "10×";
   return (
     <View style={zs.container}>
-      <Ionicons name="add" size={14} color="rgba(255,255,255,0.7)" />
+      <CI name="add" size={14} color="rgba(255,255,255,0.7)" />
       <View style={zs.track} {...panResponder.panHandlers}>
         <View style={[zs.fill, { height: `${zoom * 100}%` as any }]} />
         <View style={[zs.thumb, { bottom: `${zoom * 100}%` as any }]} />
       </View>
-      <Ionicons name="remove" size={14} color="rgba(255,255,255,0.7)" />
+      <CI name="remove" size={14} color="rgba(255,255,255,0.7)" />
       <View style={zs.badge}>
         <Text style={zs.badgeText}>{label}</Text>
       </View>
@@ -189,7 +223,7 @@ function ExposureSlider({ value, onChange, visible }: { value: number; onChange:
   const pct = ((value + 1) / 2) * 100;
   return (
     <View style={es.container}>
-      <Ionicons name="sunny" size={14} color="#FBBF24" />
+      <CI name="sunny" size={14} color="#FBBF24" />
       <View style={es.track}>
         <View style={[es.fill, { height: `${pct}%` as any }]} />
         {STEPS.map((v) => (
@@ -198,7 +232,7 @@ function ExposureSlider({ value, onChange, visible }: { value: number; onChange:
           </TouchableOpacity>
         ))}
       </View>
-      <Ionicons name="sunny-outline" size={10} color="rgba(255,255,255,0.5)" />
+      <CI name="sunny-outline" size={10} color="rgba(255,255,255,0.5)" />
     </View>
   );
 }
@@ -350,7 +384,7 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
         </View>
         <RAnimated.View style={[{ alignItems: "center", paddingHorizontal: 32 }, cardStyle]}>
           <RAnimated.View style={[{ width: 80, height: 80, borderRadius: 40, backgroundColor: "rgba(16,185,129,0.18)", borderWidth: 2.5, borderColor: "#10B981", alignItems: "center", justifyContent: "center", marginBottom: 14 }, checkStyle]}>
-            <Ionicons name="checkmark" size={42} color="#10B981" />
+            <CI name="checkmark" size={42} color="#10B981" />
           </RAnimated.View>
           <RAnimated.Text style={[{ fontSize: 52 }, fireScaleStyle]}>🔥</RAnimated.Text>
           <Text style={{ color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold", marginTop: 12, textAlign: "center", lineHeight: 34 }}>Posted!{"\n"}You're live on Gundruk!</Text>
@@ -358,12 +392,12 @@ function CelebrationModal({ visible, onGoToProfile, onClose }: {
           <View style={{ gap: 12, marginTop: 28, width: 270 }}>
             <TouchableOpacity onPress={onGoToProfile} style={{ borderRadius: 16, overflow: "hidden" }}>
               <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ paddingVertical: 16, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}>
-                <Ionicons name="person-outline" size={18} color="#fff" />
+                <CI name="person-outline" size={18} color="#fff" />
                 <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Go to Profile</Text>
               </LinearGradient>
             </TouchableOpacity>
             <TouchableOpacity onPress={onClose} style={{ paddingVertical: 14, alignItems: "center", borderRadius: 16, backgroundColor: "rgba(255,255,255,0.08)", flexDirection: "row", justifyContent: "center", gap: 8 }}>
-              <Ionicons name="add-circle-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <CI name="add-circle-outline" size={18} color="rgba(255,255,255,0.85)" />
               <Text style={{ color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Post Another</Text>
             </TouchableOpacity>
           </View>
@@ -768,7 +802,7 @@ function CreateScreenInner() {
     return (
       <View style={s.permBg}>
         <StatusBar style="light" />
-        <Ionicons name="camera-outline" size={48} color="rgba(255,255,255,0.3)" />
+        <CI name="camera-outline" size={48} color="rgba(255,255,255,0.3)" />
         <Text style={s.permTitle}>Loading camera…</Text>
       </View>
     );
@@ -779,7 +813,7 @@ function CreateScreenInner() {
       <View style={s.permBg}>
         <StatusBar style="light" />
         <LinearGradient colors={["#7C3AED22", "#EA580C11"]} style={s.permIconBg}>
-          <Ionicons name="camera-outline" size={52} color="#7C3AED" />
+          <CI name="camera-outline" size={52} color="#7C3AED" />
         </LinearGradient>
         <Text style={s.permTitle}>Camera Access</Text>
         <Text style={s.permSub}>Allow camera and microphone to record videos and take photos</Text>
@@ -844,7 +878,7 @@ function CreateScreenInner() {
               style={StyleSheet.absoluteFill}
             />
             <View style={s.portraitBadge}>
-              <Ionicons name="aperture-outline" size={13} color="#A78BFA" />
+              <CI name="aperture-outline" size={13} color="#A78BFA" />
               <Text style={s.portraitBadgeText}>Portrait · Depth Effect</Text>
             </View>
           </View>
@@ -853,7 +887,7 @@ function CreateScreenInner() {
         {/* ── NIGHT MODE HINT ── */}
         {isNight && (
           <View style={s.nightBadge} pointerEvents="none">
-            <Ionicons name="moon" size={12} color="#60A5FA" />
+            <CI name="moon" size={12} color="#60A5FA" />
             <Text style={s.nightBadgeText}>Night Mode</Text>
           </View>
         )}
@@ -903,7 +937,7 @@ function CreateScreenInner() {
         {/* ── MUSIC BADGE ── */}
         {selectedMusic && (
           <View style={[s.musicBadge, { top: insets.top + (recording ? 52 : 10) }]} pointerEvents="none">
-            <Ionicons name="musical-notes" size={11} color="#fff" />
+            <CI name="musical-notes" size={11} color="#fff" />
             <Text style={s.musicBadgeText} numberOfLines={1}>{selectedMusic.title} · {selectedMusic.artist}</Text>
           </View>
         )}
@@ -938,7 +972,7 @@ function CreateScreenInner() {
         {/* ── TOP BAR ── */}
         <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={s.topBtn} onPress={() => router.back()}>
-            <Ionicons name="close" size={28} color="#fff" />
+            <CI name="close" size={28} color="#fff" />
           </TouchableOpacity>
           <View style={s.topCenter}>
             {isNight && <Text style={s.modeHint}>Night mode active</Text>}
@@ -963,41 +997,41 @@ function CreateScreenInner() {
         <RAnimated.View style={[s.sideTools, { bottom: insets.bottom + 268 }, controlsStyle]} pointerEvents={recording ? "none" : "box-none"}>
 
           <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
-            <View style={s.sideCircle}><Ionicons name="camera-reverse-outline" size={22} color="#fff" /></View>
+            <View style={s.sideCircle}><CI name="camera-reverse-outline" size={22} color="#fff" /></View>
             <Text style={s.sideLabel}>Flip</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={cycleFlash}>
             <View style={[s.sideCircle, flashMode !== "off" && { backgroundColor: "#EAB30830" }]}>
-              <Ionicons name={flashIcon} size={22} color={flashColor} />
+              <CI name={flashIcon} size={22} color={flashColor} />
             </View>
             <Text style={[s.sideLabel, { color: flashColor }]}>{flashMode === "off" ? "Flash" : flashMode === "on" ? "On" : "Auto"}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={() => { const opts: TimerValue[] = [0, 3, 5, 10]; setTimerSecs((t) => opts[(opts.indexOf(t) + 1) % opts.length]); }}>
             <View style={[s.sideCircle, timerSecs > 0 && { backgroundColor: "#7C3AED30" }]}>
-              <Ionicons name={timerSecs > 0 ? "timer" : "timer-outline"} size={22} color={timerSecs > 0 ? "#A78BFA" : "#fff"} />
+              <CI name={timerSecs > 0 ? "timer" : "timer-outline"} size={22} color={timerSecs > 0 ? "#A78BFA" : "#fff"} />
             </View>
             <Text style={[s.sideLabel, timerSecs > 0 && { color: "#A78BFA" }]}>{timerSecs > 0 ? `${timerSecs}s` : "Timer"}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={() => setShowGrid((v) => !v)}>
             <View style={[s.sideCircle, showGrid && { backgroundColor: "#7C3AED30" }]}>
-              <Ionicons name="grid-outline" size={22} color={showGrid ? "#A78BFA" : "#fff"} />
+              <CI name="grid-outline" size={22} color={showGrid ? "#A78BFA" : "#fff"} />
             </View>
             <Text style={[s.sideLabel, showGrid && { color: "#A78BFA" }]}>Grid</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={() => { setShowFilterStrip((v) => !v); setShowBeauty(false); }}>
             <View style={[s.sideCircle, showFilterStrip && { backgroundColor: "#EC489930" }]}>
-              <Ionicons name="color-filter-outline" size={22} color={showFilterStrip ? "#EC4899" : cameraFilter.id !== "none" ? "#EC4899" : "#fff"} />
+              <CI name="color-filter-outline" size={22} color={showFilterStrip ? "#EC4899" : cameraFilter.id !== "none" ? "#EC4899" : "#fff"} />
             </View>
             <Text style={[s.sideLabel, (showFilterStrip || cameraFilter.id !== "none") && { color: "#EC4899" }]}>Filter</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={() => { setShowBeauty((v) => !v); setShowFilterStrip(false); setShowLensPicker(false); }}>
             <View style={[s.sideCircle, showBeauty && { backgroundColor: "#EC489930" }]}>
-              <Ionicons name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
+              <CI name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
             </View>
             <Text style={s.sideLabel}>Beauty</Text>
           </TouchableOpacity>
@@ -1011,27 +1045,27 @@ function CreateScreenInner() {
 
           <TouchableOpacity style={s.sideTool} onPress={() => setShowMusicPicker(true)}>
             <View style={[s.sideCircle, selectedMusic && { backgroundColor: "#7C3AED30" }]}>
-              <Ionicons name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
+              <CI name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
             </View>
             <Text style={[s.sideLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={s.sideTool} onPress={() => setShowTextModal(true)}>
-            <View style={s.sideCircle}><Ionicons name="text-outline" size={22} color="#fff" /></View>
+            <View style={s.sideCircle}><CI name="text-outline" size={22} color="#fff" /></View>
             <Text style={s.sideLabel}>Text</Text>
           </TouchableOpacity>
 
           {captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? (
             <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
               <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
-                {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="bulb-outline" size={22} color="#A78BFA" />}
+                {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <CI name="bulb-outline" size={22} color="#A78BFA" />}
               </View>
               <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
               <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
-                {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <Ionicons name="document-text-outline" size={22} color="#A78BFA" />}
+                {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <CI name="document-text-outline" size={22} color="#A78BFA" />}
               </View>
               <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Script</Text>
             </TouchableOpacity>
@@ -1110,7 +1144,7 @@ function CreateScreenInner() {
             <RAnimated.View style={controlsStyle}>
               <TouchableOpacity onPress={pickFromGallery} style={s.sideAction} disabled={recording}>
                 <View style={s.sideActionCircle}>
-                  <Ionicons name="images-outline" size={26} color="#fff" />
+                  <CI name="images-outline" size={26} color="#fff" />
                 </View>
                 <Text style={s.sideActionLabel}>Gallery</Text>
               </TouchableOpacity>
@@ -1147,7 +1181,7 @@ function CreateScreenInner() {
             <RAnimated.View style={controlsStyle}>
               <TouchableOpacity onPress={() => setFacing((f) => f === "back" ? "front" : "back")} style={s.sideAction} disabled={recording}>
                 <View style={s.sideActionCircle}>
-                  <Ionicons name="camera-reverse-outline" size={26} color="#fff" />
+                  <CI name="camera-reverse-outline" size={26} color="#fff" />
                 </View>
                 <Text style={s.sideActionLabel}>Flip</Text>
               </TouchableOpacity>
@@ -1257,7 +1291,7 @@ function CreateScreenInner() {
         <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowAiTopicInput(false)} />
         <View style={s.textCard}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <Ionicons name="sparkles" size={18} color="#A78BFA" />
+            <CI name="sparkles" size={18} color="#A78BFA" />
             <Text style={s.textCardTitle}>{captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? "Story Idea Topic" : "Reel Script Topic"}</Text>
           </View>
           <Text style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginBottom: 8 }}>
