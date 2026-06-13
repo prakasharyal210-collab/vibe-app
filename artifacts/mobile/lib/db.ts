@@ -930,21 +930,23 @@ export async function sendMessageToUser(
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export async function searchProfiles(query: string): Promise<Profile[]> {
-  if (!query.trim()) return MOCK_SEARCH_ACCOUNTS;
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, username, bio, avatar_url, followers_count, is_verified")
-      .or(`username.ilike.%${query}%,bio.ilike.%${query}%`)
-      .order("followers_count", { ascending: false })
-      .limit(20);
-    if (!error && data && data.length > 0) return data as Profile[];
+    const q = query.trim();
+    const { data, error } = q
+      ? await supabase
+          .from("profiles")
+          .select("id, username, full_name, bio, avatar_url, followers_count, is_verified")
+          .or(`username.ilike.%${q}%,full_name.ilike.%${q}%,bio.ilike.%${q}%`)
+          .order("followers_count", { ascending: false })
+          .limit(20)
+      : await supabase
+          .from("profiles")
+          .select("id, username, full_name, bio, avatar_url, followers_count, is_verified")
+          .order("followers_count", { ascending: false })
+          .limit(20);
+    if (!error && data) return data as Profile[];
   } catch {}
-  return MOCK_SEARCH_ACCOUNTS.filter(
-    (a) =>
-      a.username.toLowerCase().includes(query.toLowerCase()) ||
-      a.bio?.toLowerCase().includes(query.toLowerCase())
-  );
+  return [];
 }
 
 export async function searchHashtags(query: string): Promise<Hashtag[]> {

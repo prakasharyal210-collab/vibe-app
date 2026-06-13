@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
-  FlatList,
   Image,
   Platform,
   RefreshControl,
@@ -19,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { clearSearchHistory, deleteSearchHistoryItem, loadSearchHistory, saveSearchHistory, searchHashtags, searchProfiles, SearchHistoryItem } from "@/lib/db";
-import { Profile, Hashtag, formatCount } from "@/lib/supabase";
+import { Profile, Hashtag, formatCount, supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 
 const { width: W } = Dimensions.get("window");
@@ -31,6 +30,7 @@ export default function SearchScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+  const myId = session?.user?.id;
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const inputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState("");
@@ -41,6 +41,21 @@ export default function SearchScreen() {
   const [suggestedAccounts, setSuggestedAccounts] = useState<Profile[]>([]);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  // Set of user IDs that the current user already follows
+  const [followingSet, setFollowingSet] = useState<Set<string>>(new Set());
+
+  // Load who the current user already follows (to pre-populate Follow buttons)
+  useEffect(() => {
+    if (!myId) return;
+    supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", myId)
+      .then(({ data }) => {
+        if (data) setFollowingSet(new Set(data.map((r: any) => r.following_id)));
+      })
+      .catch(() => {});
+  }, [myId]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -54,10 +69,10 @@ export default function SearchScreen() {
   useEffect(() => {
     searchProfiles("").then(setSuggestedAccounts).catch(() => {});
     searchHashtags("").then(setTrendingHashtags).catch(() => {});
-    if (session?.user?.id) {
-      loadSearchHistory(session.user.id).then(setSearchHistory).catch(() => {});
+    if (myId) {
+      loadSearchHistory(myId).then(setSearchHistory).catch(() => {});
     }
-  }, [session?.user?.id]);
+  }, [myId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -218,8 +233,8 @@ export default function SearchScreen() {
               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
                 👥 Suggested Accounts
               </Text>
-              {suggestedAccounts.slice(0, 4).map((account) => (
-                <AccountRow key={account.id} account={account} colors={colors} myId={session?.user?.id} />
+              {suggestedAccounts.filter((a) => a.id !== myId).slice(0, 6).map((account) => (
+                <AccountRow key={account.id} account={account} colors={colors} myId={myId} initialFollowing={followingSet.has(account.id)} />
               ))}
             </View>
           </>
@@ -231,7 +246,7 @@ export default function SearchScreen() {
                   <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Accounts</Text>
                 )}
                 {filteredAccounts.map((account) => (
-                  <AccountRow key={account.id} account={account} colors={colors} myId={session?.user?.id} />
+                  <AccountRow key={account.id} account={account} colors={colors} myId={myId} initialFollowing={followingSet.has(account.id)} />
                 ))}
               </View>
             )}
@@ -307,12 +322,23 @@ export default function SearchScreen() {
   );
 }
 
-function AccountRow({ account, colors, myId }: { account: any; colors: any; myId?: string }) {
-  const [following, setFollowing] = useState(false);
+function AccountRow({
+  account,
+  colors,
+  myId,
+  initialFollowing = false,
+}: {
+  account: any;
+  colors: any;
+  myId?: string;
+  initialFollowing?: boolean;
+}) {
+  const isMe = !!myId && myId === account.id;
+  const [following, setFollowing] = useState(initialFollowing);
   const [loading, setLoading] = useState(false);
 
   const handleFollow = async () => {
-    if (!myId || myId === account.id) return;
+    if (!myId || isMe) return;
     const nowFollowing = !following;
     setFollowing(nowFollowing);
     setLoading(true);
@@ -324,18 +350,20 @@ function AccountRow({ account, colors, myId }: { account: any; colors: any; myId
         await supabase.from("follows").delete().eq("follower_id", myId).eq("following_id", account.id);
       }
     } catch {
-      setFollowing(!nowFollowing); // revert on error
+      setFollowing(!nowFollowing);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.accountRow}>
-      <TouchableOpacity onPress={() => router.push(`/profile/${account.username}` as any)} activeOpacity={0.8}>
-        <UserAvatar username={account.username} size={46} />
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.accountInfo} onPress={() => router.push(`/profile/${account.username}` as any)} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.accountRow}
+      onPress={() => router.push(`/profile/${account.username}` as any)}
+      activeOpacity={0.8}
+    >
+      <UserAvatar username={account.username} size={46} />
+      <View style={styles.accountInfo}>
         <View style={styles.accountNameRow}>
           <Text style={[styles.accountName, { color: colors.foreground }]}>
             {account.username}
@@ -344,29 +372,42 @@ function AccountRow({ account, colors, myId }: { account: any; colors: any; myId
             <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />
           )}
         </View>
-        <Text style={[styles.accountBio, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {account.bio}
-        </Text>
+        {!!account.full_name && (
+          <Text style={[styles.accountFullName, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {account.full_name}
+          </Text>
+        )}
+        {!!account.bio && (
+          <Text style={[styles.accountBio, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {account.bio}
+          </Text>
+        )}
         <Text style={[styles.accountFollowers, { color: colors.mutedForeground }]}>
           {formatCount(account.followers_count ?? 0)} followers
         </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        onPress={handleFollow}
-        disabled={loading || !myId || myId === account.id}
-        style={[
-          styles.followBtn,
-          following
-            ? { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }
-            : { backgroundColor: "#7C3AED" },
-          (loading || !myId || myId === account.id) && { opacity: 0.6 },
-        ]}
-      >
-        <Text style={[styles.followBtnText, { color: following ? colors.foreground : "#fff" }]}>
-          {following ? "Following" : "Follow"}
-        </Text>
-      </TouchableOpacity>
-    </View>
+      </View>
+      {isMe ? (
+        <View style={[styles.followBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }]}>
+          <Text style={[styles.followBtnText, { color: colors.mutedForeground }]}>You</Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          onPress={handleFollow}
+          disabled={loading}
+          style={[
+            styles.followBtn,
+            following
+              ? { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border }
+              : { backgroundColor: "#7C3AED" },
+            loading && { opacity: 0.6 },
+          ]}
+        >
+          <Text style={[styles.followBtnText, { color: following ? colors.foreground : "#fff" }]}>
+            {following ? "Following" : "Follow"}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -465,6 +506,10 @@ const styles = StyleSheet.create({
   accountName: {
     fontSize: 14,
     fontFamily: "Poppins_600SemiBold",
+  },
+  accountFullName: {
+    fontSize: 12,
+    fontFamily: "Poppins_500Medium",
   },
   accountBio: {
     fontSize: 12,
