@@ -93,6 +93,7 @@ export interface Notification {
   id: string;
   type: "like" | "comment" | "follow" | "vibe" | "mention";
   username: string;
+  avatar_url?: string | null;
   text: string;
   time: string;
   read: boolean;

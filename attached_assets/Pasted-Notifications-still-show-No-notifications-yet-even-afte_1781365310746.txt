@@ -1,0 +1,21 @@
+Notifications still show "No notifications yet" even after the fix claiming follow notifications were inserted. Also the bell icon is broken (empty box).
+Debug:
+
+Query directly: SELECT * FROM notifications WHERE user_id = '<prakasharyal210_id>' ORDER BY created_at DESC LIMIT 10; — does the follow notification row actually EXIST in the DB?
+If NO row exists: the follow endpoint still isn't inserting into notifications — re-check POST /api/users/social/follow actually has the insert code, and that account B's follow action actually called this endpoint (not a cached old build)
+If a row EXISTS but doesn't show in app: fetchNotifications API route might be filtering wrong (wrong user_id, or is_read filter excluding it incorrectly)
+Fix broken bell icon (empty box) — same Ionicons audit, use working icon names
+
+Test: Account B follows prakasharyal210 again (fresh follow) → check DB row exists → reload Notifications on prakasharyal210 → notification appears with proper bell icon.
+
+For the algorithm request — that's a big topic. Rather than one giant vague prompt, let's break it into a focused, actionable one covering the main personalization signals beyond what we already built (creator boost):
+
+Expand Gundruk's recommendation system beyond the existing creator-boost score. Add these additional personalization signals used by major platforms:
+
+Interest graph: track which content categories/hashtags a user engages with (likes, watch time, comments) → build a simple per-user "interest profile" (e.g. JSON of {category: weight}) → boost feed score for posts matching the user's top interests
+Social graph signals: posts from accounts the user frequently interacts with (likes/comments on their content, DMs) get a relevance boost beyond just "followed or not"
+Negative signals: if a user consistently skips/hides content from a creator or category, REDUCE future visibility of similar content for that user (the "show less of this" signal)
+Session diversity: avoid showing too many posts from the SAME creator or SAME category back-to-back in one feed session — interleave for variety
+Time-of-day patterns: optionally factor in when a user is typically active vs. when content was posted (less critical for v1)
+
+Implementation: extend calculate_post_score/calculate_reel_score (or create a new per-user scoring layer) with a user_affinity_multiplier computed from interest/social graph signals stored in a new user_interests table, updated incrementally on each engagement event.

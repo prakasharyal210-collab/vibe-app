@@ -67,7 +67,7 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
     >
       <TouchableOpacity onPress={() => router.push(`/profile/${notif.username}` as any)} activeOpacity={0.8}>
         <View style={styles.avatarGroup}>
-          <UserAvatar username={notif.username} size={46} />
+          <UserAvatar username={notif.username} url={notif.avatar_url ?? undefined} size={46} />
           <View style={[styles.typeIcon, { backgroundColor: config.bg }]}>
             <Ionicons name={config.icon as any} size={14} color={config.color} />
           </View>
@@ -156,9 +156,14 @@ export default function NotificationsScreen() {
     if (session?.user?.id) markAllNotificationsRead(session.user.id);
   };
 
-  const today = notifications.filter((n) => ["2m", "15m", "1h", "2h", "3h", "5h"].includes(n.time));
-  const thisWeek = notifications.filter((n) => ["1d", "2d"].includes(n.time));
-  const earlier = notifications.filter((n) => !["2m", "15m", "1h", "2h", "3h", "5h", "1d", "2d"].includes(n.time));
+  function timeCategory(t: string): "today" | "week" | "earlier" {
+    if (t.endsWith("s") || t.endsWith("m") || t.endsWith("h")) return "today";
+    if (t.endsWith("d")) return "week";
+    return "earlier";
+  }
+  const today = notifications.filter((n) => timeCategory(n.time) === "today");
+  const thisWeek = notifications.filter((n) => timeCategory(n.time) === "week");
+  const earlier = notifications.filter((n) => timeCategory(n.time) === "earlier");
 
   const sections = [
     ...(today.length > 0 ? [{ title: "Today", data: today }] : []),
@@ -211,7 +216,7 @@ export default function NotificationsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="notifications-off-outline" size={52} color={colors.mutedForeground} />
+            <Ionicons name="notifications-off" size={52} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               No notifications yet
             </Text>

@@ -591,7 +591,12 @@ export default function ReelsScreen() {
     let fyLoaded = false;
     if (uid) {
       try {
-        const { data: fyData } = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 });
+        // Try personalized v2 first; falls back to v1 if migration not run yet
+        let fyDataV2: any[] | null = null;
+        try { const r = await supabase.rpc("get_for_you_reels_v2", { p_user_id: uid, p_limit: 20 }); fyDataV2 = r.error ? null : (r.data ?? null); } catch {}
+        let fyDataV1: any[] | null = null;
+        if (!fyDataV2?.length) { try { const r = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 }); fyDataV1 = r.error ? null : (r.data ?? null); } catch {} }
+        const fyData = fyDataV2?.length ? fyDataV2 : fyDataV1;
         if (fyData && fyData.length > 0) {
           fyLoaded = true;
           const rpcReels: Reel[] = fyData.map((r: any) => ({

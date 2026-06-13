@@ -44,7 +44,26 @@ router.post("/watch", async (req, res) => {
     }
   );
 
-  await Promise.allSettled([insertPromise, scorePromise]);
+  // Record creator affinity when user watches >80% of a reel
+  const affinityPromise = (async () => {
+    if (!userId) return;
+    const ratio = videoDuration > 0 ? watchDuration / videoDuration : 0;
+    if (ratio < 0.8) return;
+    try {
+      const { data: reel } = await sb.from("reels").select("user_id").eq("id", reelId).maybeSingle();
+      const creatorId = reel?.user_id;
+      if (!creatorId || creatorId === userId) return;
+      const key = `creator:${creatorId}`;
+      const { data: row } = await sb.from("user_interests").select("weight").eq("user_id", userId).eq("interest_key", key).maybeSingle();
+      const newW = Math.min(10, Math.max(-5, ((row?.weight as number | null) ?? 0) + 0.4));
+      await sb.from("user_interests").upsert(
+        { user_id: userId, interest_key: key, weight: newW, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,interest_key" }
+      );
+    } catch {}
+  })();
+
+  await Promise.allSettled([insertPromise, scorePromise, affinityPromise]);
 
   res.json({ ok: true });
 });

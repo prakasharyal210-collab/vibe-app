@@ -277,6 +277,7 @@ export async function toggleLike(
   postId: string,
   userId: string,
   nowLiked: boolean,
+  creatorId?: string,
 ): Promise<void> {
   try {
     if (nowLiked) {
@@ -285,6 +286,10 @@ export async function toggleLike(
       await supabase.from("likes").delete().eq("post_id", postId).eq("user_id", userId);
     }
   } catch {}
+  // Fire-and-forget affinity update — non-blocking
+  if (creatorId && creatorId !== userId) {
+    recordEngagement(userId, creatorId, nowLiked ? "like" : "unlike").catch(() => {});
+  }
 }
 
 // ─── Reposts ──────────────────────────────────────────────────────────────────
@@ -1192,21 +1197,72 @@ export async function logWatchEvent(
   }
 }
 
+// ─── Personalization / Engagement Tracking ────────────────────────────────────
+
+/**
+ * Record a social-graph affinity signal for the recommendation engine.
+ * Fire-and-forget — never awaited in UI paths.
+ * Requires `scripts/personalization-migration.sql` to be run in Supabase.
+ */
+export async function recordEngagement(
+  userId: string,
+  creatorId: string,
+  action: "like" | "unlike" | "comment" | "save" | "share" | "watch_complete" | "skip" | "hide",
+): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/engage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, creatorId, action }),
+    });
+  } catch {
+    // fire-and-forget — never block UI
+  }
+}
+
+/**
+ * Session-level diversity pass — limits any single creator to `maxPerCreator`
+ * posts in the first `windowSize` positions.  Overflow posts are appended at
+ * the end so nothing is lost, just re-ordered.
+ */
+function applyDiversity(posts: Post[], maxPerCreator = 2): Post[] {
+  const creatorCount = new Map<string, number>();
+  const primary: Post[] = [];
+  const overflow: Post[] = [];
+
+  for (const post of posts) {
+    const cid = (post as any).user_id ?? (post as any).username ?? "";
+    const n = creatorCount.get(cid) ?? 0;
+    if (n < maxPerCreator) {
+      primary.push(post);
+      creatorCount.set(cid, n + 1);
+    } else {
+      overflow.push(post);
+    }
+  }
+  return [...primary, ...overflow];
+}
+
 export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  // Fetch fresh posts in parallel with the RPC for viral boost
-  const [rpcResult, fresh] = await Promise.allSettled([
-    supabase.rpc('get_for_you_feed', { p_user_id: userId, p_limit: limit, p_offset: offset }),
+  // Try personalised v2 first (requires personalization-migration.sql to be run),
+  // then fall back to the original RPC, then to fresh recent posts.
+  const [v2Result, v1Result, freshResult] = await Promise.allSettled([
+    supabase.rpc('get_for_you_feed_v2', { p_user_id: userId, p_limit: limit, p_offset: offset }),
+    supabase.rpc('get_for_you_feed',    { p_user_id: userId, p_limit: limit, p_offset: offset }),
     fetchFreshPosts(limit),
   ]);
-  const freshPosts = rpcResult.status === 'fulfilled' && !rpcResult.value.error && rpcResult.value.data?.length
-    ? rpcResult.value.data as Post[]
-    : null;
-  const freshFallback = fresh.status === 'fulfilled' ? fresh.value : [];
-  if (freshPosts && freshPosts.length > 0) {
-    return viralBoostFeed(freshPosts, freshFallback);
+
+  const v2Posts = v2Result.status === 'fulfilled' && !v2Result.value.error && v2Result.value.data?.length
+    ? v2Result.value.data as Post[] : null;
+  const v1Posts = v1Result.status === 'fulfilled' && !v1Result.value.error && v1Result.value.data?.length
+    ? v1Result.value.data as Post[] : null;
+  const freshPosts = freshResult.status === 'fulfilled' ? freshResult.value : [];
+
+  const ranked = v2Posts ?? v1Posts;
+  if (ranked && ranked.length > 0) {
+    return applyDiversity(viralBoostFeed(ranked, freshPosts));
   }
-  // Fallback: just return fresh recent posts sorted by date
-  return freshFallback;
+  return freshPosts;
 }
 
 export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
