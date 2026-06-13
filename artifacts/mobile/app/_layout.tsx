@@ -32,16 +32,24 @@ const OTA_READY_KEY = "ota_ready";
 function RootLayoutNav() {
   const { session, loading } = useAuth();
 
-  // Auth guard: only redirect to login on explicit sign-out (session goes
-  // from non-null → null after having been set). Guests can browse freely.
+  // Auth guard: track session transitions and redirect accordingly.
+  // undefined = initial state (loading); null = confirmed no session; Session = logged in.
   const prevSessionRef = React.useRef<typeof session | undefined>(undefined);
   useEffect(() => {
     if (loading) return;
-    const hadSession = prevSessionRef.current !== undefined && prevSessionRef.current !== null;
+
+    const prev = prevSessionRef.current;
     prevSessionRef.current = session;
-    if (hadSession && !session) {
-      // Signed out — kick back to login
+
+    // First resolution: prev is still undefined. Let index.tsx handle initial routing.
+    if (prev === undefined) return;
+
+    if (prev !== null && session === null) {
+      // Signed out — go to login
       router.replace("/(auth)/login");
+    } else if (prev === null && session !== null) {
+      // Just signed in — go to feed
+      router.replace("/(tabs)/feed");
     }
   }, [session, loading]);
 

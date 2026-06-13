@@ -115,9 +115,9 @@ function LoginScreen() {
     setLoading(false);
     if (error) {
       Alert.alert("Sign In Failed", error.message);
-    } else {
-      router.replace("/(tabs)/feed");
     }
+    // Navigation to feed is handled by RootLayoutNav in _layout.tsx
+    // when the session transitions null → non-null.
   };
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
