@@ -79,7 +79,6 @@
     "expo-updates": "~29.0.18",
     "react": "19.1.0",
     "react-native": "0.81.5",
-    "react-native-deepar": "^0.11.0",
     "react-native-qrcode-svg": "^6.3.21"
   }
 }

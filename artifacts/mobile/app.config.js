@@ -5,14 +5,8 @@ module.exports = {
   expo: {
     ...base,
     newArchEnabled: true,
-    extra: {
-      ...base.extra,
-      deeparLicenseAndroid: process.env.DEEPAR_LICENSE_ANDROID ?? "",
-      deeparLicenseIOS: process.env.DEEPAR_LICENSE_IOS ?? "",
-    },
     plugins: [
       ...base.plugins,
-      "./plugins/withDeepAR",
     ],
   },
 };

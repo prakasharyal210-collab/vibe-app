@@ -17,9 +17,7 @@
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://gundruk.replit.app",
         "YOUTUBE_API_KEY": "AIzaSyAckamAeulF1LeciYO6N-nIZ6_F5Ch4npE",
-        "PEXELS_API_KEY": "M6Wgr4Zu9xjUcj7Y8Smr94wzjmlWtXhoPXC3Qw1zGFS9ID92WwqjAieP",
-        "DEEPAR_LICENSE_ANDROID": "0ba54771afd08cb6f12ffafe517c5db9adce304b91070827f91e548dd09c1a45276964bd8bb7fb61",
-        "DEEPAR_LICENSE_IOS": "075aa3c4b43771127ba72dfdc15cf10c6ebd1cef9df8ec92e2f9a9295a14cd46b749c80848c4d7c5"
+        "PEXELS_API_KEY": "M6Wgr4Zu9xjUcj7Y8Smr94wzjmlWtXhoPXC3Qw1zGFS9ID92WwqjAieP"
       }
     },
     "production": {
@@ -34,9 +32,7 @@
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://gundruk.replit.app",
         "YOUTUBE_API_KEY": "AIzaSyAckamAeulF1LeciYO6N-nIZ6_F5Ch4npE",
-        "PEXELS_API_KEY": "M6Wgr4Zu9xjUcj7Y8Smr94wzjmlWtXhoPXC3Qw1zGFS9ID92WwqjAieP",
-        "DEEPAR_LICENSE_ANDROID": "0ba54771afd08cb6f12ffafe517c5db9adce304b91070827f91e548dd09c1a45276964bd8bb7fb61",
-        "DEEPAR_LICENSE_IOS": "075aa3c4b43771127ba72dfdc15cf10c6ebd1cef9df8ec92e2f9a9295a14cd46b749c80848c4d7c5"
+        "PEXELS_API_KEY": "M6Wgr4Zu9xjUcj7Y8Smr94wzjmlWtXhoPXC3Qw1zGFS9ID92WwqjAieP"
       }
     }
   },
