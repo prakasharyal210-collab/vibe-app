@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../lib/sendPush";
 
 const router = Router();
 
@@ -61,6 +62,19 @@ router.post("/", async (req, res) => {
     res.status(500).json({ error: error.message });
     return;
   }
+
+  // Send push to receiver (non-blocking)
+  void (async () => {
+    const { data: sender } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
+    const senderName = sender?.username ?? "Someone";
+    const preview = text.length > 60 ? text.slice(0, 57) + "…" : text;
+    void sendPushToUser(sb, receiverId, {
+      title: `@${senderName}`,
+      body: preview,
+      data: { type: "message", senderId },
+    }, "notif_messages");
+  })();
+
   res.json({ message: data });
 });
 

@@ -393,7 +393,7 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
 }
 
 // ─── Public StoryRow ─────────────────────────────────────────────────────────
-export function StoryRow({ stories }: { stories: Story[] }) {
+export function StoryRow({ stories, userId }: { stories: Story[]; userId?: string }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerStart, setViewerStart] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
@@ -435,6 +435,7 @@ export function StoryRow({ stories }: { stories: Story[] }) {
         visible={createOpen}
         onClose={() => setCreateOpen(false)}
         onPost={() => setCreateOpen(false)}
+        userId={userId}
       />
     </>
   );

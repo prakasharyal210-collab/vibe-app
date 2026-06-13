@@ -613,9 +613,11 @@ export default function SettingsScreen() {
   const [messagePermission, setMessagePermission] = useState("everyone");
   const [duetPermission, setDuetPermission] = useState("everyone");
   const [likedPrivate, setLikedPrivate] = useState(false);
+  const [notifPushEnabled, setNotifPushEnabled] = useState(true);
   const [notifLikes, setNotifLikes] = useState(true);
   const [notifComments, setNotifComments] = useState(true);
   const [notifFollows, setNotifFollows] = useState(true);
+  const [notifMessages, setNotifMessages] = useState(true);
   const [notifLive, setNotifLive] = useState(true);
   const [notifMentions, setNotifMentions] = useState(true);
   const [restrictedMode, setRestrictedMode] = useState(false);
@@ -655,9 +657,11 @@ export default function SettingsScreen() {
       setMessagePermission(s.message_permission);
       setDuetPermission(s.duet_permission);
       setLikedPrivate(s.liked_private);
+      setNotifPushEnabled(s.notif_push_enabled);
       setNotifLikes(s.notif_likes);
       setNotifComments(s.notif_comments);
       setNotifFollows(s.notif_follows);
+      setNotifMessages(s.notif_messages);
       setNotifLive(s.notif_live);
       setNotifMentions(s.notif_mentions);
     }).catch(() => {});
@@ -857,14 +861,26 @@ export default function SettingsScreen() {
           <SecLabel label="Notifications" />
           <Card>
             <Row icon="notifications-outline" iconBg="#8B5CF6" label="Push Notifications"
-              sub={[notifLikes && "Likes", notifComments && "Comments", notifFollows && "Follows"].filter(Boolean).join(" · ") || "All off"}
+              sub={!notifPushEnabled ? "All off" : [notifLikes && "Likes", notifComments && "Comments", notifFollows && "Follows", notifMessages && "Messages"].filter(Boolean).join(" · ") || "All categories off"}
+              rightEl={
+                <Switch
+                  value={notifPushEnabled}
+                  onValueChange={(v) => { setNotifPushEnabled(v); persistSetting({ notif_push_enabled: v }); showToast(v ? "Push notifications on ✅" : "Push notifications off"); }}
+                  trackColor={{ false: "#3F3F46", true: "#7C3AED" }}
+                  thumbColor="#fff"
+                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                />
+              }
               onPress={() => {
+                if (!notifPushEnabled) { showToast("Enable push notifications first"); return; }
                 Alert.alert(
-                  "Push Notifications",
-                  "Manage which push notifications you receive.",
+                  "Push Notification Categories",
+                  "Choose which events send a push.",
                   [
-                    { text: "Likes", onPress: () => { const v = !notifLikes; setNotifLikes(v); persistSetting({ notif_likes: v }); showToast(v ? "Likes notifications on ✅" : "Likes notifications off"); } },
-                    { text: "Comments", onPress: () => { const v = !notifComments; setNotifComments(v); persistSetting({ notif_comments: v }); showToast(v ? "Comments notifications on ✅" : "Comments notifications off"); } },
+                    { text: `${notifLikes ? "✅" : "⬜"} Likes`, onPress: () => { const v = !notifLikes; setNotifLikes(v); persistSetting({ notif_likes: v }); showToast(v ? "Likes on ✅" : "Likes off"); } },
+                    { text: `${notifComments ? "✅" : "⬜"} Comments`, onPress: () => { const v = !notifComments; setNotifComments(v); persistSetting({ notif_comments: v }); showToast(v ? "Comments on ✅" : "Comments off"); } },
+                    { text: `${notifFollows ? "✅" : "⬜"} New Followers`, onPress: () => { const v = !notifFollows; setNotifFollows(v); persistSetting({ notif_follows: v }); showToast(v ? "Followers on ✅" : "Followers off"); } },
+                    { text: `${notifMessages ? "✅" : "⬜"} Messages`, onPress: () => { const v = !notifMessages; setNotifMessages(v); persistSetting({ notif_messages: v }); showToast(v ? "Messages on ✅" : "Messages off"); } },
                     { text: "Done", style: "cancel" },
                   ]
                 );

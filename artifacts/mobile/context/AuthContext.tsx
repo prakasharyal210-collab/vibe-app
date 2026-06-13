@@ -3,6 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { ensureUserSetup } from "@/lib/db";
+import { registerForPushNotificationsAsync } from "@/lib/pushNotifications";
 
 interface AuthContextType {
   session: Session | null;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const u = session.user;
         const username = u.user_metadata?.username ?? u.email?.split("@")[0] ?? "user";
         ensureUserSetup(u.id, username, u.email ?? undefined).catch(() => {});
+        registerForPushNotificationsAsync(u.id).catch(() => {});
       }
     });
 

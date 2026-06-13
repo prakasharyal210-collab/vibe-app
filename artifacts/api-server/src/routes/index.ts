@@ -15,6 +15,8 @@ import usersNotificationsRouter from "./users/notifications";
 import engageRouter from "./engage";
 import messagesRouter from "./messages";
 import usersSetupRouter from "./users/setup";
+import moderationRouter from "./moderation";
+import storiesRouter from "./stories";
 
 const router: IRouter = Router();
 
@@ -34,5 +36,7 @@ router.use("/users/notifications", usersNotificationsRouter);
 router.use("/engage", engageRouter);
 router.use("/messages", messagesRouter);
 router.use("/users", usersSetupRouter);
+router.use("/moderation", moderationRouter);
+router.use("/stories", storiesRouter);
 
 export default router;

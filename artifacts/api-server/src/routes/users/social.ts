@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../../lib/sendPush";
 
 const router = Router();
 
@@ -54,20 +55,25 @@ router.post("/follow", async (req, res) => {
       return;
     }
 
-    // Write a "follow" notification to the person being followed.
-    // Runs async — don't let it block or fail the response.
-    sb.from("notifications")
-      .insert({
+    // Write a "follow" notification + push (non-blocking)
+    void (async () => {
+      const { error: ne } = await sb.from("notifications").insert({
         user_id: followingId,
         actor_id: followerId,
         type: "follow",
         message: "started following you",
         read: false,
-      })
-      .then(({ error: ne }) => {
-        if (ne) req.log.warn({ error: ne.message }, "follow notif insert failed");
-      })
-      .catch(() => {});
+      });
+      if (ne) req.log.warn({ error: ne.message }, "follow notif insert failed");
+      // Look up actor username for push body
+      const { data: actor } = await sb.from("profiles").select("username").eq("id", followerId).maybeSingle();
+      const actorName = actor?.username ?? "Someone";
+      void sendPushToUser(sb, followingId, {
+        title: "New Follower",
+        body: `@${actorName} started following you`,
+        data: { type: "follow", actorId: followerId },
+      }, "notif_follows");
+    })();
 
     res.json({ ok: true });
   } catch (err: any) {
@@ -342,9 +348,20 @@ router.post("/toggle-follow", async (req, res) => {
         { onConflict: "follower_id,following_id" }
       );
       // Send follow notification (non-blocking)
-      void sb.from("notifications")
-        .insert({ user_id: followingId, actor_id: followerId, type: "follow", message: "started following you", read: false })
-        .then(({ error: ne }) => { if (ne) req.log.warn({ error: ne.message }, "follow notif failed"); });
+      void (async () => {
+        const { error: ne } = await sb.from("notifications").insert({
+          user_id: followingId, actor_id: followerId, type: "follow",
+          message: "started following you", read: false,
+        });
+        if (ne) req.log.warn({ error: ne.message }, "follow notif failed");
+        const { data: actor } = await sb.from("profiles").select("username").eq("id", followerId).maybeSingle();
+        const actorName = actor?.username ?? "Someone";
+        void sendPushToUser(sb, followingId, {
+          title: "New Follower",
+          body: `@${actorName} started following you`,
+          data: { type: "follow", actorId: followerId },
+        }, "notif_follows");
+      })();
       res.json({ isFollowing: true });
     }
   } catch (err: any) {

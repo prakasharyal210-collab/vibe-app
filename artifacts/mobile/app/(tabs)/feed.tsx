@@ -300,7 +300,7 @@ function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts:
   );
 }
 
-function FriendsStoriesBar({ stories, colors }: { stories: StoryEntry[]; colors: any }) {
+function FriendsStoriesBar({ stories, colors, userId }: { stories: StoryEntry[]; colors: any; userId?: string }) {
   return (
     <View style={{ backgroundColor: colors.background }}>
       <View style={storiesBarStyles.header}>
@@ -723,7 +723,7 @@ export default function FeedScreen() {
                     return (
                       <>
                         {tab.id === "friends" && friendStories.length > 0 && (
-                          <FriendsStoriesBar stories={friendStories} colors={colors} />
+                          <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />
                         )}
                         <TrendingGrid
                           posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
@@ -734,7 +734,7 @@ export default function FeedScreen() {
                     );
                   }
                   if (tab.id === "friends") {
-                    return <FriendsStoriesBar stories={friendStories} colors={colors} />;
+                    return <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />;
                   }
                   if (tab.id === "foryou") {
                     // Always show Pexels curated content — above user posts when they exist,

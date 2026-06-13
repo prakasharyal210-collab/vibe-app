@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { StoryInteractionSheet, InteractionConfig } from "@/components/StoryInteractionSheet";
+import { createStory } from "@/lib/db";
 
 const { width: W, height: H } = Dimensions.get("window");
 
@@ -39,9 +40,10 @@ interface CreateStorySheetProps {
   visible: boolean;
   onClose: () => void;
   onPost?: () => void;
+  userId?: string;
 }
 
-function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () => void }) {
+function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: (opts: { textContent: string; bgGradient: string }) => void }) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState("");
   const [bgIdx, setBgIdx] = useState(0);
@@ -59,7 +61,7 @@ function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () 
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onPost();
+    onPost({ textContent: text, bgGradient: gradient.join(",") });
   };
 
   const topPad = Platform.OS === "web" ? 20 : insets.top + 8;
@@ -157,11 +159,12 @@ function TextStoryEditor({ onClose, onPost }: { onClose: () => void; onPost: () 
   );
 }
 
-export function CreateStorySheet({ visible, onClose, onPost }: CreateStorySheetProps) {
+export function CreateStorySheet({ visible, onClose, onPost, userId }: CreateStorySheetProps) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<Mode>("sheet");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [pendingStory, setPendingStory] = useState<{ textContent?: string; bgGradient?: string } | null>(null);
 
   const botPad = Platform.OS === "web" ? 24 : insets.bottom + 16;
 
@@ -184,9 +187,13 @@ export function CreateStorySheet({ visible, onClose, onPost }: CreateStorySheetP
     ]);
   };
 
-  const handlePost = () => {
+  const handlePost = (storyOpts?: { textContent?: string; bgGradient?: string }) => {
     setMode("sheet");
     setShowSuccess(true);
+    if (userId && storyOpts) {
+      createStory({ userId, storyType: "text", ...storyOpts }).catch(() => null);
+    }
+    setPendingStory(null);
     setTimeout(() => {
       setShowSuccess(false);
       onPost?.();
@@ -196,6 +203,7 @@ export function CreateStorySheet({ visible, onClose, onPost }: CreateStorySheetP
 
   const handleClose = () => {
     setMode("sheet");
+    setPendingStory(null);
     onClose();
   };
 

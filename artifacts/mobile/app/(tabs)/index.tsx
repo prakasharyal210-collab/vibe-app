@@ -10,6 +10,7 @@ import React, {
   useState,
 } from "react";
 import {
+  Alert,
   Dimensions,
   FlatList,
   Modal,
@@ -43,7 +44,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
-import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost, logWatchEvent } from "@/lib/db";
+import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads";
 
@@ -166,6 +167,9 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const [paused, setPaused] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [slowMo, setSlowMo] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showReportReasons, setShowReportReasons] = useState(false);
+  const [reporting, setReporting] = useState<string | null>(null);
 
   // animations
   const progress = useSharedValue(0);
@@ -403,7 +407,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         </TouchableOpacity>
 
         {/* More ··· */}
-        <TouchableOpacity style={S.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity style={S.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={() => setShowMoreMenu(true)}>
           <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
         </TouchableOpacity>
 
@@ -479,6 +483,57 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         contentType="reel"
         username={reel.username}
       />
+
+      {/* ── More / Report sheet ─────────────────────────────────────────── */}
+      <Modal visible={showMoreMenu} transparent animationType="slide" onRequestClose={() => setShowMoreMenu(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)" }} activeOpacity={1} onPress={() => { setShowMoreMenu(false); setShowReportReasons(false); }} />
+        <View style={{ backgroundColor: "#1A0A2E", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: Platform.OS === "ios" ? insets.bottom + 16 : 24 }}>
+          <View style={{ width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 2, alignSelf: "center", marginBottom: 16 }} />
+          {!showReportReasons ? (
+            <>
+              {[
+                { icon: "flag-outline" as const, label: "Report Reel", color: "#EF4444", onPress: () => setShowReportReasons(true) },
+                { icon: "person-remove-outline" as const, label: `Block @${reel.username}`, color: "#EF4444", onPress: () => {
+                  setShowMoreMenu(false);
+                  router.push(`/profile/${reel.username}` as any);
+                }},
+                { icon: "eye-off-outline" as const, label: "Not Interested", color: "#fff", onPress: () => { setShowMoreMenu(false); } },
+              ].map((item, i) => (
+                <TouchableOpacity key={i} onPress={item.onPress} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+                  <Ionicons name={item.icon} size={20} color={item.color} style={{ marginRight: 14 }} />
+                  <Text style={{ color: item.color, fontSize: 15, fontFamily: "Poppins_500Medium" }}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => setShowMoreMenu(false)} style={{ alignItems: "center", paddingTop: 14 }}>
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontFamily: "Poppins_500Medium" }}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={{ color: "#fff", fontSize: 16, fontFamily: "Poppins_600SemiBold", marginBottom: 12 }}>Why are you reporting this?</Text>
+              {["Spam", "Harassment", "Nudity or sexual content", "Violence", "Misinformation", "Other"].map((reason) => (
+                <TouchableOpacity key={reason} disabled={!!reporting} onPress={async () => {
+                  if (!userId) return;
+                  setReporting(reason);
+                  try {
+                    await reportContent(userId, reel.id, "reel", reason);
+                    setShowMoreMenu(false);
+                    setShowReportReasons(false);
+                    Alert.alert("Reported ✅", "Thanks for letting us know. We'll review this content.");
+                  } catch { Alert.alert("Error", "Could not submit. Try again."); }
+                  finally { setReporting(null); }
+                }} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)", opacity: reporting === reason ? 0.5 : 1 }}>
+                  <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.4)" style={{ marginRight: 12 }} />
+                  <Text style={{ color: "#fff", fontSize: 14, fontFamily: "Poppins_400Regular" }}>{reporting === reason ? "Submitting…" : reason}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity onPress={() => setShowReportReasons(false)} style={{ alignItems: "center", paddingTop: 14 }}>
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 15, fontFamily: "Poppins_500Medium" }}>Back</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </Modal>
     </Pressable>
   );
 }

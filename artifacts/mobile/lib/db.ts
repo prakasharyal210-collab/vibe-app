@@ -74,6 +74,9 @@ export async function addComment(
   userId: string,
   text: string,
 ): Promise<Comment | null> {
+  const { checkProfanity } = await import("./profanityFilter");
+  const check = checkProfanity(text);
+  if (!check.ok) throw new Error(check.reason);
   try {
     const { data, error } = await supabase
       .from("comments")
@@ -81,7 +84,9 @@ export async function addComment(
       .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
       .single();
     if (!error && data) return data as unknown as Comment;
-  } catch {}
+  } catch (err: any) {
+    if (err?.message?.includes("guidelines")) throw err;
+  }
   return null;
 }
 
@@ -109,6 +114,9 @@ export async function addReelComment(
   userId: string,
   text: string,
 ): Promise<Comment | null> {
+  const { checkProfanity } = await import("./profanityFilter");
+  const check = checkProfanity(text);
+  if (!check.ok) throw new Error(check.reason);
   try {
     const { data: rpcData } = await supabase.rpc("add_reel_comment", {
       p_user_id: userId,
@@ -116,7 +124,9 @@ export async function addReelComment(
       p_content: text,
     });
     if (rpcData) return rpcData as Comment;
-  } catch {}
+  } catch (err: any) {
+    if (err?.message?.includes("guidelines")) throw err;
+  }
   try {
     const { data, error } = await supabase
       .from("reel_comments")
@@ -444,9 +454,11 @@ export interface UserSettings {
   message_permission: "everyone" | "friends" | "matches" | "nobody";
   duet_permission: "everyone" | "friends" | "nobody";
   liked_private: boolean;
+  notif_push_enabled: boolean;
   notif_likes: boolean;
   notif_comments: boolean;
   notif_follows: boolean;
+  notif_messages: boolean;
   notif_live: boolean;
   notif_mentions: boolean;
   selected_theme?: string;
@@ -458,9 +470,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   message_permission: "everyone",
   duet_permission: "everyone",
   liked_private: false,
+  notif_push_enabled: true,
   notif_likes: true,
   notif_comments: true,
   notif_follows: true,
+  notif_messages: true,
   notif_live: true,
   notif_mentions: true,
   selected_theme: "classic",
@@ -785,11 +799,11 @@ export async function fetchFriendStories(myUserId: string): Promise<StoryEntry[]
 
     // Find mutual followers (people I follow AND who follow me back)
     const [{ data: followingData }, { data: followersData }] = await Promise.all([
-      supabase.from("follows").select("followed_id").eq("follower_id", myUserId),
-      supabase.from("follows").select("follower_id").eq("followed_id", myUserId),
+      supabase.from("follows").select("following_id").eq("follower_id", myUserId),
+      supabase.from("follows").select("follower_id").eq("following_id", myUserId),
     ]);
 
-    const followingSet = new Set((followingData ?? []).map((f: any) => f.followed_id));
+    const followingSet = new Set((followingData ?? []).map((f: any) => f.following_id));
     const mutualIds = (followersData ?? [])
       .map((f: any) => f.follower_id)
       .filter((id: string) => followingSet.has(id));
@@ -1815,35 +1829,43 @@ export async function getOrCreateConversation(userId: string, otherId: string): 
 
 export async function blockUser(myId: string, theirId: string): Promise<void> {
   try {
-    await supabase.rpc("block_user", { p_blocker_id: myId, p_blocked_id: theirId });
-  } catch {}
-  try {
-    await supabase.from("blocks").upsert({ blocker_id: myId, blocked_id: theirId }, { onConflict: "blocker_id,blocked_id" });
-    await supabase.from("follows").delete().or(`and(follower_id.eq.${myId},following_id.eq.${theirId}),and(follower_id.eq.${theirId},following_id.eq.${myId})`);
-    await supabase.from("vibe_matches").delete().or(`and(user_id.eq.${myId},matched_user_id.eq.${theirId}),and(user_id.eq.${theirId},matched_user_id.eq.${myId})`);
+    await fetch(`${API_BASE}/moderation/block`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blockerId: myId, blockedId: theirId }),
+    });
   } catch {}
 }
 
 export async function unblockUser(myId: string, theirId: string): Promise<void> {
   try {
-    await supabase.rpc("unblock_user", { p_blocker_id: myId, p_blocked_id: theirId });
-  } catch {}
-  try {
-    await supabase.from("blocks").delete().eq("blocker_id", myId).eq("blocked_id", theirId);
+    await fetch(`${API_BASE}/moderation/block`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ blockerId: myId, blockedId: theirId }),
+    });
   } catch {}
 }
 
 export async function reportContent(
   myId: string,
   contentId: string,
-  contentType: "user" | "post" | "comment" | "story",
+  contentType: "user" | "post" | "comment" | "story" | "reel",
   reason: string,
+  details?: string,
 ): Promise<void> {
   try {
-    await supabase.rpc("report_content", { p_reporter_id: myId, p_content_id: contentId, p_content_type: contentType, p_reason: reason });
-  } catch {}
-  try {
-    await supabase.from("content_reports").insert({ reporter_id: myId, content_id: contentId, content_type: contentType, reason });
+    await fetch(`${API_BASE}/moderation/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reporterId: myId,
+        targetType: contentType === "story" ? "post" : contentType,
+        targetId: contentId,
+        reason,
+        details,
+      }),
+    });
   } catch {}
 }
 
@@ -2401,4 +2423,35 @@ export async function saveVibeScore(
       { onConflict: 'user_id,target_id' },
     );
   } catch {}
+}
+
+// ─── Stories ─────────────────────────────────────────────────────────────────
+
+export async function createStory(opts: {
+  userId: string;
+  mediaUrl?: string;
+  caption?: string;
+  bgGradient?: string;
+  textContent?: string;
+  storyType?: "text" | "image" | "video";
+}): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/stories`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: opts.userId,
+        mediaUrl: opts.mediaUrl,
+        caption: opts.caption,
+        bgGradient: opts.bgGradient,
+        textContent: opts.textContent,
+        storyType: opts.storyType ?? "text",
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { id: string };
+    return data.id;
+  } catch {
+    return null;
+  }
 }

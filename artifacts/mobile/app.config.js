@@ -20,6 +20,12 @@ module.exports = {
       ["expo-build-properties", {
         android: { minSdkVersion: 26 },
       }],
+      ["expo-notifications", {
+        icon: "./assets/images/notification-icon.png",
+        color: "#7C3AED",
+        defaultChannel: "default",
+        sounds: [],
+      }],
       // Always runs — adds/removes @banuba/react-native from expo.autolinking.exclude
       // so expo-modules-autolinking skips the native Gradle subproject when disabled.
       "./plugins/withBanubaAutolink",

@@ -1,0 +1,31 @@
+
+Implement the following missing features for Gundruk, prioritized by impact. Implement incrementally and report after each major item before proceeding:
+1. Push Notifications (HIGHEST PRIORITY)
+
+Integrate expo-notifications for push notifications
+On login, register the device's push token and store it in a new profiles.push_token column (or separate device_tokens table for multi-device support)
+Send push notifications for: new follower, new like on your post/reel, new comment, new message, mention/tag in a post
+Create a server-side function (in the API server) that sends pushes via Expo's push notification service (https://exp.host/--/api/v2/push/send) — triggered whenever a row is inserted into notifications table
+Respect app state: don't send push if the user currently has the relevant screen open (optional refinement, can defer)
+Add a notification settings screen (toggle push on/off, per-category: likes/comments/follows/messages)
+
+2. Content Moderation & Safety
+
+Add a "Report" option (post, reel, comment, user profile) — opens a reason picker (Spam, Harassment, Nudity, Violence, Misinformation, Other) → inserts into a new reports table (id, reporter_id, target_type, target_id, reason, details, status, created_at)
+Add a "Block User" feature — inserts into a blocked_users table (blocker_id, blocked_id). Blocked users: can't see each other's content, can't message, don't appear in search for the blocker
+Basic profanity filter on captions/comments/bio — check against a wordlist before posting; reject or flag for review (keep it simple, not AI-based for v1)
+Add an admin-only view (just a protected screen or direct DB query for now, accessible only to your account) to review pending reports
+
+3. Stories (24h Ephemeral Content)
+
+Check if this was ever built (search: grep -rln "stories\|Story" app/ --include="*.tsx" -i)
+If NOT built: add Stories feature — circular avatars at top of Feed showing users with active stories, tap to view full-screen, auto-advances, 24h expiry (either a expires_at column + cron cleanup, or filter created_at > now() - interval '24 hours' in queries)
+Stories support photo/video, basic text overlay (reuse existing text tool from Reels creation if possible)
+
+4. Async Counter Integrity (engagement counts)
+
+Replace any client-side increment/decrement of likes_count, comments_count, followers_count etc. with database triggers that automatically update these on INSERT/DELETE to the underlying tables (likes, comments, follows)
+This prevents race conditions/drift (similar to the stats drift bug fixed earlier) — counts become self-maintaining at the DB level, no app code needs to manually increment anything
+
+Order of implementation: #1 (push notifications) first — highest engagement impact. Then #4 (counter triggers — prevents future drift bugs, relatively quick). Then #2 (moderation/safety — important before wider launch). Then #3 (Stories — bigger feature, can be last).
+Report after #1 is complete before proceeding.

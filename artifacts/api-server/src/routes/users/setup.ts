@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../../lib/sendPush";
 
 const router = Router();
 
@@ -58,6 +59,24 @@ router.post("/setup", async (req, res) => {
   }
 
   res.json({ ok: true });
+});
+
+// POST /api/users/push-token
+// Store (or update) a device's Expo push token for the given user.
+router.post("/push-token", async (req, res) => {
+  const { userId, token } = req.body as { userId?: string; token?: string };
+  if (!userId || !token) {
+    res.status(400).json({ error: "userId and token required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb.from("profiles").update({ push_token: token }).eq("id", userId);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "push-token save error");
+    res.status(500).json({ error: "Failed to save token" });
+  }
 });
 
 export default router;
