@@ -1,4 +1,4 @@
-import { readAsStringAsync, EncodingType as FSEncodingType } from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system';
 import {
   MOCK_COMMENTS,
   MOCK_CONVERSATIONS,
@@ -15,14 +15,10 @@ import {
   supabase,
 } from "./supabase";
 
-// Read a local file URI into a Uint8Array reliably on Android & iOS.
+// Read a local file URI as base64 string reliably on Android & iOS.
 // fetch(uri) can hang indefinitely on Android content:// URIs.
-async function localUriToBytes(uri: string): Promise<Uint8Array> {
-  const b64 = await readAsStringAsync(uri, { encoding: FSEncodingType.Base64 });
-  const raw = atob(b64);
-  const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-  return bytes;
+async function localUriToBase64(uri: string): Promise<string> {
+  return readAsStringAsync(uri, { encoding: 'base64' as any });
 }
 
 // Race any promise against a timeout so uploads never hang forever.
@@ -1333,6 +1329,8 @@ export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem
   return [...pinned, ...rest];
 }
 
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
 export async function uploadPostMedia(
   userId: string,
   uri: string,
@@ -1348,81 +1346,33 @@ export async function uploadPostMedia(
     const cleanUri = uri.split('?')[0];
     const ext = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
     const mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
-    const filename = `${userId}/${Date.now()}.${ext}`;
 
-    let mediaUrl = uri;
+    // Read file as base64 for upload
+    let imageBase64: string | undefined;
     try {
-      const bytes = await withTimeout(localUriToBytes(uri), 15_000, 'file read');
-      const { error: upErr } = await withTimeout(
-        supabase.storage.from('posts').upload(filename, bytes, { contentType: mimeType, upsert: true }),
-        30_000,
-        'storage upload'
-      );
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from('posts').getPublicUrl(filename);
-        mediaUrl = urlData.publicUrl;
-      } else {
-        console.log('Storage upload error:', upErr.message);
-      }
-    } catch (storageErr) {
-      console.log('Storage upload failed (using local URI):', storageErr);
+      imageBase64 = await withTimeout(localUriToBase64(uri), 20_000, 'file read');
+    } catch (readErr) {
+      console.log('File read failed (posting without image):', readErr);
     }
 
-    // Build insert payload — write both media_url and image_url for compatibility
-    const fullPayload: Record<string, unknown> = {
-      user_id: userId,
-      media_url: mediaUrl,
-      image_url: mediaUrl,
-      caption,
-      likes_count: 0,
-      comments_count: 0,
-      views_count: 0,
-      created_at: new Date().toISOString(),
-    };
-    if (options?.location) fullPayload.location = options.location;
-    if (options?.commentsEnabled !== undefined) fullPayload.comments_enabled = options.commentsEnabled;
-    if (options?.downloadsEnabled !== undefined) fullPayload.downloads_enabled = options.downloadsEnabled;
-
-    let { data, error } = await withTimeout(
-      supabase.from('posts').insert(fullPayload).select('id').single(),
-      15_000,
-      'post insert'
+    // Send to API server — service role key handles storage + DB insert, bypassing RLS
+    const res = await withTimeout(
+      fetch(`${API_BASE}/posts/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, imageBase64, mimeType, ext, caption, options }),
+      }),
+      60_000,
+      'post create API'
     );
 
-    // If schema doesn't have image_url column yet, fall back to media_url-only insert
-    if (error) {
-      console.log('Post insert (full) error:', error.message, '— retrying minimal insert');
-      const minimalPayload = {
-        user_id: userId,
-        media_url: mediaUrl,
-        caption,
-        likes_count: 0,
-        comments_count: 0,
-        views_count: 0,
-        created_at: new Date().toISOString(),
-      };
-      ({ data, error } = await withTimeout(
-        supabase.from('posts').insert(minimalPayload).select('id').single(),
-        15_000,
-        'post insert (minimal)'
-      ));
+    if (!res.ok) {
+      const errText = await res.text().catch(() => 'unknown');
+      throw new Error(`Post create API ${res.status}: ${errText}`);
     }
 
-    if (error) {
-      console.log('Post insert error:', error.message);
-      throw new Error(`Failed to save post: ${error.message}`);
-    }
-
-    const postId = (data as any).id;
-
-    // Save tagged users to post_tags — silently ignore if table doesn't exist yet
-    if (options?.taggedUsers?.length) {
-      supabase.from('post_tags').insert(
-        options.taggedUsers.map((uid) => ({ post_id: postId, tagged_user_id: uid, tagged_by: userId }))
-      ).then(() => {}, () => {});
-    }
-
-    return { id: postId, mediaUrl };
+    const result = await res.json() as { id: string; mediaUrl: string };
+    return result;
   } catch (err) {
     console.log('uploadPostMedia error:', err);
     return null;
@@ -1439,47 +1389,33 @@ export async function uploadReelMedia(
     const cleanUri = uri.split('?')[0];
     const ext = (cleanUri.split('.').pop() ?? 'mp4').toLowerCase();
     const mimeType = ext === 'mov' ? 'video/quicktime' : ext === 'webm' ? 'video/webm' : 'video/mp4';
-    const filename = `${userId}/${Date.now()}.${ext}`;
 
-    let videoUrl = uri;
+    // Read video as base64 for upload
+    let videoBase64: string | undefined;
     try {
-      const bytes = await withTimeout(localUriToBytes(uri), 20_000, 'reel file read');
-      const { error: upErr } = await withTimeout(
-        supabase.storage.from('reels').upload(filename, bytes, { contentType: mimeType, upsert: true }),
-        60_000,
-        'reel storage upload'
-      );
-      if (!upErr) {
-        const { data: urlData } = supabase.storage.from('reels').getPublicUrl(filename);
-        videoUrl = urlData.publicUrl;
-      } else {
-        console.log('Reel storage upload error:', upErr.message);
-      }
-    } catch (storageErr) {
-      console.log('Reel storage upload failed (using local URI):', storageErr);
+      videoBase64 = await withTimeout(localUriToBase64(uri), 30_000, 'reel file read');
+    } catch (readErr) {
+      console.log('Reel file read failed (posting without video):', readErr);
     }
 
-    const { data, error } = await supabase
-      .from('reels')
-      .insert({
-        user_id: userId,
-        video_url: videoUrl,
-        caption,
-        hashtags: extractHashtags(caption),
-        duration,
-        is_public: true,
-        likes_count: 0,
-        comments_count: 0,
-        views_count: 0,
-        created_at: new Date().toISOString(),
-      })
-      .select('id')
-      .single();
-    if (error) {
-      console.log('Reel insert error:', error.message);
-      return null;
+    // Send to API server — service role key handles storage + DB insert, bypassing RLS
+    const res = await withTimeout(
+      fetch(`${API_BASE}/reels/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, videoBase64, mimeType, ext, caption, duration }),
+      }),
+      120_000,
+      'reel create API'
+    );
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => 'unknown');
+      throw new Error(`Reel create API ${res.status}: ${errText}`);
     }
-    return { id: (data as any).id, videoUrl };
+
+    const result = await res.json() as { id: string; videoUrl: string };
+    return result;
   } catch (err) {
     console.log('uploadReelMedia error:', err);
     return null;
