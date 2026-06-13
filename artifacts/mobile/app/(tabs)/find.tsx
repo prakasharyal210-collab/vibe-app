@@ -56,7 +56,6 @@ import {
   saveGundrukProfile,
   saveUserGoals,
   sendVibeRequest,
-  updateVibePreferences,
   updateVibeScore,
   VibeMatchProfile,
   VibePrefsRow,
@@ -67,7 +66,6 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { SpeedVibeModal } from "@/components/SpeedVibeModal";
 import { VibeRoomsTab } from "@/components/VibeRoomsTab";
 import { JyotishaTab } from "@/components/JyotishaTab";
-import { VibeSetupWizard, VibePreferences } from "@/components/VibeSetupWizard";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
@@ -213,39 +211,6 @@ const modeStyles = StyleSheet.create({
   saveText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
 });
 
-// ── Setup timing helpers ────────────────────────────────────────────────────
-const SETUP_INTERVAL_DAYS = 365;
-const BANNER_SNOOZE_DAYS = 7;
-
-// Key: 'vibe_setup_done_<userId>' — stores ISO timestamp when setup was last completed/skipped
-async function shouldShowSetup(userId: string): Promise<{ show: boolean; daysSince: number }> {
-  try {
-    const stored = await AsyncStorage.getItem(`vibe_setup_done_${userId}`);
-    if (!stored) return { show: true, daysSince: -1 };
-    const daysSince = Math.floor((Date.now() - new Date(stored).getTime()) / 86_400_000);
-    return { show: daysSince >= SETUP_INTERVAL_DAYS, daysSince };
-  } catch {
-    return { show: true, daysSince: -1 };
-  }
-}
-
-async function markSetupComplete(userId: string): Promise<void> {
-  const now = new Date().toISOString();
-  await AsyncStorage.setItem(`vibe_setup_done_${userId}`, now).catch(() => {});
-  void supabase.from("user_settings").upsert({ user_id: userId, vibe_setup_last_shown: now, vibe_setup_completed_count: 1 });
-}
-
-async function isBannerSnoozed(userId: string): Promise<boolean> {
-  try {
-    const until = await AsyncStorage.getItem(`vibe_banner_snooze:${userId}`);
-    return !!until && new Date(until) > new Date();
-  } catch { return false; }
-}
-
-async function snoozeBanner(userId: string): Promise<void> {
-  const until = new Date(Date.now() + BANNER_SNOOZE_DAYS * 86_400_000).toISOString();
-  await AsyncStorage.setItem(`vibe_banner_snooze:${userId}`, until).catch(() => {});
-}
 
 const { width: W, height: H } = Dimensions.get("window");
 const SWIPE_THRESHOLD = W * 0.3;
@@ -2033,11 +1998,6 @@ function FindVibeContent() {
   const [showSpeedVibe, setShowSpeedVibe] = useState(false);
   const [showModeSheet, setShowModeSheet] = useState(false);
   const [vibePrivacy, setVibePrivacy] = useState("everyone");
-  const [showSetup, setShowSetup] = useState(false);
-  const [isReturningUser, setIsReturningUser] = useState(false);
-  const [initialWizardPrefs, setInitialWizardPrefs] = useState<VibePreferences | undefined>(undefined);
-  const [showUpdateBanner, setShowUpdateBanner] = useState(false);
-  const [updateBannerDays, setUpdateBannerDays] = useState(0);
   const [goalSheet, setGoalSheet] = useState<string | null>(null);
   const [vibePrefs, setVibePrefs] = useState<VibePrefsRow | null>(null);
   const [nearbyCards, setNearbyCards] = useState<VibeCard[]>([]);
@@ -2080,24 +2040,6 @@ function FindVibeContent() {
         // Always load cards first — wizard is never blocking
         loadCards(userId, prefs);
 
-        // Check 60-day timing (uses vibe_setup_done_<userId> key)
-        const { show, daysSince } = await shouldShowSetup(userId);
-
-        if (!show) return; // Completed/skipped within last 60 days — do nothing
-
-        if (!prefs?.gender) {
-          // First-time user — show wizard once; cards already loading above
-          setIsReturningUser(false);
-          setInitialWizardPrefs(undefined);
-          setShowSetup(true);
-        } else {
-          // Has prefs but 60+ days passed — show gentle banner, non-blocking
-          const snoozed = await isBannerSnoozed(userId);
-          if (!snoozed) {
-            setUpdateBannerDays(daysSince);
-            setShowUpdateBanner(true);
-          }
-        }
       } catch (err) {
         console.log("FindVibe init error:", err);
         // Don't crash — just show content with empty cards
@@ -2165,54 +2107,6 @@ function FindVibeContent() {
     }
   };
 
-  const handleSetupComplete = async (prefs: VibePreferences) => {
-    setShowSetup(false);
-    setShowUpdateBanner(false);
-    if (userId) {
-      await updateVibePreferences(userId, prefs).catch(() => {});
-      await markSetupComplete(userId);
-      if (prefs.goals?.length) {
-        setMyGoals(prefs.goals);
-        saveUserGoals(userId, prefs.goals).catch(() => {});
-      }
-      const row: VibePrefsRow = {
-        gender: prefs.gender,
-        interested_in: prefs.interestedIn,
-        looking_for: prefs.lookingFor,
-        age: prefs.age,
-        age_min: prefs.ageMin,
-        age_max: prefs.ageMax,
-        max_distance_km: prefs.maxDistance,
-      };
-      setVibePrefs(row);
-      loadCards(userId, row);
-    }
-  };
-
-  const handleOpenUpdateWizard = () => {
-    setShowUpdateBanner(false);
-    setIsReturningUser(true);
-    if (vibePrefs) {
-      setInitialWizardPrefs({
-        gender: vibePrefs.gender ?? "",
-        interestedIn: Array.isArray(vibePrefs.interested_in)
-          ? vibePrefs.interested_in
-          : vibePrefs.interested_in ? [vibePrefs.interested_in] : [],
-        goals: myGoals,
-        lookingFor: vibePrefs.looking_for ?? "",
-        age: vibePrefs.age ?? 25,
-        ageMin: vibePrefs.age_min ?? 18,
-        ageMax: vibePrefs.age_max ?? 35,
-        maxDistance: vibePrefs.max_distance_km ?? 25,
-      });
-    }
-    setShowSetup(true);
-  };
-
-  const handleDismissBanner = async () => {
-    setShowUpdateBanner(false);
-    if (userId) await snoozeBanner(userId);
-  };
 
   const handleGoalTap = (goalValue: string) => {
     setGoalSheet(goalValue);
@@ -2334,20 +2228,6 @@ function FindVibeContent() {
         </TouchableOpacity>
       )}
 
-      {showUpdateBanner && (
-        <TouchableOpacity onPress={handleOpenUpdateWizard} activeOpacity={0.85} style={styles.updateBanner}>
-          <LinearGradient colors={["rgba(124,58,237,0.18)", "rgba(249,115,22,0.12)"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.updateBannerGrad}>
-            <Text style={styles.updateBannerEmoji}>📝</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.updateBannerTitle}>Update your preferences?</Text>
-              <Text style={styles.updateBannerSub}>Last updated {updateBannerDays} days ago</Text>
-            </View>
-            <TouchableOpacity onPress={handleDismissBanner} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.updateBannerClose}>
-              <Ionicons name="close" size={16} color="rgba(255,255,255,0.45)" />
-            </TouchableOpacity>
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
 
       {/* ── Scrollable pill tab bar ── */}
       <ScrollView
@@ -2505,21 +2385,8 @@ function FindVibeContent() {
         userId={userId}
         onClose={() => setGoalSheet(null)}
       />
-      <VibeSetupWizard
-        visible={showSetup}
-        onComplete={handleSetupComplete}
-        onSkip={() => {
-          setShowSetup(false);
-          setShowUpdateBanner(false);
-          // Save key so wizard doesn't re-appear for 60 days
-          if (userId) void markSetupComplete(userId);
-        }}
-        isReturning={isReturningUser}
-        initialPrefs={initialWizardPrefs}
-        lastUpdatedLabel={updateBannerDays > 0 ? `Last updated ${updateBannerDays} days ago` : undefined}
-      />
       <ModeSelectionSheet
-        visible={showModeSheet && !showSetup}
+        visible={showModeSheet}
         userId={userId ?? ""}
         onSave={() => setShowModeSheet(false)}
       />
