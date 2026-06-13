@@ -1,7 +1,8 @@
 // Babel presets execute in REVERSE array order.
 // So: babel-preset-expo runs FIRST (strips TS/Flow, transforms JSX, etc.)
 // Then classTransformPreset runs SECOND on clean JS.
-// This avoids ordering conflicts between TypeScript stripping and class transforms.
+// react-native-reanimated/plugin must run LAST — it is the final plugin
+// inside classTransformPreset so it executes after all other transforms.
 const classTransformPreset = function () {
   return {
     plugins: [
@@ -20,6 +21,11 @@ const classTransformPreset = function () {
       // Must run AFTER class transforms so arrow functions inside class
       // methods are correctly captured.
       ['@babel/plugin-transform-arrow-functions'],
+      // Reanimated plugin MUST run last — after all other transforms.
+      // It serializes worklet functions (useAnimatedStyle, Gesture callbacks,
+      // etc.) into the worklet runtime. Running it last ensures arrow→function
+      // transforms don't break the serialized worklet references.
+      'react-native-reanimated/plugin',
     ],
   };
 };
@@ -31,10 +37,13 @@ module.exports = function (api) {
       // Runs LAST (first in array → last executed due to preset reversal).
       classTransformPreset,
       // Runs FIRST (last in array → first executed).
+      // Pass reanimated:false so babel-preset-expo does NOT auto-include
+      // the Reanimated plugin — we add it explicitly above as the last step.
       [
         'babel-preset-expo',
         {
           unstable_transformImportMeta: true,
+          reanimated: false,
         },
       ],
     ],

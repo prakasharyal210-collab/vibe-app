@@ -67,6 +67,26 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 
 **Easing from Reanimated:** When using `Easing` with Reanimated's `withTiming`, import `Easing` from `react-native-reanimated`, NOT from `react-native`.
 
+---
+
+## Fix 4 — babel-preset-expo version mismatch + missing Reanimated babel plugin
+
+**Symptom:** Same "Object is not a function" / rafCallback crash persists on Android even after fixing all mixed imports. Metro logs show NO crash — app loads fine — but crash happens when interacting with animated components (swipe gestures, etc.).
+
+**Root cause 1:** `babel-preset-expo@56.x` installed in an Expo SDK 54 project. Expo SDK 54 requires `babel-preset-expo@~54.0.x`. The mismatch means the Reanimated plugin bundled inside babel-preset-expo may not correctly identify and serialize gesture callbacks (`.onUpdate`, `.onEnd`) and `useAnimatedStyle` callbacks as worklets. Result: worklet functions are NOT serialized → "Object is not a function" when Reanimated tries to call them on the UI thread.
+
+**Root cause 2:** `react-native-reanimated/plugin` was not explicitly added to `babel.config.js`. Without it (relying solely on babel-preset-expo auto-inclusion), the plugin can run at the wrong point in the transform chain — before `classTransformPreset` arrow-function transforms — or be silently skipped by a mismatched babel-preset-expo version.
+
+**Fix:**
+1. Downgrade `babel-preset-expo` to `~54.0.10` in package.json and reinstall.
+2. In `babel.config.js`: add `'react-native-reanimated/plugin'` as the **last plugin** inside `classTransformPreset` (which runs after babel-preset-expo), and pass `reanimated: false` to babel-preset-expo to disable its auto-inclusion and prevent double-processing.
+3. Clear Metro cache: delete `.expo/` and `node_modules/.cache/`, then restart the Expo workflow.
+4. On-device: force-close Expo Go, go to Android Settings → Apps → Expo Go → Clear Cache, then rescan the QR code.
+
+**Why the plugin order matters:** Babel presets run in REVERSE array order, so babel-preset-expo runs FIRST and classTransformPreset runs SECOND. The Reanimated plugin must run LAST (after all other transforms including arrow-function transforms) so its worklet serialization is the final operation. Placing it as the last entry in classTransformPreset's plugins array guarantees this.
+
+**Always check:** If `babel-preset-expo` version ≠ Expo SDK major version, it will print a warning like `babel-preset-expo@56.0.14 - expected version: ~54.0.10`. Treat this warning as a critical error — downgrade immediately.
+
 **How to detect mixed files:**
 ```bash
 grep -rln "react-native-reanimated" app/ components/ | while read f; do
