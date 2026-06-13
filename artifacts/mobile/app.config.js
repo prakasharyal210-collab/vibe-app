@@ -4,7 +4,7 @@ const base = appJson.expo;
 module.exports = {
   expo: {
     ...base,
-    newArchEnabled: false,
+    newArchEnabled: true,
     extra: {
       ...base.extra,
       deeparLicenseAndroid: process.env.DEEPAR_LICENSE_ANDROID ?? "",

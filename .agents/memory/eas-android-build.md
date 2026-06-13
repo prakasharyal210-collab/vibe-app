@@ -56,6 +56,14 @@ module.exports = function (api) {
 - `@babel/plugin-transform-private-methods`
 - `@babel/plugin-transform-private-property-in-object`
 
+## newArchEnabled must stay true with Reanimated 4.x
+
+`react-native-reanimated@4.x` (used by Expo SDK 54) has a hard Gradle `assertNewArchitectureEnabledTask` that **aborts the build** if `newArchEnabled=false`. Never set it to false.
+
+`react-native-deepar@0.11.0` doesn't declare New Arch support, but RN 0.81's old-arch interop layer lets it run on New Arch. The workaround of `newArchEnabled=false` is counterproductive — it breaks Reanimated 4.
+
+Two places to keep `true`: `app.config.js` (`newArchEnabled: true`) and `android/gradle.properties` (`newArchEnabled=true`).
+
 ## EAS build phase progression (diagnostic guide)
 - `"Bundle JavaScript build phase"` error → Metro/Babel crash; fix babel.config.js ordering
 - `"Run gradlew"` error → Gradle or hermesc crash; after JS bundling succeeds
