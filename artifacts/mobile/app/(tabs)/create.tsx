@@ -1074,7 +1074,7 @@ function CreateScreenInner() {
         </RAnimated.View>
 
         {/* ── FILTER STRIP ── */}
-        <RAnimated.View style={controlsStyle}>
+        <RAnimated.View style={[StyleSheet.absoluteFill, controlsStyle]} pointerEvents="box-none">
           <CameraFilterStrip
             visible={showFilterStrip}
             activeFilter={cameraFilter.id}

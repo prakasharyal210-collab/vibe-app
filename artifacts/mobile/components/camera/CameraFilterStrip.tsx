@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
@@ -50,7 +49,7 @@ function FilterThumb({ filter, active, onPress }: { filter: CameraFilter; active
           style={StyleSheet.absoluteFill}
         />
         {filter.id === "none" ? (
-          <Ionicons name="close" size={14} color="rgba(255,255,255,0.6)" />
+          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>✕</Text>
         ) : filter.grayscale ? (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(180,180,180,0.6)", borderRadius: 8 }]} />
         ) : (
@@ -58,7 +57,7 @@ function FilterThumb({ filter, active, onPress }: { filter: CameraFilter; active
         )}
         {active && (
           <View style={st.checkDot}>
-            <Ionicons name="checkmark" size={8} color="#fff" />
+            <Text style={{ fontSize: 7, color: "#fff", lineHeight: 10 }}>✓</Text>
           </View>
         )}
       </View>
