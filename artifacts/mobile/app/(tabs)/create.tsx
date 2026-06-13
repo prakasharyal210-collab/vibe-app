@@ -41,7 +41,7 @@ import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/compone
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
 import { BeautyPanel, BeautyOverlay, BeautySettings } from "@/components/camera/BeautyPanel";
 import { CameraFilterStrip, FilterOverlay, CAMERA_FILTERS, CameraFilter } from "@/components/camera/CameraFilterStrip";
-import { LensOverlay } from "@/components/camera/LensOverlay";
+import LensOverlay from "@/components/camera/LensOverlay";
 import { LensSelector } from "@/components/camera/LensSelector";
 import { useAuth } from "@/context/AuthContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
@@ -503,6 +503,7 @@ function CreateScreenInner() {
   // ── Lenses (AR effects) ────────────────────────────────────────────────────
   const [activeLensId, setActiveLensId] = useState<string | null>(null);
   const [showLensPicker, setShowLensPicker] = useState(false);
+  const [deepARActive, setDeepARActive] = useState(false);
 
   // ── Overlays / music ──────────────────────────────────────────────────────
   const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
@@ -827,20 +828,22 @@ function CreateScreenInner() {
       <StatusBar style="light" />
       <View style={s.root}>
 
-        {/* ── CAMERA ── */}
-        <View
-          style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}
-          {...cameraGestureHandlers}
-        >
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing={facing}
-            flash={flashMode}
-            mode="video"
-            zoom={zoom}
-          />
-        </View>
+        {/* ── CAMERA (hidden while DeepAR is active to avoid dual-camera conflict) ── */}
+        {!deepARActive && (
+          <View
+            style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}
+            {...cameraGestureHandlers}
+          >
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing={facing}
+              flash={flashMode}
+              mode="video"
+              zoom={zoom}
+            />
+          </View>
+        )}
 
         {/* ── GRADIENT OVERLAY ── */}
         <LinearGradient
@@ -856,8 +859,8 @@ function CreateScreenInner() {
         {/* ── BEAUTY OVERLAY ── */}
         <BeautyOverlay settings={beautySettings} />
 
-        {/* ── LENS OVERLAY (AR effects) ── */}
-        <LensOverlay lensId={activeLensId} />
+        {/* ── LENS OVERLAY (AR effects via DeepAR) ── */}
+        <LensOverlay lensId={activeLensId} onCameraExclusive={setDeepARActive} />
 
         {/* ── EXPOSURE OVERLAY (simulated) ── */}
         {exposureValue !== 0 && (

@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 export type LensCategory = 'cute' | 'beauty' | 'fun' | 'world' | 'spiritual';
 
 export interface Lens {
@@ -5,47 +7,56 @@ export interface Lens {
   name: string;
   icon: string;
   category: LensCategory;
+  effectPath: string | null;
+}
+
+function effectPath(filename: string): string {
+  return Platform.select({
+    android: `file:///android_asset/effects/${filename}`,
+    ios: `effects/${filename}`,
+    default: `effects/${filename}`,
+  })!;
 }
 
 export const LENSES: Lens[] = [
   // ── Cute Animals ───────────────────────────────────────────────────────────
-  { id: 'dog',           name: 'Dog',          icon: '🐶', category: 'cute' },
-  { id: 'cat',           name: 'Cat',          icon: '🐱', category: 'cute' },
-  { id: 'bunny',         name: 'Bunny',        icon: '🐰', category: 'cute' },
-  { id: 'bear',          name: 'Bear',         icon: '🐻', category: 'cute' },
-  { id: 'deer',          name: 'Deer',         icon: '🦌', category: 'cute' },
+  { id: 'dog',           name: 'Dog',          icon: '🐶', category: 'cute',      effectPath: null },
+  { id: 'cat',           name: 'Cat',          icon: '🐱', category: 'cute',      effectPath: null },
+  { id: 'bunny',         name: 'Bunny',        icon: '🐰', category: 'cute',      effectPath: null },
+  { id: 'bear',          name: 'Bear',         icon: '🐻', category: 'cute',      effectPath: null },
+  { id: 'deer',          name: 'Deer',         icon: '🦌', category: 'cute',      effectPath: null },
   // ── Beauty & Makeup ────────────────────────────────────────────────────────
-  { id: 'natural_glow',  name: 'Natural Glow', icon: '✨', category: 'beauty' },
-  { id: 'full_glam',     name: 'Full Glam',    icon: '💄', category: 'beauty' },
-  { id: 'korean',        name: 'K-Beauty',     icon: '🌸', category: 'beauty' },
-  { id: 'bold_lip',      name: 'Bold Lip',     icon: '💋', category: 'beauty' },
-  { id: 'eye_color',     name: 'Eye Color',    icon: '👁️', category: 'beauty' },
+  { id: 'natural_glow',  name: 'Natural Glow', icon: '✨', category: 'beauty',    effectPath: null },
+  { id: 'full_glam',     name: 'Full Glam',    icon: '💄', category: 'beauty',    effectPath: null },
+  { id: 'korean',        name: 'K-Beauty',     icon: '🌸', category: 'beauty',    effectPath: null },
+  { id: 'bold_lip',      name: 'Bold Lip',     icon: '💋', category: 'beauty',    effectPath: null },
+  { id: 'eye_color',     name: 'Eye Color',    icon: '👁️', category: 'beauty',    effectPath: null },
   // ── Fun & Viral ────────────────────────────────────────────────────────────
-  { id: 'flower_crown',  name: 'Flower Crown', icon: '🌺', category: 'fun' },
-  { id: 'crying_stars',  name: 'Sparkle Tears',icon: '🌟', category: 'fun' },
-  { id: 'rainbow',       name: 'Rainbow',      icon: '🌈', category: 'fun' },
-  { id: 'giant_eyes',    name: 'Giant Eyes',   icon: '👀', category: 'fun' },
-  { id: 'neon_glow',     name: 'Neon Glow',    icon: '⚡', category: 'fun' },
-  { id: 'vintage',       name: 'Vintage',      icon: '📷', category: 'fun' },
-  { id: 'anime',         name: 'Anime',        icon: '🌟', category: 'fun' },
-  { id: 'crown',         name: 'Crown',        icon: '👑', category: 'fun' },
-  { id: 'mask',          name: 'G-Mask',       icon: '🎭', category: 'fun' },
-  { id: 'distortion',    name: 'Distortion',   icon: '🫠', category: 'fun' },
+  { id: 'flower_crown',  name: 'Flower Crown', icon: '🌺', category: 'fun',       effectPath: effectPath('flower_crown.deepar') },
+  { id: 'crying_stars',  name: 'Sparkle Tears',icon: '🌟', category: 'fun',       effectPath: null },
+  { id: 'rainbow',       name: 'Rainbow',      icon: '🌈', category: 'fun',       effectPath: null },
+  { id: 'giant_eyes',    name: 'Giant Eyes',   icon: '👀', category: 'fun',       effectPath: null },
+  { id: 'neon_glow',     name: 'Neon Glow',    icon: '⚡', category: 'fun',       effectPath: effectPath('neon_devil_horns.deepar') },
+  { id: 'vintage',       name: 'Vintage',      icon: '📷', category: 'fun',       effectPath: null },
+  { id: 'anime',         name: 'Anime',        icon: '🌟', category: 'fun',       effectPath: null },
+  { id: 'crown',         name: 'Crown',        icon: '👑', category: 'fun',       effectPath: null },
+  { id: 'mask',          name: 'G-Mask',       icon: '🎭', category: 'fun',       effectPath: null },
+  { id: 'distortion',    name: 'Distortion',   icon: '🫠', category: 'fun',       effectPath: null },
   // ── World & Background ─────────────────────────────────────────────────────
-  { id: 'snow',          name: 'Snow',         icon: '❄️', category: 'world' },
-  { id: 'butterflies',   name: 'Butterflies',  icon: '🦋', category: 'world' },
-  { id: 'confetti',      name: 'Confetti',     icon: '🎊', category: 'world' },
-  { id: 'halo_wings',    name: 'Halo & Wings', icon: '😇', category: 'world' },
-  { id: 'space',         name: 'Space',        icon: '🌌', category: 'world' },
-  { id: 'matrix',        name: 'Matrix',       icon: '🖥️', category: 'world' },
-  { id: 'underwater',    name: 'Underwater',   icon: '🌊', category: 'world' },
-  { id: 'fire',          name: 'Fire',         icon: '🔥', category: 'world' },
+  { id: 'snow',          name: 'Snow',         icon: '❄️', category: 'world',     effectPath: null },
+  { id: 'butterflies',   name: 'Butterflies',  icon: '🦋', category: 'world',     effectPath: null },
+  { id: 'confetti',      name: 'Confetti',     icon: '🎊', category: 'world',     effectPath: null },
+  { id: 'halo_wings',    name: 'Halo & Wings', icon: '😇', category: 'world',     effectPath: null },
+  { id: 'space',         name: 'Space',        icon: '🌌', category: 'world',     effectPath: null },
+  { id: 'matrix',        name: 'Matrix',       icon: '🖥️', category: 'world',     effectPath: null },
+  { id: 'underwater',    name: 'Underwater',   icon: '🌊', category: 'world',     effectPath: null },
+  { id: 'fire',          name: 'Fire',         icon: '🔥', category: 'world',     effectPath: null },
   // ── Astrology / Spiritual ──────────────────────────────────────────────────
-  { id: 'zodiac_aura',   name: 'Zodiac Aura',  icon: '🔮', category: 'spiritual' },
-  { id: 'chakra',        name: 'Chakra',       icon: '☯️', category: 'spiritual' },
-  { id: 'goddess',       name: 'Goddess',      icon: '🌺', category: 'spiritual' },
-  { id: 'om_aura',       name: 'Om Aura',      icon: '🕉️', category: 'spiritual' },
-  { id: 'navagraha',     name: 'Navagraha',    icon: '🪐', category: 'spiritual' },
+  { id: 'zodiac_aura',   name: 'Zodiac Aura',  icon: '🔮', category: 'spiritual', effectPath: null },
+  { id: 'chakra',        name: 'Chakra',       icon: '☯️', category: 'spiritual', effectPath: null },
+  { id: 'goddess',       name: 'Goddess',      icon: '🌺', category: 'spiritual', effectPath: null },
+  { id: 'om_aura',       name: 'Om Aura',      icon: '🕉️', category: 'spiritual', effectPath: null },
+  { id: 'navagraha',     name: 'Navagraha',    icon: '🪐', category: 'spiritual', effectPath: effectPath('aviators.deepar') },
 ];
 
 export const CATEGORY_LABELS: Record<LensCategory | 'all', string> = {
