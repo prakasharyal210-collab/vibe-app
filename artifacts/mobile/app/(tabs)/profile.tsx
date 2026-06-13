@@ -67,9 +67,9 @@ const MOCK_PROFILE: Profile = {
   id: "me",
   username: "your_vibe",
   bio: "Living, laughing, vibing ✨",
-  followers_count: 1284,
-  following_count: 342,
-  posts_count: 27,
+  followers_count: 0,
+  following_count: 0,
+  posts_count: 0,
 };
 
 interface GridItem {
@@ -421,7 +421,28 @@ export default function ProfileScreen() {
 
   const loadProfile = useCallback(async (uid: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-    if (data) setProfile(data as Profile);
+    if (!data) return;
+    // Fetch live counts directly to avoid cached-column drift
+    const [postsRes, followersRes, followingRes] = await Promise.allSettled([
+      supabase.from("posts").select("*", { count: "exact", head: true }).eq("user_id", uid),
+      supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", uid),
+      supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", uid),
+    ]);
+    setProfile({
+      ...(data as Profile),
+      posts_count:
+        postsRes.status === "fulfilled" && postsRes.value.count !== null
+          ? postsRes.value.count
+          : (data.posts_count ?? 0),
+      followers_count:
+        followersRes.status === "fulfilled" && followersRes.value.count !== null
+          ? followersRes.value.count
+          : (data.followers_count ?? 0),
+      following_count:
+        followingRes.status === "fulfilled" && followingRes.value.count !== null
+          ? followingRes.value.count
+          : (data.following_count ?? 0),
+    });
   }, []);
 
   useEffect(() => {
@@ -550,17 +571,17 @@ export default function ProfileScreen() {
         </View>
 
         <View style={[styles.statsRow, { backgroundColor: "rgba(255,255,255,0.04)" }]}>
-          <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? MOCK_GRID.length} />
+          <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <StatBlock
             label="Followers"
-            value={rtProfile.followers_count ?? profile.followers_count ?? 1284}
+            value={rtProfile.followers_count ?? profile.followers_count ?? 0}
             onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
           />
           <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
           <StatBlock
             label="Following"
-            value={rtProfile.following_count ?? profile.following_count ?? 342}
+            value={rtProfile.following_count ?? profile.following_count ?? 0}
             onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
           />
         </View>

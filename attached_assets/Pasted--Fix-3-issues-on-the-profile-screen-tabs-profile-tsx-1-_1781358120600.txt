@@ -1,0 +1,24 @@
+
+Fix 3 issues on the profile screen ((tabs)/profile.tsx):
+1. Broken Ionicons throughout the profile screen
+
+The verified badge, link icon (next to the gundruk.app URL), the 3 action icons in the top-right corner, 2 unlabeled action buttons in the action button row, the 3 grid filter tab icons, and the "👁 0" view-count icons on each grid item all show empty boxes (▯) instead of real icons.
+Fix: Audit ALL icon usages in profile.tsx and replace with the SAME @expo/vector-icons import pattern already confirmed working elsewhere in the app (e.g. Music/Filter/Lens icons on the camera screen). Ensure consistency — no mixed icon libraries.
+2. Stats counts (Posts / Followers / Following) show stale/incorrect numbers
+
+Profile shows "27 Posts / 1.3k Followers / 342 Following" but the actual data is only 6 posts. These are likely cached/denormalized counter columns (posts_count, followers_count, following_count on profiles) that have drifted out of sync with reality — or contain leftover seed/placeholder data from earlier testing.
+Fix:
+
+Run a diagnostic query first: SELECT COUNT(*) FROM posts WHERE user_id = '<my_user_id>' and similarly for followers table (both directions) — confirm real counts vs displayed counts
+One-time recalculation to fix existing drift:
+
+sqlUPDATE profiles SET 
+  posts_count = (SELECT COUNT(*) FROM posts WHERE user_id = profiles.id),
+  followers_count = (SELECT COUNT(*) FROM followers WHERE following_id = profiles.id),
+  following_count = (SELECT COUNT(*) FROM followers WHERE follower_id = profiles.id);
+(adjust table/column names to match actual schema)
+
+Find and FIX the trigger/function responsible for keeping these counters updated on insert/delete (likely the root cause of drift — probably broken or missing for posts deletions, or for follow/unfollow events)
+Alternatively, if triggers are unreliable, consider computing these counts LIVE with COUNT(*) queries instead of cached columns (simpler, avoids drift entirely — only switch if performance isn't a concern at current scale)
+
+Test: Reload profile → all icons render properly (no empty boxes) → Posts shows "6" (matching actual posts) → Followers/Following show real counts matching the followers table (likely near 0 if these are test/seed accounts).
