@@ -44,6 +44,7 @@ import { CameraFilterStrip, FilterOverlay, CAMERA_FILTERS, CameraFilter } from "
 import LensOverlay from "@/components/camera/LensOverlay";
 import { LensSelector } from "@/components/camera/LensSelector";
 import type { BanubaHandle } from "@/components/camera/BanubaCameraView";
+import PostPage from "@/components/camera/PostPage";
 import { useAuth } from "@/context/AuthContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { Track } from "@/lib/music";
@@ -436,7 +437,7 @@ class CameraErrorBoundary extends React.Component<
   }
 }
 
-function CreateScreenInner() {
+function CreateScreenInner({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
   const insets = useSafeAreaInsets();
   React.useEffect(() => { console.log("[CreateScreen] mounted"); }, []);
   const { session } = useAuth();
@@ -969,7 +970,7 @@ function CreateScreenInner() {
 
         {/* ── RECORDING INDICATOR ── */}
         {recording && (
-          <View style={[s.recIndicator, { top: insets.top + 10 }]} pointerEvents="none">
+          <View style={[s.recIndicator, { top: tabBarHeight + 10 }]} pointerEvents="none">
             <View style={s.recDot} />
             <Text style={s.recTimer}>{Math.floor(recordingElapsed / 60)}:{String(recordingElapsed % 60).padStart(2, "0")}</Text>
             {isBoomerang && <Text style={s.recModeBadge}>⏩ BOM</Text>}
@@ -989,14 +990,14 @@ function CreateScreenInner() {
 
         {/* ── RECORDING PROGRESS BAR ── */}
         {recording && (
-          <View style={[s.recProgressTrack, { top: insets.top + 38 }]} pointerEvents="none">
+          <View style={[s.recProgressTrack, { top: tabBarHeight + 38 }]} pointerEvents="none">
             <View style={[s.recProgressFill, { width: `${recordProgress * 100}%` as any }]} />
           </View>
         )}
 
         {/* ── MUSIC BADGE ── */}
         {selectedMusic && (
-          <View style={[s.musicBadge, { top: insets.top + (recording ? 52 : 10) }]} pointerEvents="none">
+          <View style={[s.musicBadge, { top: tabBarHeight + (recording ? 52 : 10) }]} pointerEvents="none">
             <CI name="musical-notes" size={11} color="#fff" />
             <Text style={s.musicBadgeText} numberOfLines={1}>{selectedMusic.title} · {selectedMusic.artist}</Text>
           </View>
@@ -1030,7 +1031,7 @@ function CreateScreenInner() {
         </RAnimated.View>
 
         {/* ── TOP BAR ── */}
-        <View style={[s.topBar, { paddingTop: insets.top + 8 }]}>
+        <View style={[s.topBar, { paddingTop: tabBarHeight + 8 }]}>
           <TouchableOpacity style={s.topBtn} onPress={() => router.back()}>
             <CI name="close" size={28} color="#fff" />
           </TouchableOpacity>
@@ -1535,10 +1536,121 @@ const s = StyleSheet.create({
   sizePillText: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_700Bold" },
 });
 
-export default function CreateScreen() {
+// ── Reels page (existing camera flow wrapped in error boundary) ────────────────
+function ReelsPage({ tabBarHeight }: { tabBarHeight: number }) {
   return (
     <CameraErrorBoundary>
-      <CreateScreenInner />
+      <CreateScreenInner tabBarHeight={tabBarHeight} />
     </CameraErrorBoundary>
+  );
+}
+
+// ── Tab container constants ────────────────────────────────────────────────────
+const TAB_BAR_HEIGHT = 44;
+
+// ── Segmented tab styles ───────────────────────────────────────────────────────
+const ts = StyleSheet.create({
+  tabWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.18)",
+    overflow: "hidden",
+    height: 36,
+  },
+  tab: {
+    paddingHorizontal: 22,
+    justifyContent: "center" as const,
+    alignItems: "center" as const,
+  },
+  tabActive: { backgroundColor: "rgba(124,58,237,0.45)" },
+  divider: {
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    marginVertical: 7,
+  },
+  tabText: {
+    color: "rgba(255,255,255,0.45)",
+    fontSize: 13,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  tabTextActive: { color: "#fff" },
+});
+
+// ── Root CreateScreen — swipeable tab container ────────────────────────────────
+export default function CreateScreen() {
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
+  const [activeTab, setActiveTab] = useState(0);
+
+  const tabBarTop = insets.top + 6;
+  const reelsTabBarHeight = insets.top + TAB_BAR_HEIGHT;
+
+  const scrollTo = (idx: number) => {
+    scrollRef.current?.scrollTo({ x: idx * W, animated: true });
+    setActiveTab(idx);
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000" }}>
+      {/* Horizontal pager — fills full screen */}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        scrollEventThrottle={16}
+        bounces={false}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / W);
+          setActiveTab(idx);
+        }}
+        style={StyleSheet.absoluteFill}
+      >
+        {/* Page 0 — Reels */}
+        <View style={{ width: W, height: H }}>
+          <ReelsPage tabBarHeight={reelsTabBarHeight} />
+        </View>
+        {/* Page 1 — Post */}
+        <View style={{ width: W, height: H }}>
+          <PostPage topInset={reelsTabBarHeight} bottomInset={insets.bottom} />
+        </View>
+      </ScrollView>
+
+      {/* Floating "Reels | Post" indicator — overlays both pages */}
+      <View
+        style={[ts.tabWrap, { top: tabBarTop }]}
+        pointerEvents="box-none"
+      >
+        <View style={ts.tabBar} pointerEvents="auto">
+          <TouchableOpacity
+            onPress={() => scrollTo(0)}
+            style={[ts.tab, activeTab === 0 && ts.tabActive]}
+          >
+            <Text style={[ts.tabText, activeTab === 0 && ts.tabTextActive]}>
+              🎬 Reels
+            </Text>
+          </TouchableOpacity>
+          <View style={ts.divider} />
+          <TouchableOpacity
+            onPress={() => scrollTo(1)}
+            style={[ts.tab, activeTab === 1 && ts.tabActive]}
+          >
+            <Text style={[ts.tabText, activeTab === 1 && ts.tabTextActive]}>
+              📸 Post
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
   );
 }
