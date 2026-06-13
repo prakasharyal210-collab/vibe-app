@@ -43,6 +43,7 @@ router.post("/create", async (req, res) => {
     options?: {
       location?: string;
       taggedUsers?: string[];
+      filterId?: string;
       commentsEnabled?: boolean;
       downloadsEnabled?: boolean;
     };
@@ -96,6 +97,8 @@ router.post("/create", async (req, res) => {
     comments_count: 0,
     views_count: 0,
     created_at: new Date().toISOString(),
+    ...(options.filterId ? { filter_id: options.filterId } : {}),
+    ...(options.location ? { location: options.location } : {}),
   };
 
   const { data, error } = await sb

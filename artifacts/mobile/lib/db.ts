@@ -1331,6 +1331,7 @@ export async function uploadPostMedia(
   options?: {
     location?: string;
     taggedUsers?: string[];
+    filterId?: string;
     commentsEnabled?: boolean;
     downloadsEnabled?: boolean;
   }
@@ -1353,7 +1354,7 @@ export async function uploadPostMedia(
       fetch(`${API_BASE}/posts/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, imageBase64, mimeType, ext, caption, options }),
+        body: JSON.stringify({ userId, imageBase64, mimeType, ext, caption, options: { ...options } }),
       }),
       60_000,
       'post create API'
