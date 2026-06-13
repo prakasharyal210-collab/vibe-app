@@ -286,9 +286,9 @@ export async function toggleLike(
       await supabase.from("likes").delete().eq("post_id", postId).eq("user_id", userId);
     }
   } catch {}
-  // Fire-and-forget affinity update — non-blocking
+  // Fire-and-forget affinity update — non-blocking (passes postId for category tracking)
   if (creatorId && creatorId !== userId) {
-    recordEngagement(userId, creatorId, nowLiked ? "like" : "unlike").catch(() => {});
+    recordEngagement(userId, creatorId, nowLiked ? "like" : "unlike", postId, "post").catch(() => {});
   }
 }
 
@@ -919,12 +919,14 @@ export async function sendMessageToUser(
 
 // ─── Search ───────────────────────────────────────────────────────────────────
 
-export async function searchProfiles(query: string): Promise<Profile[]> {
+export async function searchProfiles(query: string, viewerId?: string): Promise<Profile[]> {
   const q = query.trim();
   console.log('[searchProfiles] querying API for:', JSON.stringify(q));
 
   try {
-    const url = `${API_BASE}/users/search?q=${encodeURIComponent(q)}&limit=20`;
+    const params = new URLSearchParams({ q, limit: "20" });
+    if (viewerId) params.set("viewer_id", viewerId);
+    const url = `${API_BASE}/users/search?${params.toString()}`;
     const res = await fetch(url);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
@@ -1208,12 +1210,14 @@ export async function recordEngagement(
   userId: string,
   creatorId: string,
   action: "like" | "unlike" | "comment" | "save" | "share" | "watch_complete" | "skip" | "hide",
+  contentId?: string,
+  contentType?: "post" | "reel",
 ): Promise<void> {
   try {
     await fetch(`${API_BASE}/engage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, creatorId, action }),
+      body: JSON.stringify({ userId, creatorId, action, contentId, contentType }),
     });
   } catch {
     // fire-and-forget — never block UI

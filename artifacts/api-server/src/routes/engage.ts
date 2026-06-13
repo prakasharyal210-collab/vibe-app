@@ -21,13 +21,17 @@ const DELTAS: Record<string, number> = {
 };
 
 // POST /api/engage
-// Records a social-graph affinity delta for the personalization engine.
-// body: { userId, creatorId, action }
+// Records affinity signals for the personalization engine.
+// body: { userId, creatorId, action, contentId?, contentType? }
+//   contentId   — optional post/reel UUID; enables category affinity tracking
+//   contentType — "post" | "reel" (required when contentId is provided)
 router.post("/", async (req, res) => {
-  const { userId, creatorId, action } = req.body as {
-    userId?: string;
-    creatorId?: string;
-    action?: string;
+  const { userId, creatorId, action, contentId, contentType } = req.body as {
+    userId?:      string;
+    creatorId?:   string;
+    action?:      string;
+    contentId?:   string;
+    contentType?: "post" | "reel";
   };
 
   if (!userId || !creatorId || !action) {
@@ -43,10 +47,9 @@ router.post("/", async (req, res) => {
   }
 
   const sb = makeSupabase();
-  const key = `creator:${creatorId}`;
 
-  try {
-    // Read current weight, then write clamped result (Supabase JS has no expression UPDATE)
+  // ── Helper: read-modify-write a single affinity key (clamped [-5, 10]) ────
+  async function upsertAffinity(key: string, d: number) {
     const { data: row } = await sb
       .from("user_interests")
       .select("weight")
@@ -54,22 +57,41 @@ router.post("/", async (req, res) => {
       .eq("interest_key", key)
       .maybeSingle();
 
-    const currentWeight = (row?.weight as number | null) ?? 0;
-    const newWeight = Math.min(10, Math.max(-5, currentWeight + delta));
+    const current = (row?.weight as number | null) ?? 0;
+    const next    = Math.min(10, Math.max(-5, current + d));
 
-    const { error } = await sb.from("user_interests").upsert(
-      { user_id: userId, interest_key: key, weight: newWeight, updated_at: new Date().toISOString() },
+    await sb.from("user_interests").upsert(
+      { user_id: userId!, interest_key: key, weight: next, updated_at: new Date().toISOString() },
       { onConflict: "user_id,interest_key" }
     );
+  }
 
-    if (error) {
-      // Table may not exist if SQL migration hasn't been run — non-fatal
-      req.log.warn({ error: error.message }, "engage upsert failed (table missing?)");
+  try {
+    // 1. Creator affinity (always)
+    await upsertAffinity(`creator:${creatorId}`, delta);
+
+    // 2. Category affinity — positive signals only, requires contentId
+    if (contentId && contentType && delta > 0) {
+      const table = contentType === "reel" ? "reels" : "posts";
+      const { data: content } = await sb
+        .from(table)
+        .select("categories")
+        .eq("id", contentId)
+        .maybeSingle();
+
+      const categories: string[] = (content as any)?.categories ?? [];
+      if (categories.length > 0) {
+        await Promise.all(
+          categories.map((cat) => upsertAffinity(`category:${cat}`, delta))
+        );
+        req.log.debug({ categories, action, contentId }, "recorded category affinities");
+      }
     }
 
     res.json({ ok: true });
   } catch (err: any) {
-    req.log.error({ err: err?.message }, "engage exception");
+    // Non-fatal — migration may not have run yet
+    req.log.warn({ err: err?.message }, "engage upsert failed (migration needed?)");
     res.json({ ok: true });
   }
 });

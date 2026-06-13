@@ -1,0 +1,33 @@
+Implement 3 enhancements to Gundruk's recommendation system:
+1. Content category detection (auto-tagging)
+
+Add a categories column (TEXT[] array) to posts and reels tables
+On post/reel creation, extract categories from caption text using:
+
+Hashtag matching (e.g. #cooking, #travel, #fitness → map to category)
+Simple keyword matching against a predefined category list (cooking, travel, fitness, fashion, music, comedy, art, tech, astrology, gaming, beauty, food, dance, education — adjust list as relevant to Gundruk's audience)
+Store matched categories as array, e.g. ['cooking', 'food']
+
+
+Extend user_interests table usage: when a user engages (like/save/watch_complete) with a post, ALSO record affinity for each of that post's categories using key format 'category:{name}' (same record_engagement() function, just different key prefix)
+Update get_for_you_feed_v2/get_for_you_reels_v2 to ALSO boost based on category affinity (sum of creator affinity + category affinity, both capped)
+
+2. Search/discovery ranking
+
+For the user search feature: when search query is EMPTY (browsing suggestions), rank results by:
+
+Mutual followers count (accounts followed by people the current user follows) — highest priority
+Follower count (popularity) — secondary
+Recently active (posted recently) — tertiary
+
+
+When search query is NOT empty: keep username/name matching as primary, but break ties using the same mutual-followers signal
+Add a get_suggested_accounts(user_id, limit) SQL function implementing this
+
+3. A/B-testable scoring weights
+
+Create a scoring_config table: (key TEXT PRIMARY KEY, value FLOAT) with rows for each tunable constant: new_creator_multiplier (1.5), exploration_boost (2.0), exploration_window_hours (2.0), like_weight (1.0), comment_weight (3.0), share_weight (5.0), save_weight (4.0), watch_time_weight (10.0), affinity_boost_factor (0.4), affinity_cap (2.0)
+Update calculate_post_score, calculate_reel_score, get_for_you_feed_v2, get_for_you_reels_v2 to READ these values from scoring_config instead of hardcoded constants
+This lets you tune the algorithm later via simple UPDATE scoring_config SET value = X WHERE key = 'Y' — no code/migration changes needed
+
+Implement incrementally — start with #3 (smallest, enables tuning everything else), then #1, then #2. Report after each before proceeding to the next.

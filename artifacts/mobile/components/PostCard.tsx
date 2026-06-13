@@ -234,7 +234,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               <TouchableOpacity onPress={() => { if (requireAuth()) return; setFavourited((f) => !f); }}>
                 <Ionicons name={favourited ? "star" : "star-outline"} size={23} color={favourited ? "#EAB308" : "#fff"} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowB = !bookmarked; setBookmarked(nowB); if (userId) { toggleFavourite(post.id, userId, nowB); if (nowB && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save").catch(() => {}); } }}>
+              <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowB = !bookmarked; setBookmarked(nowB); if (userId) { toggleFavourite(post.id, userId, nowB); if (nowB && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); } }}>
                 <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={23} color={bookmarked ? "#8B5CF6" : "#fff"} />
               </TouchableOpacity>
             </View>
@@ -303,7 +303,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             </LinearGradient>
           )}
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { setHidden(true); if (userId && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "hide").catch(() => {}); }} style={styles.moreBtn}>
+        <TouchableOpacity onPress={() => { setHidden(true); if (userId && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "hide", post.id, "post").catch(() => {}); }} style={styles.moreBtn}>
           <Ionicons name="ellipsis-horizontal" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
@@ -411,7 +411,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             if (requireAuth()) return;
             const nowB = !bookmarked;
             setBookmarked(nowB);
-            if (userId) { toggleFavourite(post.id, userId, nowB); if (nowB && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save").catch(() => {}); }
+            if (userId) { toggleFavourite(post.id, userId, nowB); if (nowB && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); }
           }}>
             <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={23} color={bookmarked ? "#8B5CF6" : colors.foreground} />
           </TouchableOpacity>

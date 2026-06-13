@@ -60,14 +60,14 @@ export default function SearchScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await Promise.all([
-      searchProfiles(query).then(setSuggestedAccounts).catch(() => {}),
+      searchProfiles(query, myId).then(setSuggestedAccounts).catch(() => {}),
       searchHashtags(query).then(setTrendingHashtags).catch(() => {}),
     ]);
     setRefreshing(false);
-  }, [query]);
+  }, [query, myId]);
 
   useEffect(() => {
-    searchProfiles("").then(setSuggestedAccounts).catch(() => {});
+    searchProfiles("", myId).then(setSuggestedAccounts).catch(() => {});
     searchHashtags("").then(setTrendingHashtags).catch(() => {});
     if (myId) {
       loadSearchHistory(myId).then(setSearchHistory).catch(() => {});
@@ -76,11 +76,11 @@ export default function SearchScreen() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchProfiles(query).then(setFilteredAccounts).catch(() => {});
+      searchProfiles(query, myId).then(setFilteredAccounts).catch(() => {});
       searchHashtags(query).then(setFilteredHashtags).catch(() => {});
     }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, myId]);
 
   const handleSearchSubmit = () => {
     const q = query.trim();

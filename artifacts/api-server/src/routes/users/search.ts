@@ -11,40 +11,60 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
-// GET /api/users/search?q=<query>&limit=20
+// GET /api/users/search?q=<query>&limit=20&viewer_id=<uuid>
+//   viewer_id present + empty q  → personalized suggestions via get_suggested_accounts RPC
+//   viewer_id present + non-empty q → keyword search with mutual-followers tiebreaker via search_accounts_ranked RPC
+//   no viewer_id                 → plain follower-count-ordered search (existing behaviour)
 router.get("/search", async (req, res) => {
-  const q = ((req.query["q"] as string) ?? "").trim();
-  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
-  const sb = makeSupabase();
+  const q        = ((req.query["q"]         as string) ?? "").trim();
+  const viewerId = ((req.query["viewer_id"] as string) ?? "").trim();
+  const limit    = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
+  const sb       = makeSupabase();
 
-  req.log.info({ q, limit }, "user search");
+  req.log.info({ q, viewerId: viewerId || "(none)", limit }, "user search");
 
   try {
-    const query = sb
+    // ── Personalised path (viewer_id provided) ──────────────────────────────
+    if (viewerId) {
+      if (!q) {
+        // Empty query → suggested accounts ranked by mutual followers
+        const { data, error } = await sb.rpc("get_suggested_accounts", {
+          p_user_id: viewerId,
+          p_limit:   limit,
+        });
+        if (!error && data) {
+          res.json({ profiles: data });
+          return;
+        }
+        req.log.warn({ error: error?.message }, "get_suggested_accounts RPC failed; falling back");
+      } else {
+        // Non-empty query → keyword search with mutual-followers tiebreaker
+        const { data, error } = await sb.rpc("search_accounts_ranked", {
+          p_user_id: viewerId,
+          p_query:   q,
+          p_limit:   limit,
+        });
+        if (!error && data) {
+          res.json({ profiles: data });
+          return;
+        }
+        req.log.warn({ error: error?.message }, "search_accounts_ranked RPC failed; falling back");
+      }
+    }
+
+    // ── Fallback: plain followers-ordered search (no viewer_id or RPC failed) ──
+    const baseQuery = sb
       .from("profiles")
       .select("id, username, full_name, bio, avatar_url, followers_count, following_count, is_verified, is_private")
       .order("followers_count", { ascending: false })
       .limit(limit);
 
     const { data, error } = q
-      ? await query.ilike("username", `%${q}%`)
-      : await query;
+      ? await baseQuery.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`)
+      : await baseQuery;
 
     if (error) {
-      req.log.warn({ error: error.message }, "profiles search error");
-      // If ilike on username returns nothing or errors, try without the filter
-      if (q) {
-        const { data: fallback, error: fallbackError } = await sb
-          .from("profiles")
-          .select("id, username, full_name, bio, avatar_url, followers_count, following_count, is_verified, is_private")
-          .or(`username.ilike.%${q}%,bio.ilike.%${q}%`)
-          .order("followers_count", { ascending: false })
-          .limit(limit);
-        if (!fallbackError && fallback) {
-          res.json({ profiles: fallback });
-          return;
-        }
-      }
+      req.log.warn({ error: error.message }, "profiles search fallback error");
       res.status(500).json({ error: error.message });
       return;
     }
