@@ -698,7 +698,7 @@ export default function FeedScreen() {
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
                 data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
-                keyExtractor={(item) => (('isAd' in item && (item as AdItem).isAd) ? `ad-${(item as AdItem).ad_id}` : (item as Post).id) + tab.id}
+                keyExtractor={(item, index) => (('isAd' in item && (item as AdItem).isAd) ? `ad-${(item as AdItem).ad_id}` : ((item as Post).id ?? `fallback-${index}`)) + tab.id}
                 renderItem={renderTabPost(tab.id, snapH)}
                 snapToInterval={snapH}
                 decelerationRate="fast"

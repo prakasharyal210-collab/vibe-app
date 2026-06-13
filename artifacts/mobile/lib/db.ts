@@ -930,22 +930,57 @@ export async function sendMessageToUser(
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export async function searchProfiles(query: string): Promise<Profile[]> {
+  const q = query.trim();
+  console.log('[searchProfiles] query:', JSON.stringify(q));
+
+  // Try with full_name first; fall back without it if the column doesn't exist
+  const selectFull = "id, username, full_name, bio, avatar_url, followers_count, is_verified";
+  const selectBasic = "id, username, bio, avatar_url, followers_count, is_verified";
+
   try {
-    const q = query.trim();
     const { data, error } = q
       ? await supabase
           .from("profiles")
-          .select("id, username, full_name, bio, avatar_url, followers_count, is_verified")
+          .select(selectFull)
           .or(`username.ilike.%${q}%,full_name.ilike.%${q}%,bio.ilike.%${q}%`)
           .order("followers_count", { ascending: false })
           .limit(20)
       : await supabase
           .from("profiles")
-          .select("id, username, full_name, bio, avatar_url, followers_count, is_verified")
+          .select(selectFull)
           .order("followers_count", { ascending: false })
           .limit(20);
+
+    console.log('[searchProfiles] full_name result count:', data?.length ?? 0, 'error:', error?.message ?? 'none');
+    if (data?.length === 0 && !error) {
+      console.log('[searchProfiles] 0 rows with no error — likely RLS blocking reads. Run the profiles RLS fix SQL in Supabase dashboard.');
+    }
     if (!error && data) return data as Profile[];
-  } catch {}
+
+    // full_name column might not exist — retry without it
+    if (error) {
+      console.log('[searchProfiles] retrying without full_name, error was:', error.message);
+      const { data: data2, error: error2 } = q
+        ? await supabase
+            .from("profiles")
+            .select(selectBasic)
+            .ilike("username", `%${q}%`)
+            .order("followers_count", { ascending: false })
+            .limit(20)
+        : await supabase
+            .from("profiles")
+            .select(selectBasic)
+            .order("followers_count", { ascending: false })
+            .limit(20);
+      console.log('[searchProfiles] basic result count:', data2?.length ?? 0, 'error:', error2?.message ?? 'none');
+      if (data2?.length === 0 && !error2) {
+        console.log('[searchProfiles] still 0 rows — RLS is blocking. Add SELECT policy on profiles table for authenticated role.');
+      }
+      if (!error2 && data2) return data2 as Profile[];
+    }
+  } catch (e: any) {
+    console.log('[searchProfiles] exception:', e?.message);
+  }
   return [];
 }
 
