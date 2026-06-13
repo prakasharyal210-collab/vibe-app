@@ -1,7 +1,7 @@
 import { LinearGradient } from "expo-linear-gradient";
 import * as FileSystem from "expo-file-system";
 import * as Location from "expo-location";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -62,6 +62,57 @@ function Icon({ name, size, color }: { name: string; size: number; color: string
   );
 }
 
+// ── Draggable sticker overlay ──────────────────────────────────────────────
+interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; y: number; }
+
+function DraggableSticker({ sticker, onMove }: { sticker: StickerItem; onMove: (id: string, x: number, y: number) => void }) {
+  const posX = useRef(sticker.x);
+  const posY = useRef(sticker.y);
+  posX.current = sticker.x;
+  posY.current = sticker.y;
+  const onMoveRef = useRef(onMove);
+  onMoveRef.current = onMove;
+
+  const pan = useRef(new Animated.ValueXY()).current;
+
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: () => {
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: (_, g) => {
+        const nx = posX.current + g.dx;
+        const ny = posY.current + g.dy;
+        pan.setValue({ x: 0, y: 0 });
+        onMoveRef.current(sticker.id, nx, ny);
+      },
+    })
+  ).current;
+
+  return (
+    <Animated.View
+      style={{
+        position: "absolute",
+        top: sticker.y,
+        left: sticker.x,
+        transform: [{ translateX: pan.x }, { translateY: pan.y }],
+      }}
+      {...responder.panHandlers}
+    >
+      {sticker.gifUrl ? (
+        <Image source={{ uri: sticker.gifUrl }} style={{ width: 60, height: 60 }} resizeMode="contain" />
+      ) : (
+        <Text style={{ fontSize: 36 }}>{sticker.emoji}</Text>
+      )}
+    </Animated.View>
+  );
+}
+
 // ── Adjust settings ───────────────────────────────────────────────────────────
 interface AdjustSettings {
   brightness: number;
@@ -89,7 +140,6 @@ export interface PostData {
 interface TaggedUser { id: string; username: string; avatar_url?: string | null; full_name?: string | null; }
 
 interface TextOverlay { id: string; text: string; color: string; x: number; y: number; }
-interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; y: number; }
 
 interface Props {
   uri: string;
@@ -347,6 +397,10 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     setShowStickerModal(false);
   };
 
+  const moveSticker = useCallback((id: string, x: number, y: number) => {
+    setStickers((prev) => prev.map((s) => s.id === id ? { ...s, x, y } : s));
+  }, []);
+
   const handlePost = async () => {
     setPosting(true);
     try {
@@ -463,13 +517,9 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             <Text style={[styles.overlayText, { color: t.color }]}>{t.text}</Text>
           </View>
         ))}
-        {stickers.map((s) =>
-          s.gifUrl ? (
-            <Image key={s.id} source={{ uri: s.gifUrl }} style={[styles.stickerGifOverlay, { top: s.y, left: s.x }]} resizeMode="contain" />
-          ) : (
-            <Text key={s.id} style={[styles.stickerOverlay, { top: s.y, left: s.x }]}>{s.emoji}</Text>
-          )
-        )}
+        {stickers.map((s) => (
+          <DraggableSticker key={s.id} sticker={s} onMove={moveSticker} />
+        ))}
 
         <View style={[styles.previewTopBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onDiscard} style={styles.topBtn}>
