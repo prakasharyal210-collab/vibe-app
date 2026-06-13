@@ -137,11 +137,11 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
   };
 
   const options: { icon: string; label: string; action: () => void; destructive?: boolean }[] = [
-    { icon: "share-social-outline", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
-    { icon: "copy-outline", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `gundruk.app/@${username} copied to clipboard`) },
-    { icon: "person-remove-outline", label: busy ? "Please wait…" : `Block @${username}`, action: handleBlock, destructive: true },
-    { icon: "eye-off-outline", label: `Restrict @${username}`, action: handleRestrict, destructive: true },
-    { icon: "flag-outline", label: "Report User", action: () => setShowReport(true), destructive: true },
+    { icon: "share-social", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
+    { icon: "copy", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `gundruk.app/@${username} copied to clipboard`) },
+    { icon: "person-remove", label: busy ? "Please wait…" : `Block @${username}`, action: handleBlock, destructive: true },
+    { icon: "eye-off", label: `Restrict @${username}`, action: handleRestrict, destructive: true },
+    { icon: "flag", label: "Report User", action: () => setShowReport(true), destructive: true },
   ];
 
   return (
@@ -435,14 +435,14 @@ export default function UserProfileScreen() {
             <Text style={[styles.handle, { color: colors.mutedForeground }]}>@{u}</Text>
             {userData.location ? (
               <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={12} color={colors.mutedForeground} />
+                <Ionicons name="location" size={12} color={colors.mutedForeground} />
                 <Text style={[styles.locationText, { color: colors.mutedForeground }]}>{userData.location}</Text>
               </View>
             ) : null}
             {userData.bio ? <Text style={[styles.bio, { color: colors.foreground }]}>{userData.bio}</Text> : null}
             {userData.website ? (
               <TouchableOpacity onPress={() => Linking.openURL(`https://${userData.website}`)} style={styles.websiteRow}>
-                <Ionicons name="link-outline" size={13} color="#7C3AED" />
+                <Ionicons name="link" size={13} color="#7C3AED" />
                 <Text style={styles.websiteText}>{userData.website}</Text>
               </TouchableOpacity>
             ) : null}
@@ -487,7 +487,7 @@ export default function UserProfileScreen() {
               style={[styles.msgBtn, { backgroundColor: colors.muted, borderColor: colors.border, opacity: openingChat ? 0.6 : 1 }]}
               activeOpacity={0.8}
             >
-              <Ionicons name="chatbubble-outline" size={15} color={colors.foreground} />
+              <Ionicons name="chatbubble" size={15} color={colors.foreground} />
               <Text style={[styles.msgBtnText, { color: colors.foreground }]}>
                 {openingChat ? "Opening…" : "Message"}
               </Text>
@@ -535,9 +535,9 @@ export default function UserProfileScreen() {
 
             <View style={[styles.tabRow, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
               {([
-                { id: "posts", icon: "grid-outline" as const },
-                { id: "reels", icon: "film-outline" as const },
-                { id: "tagged", icon: "person-outline" as const },
+                { id: "posts", icon: "grid" as const },
+                { id: "reels", icon: "film" as const },
+                { id: "tagged", icon: "person" as const },
               ] as const).map((tab) => (
                 <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={styles.tabBtn}>
                   <Ionicons name={tab.icon} size={22} color={activeTab === tab.id ? "#7C3AED" : colors.mutedForeground} />

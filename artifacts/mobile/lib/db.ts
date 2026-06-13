@@ -2034,14 +2034,19 @@ export interface PublicProfile {
 
 export async function lookupProfileByUsername(username: string): Promise<PublicProfile | null> {
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, username, bio, avatar_url, cover_url, location, website, is_verified, is_private, followers_count, following_count, posts_count")
-      .eq("username", username)
-      .maybeSingle();
-    if (!error && data) return data as PublicProfile;
-  } catch {}
-  return null;
+    const url = `${API_BASE}/users/profile/${encodeURIComponent(username)}`;
+    const res = await fetch(url);
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      console.warn('[lookupProfileByUsername] API error', res.status);
+      return null;
+    }
+    const json = await res.json();
+    return json.profile as PublicProfile;
+  } catch (e) {
+    console.warn('[lookupProfileByUsername] fetch exception:', String(e));
+    return null;
+  }
 }
 
 export async function checkIsFollowing(followerId: string, followingId: string): Promise<boolean> {

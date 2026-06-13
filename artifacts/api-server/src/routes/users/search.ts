@@ -56,4 +56,57 @@ router.get("/search", async (req, res) => {
   }
 });
 
+// GET /api/users/profile/:username — lookup profile by username with live stats
+router.get("/profile/:username", async (req, res) => {
+  const { username } = req.params;
+  if (!username) { res.status(400).json({ error: "username required" }); return; }
+  const sb = makeSupabase();
+
+  req.log.info({ username }, "profile lookup");
+
+  try {
+    const { data: profile, error } = await sb
+      .from("profiles")
+      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private")
+      .eq("username", username)
+      .maybeSingle();
+
+    if (error) {
+      req.log.warn({ error: error.message }, "profile lookup error");
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    if (!profile) {
+      res.status(404).json({ error: "not found" });
+      return;
+    }
+
+    // Live COUNT queries run in parallel — not stale cached columns
+    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
+      sb.from("posts").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
+      sb.from("reels").select("id", { count: "exact", head: true }).eq("user_id", profile.id),
+      sb.from("follows").select("id", { count: "exact", head: true }).eq("following_id", profile.id),
+      sb.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
+    ]);
+
+    const posts_count =
+      (postsRes.status === "fulfilled" ? (postsRes.value.count ?? 0) : 0) +
+      (reelsRes.status === "fulfilled" ? (reelsRes.value.count ?? 0) : 0);
+    const followers_count = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : 0;
+    const following_count = followingRes.status === "fulfilled" ? (followingRes.value.count ?? 0) : 0;
+
+    res.json({
+      profile: {
+        ...profile,
+        posts_count,
+        followers_count,
+        following_count,
+      },
+    });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "profile lookup exception");
+    res.status(500).json({ error: "Profile lookup failed" });
+  }
+});
+
 export default router;
