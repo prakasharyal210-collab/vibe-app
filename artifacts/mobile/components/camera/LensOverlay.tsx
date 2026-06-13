@@ -1,45 +1,62 @@
+/**
+ * LensOverlay — AR lens layer rendered on top of the camera.
+ *
+ * When a lens is selected:
+ *   • In a dev/prod build → mounts BanubaCameraView (Banuba takes the camera)
+ *   • In Expo Go           → shows the "requires dev build" fallback from
+ *                            BanubaCameraView automatically
+ * When no lens is selected → renders nothing (expo-camera owns the camera).
+ */
+
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet } from "react-native";
+import { BanubaCameraView, BanubaHandle } from "./BanubaCameraView";
 
 interface Props {
   lensId: string | null;
+  facing?: "front" | "back";
+  banubaRef?: React.RefObject<BanubaHandle | null>;
+  onCameraExclusive?: (exclusive: boolean) => void;
+  onScreenshotReady?: (path: string) => void;
+  onVideoRecordingFinished?: (path: string) => void;
 }
 
-export default function LensOverlay({ lensId }: Props) {
+export default function LensOverlay({
+  lensId,
+  facing = "front",
+  banubaRef,
+  onCameraExclusive,
+  onScreenshotReady,
+  onVideoRecordingFinished,
+}: Props) {
+  const prevLensId = React.useRef<string | null>(null);
+  const internalRef = React.useRef<BanubaHandle | null>(null);
+  const ref = (banubaRef ?? internalRef) as React.RefObject<BanubaHandle | null>;
+
+  // Notify parent when Banuba camera exclusivity changes
+  React.useEffect(() => {
+    const wasActive = prevLensId.current !== null;
+    const isActive = lensId !== null;
+    if (!wasActive && isActive) onCameraExclusive?.(true);
+    else if (wasActive && !isActive) onCameraExclusive?.(false);
+    prevLensId.current = lensId;
+  }, [lensId, onCameraExclusive]);
+
+  // Load / unload effect when lensId changes
+  React.useEffect(() => {
+    if (!ref.current) return;
+    ref.current.loadEffect(lensId);
+  }, [lensId]);
+
   if (!lensId) return null;
 
   return (
-    <View style={styles.overlay} pointerEvents="none">
-      <View style={styles.badge}>
-        <Text style={styles.emoji}>✨</Text>
-        <Text style={styles.text}>AR Lenses{"\n"}coming soon</Text>
-      </View>
-    </View>
+    <BanubaCameraView
+      ref={ref}
+      style={StyleSheet.absoluteFill}
+      facing={facing}
+      onScreenshotReady={onScreenshotReady}
+      onVideoRecordingFinished={onVideoRecordingFinished}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(10,10,20,0.72)",
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(139,92,246,0.35)",
-  },
-  emoji: { fontSize: 18 },
-  text: {
-    color: "rgba(255,255,255,0.65)",
-    fontSize: 13,
-    fontFamily: "Poppins_500Medium",
-    lineHeight: 19,
-  },
-});

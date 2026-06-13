@@ -1,5 +1,3 @@
-import { Platform } from "react-native";
-
 export type LensCategory = 'cute' | 'beauty' | 'fun' | 'world' | 'spiritual';
 
 export interface Lens {
@@ -7,15 +5,8 @@ export interface Lens {
   name: string;
   icon: string;
   category: LensCategory;
+  /** Banuba effect folder name (passed to BanubaCameraView.loadEffect), or null if not yet built. */
   effectPath: string | null;
-}
-
-function effectPath(filename: string): string {
-  return Platform.select({
-    android: `file:///android_asset/effects/${filename}`,
-    ios: `effects/${filename}`,
-    default: `effects/${filename}`,
-  })!;
 }
 
 export const LENSES: Lens[] = [
@@ -32,15 +23,15 @@ export const LENSES: Lens[] = [
   { id: 'bold_lip',      name: 'Bold Lip',     icon: '💋', category: 'beauty',    effectPath: null },
   { id: 'eye_color',     name: 'Eye Color',    icon: '👁️', category: 'beauty',    effectPath: null },
   // ── Fun & Viral ────────────────────────────────────────────────────────────
-  { id: 'flower_crown',  name: 'Flower Crown', icon: '🌺', category: 'fun',       effectPath: effectPath('flower_crown.deepar') },
+  { id: 'flower_crown',  name: 'Flower Crown', icon: '🌺', category: 'fun',       effectPath: null },
   { id: 'crying_stars',  name: 'Sparkle Tears',icon: '🌟', category: 'fun',       effectPath: null },
   { id: 'rainbow',       name: 'Rainbow',      icon: '🌈', category: 'fun',       effectPath: null },
   { id: 'giant_eyes',    name: 'Giant Eyes',   icon: '👀', category: 'fun',       effectPath: null },
-  { id: 'neon_glow',     name: 'Neon Glow',    icon: '⚡', category: 'fun',       effectPath: effectPath('neon_devil_horns.deepar') },
+  { id: 'neon_glow',     name: 'Troll Grandma',icon: '⚡', category: 'fun',       effectPath: 'TrollGrandma' },
   { id: 'vintage',       name: 'Vintage',      icon: '📷', category: 'fun',       effectPath: null },
   { id: 'anime',         name: 'Anime',        icon: '🌟', category: 'fun',       effectPath: null },
   { id: 'crown',         name: 'Crown',        icon: '👑', category: 'fun',       effectPath: null },
-  { id: 'mask',          name: 'G-Mask',       icon: '🎭', category: 'fun',       effectPath: null },
+  { id: 'mask',          name: 'Pineapple 🍍', icon: '🎭', category: 'fun',       effectPath: 'PineappleGlasses' },
   { id: 'distortion',    name: 'Distortion',   icon: '🫠', category: 'fun',       effectPath: null },
   // ── World & Background ─────────────────────────────────────────────────────
   { id: 'snow',          name: 'Snow',         icon: '❄️', category: 'world',     effectPath: null },
@@ -56,7 +47,7 @@ export const LENSES: Lens[] = [
   { id: 'chakra',        name: 'Chakra',       icon: '☯️', category: 'spiritual', effectPath: null },
   { id: 'goddess',       name: 'Goddess',      icon: '🌺', category: 'spiritual', effectPath: null },
   { id: 'om_aura',       name: 'Om Aura',      icon: '🕉️', category: 'spiritual', effectPath: null },
-  { id: 'navagraha',     name: 'Navagraha',    icon: '🪐', category: 'spiritual', effectPath: effectPath('aviators.deepar') },
+  { id: 'navagraha',     name: 'Navagraha',    icon: '🪐', category: 'spiritual', effectPath: null },
 ];
 
 export const CATEGORY_LABELS: Record<LensCategory | 'all', string> = {

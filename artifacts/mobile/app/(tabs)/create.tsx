@@ -43,6 +43,7 @@ import { BeautyPanel, BeautyOverlay, BeautySettings } from "@/components/camera/
 import { CameraFilterStrip, FilterOverlay, CAMERA_FILTERS, CameraFilter } from "@/components/camera/CameraFilterStrip";
 import LensOverlay from "@/components/camera/LensOverlay";
 import { LensSelector } from "@/components/camera/LensSelector";
+import type { BanubaHandle } from "@/components/camera/BanubaCameraView";
 import { useAuth } from "@/context/AuthContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { Track } from "@/lib/music";
@@ -500,9 +501,13 @@ function CreateScreenInner() {
   const [cameraFilter, setCameraFilter] = useState<CameraFilter>(CAMERA_FILTERS[0]);
   const [filterIntensity, setFilterIntensity] = useState(100);
 
-  // ── Lenses (AR effects) ────────────────────────────────────────────────────
+  // ── Lenses (AR effects — Banuba) ───────────────────────────────────────────
   const [activeLensId, setActiveLensId] = useState<string | null>(null);
   const [showLensPicker, setShowLensPicker] = useState(false);
+  const [banubaActive, setBanubaActive] = useState(false);
+  const banubaRef = useRef<BanubaHandle | null>(null);
+  const banubaPhotoResolverRef = useRef<(() => void) | null>(null);
+  const banubaVideoResolverRef = useRef<(() => void) | null>(null);
 
   // ── Overlays / music ──────────────────────────────────────────────────────
   const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
@@ -647,20 +652,55 @@ function CreateScreenInner() {
     recordPulse.value = withTiming(1, { duration: 150 });
   }, []);
 
+  // ── Banuba capture callbacks ──────────────────────────────────────────────
+  const handleBanubaScreenshot = useCallback((path: string) => {
+    const uri = path.startsWith("file://") ? path : `file://${path}`;
+    setCapturedIsPhoto(true);
+    setRecordedUri(uri);
+    banubaPhotoResolverRef.current?.();
+    banubaPhotoResolverRef.current = null;
+  }, []);
+
+  const handleBanubaVideoFinished = useCallback((path: string) => {
+    const uri = path.startsWith("file://") ? path : `file://${path}`;
+    setCapturedIsPhoto(false);
+    setRecordedUri(uri);
+    banubaVideoResolverRef.current?.();
+    banubaVideoResolverRef.current = null;
+  }, []);
+
+  // Returns a raw FS path (no file:// prefix) usable by Banuba
+  const banubaTmpPath = (ext: string) => {
+    try {
+      const RNFS = require("react-native-fs");
+      return `${RNFS.DocumentDirectoryPath}/banuba_${Date.now()}.${ext}`;
+    } catch {
+      return "";
+    }
+  };
+
   // ── Photo capture ─────────────────────────────────────────────────────────
   const takePhoto = useCallback(async () => {
     try {
       await runTimerCountdown();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9, skipProcessing: false });
-      if (photo?.uri) {
-        setCapturedIsPhoto(true);
-        setRecordedUri(photo.uri);
+      if (banubaActive) {
+        const path = banubaTmpPath("jpg");
+        await new Promise<void>((resolve) => {
+          banubaPhotoResolverRef.current = resolve;
+          banubaRef.current?.takeScreenshot(path);
+        });
+      } else {
+        const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9, skipProcessing: false });
+        if (photo?.uri) {
+          setCapturedIsPhoto(true);
+          setRecordedUri(photo.uri);
+        }
       }
     } catch {
       Alert.alert("Photo failed", "Could not capture photo. Try again.");
     }
-  }, [runTimerCountdown]);
+  }, [runTimerCountdown, banubaActive]);
 
   // ── Video recording ────────────────────────────────────────────────────────
   const startVideoRecording = useCallback(async () => {
@@ -677,23 +717,34 @@ function CreateScreenInner() {
       setRecordingElapsed((prev) => {
         if (prev >= maxDuration - 1) {
           clearInterval(recordTimerRef.current!); recordTimerRef.current = null;
-          cameraRef.current?.stopRecording(); return prev;
+          if (banubaActive) banubaRef.current?.stopVideoRecording();
+          else cameraRef.current?.stopRecording();
+          return prev;
         }
         return prev + 1;
       });
     }, 1000);
     try {
-      const result = await cameraRef.current?.recordAsync({ maxDuration });
-      if (result?.uri) { setCapturedIsPhoto(false); setRecordedUri(result.uri); }
+      if (banubaActive) {
+        const path = banubaTmpPath("mp4");
+        await new Promise<void>((resolve) => {
+          banubaVideoResolverRef.current = resolve;
+          banubaRef.current?.startVideoRecording(path);
+        });
+      } else {
+        const result = await cameraRef.current?.recordAsync({ maxDuration });
+        if (result?.uri) { setCapturedIsPhoto(false); setRecordedUri(result.uri); }
+      }
     } catch {}
     if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
     setRecording(false); setRecordingElapsed(0); stopPulse();
-  }, [recording, runTimerCountdown, selectedDuration, startPulse, stopPulse]);
+  }, [recording, runTimerCountdown, selectedDuration, startPulse, stopPulse, banubaActive]);
 
   const stopVideoRecording = useCallback(() => {
-    cameraRef.current?.stopRecording();
+    if (banubaActive) banubaRef.current?.stopVideoRecording();
+    else cameraRef.current?.stopRecording();
     if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
-  }, []);
+  }, [banubaActive]);
 
   // ── Boomerang recording: 2.5 s, auto-stop ─────────────────────────────────
   const recordBoomerang = useCallback(async () => {
@@ -827,20 +878,22 @@ function CreateScreenInner() {
       <StatusBar style="light" />
       <View style={s.root}>
 
-        {/* ── CAMERA ── */}
-        <View
-          style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}
-          {...cameraGestureHandlers}
-        >
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing={facing}
-            flash={flashMode}
-            mode="video"
-            zoom={zoom}
-          />
-        </View>
+        {/* ── CAMERA — hidden when Banuba owns the session ── */}
+        {!banubaActive && (
+          <View
+            style={[StyleSheet.absoluteFill, showMirror && { transform: [{ scaleX: -1 }] }]}
+            {...cameraGestureHandlers}
+          >
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing={facing}
+              flash={flashMode}
+              mode="video"
+              zoom={zoom}
+            />
+          </View>
+        )}
 
         {/* ── GRADIENT OVERLAY ── */}
         <LinearGradient
@@ -856,8 +909,15 @@ function CreateScreenInner() {
         {/* ── BEAUTY OVERLAY ── */}
         <BeautyOverlay settings={beautySettings} />
 
-        {/* ── LENS OVERLAY (AR effects — coming soon) ── */}
-        <LensOverlay lensId={activeLensId} />
+        {/* ── LENS OVERLAY (AR effects — Banuba) ── */}
+        <LensOverlay
+          lensId={activeLensId}
+          facing={facing}
+          banubaRef={banubaRef}
+          onCameraExclusive={setBanubaActive}
+          onScreenshotReady={handleBanubaScreenshot}
+          onVideoRecordingFinished={handleBanubaVideoFinished}
+        />
 
         {/* ── EXPOSURE OVERLAY (simulated) ── */}
         {exposureValue !== 0 && (
