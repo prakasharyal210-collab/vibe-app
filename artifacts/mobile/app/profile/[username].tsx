@@ -255,29 +255,17 @@ export default function UserProfileScreen() {
     setFollowersCount((n) => (!wasFollowing ? n + 1 : Math.max(0, n - 1)));
     setFollowSaving(true);
     try {
-      // Try toggle_follow RPC first (handles duplicates gracefully)
-      const { error } = await supabase.rpc("toggle_follow", {
-        p_follower_id: myId,
-        p_following_id: profile.id,
+      const method = wasFollowing ? "DELETE" : "POST";
+      const res = await fetch(`/api/users/social/follow`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ followerId: myId, followingId: profile.id }),
       });
-      if (error) throw error;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch {
-      // Fallback to direct table operations
-      try {
-        if (!wasFollowing) {
-          await supabase.from("follows").upsert(
-            { follower_id: myId, following_id: profile.id },
-            { onConflict: "follower_id,following_id" }
-          );
-        } else {
-          await supabase.from("follows").delete()
-            .eq("follower_id", myId).eq("following_id", profile.id);
-        }
-      } catch {
-        // Revert optimistic update on total failure
-        setFollowing(wasFollowing);
-        setFollowersCount((n) => (wasFollowing ? n + 1 : Math.max(0, n - 1)));
-      }
+      // Revert optimistic update on failure
+      setFollowing(wasFollowing);
+      setFollowersCount((n) => (wasFollowing ? n + 1 : Math.max(0, n - 1)));
     } finally {
       setFollowSaving(false);
     }
@@ -288,20 +276,17 @@ export default function UserProfileScreen() {
     if (!myId || !profile?.id || openingChat) return;
     setOpeningChat(true);
     try {
-      const convId = await getOrCreateConversation(myId, profile.id);
-      if (convId) {
-        router.push({
-          pathname: "/chat/[userId]",
-          params: {
-            userId: convId,
-            username: u,
-            avatar_url: profile.avatar_url ?? "",
-          },
-        } as any);
-      } else {
-        // Fallback: navigate with username
-        router.push({ pathname: "/chat/[userId]", params: { userId: profile.id, username: u } });
-      }
+      const res = await fetch("/api/users/social/conversation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: myId, otherId: profile.id }),
+      });
+      const json = res.ok ? await res.json() : {};
+      const targetId = json.conversationId ?? profile.id;
+      router.push({
+        pathname: "/chat/[userId]",
+        params: { userId: targetId, username: u, avatar_url: profile.avatar_url ?? "" },
+      } as any);
     } catch {
       router.push({ pathname: "/chat/[userId]", params: { userId: profile.id, username: u } });
     } finally {

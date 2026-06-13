@@ -10,6 +10,7 @@ import postsCreateRouter from "./posts/create";
 import reelsCreateRouter from "./reels/create";
 import reelsWatchRouter from "./reels/watch";
 import usersSearchRouter from "./users/search";
+import usersSocialRouter from "./users/social";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use("/posts", postsCreateRouter);
 router.use("/reels", reelsCreateRouter);
 router.use("/reels", reelsWatchRouter);
 router.use("/users", usersSearchRouter);
+router.use("/users/social", usersSocialRouter);
 
 export default router;

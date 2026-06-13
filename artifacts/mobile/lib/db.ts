@@ -2051,15 +2051,14 @@ export async function lookupProfileByUsername(username: string): Promise<PublicP
 
 export async function checkIsFollowing(followerId: string, followingId: string): Promise<boolean> {
   try {
-    const { data } = await supabase
-      .from("follows")
-      .select("id")
-      .eq("follower_id", followerId)
-      .eq("following_id", followingId)
-      .maybeSingle();
-    return !!data;
-  } catch {}
-  return false;
+    const url = `${API_BASE}/users/social/follow-status?followerId=${encodeURIComponent(followerId)}&followingId=${encodeURIComponent(followingId)}`;
+    const res = await fetch(url);
+    if (!res.ok) return false;
+    const json = await res.json();
+    return !!json.following;
+  } catch {
+    return false;
+  }
 }
 
 export async function ensureUserSetup(userId: string, username: string, email?: string): Promise<void> {
