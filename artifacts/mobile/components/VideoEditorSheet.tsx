@@ -478,7 +478,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
         {/* ── EDIT TAB ── */}
         {activeTab === "edit" && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 100 }}>
             {!isPhoto && (
               <View>
                 <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Trim Video</Text>
@@ -560,7 +560,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
         {/* ── ADJUST TAB ── */}
         {activeTab === "adjust" && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 100 }}>
             {/* Rotate & flip */}
             <View>
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Transform</Text>
@@ -616,7 +616,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
         {/* ── CAPTION TAB ── */}
         {activeTab === "caption" && (
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 100 }}>
             <View>
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Caption</Text>
               <TextInput
