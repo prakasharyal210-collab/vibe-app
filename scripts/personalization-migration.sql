@@ -6,20 +6,24 @@
 -- 1. user_interests — per-user affinity to creators (and future: categories)
 --    interest_key format: "creator:{uuid}"
 --    weight: positive = boost, negative = reduce/hide
-CREATE TABLE IF NOT EXISTS public.user_interests (
-  user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  interest_key TEXT NOT NULL,
-  weight       FLOAT NOT NULL DEFAULT 1.0,
+--
+--    DROP first so any partial previous run with the wrong schema is cleaned up.
+--    CASCADE removes dependent indexes and policies automatically.
+DROP TABLE IF EXISTS public.user_interests CASCADE;
+
+CREATE TABLE public.user_interests (
+  user_id      UUID        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  interest_key TEXT        NOT NULL,
+  weight       FLOAT       NOT NULL DEFAULT 1.0,
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, interest_key)
 );
 
-CREATE INDEX IF NOT EXISTS user_interests_user_idx ON public.user_interests (user_id);
-CREATE INDEX IF NOT EXISTS user_interests_key_idx  ON public.user_interests (user_id, interest_key);
+CREATE INDEX user_interests_user_idx ON public.user_interests (user_id);
+CREATE INDEX user_interests_key_idx  ON public.user_interests (user_id, interest_key);
 
--- Enable RLS (API server uses service role key, which bypasses RLS)
+-- Enable RLS (API server uses service role key, which bypasses RLS automatically)
 ALTER TABLE public.user_interests ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users read own interests" ON public.user_interests;
 CREATE POLICY "Users read own interests"
   ON public.user_interests FOR SELECT USING (auth.uid() = user_id);
 
