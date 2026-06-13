@@ -21,6 +21,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import RAnimated, { useSharedValue, useAnimatedStyle, runOnJS } from "react-native-reanimated";
 import { GradientButton } from "@/components/GradientButton";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import { AICaptionSheet } from "@/components/AICaptionSheet";
@@ -66,50 +68,39 @@ function Icon({ name, size, color }: { name: string; size: number; color: string
 interface StickerItem { id: string; emoji?: string; gifUrl?: string; x: number; y: number; }
 
 function DraggableSticker({ sticker, onMove }: { sticker: StickerItem; onMove: (id: string, x: number, y: number) => void }) {
-  const posX = useRef(sticker.x);
-  const posY = useRef(sticker.y);
-  posX.current = sticker.x;
-  posY.current = sticker.y;
-  const onMoveRef = useRef(onMove);
-  onMoveRef.current = onMove;
+  const translateX = useSharedValue(sticker.x);
+  const translateY = useSharedValue(sticker.y);
+  const startX = useSharedValue(sticker.x);
+  const startY = useSharedValue(sticker.y);
 
-  const pan = useRef(new Animated.ValueXY()).current;
+  const animStyle = useAnimatedStyle(() => ({
+    position: "absolute" as const,
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
+  }));
 
-  const responder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderGrant: () => {
-        pan.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-      onPanResponderRelease: (_, g) => {
-        const nx = posX.current + g.dx;
-        const ny = posY.current + g.dy;
-        pan.setValue({ x: 0, y: 0 });
-        onMoveRef.current(sticker.id, nx, ny);
-      },
+  const pan = Gesture.Pan()
+    .onBegin(() => {
+      startX.value = translateX.value;
+      startY.value = translateY.value;
     })
-  ).current;
+    .onUpdate(({ translationX, translationY }) => {
+      translateX.value = startX.value + translationX;
+      translateY.value = startY.value + translationY;
+    })
+    .onEnd(() => {
+      runOnJS(onMove)(sticker.id, translateX.value, translateY.value);
+    });
 
   return (
-    <Animated.View
-      style={{
-        position: "absolute",
-        top: sticker.y,
-        left: sticker.x,
-        transform: [{ translateX: pan.x }, { translateY: pan.y }],
-      }}
-      {...responder.panHandlers}
-    >
-      {sticker.gifUrl ? (
-        <Image source={{ uri: sticker.gifUrl }} style={{ width: 60, height: 60 }} resizeMode="contain" />
-      ) : (
-        <Text style={{ fontSize: 36 }}>{sticker.emoji}</Text>
-      )}
-    </Animated.View>
+    <GestureDetector gesture={pan}>
+      <RAnimated.View style={animStyle}>
+        {sticker.gifUrl ? (
+          <Image source={{ uri: sticker.gifUrl }} style={{ width: 60, height: 60 }} resizeMode="contain" />
+        ) : (
+          <Text style={{ fontSize: 36 }}>{sticker.emoji}</Text>
+        )}
+      </RAnimated.View>
+    </GestureDetector>
   );
 }
 
