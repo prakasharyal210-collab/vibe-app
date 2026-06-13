@@ -17,9 +17,10 @@ CREATE TABLE IF NOT EXISTS public.user_interests (
 CREATE INDEX IF NOT EXISTS user_interests_user_idx ON public.user_interests (user_id);
 CREATE INDEX IF NOT EXISTS user_interests_key_idx  ON public.user_interests (user_id, interest_key);
 
--- Enable RLS (API server uses service role, bypasses RLS)
+-- Enable RLS (API server uses service role key, which bypasses RLS)
 ALTER TABLE public.user_interests ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "Users read own interests"
+DROP POLICY IF EXISTS "Users read own interests" ON public.user_interests;
+CREATE POLICY "Users read own interests"
   ON public.user_interests FOR SELECT USING (auth.uid() = user_id);
 
 -- 2. record_engagement — upsert a delta into user_interests, clamped
