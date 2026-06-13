@@ -1,8 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
   Dimensions,
   KeyboardAvoidingView,
   Modal,
@@ -14,6 +13,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RELATIONSHIP_GOALS } from "@/lib/db";
 
@@ -149,7 +154,8 @@ function RangeRow({
 export function VibeSetupWizard({ visible, onComplete, onSkip, isReturning, initialPrefs, lastUpdatedLabel }: Props) {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useSharedValue(0);
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slideAnim.value }] }));
 
   const [gender, setGender] = useState("");
   const [interestedIn, setInterestedIn] = useState<string[]>([]);
@@ -177,10 +183,10 @@ export function VibeSetupWizard({ visible, onComplete, onSkip, isReturning, init
 
   const goTo = (next: number) => {
     const dir = next > step ? -1 : 1;
-    Animated.sequence([
-      Animated.timing(slideAnim, { toValue: dir * 40, duration: 120, useNativeDriver: false }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
-    ]).start();
+    slideAnim.value = withSequence(
+      withTiming(dir * 40, { duration: 120 }),
+      withTiming(0, { duration: 200 }),
+    );
     setStep(next);
   };
 
@@ -269,7 +275,7 @@ export function VibeSetupWizard({ visible, onComplete, onSkip, isReturning, init
           </View>
         )}
 
-        <Animated.View style={[styles.content, { transform: [{ translateX: slideAnim }] }]}>
+        <Animated.View style={[styles.content, slideStyle]}>
           <Text style={styles.stepTitle}>{STEP_META.title}</Text>
           {STEP_META.subtitle && <Text style={styles.stepSubtitle}>{STEP_META.subtitle}</Text>}
 
