@@ -38,6 +38,7 @@
     "android": {
       "package": "com.prakasharyal.gundruk",
       "versionCode": 3,
+      "minSdkVersion": 26,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
