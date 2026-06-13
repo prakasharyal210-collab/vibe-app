@@ -60,16 +60,13 @@ AS $$
   SELECT p.*
   FROM public.posts p
   WHERE
-    -- Visibility filter
-    (p.visibility = 'public' OR p.visibility IS NULL)
-
     -- Exclude creators the user has hidden / disliked
-    AND NOT EXISTS (
+    NOT EXISTS (
       SELECT 1
       FROM public.user_interests ui
-      WHERE ui.user_id   = p_user_id
+      WHERE ui.user_id    = p_user_id
         AND ui.interest_key = 'creator:' || p.user_id::TEXT
-        AND ui.weight    < -1.5
+        AND ui.weight     < -1.5
     )
 
   ORDER BY
