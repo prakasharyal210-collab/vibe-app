@@ -345,7 +345,7 @@ export default function UserProfileScreen() {
     image: p.image_url || `https://picsum.photos/seed/${p.id}/400/400`,
     likes: p.likes,
     caption: p.caption,
-    isVideo: p.isReel,
+    isVideo: p.isReel || p.is_video,
     username: u,
   }));
 

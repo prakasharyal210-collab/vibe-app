@@ -2,6 +2,8 @@ import * as Haptics from "expo-haptics";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { Video, ResizeMode } from "expo-av";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -106,6 +108,10 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   const [cropRatio, setCropRatio] = useState<CropRatio>("original");
   const [activeFilter, setActiveFilter] = useState<CameraFilter>(CAMERA_FILTERS[0]!);
 
+  // Video preview
+  const [videoThumbnails, setVideoThumbnails] = useState<Record<number, string>>({});
+  const [playingVideoIdx, setPlayingVideoIdx] = useState<number | null>(null);
+
   // Metadata
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
@@ -147,6 +153,27 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     }, 280);
     return () => clearTimeout(t);
   }, [tagSearch, showTagModal, session?.user?.id]);
+
+  // ── Video thumbnail generation ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!rawMedia.some((a) => a.type === "video")) return;
+    let cancelled = false;
+    (async () => {
+      const updates: Record<number, string> = {};
+      for (let i = 0; i < rawMedia.length; i++) {
+        if (cancelled) return;
+        const asset = rawMedia[i];
+        if (asset?.type === "video") {
+          try {
+            const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri, { time: 0 });
+            updates[i] = uri;
+          } catch {}
+        }
+      }
+      if (!cancelled) setVideoThumbnails(updates);
+    })();
+    return () => { cancelled = true; };
+  }, [rawMedia]);
 
   // ── Gallery picker ─────────────────────────────────────────────────────────
   const pickFromGallery = useCallback(async () => {
@@ -388,18 +415,54 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             bounces={false}
-            onMomentumScrollEnd={(e) =>
-              setPreviewIdx(Math.round(e.nativeEvent.contentOffset.x / PREVIEW_W))
-            }
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / PREVIEW_W);
+              setPreviewIdx(idx);
+              setPlayingVideoIdx(null);
+            }}
             style={{ flex: 1 }}
           >
             {rawMedia.map((asset, i) => (
               <View key={i} style={{ width: PREVIEW_W, height: PREV_H, overflow: "hidden" }}>
                 {asset.type === "video" ? (
-                  <View style={p.videoThumb}>
-                    <Text style={p.videoThumbIcon}>🎬</Text>
-                    <Text style={p.videoThumbLabel}>Video</Text>
-                  </View>
+                  playingVideoIdx === i ? (
+                    <Video
+                      source={{ uri: asset.uri }}
+                      style={StyleSheet.absoluteFill}
+                      resizeMode={ResizeMode.COVER}
+                      useNativeControls
+                      shouldPlay
+                      onPlaybackStatusUpdate={(s) => {
+                        if (s.isLoaded && (s as any).didJustFinish) setPlayingVideoIdx(null);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      {videoThumbnails[i] ? (
+                        <Image
+                          source={{ uri: videoThumbnails[i] }}
+                          style={StyleSheet.absoluteFill}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={p.videoThumb}>
+                          <ActivityIndicator color="#A78BFA" size="large" />
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={p.videoPlayOverlay}
+                        onPress={() => setPlayingVideoIdx(i)}
+                        activeOpacity={0.85}
+                      >
+                        <View style={p.videoPlayBtn}>
+                          <Text style={p.videoPlayIcon}>▶</Text>
+                        </View>
+                        <View style={p.videoBadge}>
+                          <Text style={p.videoBadgeText}>VIDEO</Text>
+                        </View>
+                      </TouchableOpacity>
+                    </>
+                  )
                 ) : (
                   <>
                     <Image
@@ -704,8 +767,11 @@ const p = StyleSheet.create({
   // Preview
   previewWrap: { marginHorizontal: 16, borderRadius: 18, overflow: "hidden", backgroundColor: "#111126", marginBottom: 4 },
   videoThumb: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#1a1a2e" },
-  videoThumbIcon: { fontSize: 44 },
-  videoThumbLabel: { color: "rgba(255,255,255,0.5)", marginTop: 8, fontFamily: "Poppins_500Medium", fontSize: 14 },
+  videoPlayOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  videoPlayBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center", borderWidth: 2.5, borderColor: "rgba(255,255,255,0.8)" },
+  videoPlayIcon: { fontSize: 26, color: "#fff", marginLeft: 5 },
+  videoBadge: { position: "absolute", bottom: 12, right: 12, backgroundColor: "rgba(0,0,0,0.58)", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  videoBadgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 10, letterSpacing: 0.8 },
   dotRow: { position: "absolute", bottom: 10, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.3)" },
   dotActive: { backgroundColor: "#fff", width: 18, borderRadius: 3 },

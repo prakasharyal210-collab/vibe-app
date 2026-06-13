@@ -1,9 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { Video, ResizeMode } from "expo-av";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -73,12 +76,35 @@ interface GridItem {
   id: string;
   image_url: string;
   isReel?: boolean;
+  is_video?: boolean;
   likes?: number;
   comments?: number;
   caption?: string;
   duration?: number;
   video_url?: string;
   created_at?: string;
+}
+
+function isVideoUrl(url: string): boolean {
+  const u = url.toLowerCase().split("?")[0] ?? "";
+  return u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.endsWith(".m4v");
+}
+
+function VideoGridCell({ videoUri, style }: { videoUri: string; style: any }) {
+  const [thumbUri, setThumbUri] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    VideoThumbnails.getThumbnailAsync(videoUri, { time: 0 })
+      .then(({ uri }) => { if (!cancelled) setThumbUri(uri); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [videoUri]);
+  if (thumbUri) return <Image source={{ uri: thumbUri }} style={style} resizeMode="cover" />;
+  return (
+    <View style={[style, { backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }]}>
+      <ActivityIndicator color="#A78BFA" size="small" />
+    </View>
+  );
 }
 
 function formatCount(n: number) {
@@ -130,7 +156,7 @@ function PhotoViewer({
           </TouchableOpacity>
         </View>
 
-        {/* Photo carousel */}
+        {/* Photo / Video carousel */}
         <ScrollView
           ref={scrollRef}
           horizontal
@@ -143,7 +169,17 @@ function PhotoViewer({
         >
           {photos.map((p) => (
             <View key={p.id} style={pvStyles.photoWrap}>
-              <Image source={{ uri: p.image_url }} style={pvStyles.photo} resizeMode="contain" />
+              {(p.is_video || p.isReel) && (p.video_url || (p.is_video && p.image_url)) ? (
+                <Video
+                  source={{ uri: p.video_url ?? p.image_url }}
+                  style={pvStyles.photo}
+                  resizeMode={ResizeMode.CONTAIN}
+                  useNativeControls
+                  shouldPlay={photos[idx]?.id === p.id}
+                />
+              ) : (
+                <Image source={{ uri: p.image_url }} style={pvStyles.photo} resizeMode="contain" />
+              )}
             </View>
           ))}
         </ScrollView>
@@ -431,7 +467,9 @@ export default function ProfileScreen() {
       .channel(`profile-grid-${uid}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts', filter: `user_id=eq.${uid}` }, (payload) => {
         const p = payload.new as any;
-        setMyPosts((prev) => [{ id: p.id, image_url: p.image_url ?? p.media_url ?? '', isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at }, ...prev]);
+        const mediaUrl = p.media_url ?? p.image_url ?? '';
+        const isVid = isVideoUrl(mediaUrl);
+        setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at }, ...prev]);
         setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reels', filter: `user_id=eq.${uid}` }, (payload) => {
@@ -656,13 +694,17 @@ export default function ProfileScreen() {
               }
             }}
           >
-            <Image source={{ uri: item.image_url || undefined }} style={styles.gridImage} resizeMode="cover" />
+            {item.is_video && item.image_url ? (
+              <VideoGridCell videoUri={item.image_url} style={styles.gridImage} />
+            ) : (
+              <Image source={{ uri: item.image_url || undefined }} style={styles.gridImage} resizeMode="cover" />
+            )}
             {(item as any).is_pinned && (
               <View style={styles.pinBadge}>
                 <Ionicons name="pin" size={10} color="#fff" />
               </View>
             )}
-            {item.isReel && (
+            {(item.isReel || item.is_video) && (
               <View style={styles.reelBadge}>
                 <Ionicons name="play" size={12} color="#fff" />
               </View>

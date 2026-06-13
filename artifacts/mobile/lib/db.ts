@@ -1265,6 +1265,7 @@ export interface ProfileGridItem {
   id: string;
   image_url: string;
   video_url?: string;
+  is_video?: boolean;
   isReel: boolean;
   likes: number;
   comments: number;
@@ -1272,6 +1273,11 @@ export interface ProfileGridItem {
   duration?: number;
   created_at: string;
   is_pinned?: boolean;
+}
+
+function isVideoMediaUrl(url: string): boolean {
+  const u = (url ?? "").toLowerCase().split("?")[0] ?? "";
+  return u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.endsWith(".m4v");
 }
 
 export function extractHashtags(caption: string): string[] {
@@ -1290,16 +1296,22 @@ export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem
         posts: any[];
         reels: any[];
       };
-      const posts: ProfileGridItem[] = rawPosts.map((p: any) => ({
-        id: p.id,
-        image_url: p.media_url ?? p.image_url ?? '',
-        isReel: false,
-        likes: p.likes_count ?? 0,
-        comments: p.comments_count ?? 0,
-        caption: p.caption ?? '',
-        created_at: p.created_at,
-        is_pinned: p.is_pinned ?? false,
-      }));
+      const posts: ProfileGridItem[] = rawPosts.map((p: any) => {
+        const mediaUrl = p.media_url ?? p.image_url ?? '';
+        const isVid = isVideoMediaUrl(mediaUrl);
+        return {
+          id: p.id,
+          image_url: mediaUrl,
+          video_url: isVid ? mediaUrl : undefined,
+          is_video: isVid,
+          isReel: false,
+          likes: p.likes_count ?? 0,
+          comments: p.comments_count ?? 0,
+          caption: p.caption ?? '',
+          created_at: p.created_at,
+          is_pinned: p.is_pinned ?? false,
+        };
+      });
       const reels: ProfileGridItem[] = rawReels.map((r: any) => ({
         id: `reel_${r.id}`,
         image_url: r.thumbnail_url ?? '',
