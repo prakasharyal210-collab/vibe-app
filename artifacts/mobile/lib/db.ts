@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { readAsStringAsync, EncodingType as FSEncodingType } from 'expo-file-system';
 import {
   MOCK_COMMENTS,
   MOCK_CONVERSATIONS,
@@ -18,13 +18,21 @@ import {
 // Read a local file URI into a Uint8Array reliably on Android & iOS.
 // fetch(uri) can hang indefinitely on Android content:// URIs.
 async function localUriToBytes(uri: string): Promise<Uint8Array> {
-  const b64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+  const b64 = await readAsStringAsync(uri, { encoding: FSEncodingType.Base64 });
   const raw = atob(b64);
   const bytes = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
   return bytes;
+}
+
+// Race any promise against a timeout so uploads never hang forever.
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1344,10 +1352,12 @@ export async function uploadPostMedia(
 
     let mediaUrl = uri;
     try {
-      const bytes = await localUriToBytes(uri);
-      const { error: upErr } = await supabase.storage
-        .from('posts')
-        .upload(filename, bytes, { contentType: mimeType, upsert: true });
+      const bytes = await withTimeout(localUriToBytes(uri), 15_000, 'file read');
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from('posts').upload(filename, bytes, { contentType: mimeType, upsert: true }),
+        30_000,
+        'storage upload'
+      );
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('posts').getPublicUrl(filename);
         mediaUrl = urlData.publicUrl;
@@ -1355,7 +1365,7 @@ export async function uploadPostMedia(
         console.log('Storage upload error:', upErr.message);
       }
     } catch (storageErr) {
-      console.log('Storage fetch/upload failed:', storageErr);
+      console.log('Storage upload failed (using local URI):', storageErr);
     }
 
     // Build insert payload — write both media_url and image_url for compatibility
@@ -1373,7 +1383,11 @@ export async function uploadPostMedia(
     if (options?.commentsEnabled !== undefined) fullPayload.comments_enabled = options.commentsEnabled;
     if (options?.downloadsEnabled !== undefined) fullPayload.downloads_enabled = options.downloadsEnabled;
 
-    let { data, error } = await supabase.from('posts').insert(fullPayload).select('id').single();
+    let { data, error } = await withTimeout(
+      supabase.from('posts').insert(fullPayload).select('id').single(),
+      15_000,
+      'post insert'
+    );
 
     // If schema doesn't have image_url column yet, fall back to media_url-only insert
     if (error) {
@@ -1387,7 +1401,11 @@ export async function uploadPostMedia(
         views_count: 0,
         created_at: new Date().toISOString(),
       };
-      ({ data, error } = await supabase.from('posts').insert(minimalPayload).select('id').single());
+      ({ data, error } = await withTimeout(
+        supabase.from('posts').insert(minimalPayload).select('id').single(),
+        15_000,
+        'post insert (minimal)'
+      ));
     }
 
     if (error) {
@@ -1425,10 +1443,12 @@ export async function uploadReelMedia(
 
     let videoUrl = uri;
     try {
-      const bytes = await localUriToBytes(uri);
-      const { error: upErr } = await supabase.storage
-        .from('reels')
-        .upload(filename, bytes, { contentType: mimeType, upsert: true });
+      const bytes = await withTimeout(localUriToBytes(uri), 20_000, 'reel file read');
+      const { error: upErr } = await withTimeout(
+        supabase.storage.from('reels').upload(filename, bytes, { contentType: mimeType, upsert: true }),
+        60_000,
+        'reel storage upload'
+      );
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('reels').getPublicUrl(filename);
         videoUrl = urlData.publicUrl;
@@ -1436,7 +1456,7 @@ export async function uploadReelMedia(
         console.log('Reel storage upload error:', upErr.message);
       }
     } catch (storageErr) {
-      console.log('Reel storage fetch/upload failed:', storageErr);
+      console.log('Reel storage upload failed (using local URI):', storageErr);
     }
 
     const { data, error } = await supabase
