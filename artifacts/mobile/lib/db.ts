@@ -1895,13 +1895,14 @@ export async function getProfileStats(userId: string): Promise<ProfileStats> {
     if (!error && data) return data as ProfileStats;
   } catch {}
   try {
-    const [postsRes, followersRes, followingRes] = await Promise.all([
+    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.all([
       supabase.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
+      supabase.from("reels").select("id", { count: "exact", head: true }).eq("user_id", userId),
       supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", userId),
       supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", userId),
     ]);
     return {
-      posts_count: postsRes.count ?? 0,
+      posts_count: (postsRes.count ?? 0) + (reelsRes.count ?? 0),
       followers_count: followersRes.count ?? 0,
       following_count: followingRes.count ?? 0,
     };

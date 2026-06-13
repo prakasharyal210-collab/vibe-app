@@ -423,17 +423,18 @@ export default function ProfileScreen() {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (!data) return;
     // Fetch live counts directly to avoid cached-column drift
-    const [postsRes, followersRes, followingRes] = await Promise.allSettled([
+    // posts_count = posts + reels (profile grid shows both)
+    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
       supabase.from("posts").select("*", { count: "exact", head: true }).eq("user_id", uid),
+      supabase.from("reels").select("*", { count: "exact", head: true }).eq("user_id", uid),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", uid),
       supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", uid),
     ]);
+    const postsCount = (postsRes.status === "fulfilled" ? (postsRes.value.count ?? 0) : 0)
+      + (reelsRes.status === "fulfilled" ? (reelsRes.value.count ?? 0) : 0);
     setProfile({
       ...(data as Profile),
-      posts_count:
-        postsRes.status === "fulfilled" && postsRes.value.count !== null
-          ? postsRes.value.count
-          : (data.posts_count ?? 0),
+      posts_count: postsCount > 0 ? postsCount : (data.posts_count ?? 0),
       followers_count:
         followersRes.status === "fulfilled" && followersRes.value.count !== null
           ? followersRes.value.count
