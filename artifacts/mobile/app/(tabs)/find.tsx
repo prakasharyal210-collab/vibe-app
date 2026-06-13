@@ -1996,7 +1996,7 @@ function FindVibeContent() {
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [showSpeedVibe, setShowSpeedVibe] = useState(false);
-  const [showModeSheet, setShowModeSheet] = useState(false);
+
   const [vibePrivacy, setVibePrivacy] = useState("everyone");
   const [goalSheet, setGoalSheet] = useState<string | null>(null);
   const [vibePrefs, setVibePrefs] = useState<VibePrefsRow | null>(null);
@@ -2018,15 +2018,7 @@ function FindVibeContent() {
 
   useEffect(() => {
     if (!userId) return;
-    // First-time mode selection check
-    (async () => {
-      try {
-        const stored = await AsyncStorage.getItem(`gundruk_mode_selected_${userId}`);
-        if (!stored) setShowModeSheet(true);
-      } catch {}
-      // Load vibe privacy setting
-      getGundrukProfile(userId).then((p) => setVibePrivacy(p.vibe_request_privacy)).catch(() => {});
-    })();
+    getGundrukProfile(userId).then((p) => setVibePrivacy(p.vibe_request_privacy)).catch(() => {});
   }, [userId]);
 
   useEffect(() => {
@@ -2384,11 +2376,6 @@ function FindVibeContent() {
         goalValue={goalSheet}
         userId={userId}
         onClose={() => setGoalSheet(null)}
-      />
-      <ModeSelectionSheet
-        visible={showModeSheet}
-        userId={userId ?? ""}
-        onSave={() => setShowModeSheet(false)}
       />
     </ScrollView>
   );
