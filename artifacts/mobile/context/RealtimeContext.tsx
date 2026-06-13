@@ -201,12 +201,13 @@ interface PostCounts {
   views_count?: number;
 }
 
-export function usePostRealtime(postId: string, initial: PostCounts) {
+export function usePostRealtime(postId: string | undefined, initial: PostCounts) {
   const [counts, setCounts] = useState<PostCounts>(initial);
   const prevCounts = useRef<PostCounts>(initial);
   const [bumped, setBumped] = useState<keyof PostCounts | null>(null);
 
   useEffect(() => {
+    if (!postId) return; // don't subscribe if id is not yet available
     const channel = supabase
       .channel(`post:${postId}`)
       .on(
