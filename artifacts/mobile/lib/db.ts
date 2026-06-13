@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system';
 import {
   MOCK_COMMENTS,
   MOCK_CONVERSATIONS,
@@ -13,6 +14,18 @@ import {
   formatCount,
   supabase,
 } from "./supabase";
+
+// Read a local file URI into a Uint8Array reliably on Android & iOS.
+// fetch(uri) can hang indefinitely on Android content:// URIs.
+async function localUriToBytes(uri: string): Promise<Uint8Array> {
+  const b64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const raw = atob(b64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  return bytes;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1331,11 +1344,10 @@ export async function uploadPostMedia(
 
     let mediaUrl = uri;
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      const bytes = await localUriToBytes(uri);
       const { error: upErr } = await supabase.storage
         .from('posts')
-        .upload(filename, blob, { contentType: mimeType, upsert: true });
+        .upload(filename, bytes, { contentType: mimeType, upsert: true });
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('posts').getPublicUrl(filename);
         mediaUrl = urlData.publicUrl;
@@ -1413,11 +1425,10 @@ export async function uploadReelMedia(
 
     let videoUrl = uri;
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      const bytes = await localUriToBytes(uri);
       const { error: upErr } = await supabase.storage
         .from('reels')
-        .upload(filename, blob, { contentType: mimeType, upsert: true });
+        .upload(filename, bytes, { contentType: mimeType, upsert: true });
       if (!upErr) {
         const { data: urlData } = supabase.storage.from('reels').getPublicUrl(filename);
         videoUrl = urlData.publicUrl;
