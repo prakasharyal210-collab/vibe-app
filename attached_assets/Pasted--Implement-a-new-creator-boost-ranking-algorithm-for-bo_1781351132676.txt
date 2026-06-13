@@ -1,0 +1,33 @@
+
+Implement a "new creator boost" ranking algorithm for both the main Feed and Reels feed, designed to give new users/posts a fair chance at visibility regardless of follower count.
+Core scoring formula (apply to both Feed posts and Reels):
+base_score = (likes × 1) + (comments × 3) + (shares × 5) + (saves × 4) 
+              + (watch_time_ratio × 10)  // reels only, 0-1 value
+              − (hours_since_post × 0.5)  // recency decay
+
+final_score = base_score × new_creator_multiplier × exploration_boost
+Multipliers:
+
+new_creator_multiplier:
+
+1.5x if the post's author's account is < 30 days old, OR has posted < 10 total posts/reels
+1.0x for established creators
+
+
+exploration_boost:
+
+2.0x for the first 2 hours after posting (ANY account) — gives every post a fair "test window"
+1.0x after 2 hours (score then relies purely on actual engagement)
+
+
+
+Implementation steps:
+
+Create a Supabase database function (PL/pgSQL) calculate_post_score(post_id) that computes final_score using the formula above, pulling: likes/comments/shares/saves counts, post created_at, watch_time data (if tracked), and the author's created_at + post count from profiles.
+Add a score column (FLOAT, default 0) to posts and reels tables.
+Create a scheduled job (Supabase Edge Function + cron, or pg_cron if available) that recalculates score for posts from the last 48 hours every 15 minutes (older posts don't need frequent recalculation).
+Feed query (fetchFeedPosts): order by score DESC, but inject some randomization — e.g. for the first 20 posts shown, mix: 60% by score, 40% random recent posts from accounts the viewer doesn't follow (ensures discovery, not just an echo chamber).
+Reels feed query: same scoring, but weight watch_time_ratio more heavily (reels are watch-time-driven). If watch time isn't tracked yet, add a watch_events table to log (user_id, reel_id, watch_duration, video_duration, created_at) from the reels player.
+New creator detection: add a helper is_new_creator(user_id) checking profiles.created_at > now() - interval '30 days' OR (SELECT count(*) FROM posts WHERE user_id = ...) < 10.
+
+Test: Create a brand-new test account, post a reel → confirm it appears in OTHER users' feeds within the exploration window (not just followers) → check score column updates after the cron job runs → confirm engagement (likes/comments) increases the score and visibility over time.

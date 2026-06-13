@@ -33,6 +33,13 @@ const PREVIEW_W = W - 32;
 // ── Types ─────────────────────────────────────────────────────────────────────
 type CropRatio = "original" | "1:1" | "4:5";
 type Phase = "idle" | "camera" | "compose" | "uploading";
+type Visibility = "public" | "friends" | "private";
+
+const AUDIENCE_OPTIONS: { key: Visibility; icon: string; label: string; desc: string }[] = [
+  { key: "public",  icon: "🌍", label: "Public",   desc: "Everyone on Gundruk" },
+  { key: "friends", icon: "👥", label: "Friends",  desc: "Followers & people you follow" },
+  { key: "private", icon: "🔒", label: "Only Me",  desc: "Only visible to you" },
+];
 
 interface TaggedUser {
   id: string;
@@ -116,6 +123,10 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
   const [taggedUsers, setTaggedUsers] = useState<TaggedUser[]>([]);
+
+  // Audience / visibility
+  const [visibility, setVisibility] = useState<Visibility>("public");
+  const [showAudienceModal, setShowAudienceModal] = useState(false);
 
   // Tag modal
   const [showTagModal, setShowTagModal] = useState(false);
@@ -276,6 +287,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           location: location.trim() || undefined,
           taggedUsers: taggedUsers.length ? taggedUsers.map((t) => t.id) : undefined,
           filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
+          visibility,
         });
       }
 
@@ -283,6 +295,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       setCaption(""); setLocation(""); setTaggedUsers([]);
       setRawMedia([]); setPreviewIdx(0); setCropRatio("original");
       setActiveFilter(CAMERA_FILTERS[0]!);
+      setVisibility("public");
       setPhase("idle");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -583,6 +596,24 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           />
         </View>
 
+        {/* ── Audience ── */}
+        <View style={p.section}>
+          <Text style={p.sectionLabel}>Audience</Text>
+          {(() => {
+            const sel = AUDIENCE_OPTIONS.find((o) => o.key === visibility) ?? AUDIENCE_OPTIONS[0]!;
+            return (
+              <TouchableOpacity style={p.tagBtn} onPress={() => setShowAudienceModal(true)} activeOpacity={0.8}>
+                <Text style={p.tagBtnIcon}>{sel.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={p.tagBtnText}>{sel.label}</Text>
+                  <Text style={p.audienceDesc}>{sel.desc}</Text>
+                </View>
+                <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 18 }}>›</Text>
+              </TouchableOpacity>
+            );
+          })()}
+        </View>
+
         {/* ── Tag People ── */}
         <View style={p.section}>
           <TouchableOpacity style={p.tagBtn} onPress={() => { setTagSearch(""); setShowTagModal(true); }}>
@@ -624,6 +655,46 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* ── Audience Modal ── */}
+      <Modal
+        visible={showAudienceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowAudienceModal(false)}
+      >
+        <View style={p.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowAudienceModal(false)} />
+          <View style={[p.tagModalSheet, { paddingBottom: bottomInset + 24 }]}>
+            <View style={p.sheetHandle} />
+            <View style={p.tagModalHeader}>
+              <Text style={p.tagModalTitle}>Who can see this?</Text>
+              <TouchableOpacity onPress={() => setShowAudienceModal(false)} style={p.tagModalDone}>
+                <Text style={p.tagModalDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {AUDIENCE_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[p.audienceOption, visibility === opt.key && p.audienceOptionActive]}
+                onPress={() => { setVisibility(opt.key); setShowAudienceModal(false); }}
+                activeOpacity={0.8}
+              >
+                <Text style={p.audienceOptionIcon}>{opt.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={p.audienceOptionLabel}>{opt.label}</Text>
+                  <Text style={p.audienceOptionDesc}>{opt.desc}</Text>
+                </View>
+                {visibility === opt.key && (
+                  <View style={p.audienceCheck}>
+                    <Text style={{ color: "#fff", fontSize: 11, lineHeight: 14 }}>✓</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Tag People Modal ── */}
       <Modal
@@ -815,6 +886,15 @@ const p = StyleSheet.create({
   postBtnWrap: { marginHorizontal: 16, marginTop: 14, borderRadius: 18, overflow: "hidden" },
   postBtn: { paddingVertical: 18, alignItems: "center", justifyContent: "center" },
   postBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17, letterSpacing: 0.3 },
+
+  // Audience
+  audienceDesc: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  audienceOption: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" },
+  audienceOptionActive: { backgroundColor: "rgba(124,58,237,0.08)", borderRadius: 12, paddingHorizontal: 10 },
+  audienceOptionIcon: { fontSize: 24, width: 34, textAlign: "center" },
+  audienceOptionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  audienceOptionDesc: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  audienceCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
 
   // Tag modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },

@@ -83,6 +83,7 @@ interface GridItem {
   duration?: number;
   video_url?: string;
   created_at?: string;
+  visibility?: string;
 }
 
 function isVideoUrl(url: string): boolean {
@@ -709,6 +710,13 @@ export default function ProfileScreen() {
                 <Ionicons name="play" size={12} color="#fff" />
               </View>
             )}
+            {!item.isReel && item.visibility && item.visibility !== "public" && (
+              <View style={styles.visibilityBadge}>
+                <Text style={styles.visibilityBadgeText}>
+                  {item.visibility === "private" ? "🔒" : "👥"}
+                </Text>
+              </View>
+            )}
             {item.duration != null && (
               <View style={styles.durationBadge}>
                 <Text style={styles.durationBadgeText}>
@@ -844,6 +852,8 @@ const styles = StyleSheet.create({
   gridImage: { width: GRID_ITEM, height: GRID_ITEM, backgroundColor: "#1A0A2E" },
   reelBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 6, padding: 3 },
   pinBadge: { position: "absolute", top: 6, left: 6, backgroundColor: "rgba(139,92,246,0.85)", borderRadius: 6, padding: 3 },
+  visibilityBadge: { position: "absolute", bottom: 28, right: 4, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2 },
+  visibilityBadgeText: { fontSize: 10 },
   durationBadge: { position: "absolute", bottom: 4, right: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
   durationBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Poppins_600SemiBold" },
   gridOverlay: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },

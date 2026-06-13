@@ -236,7 +236,7 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     if (!profile?.id) return;
-    fetchProfilePosts(profile.id).then(setPosts).catch(() => {});
+    fetchProfilePosts(profile.id, myId).then(setPosts).catch(() => {});
   }, [profile?.id]);
 
   useEffect(() => {

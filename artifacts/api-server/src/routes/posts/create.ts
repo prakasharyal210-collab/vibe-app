@@ -14,10 +14,15 @@ function makeSupabase() {
 // GET /api/posts/user/:userId — fetch profile posts + reels bypassing RLS
 router.get("/user/:userId", async (req, res) => {
   const { userId } = req.params;
+  const { viewerId } = req.query as { viewerId?: string };
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
   const sb = makeSupabase();
+  const isOwner = viewerId && viewerId === userId;
+  const postsQuery = isOwner
+    ? sb.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false })
+    : sb.from("posts").select("*").eq("user_id", userId).or("visibility.eq.public,visibility.is.null").order("created_at", { ascending: false });
   const [postsRes, reelsRes] = await Promise.allSettled([
-    sb.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+    postsQuery,
     sb.from("reels").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
   ]);
   res.json({
@@ -46,6 +51,7 @@ router.post("/create", async (req, res) => {
       filterId?: string;
       commentsEnabled?: boolean;
       downloadsEnabled?: boolean;
+      visibility?: string;
     };
   };
 
@@ -89,6 +95,9 @@ router.post("/create", async (req, res) => {
 
   // Insert post record (service role bypasses RLS)
   // Only include columns guaranteed to exist in the schema
+  const safeVisibility = (["public", "friends", "private"] as const).includes(
+    options.visibility as "public" | "friends" | "private"
+  ) ? options.visibility : "public";
   const payload: Record<string, unknown> = {
     user_id: userId,
     media_url: mediaUrl ?? "",
@@ -96,6 +105,7 @@ router.post("/create", async (req, res) => {
     likes_count: 0,
     comments_count: 0,
     views_count: 0,
+    visibility: safeVisibility,
     created_at: new Date().toISOString(),
     ...(options.filterId ? { filter_id: options.filterId } : {}),
     ...(options.location ? { location: options.location } : {}),

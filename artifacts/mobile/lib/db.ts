@@ -1230,7 +1230,7 @@ export async function getNearbyFeed(lat: number, lng: number, userId: string, li
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data } = await supabase.from('posts').select('*, profiles(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  const { data } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
   return (data as Post[]) ?? [];
 }
 
@@ -1241,7 +1241,7 @@ export async function getVibesFeed(userId: string, limit = 20, offset = 0): Prom
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data } = await supabase.from('posts').select('*, profiles(*)').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
+  const { data } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
   return (data as Post[]) ?? [];
 }
 
@@ -1273,6 +1273,7 @@ export interface ProfileGridItem {
   duration?: number;
   created_at: string;
   is_pinned?: boolean;
+  visibility?: string;
 }
 
 function isVideoMediaUrl(url: string): boolean {
@@ -1287,10 +1288,13 @@ export function extractHashtags(caption: string): string[] {
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
-export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem[]> {
+export async function fetchProfilePosts(userId: string, viewerId?: string): Promise<ProfileGridItem[]> {
   try {
     // Route through API server (service role) to bypass RLS on posts/reels tables
-    const res = await fetch(`${API_BASE}/posts/user/${userId}`);
+    const url = viewerId
+      ? `${API_BASE}/posts/user/${userId}?viewerId=${encodeURIComponent(viewerId)}`
+      : `${API_BASE}/posts/user/${userId}`;
+    const res = await fetch(url);
     if (res.ok) {
       const { posts: rawPosts, reels: rawReels } = await res.json() as {
         posts: any[];
@@ -1310,6 +1314,7 @@ export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem
           caption: p.caption ?? '',
           created_at: p.created_at,
           is_pinned: p.is_pinned ?? false,
+          visibility: p.visibility ?? 'public',
         };
       });
       const reels: ProfileGridItem[] = rawReels.map((r: any) => ({
@@ -1346,6 +1351,7 @@ export async function uploadPostMedia(
     filterId?: string;
     commentsEnabled?: boolean;
     downloadsEnabled?: boolean;
+    visibility?: string;
   }
 ): Promise<{ id: string; mediaUrl: string } | null> {
   try {
@@ -1366,7 +1372,7 @@ export async function uploadPostMedia(
       fetch(`${API_BASE}/posts/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, imageBase64, mimeType, ext, caption, options: { ...options } }),
+        body: JSON.stringify({ userId, imageBase64, mimeType, ext, caption, options: { ...options, visibility: options?.visibility ?? 'public' } }),
       }),
       60_000,
       'post create API'
