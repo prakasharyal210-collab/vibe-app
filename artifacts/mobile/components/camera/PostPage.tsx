@@ -348,10 +348,14 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       <StatusBar style="light" />
       <ScrollView
         style={p.fill}
-        contentContainerStyle={{ paddingTop: topInset + 8, paddingBottom: bottomInset + 32 }}
+        contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Safe-area / tab-bar spacer — explicit View avoids a Fabric double-paint
+            bug that occurs when contentContainerStyle.paddingTop is large */}
+        <View style={{ height: topInset + 8 }} />
+
         {/* ── Header ── */}
         <View style={p.composeHeader}>
           <TouchableOpacity onPress={discard} style={p.discardBtn}>
