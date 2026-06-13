@@ -343,9 +343,9 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const clipEnd = Math.round(trimEndPct * totalSecs);
 
   const TOOLS = [
-    { id: "music", icon: "musical-notes-outline", label: "Music", color: "#7C3AED" },
-    { id: "text", icon: "text-outline", label: "Text", color: "#3B82F6" },
-    { id: "stickers", icon: "happy-outline", label: "Stickers", color: "#F97316" },
+    { id: "music", emoji: "🎵", label: "Music", color: "#7C3AED" },
+    { id: "text", emoji: "✏️", label: "Text", color: "#3B82F6" },
+    { id: "stickers", emoji: "😊", label: "Stickers", color: "#F97316" },
   ];
 
   // Build adjust overlay layers
@@ -507,7 +507,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                     if (tool.id === "stickers") setShowStickerModal(true);
                   }}>
                     <View style={[styles.toolIconWrap, { backgroundColor: tool.color + "22" }]}>
-                      <Ionicons name={tool.icon as any} size={22} color={tool.color} />
+                      <Text style={{ fontSize: 20 }}>{(tool as any).emoji}</Text>
                     </View>
                     <Text style={[styles.toolLabel, { color: colors.mutedForeground }]}>{tool.label}</Text>
                   </TouchableOpacity>
