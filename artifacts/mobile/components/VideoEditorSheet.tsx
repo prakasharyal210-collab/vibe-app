@@ -851,9 +851,9 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
         </View>
       </Modal>
 
-      <View style={{ display: showTextModal ? "flex" : "none" }}>
+      <Modal visible={showTextModal} transparent animationType="slide" onRequestClose={() => setShowTextModal(false)} statusBarTranslucent>
         <View style={styles.textModalBackdrop}>
-          <View style={[styles.textModalCard, { backgroundColor: colors.background }]}>
+          <View style={[styles.textModalCard, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom + 16, 24) }]}>
             <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Text</Text>
             <TextInput value={newText} onChangeText={setNewText} placeholder="Type something..." placeholderTextColor={colors.mutedForeground} style={[styles.textModalInput, { color: newTextColor, backgroundColor: colors.muted, borderColor: colors.border }]} autoFocus={showTextModal} maxLength={60} />
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 8 }}>
@@ -873,11 +873,11 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             </View>
           </View>
         </View>
-      </View>
+      </Modal>
 
-      <View style={{ display: showStickerModal ? "flex" : "none" }}>
+      <Modal visible={showStickerModal} transparent animationType="slide" onRequestClose={() => setShowStickerModal(false)} statusBarTranslucent>
         <View style={styles.textModalBackdrop}>
-          <View style={[styles.stickerCard, { backgroundColor: colors.background }]}>
+          <View style={[styles.stickerCard, { backgroundColor: colors.background, paddingBottom: Math.max(insets.bottom + 16, 36) }]}>
             <View style={styles.stickerHeader}>
               <Text style={[styles.textModalTitle, { color: colors.foreground }]}>Add Sticker</Text>
               <TouchableOpacity onPress={() => setShowStickerModal(false)}>
@@ -893,7 +893,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
             </View>
           </View>
         </View>
-      </View>
+      </Modal>
     </View>
   );
 }
