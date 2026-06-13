@@ -64,6 +64,7 @@ router.post("/create", async (req, res) => {
   }
 
   // Insert post record (service role bypasses RLS)
+  // Only include columns guaranteed to exist in the schema
   const payload: Record<string, unknown> = {
     user_id: userId,
     media_url: mediaUrl ?? "",
@@ -73,11 +74,6 @@ router.post("/create", async (req, res) => {
     views_count: 0,
     created_at: new Date().toISOString(),
   };
-  if (options.location) payload.location = options.location;
-  if (options.commentsEnabled !== undefined)
-    payload.comments_enabled = options.commentsEnabled;
-  if (options.downloadsEnabled !== undefined)
-    payload.downloads_enabled = options.downloadsEnabled;
 
   const { data, error } = await sb
     .from("posts")

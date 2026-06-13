@@ -1,4 +1,4 @@
-import { readAsStringAsync } from 'expo-file-system';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import {
   MOCK_COMMENTS,
   MOCK_CONVERSATIONS,
