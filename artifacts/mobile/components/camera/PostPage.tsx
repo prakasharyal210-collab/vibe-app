@@ -41,6 +41,8 @@ interface TaggedUser {
 interface Props {
   topInset?: number;
   bottomInset?: number;
+  /** True when this page is the active tab in the Reels↔Post pager */
+  isActive?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,7 +91,7 @@ async function cropToRatio(
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PostPage({ topInset = 0, bottomInset = 0 }: Props) {
+export default function PostPage({ topInset = 0, bottomInset = 0, isActive = false }: Props) {
   const { session } = useAuth();
 
   // Phase
@@ -121,6 +123,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0 }: Props) {
   const [cameraFacing, setCameraFacing] = useState<"front" | "back">("back");
 
   const PREV_H = previewHeight(cropRatio);
+
+  // Refs for the auto-trigger effect (must be declared before pickFromGallery
+  // so they're in scope, but the effect itself is placed after pickFromGallery).
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
+  const prevIsActive = useRef(false);
 
   // ── Tag search debounce ────────────────────────────────────────────────────
   useEffect(() => {
@@ -156,6 +164,20 @@ export default function PostPage({ topInset = 0, bottomInset = 0 }: Props) {
       setPhase("compose");
     }
   }, []);
+
+  // ── Auto-open gallery when Post tab becomes active ─────────────────────────
+  // Fires only when isActive flips true→false→true; phaseRef lets us read the
+  // current phase without adding it as a dep (which would re-trigger on every
+  // phase change while the tab is already visible).
+  useEffect(() => {
+    if (isActive && !prevIsActive.current && phaseRef.current === "idle") {
+      // Brief delay so the swipe animation finishes before the OS sheet appears
+      const t = setTimeout(() => pickFromGallery(), 180);
+      prevIsActive.current = true;
+      return () => clearTimeout(t);
+    }
+    prevIsActive.current = isActive;
+  }, [isActive, pickFromGallery]);
 
   // ── Camera ─────────────────────────────────────────────────────────────────
   const openCamera = useCallback(async () => {
@@ -257,32 +279,25 @@ export default function PostPage({ topInset = 0, bottomInset = 0 }: Props) {
     setPhase("idle");
   }, []);
 
-  // ── Idle ───────────────────────────────────────────────────────────────────
+  // ── Idle (fallback — shown only if user dismisses the auto-opened picker) ──
   if (phase === "idle") {
     return (
-      <View style={[p.fill, { paddingTop: topInset, paddingBottom: bottomInset }]}>
+      <View style={[p.fill, p.centered, { paddingTop: topInset, paddingBottom: bottomInset }]}>
         <StatusBar style="light" />
-        <View style={p.idleInner}>
-          <Text style={p.idleTitle}>New Post</Text>
-          <Text style={p.idleSub}>Share to your Gundruk profile grid</Text>
-
-          <TouchableOpacity onPress={pickFromGallery} activeOpacity={0.85}>
-            <LinearGradient
-              colors={["#7C3AED22", "#EA580C18"]}
-              style={p.bigCard}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            >
-              <View style={p.bigCardIconWrap}><Text style={p.bigCardIcon}>🖼️</Text></View>
-              <Text style={p.bigCardTitle}>Choose from Gallery</Text>
-              <Text style={p.bigCardSub}>Select up to 10 photos or videos</Text>
+        <Text style={p.fallbackEmoji}>🖼️</Text>
+        <Text style={p.fallbackTitle}>Add to your grid</Text>
+        <Text style={p.fallbackSub}>Choose photos or videos to share</Text>
+        <View style={p.fallbackRow}>
+          <TouchableOpacity onPress={pickFromGallery} style={p.fallbackBtn} activeOpacity={0.8}>
+            <LinearGradient colors={["#7C3AED", "#5B21B6"]} style={p.fallbackBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <Text style={p.fallbackBtnIcon}>🖼️</Text>
+              <Text style={p.fallbackBtnText}>Gallery</Text>
             </LinearGradient>
           </TouchableOpacity>
-
-          <TouchableOpacity onPress={openCamera} activeOpacity={0.85}>
-            <View style={[p.bigCard, { backgroundColor: "#111126" }]}>
-              <View style={p.bigCardIconWrap}><Text style={p.bigCardIcon}>📷</Text></View>
-              <Text style={p.bigCardTitle}>Take a Photo</Text>
-              <Text style={p.bigCardSub}>Capture a new photo right now</Text>
+          <TouchableOpacity onPress={openCamera} style={p.fallbackBtn} activeOpacity={0.8}>
+            <View style={p.fallbackBtnSecondary}>
+              <Text style={p.fallbackBtnIcon}>📷</Text>
+              <Text style={p.fallbackBtnText}>Camera</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -645,15 +660,16 @@ const p = StyleSheet.create({
   fill: { flex: 1, backgroundColor: "#080810" },
   centered: { alignItems: "center", justifyContent: "center" },
 
-  // Idle
-  idleInner: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, gap: 16 },
-  idleTitle: { color: "#fff", fontSize: 24, fontFamily: "Poppins_700Bold", marginBottom: 4 },
-  idleSub: { color: "rgba(255,255,255,0.4)", fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", marginBottom: 12 },
-  bigCard: { width: W - 48, borderRadius: 20, padding: 24, gap: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)", alignItems: "center" },
-  bigCardIconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: "rgba(255,255,255,0.06)", alignItems: "center", justifyContent: "center", marginBottom: 8 },
-  bigCardIcon: { fontSize: 28 },
-  bigCardTitle: { color: "#fff", fontSize: 17, fontFamily: "Poppins_700Bold" },
-  bigCardSub: { color: "rgba(255,255,255,0.45)", fontSize: 13, fontFamily: "Poppins_400Regular", textAlign: "center" },
+  // Fallback (shown only when user dismisses the auto-opened gallery picker)
+  fallbackEmoji: { fontSize: 44, marginBottom: 12 },
+  fallbackTitle: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold", marginBottom: 6 },
+  fallbackSub: { color: "rgba(255,255,255,0.4)", fontSize: 13, fontFamily: "Poppins_400Regular", textAlign: "center", paddingHorizontal: 32, marginBottom: 28 },
+  fallbackRow: { flexDirection: "row", gap: 12 },
+  fallbackBtn: { borderRadius: 16, overflow: "hidden" },
+  fallbackBtnGrad: { flexDirection: "row", alignItems: "center", gap: 7, paddingVertical: 13, paddingHorizontal: 22 },
+  fallbackBtnSecondary: { flexDirection: "row", alignItems: "center", gap: 7, paddingVertical: 13, paddingHorizontal: 22, backgroundColor: "#111126", borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  fallbackBtnIcon: { fontSize: 18 },
+  fallbackBtnText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
 
   // Camera
   camTopBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 8 },

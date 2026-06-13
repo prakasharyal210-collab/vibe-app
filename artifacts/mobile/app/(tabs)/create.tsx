@@ -1636,7 +1636,7 @@ export default function CreateScreen() {
         </View>
         {/* Page 1 — Post */}
         <View style={{ width: W, height: H }}>
-          <PostPage topInset={reelsTabBarHeight} bottomInset={insets.bottom} />
+          <PostPage topInset={reelsTabBarHeight} bottomInset={insets.bottom} isActive={activeTab === 1} />
         </View>
       </ScrollView>
 
