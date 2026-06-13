@@ -11,6 +11,7 @@ import reelsCreateRouter from "./reels/create";
 import reelsWatchRouter from "./reels/watch";
 import usersSearchRouter from "./users/search";
 import usersSocialRouter from "./users/social";
+import usersNotificationsRouter from "./users/notifications";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use("/reels", reelsCreateRouter);
 router.use("/reels", reelsWatchRouter);
 router.use("/users", usersSearchRouter);
 router.use("/users/social", usersSocialRouter);
+router.use("/users/notifications", usersNotificationsRouter);
 
 export default router;

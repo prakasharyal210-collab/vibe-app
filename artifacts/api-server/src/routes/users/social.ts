@@ -53,6 +53,22 @@ router.post("/follow", async (req, res) => {
       res.status(500).json({ error: error.message });
       return;
     }
+
+    // Write a "follow" notification to the person being followed.
+    // Runs async — don't let it block or fail the response.
+    sb.from("notifications")
+      .insert({
+        user_id: followingId,
+        actor_id: followerId,
+        type: "follow",
+        message: "started following you",
+        read: false,
+      })
+      .then(({ error: ne }) => {
+        if (ne) req.log.warn({ error: ne.message }, "follow notif insert failed");
+      })
+      .catch(() => {});
+
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "follow exception");

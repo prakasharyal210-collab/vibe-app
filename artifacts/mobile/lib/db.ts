@@ -393,57 +393,42 @@ export async function fetchLikedPosts(userId: string): Promise<Post[]> {
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
+// All notification reads/writes go through the API server (service role) to
+// bypass Supabase RLS on the notifications table — direct anon client hangs
+// on Android and falls back to mock data.
 
 export async function fetchNotifications(userId: string): Promise<Notification[]> {
   try {
-    const { data, error } = await supabase
-      .from("notifications")
-      .select("*, profiles:actor_id(username, avatar_url), posts:post_id(media_url)")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (!error && data && data.length > 0) {
-      return data.map((n: any) => ({
-        id: n.id,
-        type: n.type as Notification["type"],
-        username: n.profiles?.username ?? "user",
-        text: notifText(n.type, n.message),
-        time: timeAgoShort(n.created_at),
-        read: n.read ?? false,
-        post_image: n.posts?.media_url ?? undefined,
-      }));
+    const res = await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const { notifications } = await res.json() as { notifications: Notification[] };
+      return notifications ?? [];
     }
   } catch {}
-  return MOCK_NOTIFICATIONS;
+  return [];
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
   try {
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(id)}/read`, { method: "PATCH" });
   } catch {}
 }
 
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   try {
-    await supabase
-      .from("notifications")
-      .update({ read: true })
-      .eq("user_id", userId)
-      .eq("read", false);
+    await fetch(`${API_BASE}/users/notifications/read-all/${encodeURIComponent(userId)}`, { method: "PATCH" });
   } catch {}
 }
 
 export async function fetchUnreadCount(userId: string): Promise<number> {
   try {
-    const { count } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("read", false);
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
+    const res = await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const { notifications } = await res.json() as { notifications: Array<{ read: boolean }> };
+      return (notifications ?? []).filter((n) => !n.read).length;
+    }
+  } catch {}
+  return 0;
 }
 
 // ─── User Settings ────────────────────────────────────────────────────────────
