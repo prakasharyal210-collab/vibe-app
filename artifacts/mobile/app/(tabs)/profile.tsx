@@ -442,7 +442,7 @@ export default function ProfileScreen() {
   }, [session?.user?.id]);
 
   const loadMyPosts = useCallback(async (uid: string) => {
-    const results = await fetchProfilePosts(uid);
+    const results = await fetchProfilePosts(uid, uid);
     setMyPosts(results);
   }, []);
 
