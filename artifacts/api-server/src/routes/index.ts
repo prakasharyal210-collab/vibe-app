@@ -8,6 +8,7 @@ import adminSetupRouter from "./admin/setup";
 import musicDeezerRouter from "./music/deezer";
 import postsCreateRouter from "./posts/create";
 import reelsCreateRouter from "./reels/create";
+import reelsWatchRouter from "./reels/watch";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/admin", adminSetupRouter);
 router.use("/music", musicDeezerRouter);
 router.use("/posts", postsCreateRouter);
 router.use("/reels", reelsCreateRouter);
+router.use("/reels", reelsWatchRouter);
 
 export default router;

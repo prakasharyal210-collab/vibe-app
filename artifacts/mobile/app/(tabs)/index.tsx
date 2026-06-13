@@ -43,7 +43,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
-import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost } from "@/lib/db";
+import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost, logWatchEvent } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads";
 
@@ -62,6 +62,7 @@ interface Reel {
   views: number;
   sound: string;
   isVerified?: boolean;
+  duration?: number;   // seconds; used for watch_time_ratio
 }
 
 
@@ -176,6 +177,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTap = useRef(0);
   const pausedAtRef = useRef(0);
+  const watchStartRef = useRef<number | null>(null);
 
   // Supabase checks
   useEffect(() => {
@@ -183,6 +185,31 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     checkLiked(reel.id, userId).then(setLiked).catch(() => {});
     checkFavourited(reel.id, userId).then(setSaved).catch(() => {});
   }, [reel.id, userId]);
+
+  // Watch time tracking — log when the reel stops being active
+  const videoDurationSec = reel.duration ?? 14;
+  useEffect(() => {
+    if (isActive) {
+      watchStartRef.current = Date.now();
+    } else {
+      if (watchStartRef.current !== null) {
+        const watched = (Date.now() - watchStartRef.current) / 1000;
+        watchStartRef.current = null;
+        if (watched > 0.5) {
+          logWatchEvent(reel.id, watched, videoDurationSec, userId ?? undefined);
+        }
+      }
+    }
+    return () => {
+      if (watchStartRef.current !== null) {
+        const watched = (Date.now() - watchStartRef.current) / 1000;
+        watchStartRef.current = null;
+        if (watched > 0.5) {
+          logWatchEvent(reel.id, watched, videoDurationSec, userId ?? undefined);
+        }
+      }
+    };
+  }, [isActive]);
 
   // Progress bar animation
   useEffect(() => {
@@ -508,6 +535,7 @@ export default function ReelsScreen() {
     views: r.views_count ?? 0,
     sound: r.sound_name ?? "Original Sound",
     isVerified: r.profiles?.is_verified ?? false,
+    duration: r.duration ?? 14,
   });
 
   // Viral boost: interleave fresh items into a base feed every BOOST_EVERY slots
@@ -538,11 +566,14 @@ export default function ReelsScreen() {
         supabase
           .from("posts")
           .select("*, profiles!user_id(username, avatar_url, is_verified)")
+          .or("visibility.eq.public,visibility.is.null")
+          .order("score", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
           .from("reels")
           .select("*, profiles!user_id(username, avatar_url, is_verified)")
+          .order("score", { ascending: false })
           .order("created_at", { ascending: false })
           .limit(20),
       ]);

@@ -1170,11 +1170,36 @@ async function fetchFreshPosts(limit = 20): Promise<Post[]> {
     const { data } = await supabase
       .from('posts')
       .select('*, profiles!user_id(*)')
+      .or('visibility.eq.public,visibility.is.null')
+      .order('score', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
     return (data as Post[]) ?? [];
   } catch {
     return [];
+  }
+}
+
+export async function logWatchEvent(
+  reelId: string,
+  watchDuration: number,
+  videoDuration: number,
+  userId?: string
+): Promise<void> {
+  if (watchDuration <= 0) return;
+  // Strip the 'reel_' prefix if present; skip post-based reel IDs
+  let dbReelId = reelId;
+  if (reelId.startsWith('post_')) return;
+  if (reelId.startsWith('reel_')) dbReelId = reelId.slice(5);
+
+  try {
+    await fetch(`${API_BASE}/reels/watch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, reelId: dbReelId, watchDuration, videoDuration }),
+    });
+  } catch {
+    // fire-and-forget — never block the UI
   }
 }
 
