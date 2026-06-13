@@ -153,7 +153,7 @@ function PhotoViewer({
           </TouchableOpacity>
           <Text style={pvStyles.counter}>{idx + 1} / {photos.length}</Text>
           <TouchableOpacity style={pvStyles.topBtn} onPress={() => Alert.alert("Share", "Share this post")}>
-            <Ionicons name="share-outline" size={22} color="#fff" />
+            <Ionicons name="share" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -207,19 +207,19 @@ function PhotoViewer({
           )}
           <View style={pvStyles.actionRow}>
             <TouchableOpacity style={pvStyles.actionItem}>
-              <Ionicons name="heart-outline" size={24} color="#fff" />
+              <Ionicons name="heart" size={24} color="rgba(255,255,255,0.75)" />
               <Text style={pvStyles.actionCount}>{formatCount(photo?.likes ?? 0)}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={pvStyles.actionItem}>
-              <Ionicons name="chatbubble-outline" size={22} color="#fff" />
+              <Ionicons name="chatbubble" size={22} color="#fff" />
               <Text style={pvStyles.actionCount}>{formatCount(photo?.comments ?? 0)}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={pvStyles.actionItem}>
-              <Ionicons name="paper-plane-outline" size={22} color="#fff" />
+              <Ionicons name="paper-plane" size={22} color="#fff" />
               <Text style={pvStyles.actionCount}>Share</Text>
             </TouchableOpacity>
             <TouchableOpacity style={pvStyles.actionItem}>
-              <Ionicons name="bookmark-outline" size={22} color="#fff" />
+              <Ionicons name="bookmark" size={22} color="#fff" />
               <Text style={pvStyles.actionCount}>Save</Text>
             </TouchableOpacity>
           </View>

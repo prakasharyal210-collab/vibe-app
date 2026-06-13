@@ -53,7 +53,16 @@ export function FullScreenMediaViewer({ items, startIndex, visible, onClose }: F
   const heartOpacity = useSharedValue(0);
   const bgOpacity = useSharedValue(1);
 
-  // Cancel animations on unmount to prevent dangling rafCallback worklet errors
+  useEffect(() => {
+    if (visible) {
+      setCurrent(startIndex);
+      setLiked(false);
+      setLocalLikes(items[startIndex]?.likes ?? 0);
+      translateY.value = 0;
+      bgOpacity.value = 1;
+    }
+  }, [visible, startIndex]);
+
   useEffect(() => {
     return () => {
       cancelAnimation(translateY);
@@ -137,108 +146,117 @@ export function FullScreenMediaViewer({ items, startIndex, visible, onClose }: F
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <GestureDetector gesture={composed}>
-        <Animated.View style={[styles.container, containerStyle]}>
-          <Image source={{ uri: item.image }} style={styles.image} resizeMode="contain" />
+      {/* Explicit flex:1 wrapper — GestureDetector has no intrinsic size, so without
+          this the Animated.View inside collapses to zero height and the Image is invisible */}
+      <View style={styles.modalFill}>
+        <GestureDetector gesture={composed}>
+          <Animated.View style={[styles.container, containerStyle]}>
+            <Image
+              source={{ uri: item.image || undefined }}
+              style={styles.image}
+              resizeMode="contain"
+            />
 
-          {showHeart && (
-            <Animated.View style={[styles.heartBurst, heartStyle]} pointerEvents="none">
-              <Text style={styles.heartEmoji}>❤️</Text>
-            </Animated.View>
-          )}
+            {showHeart && (
+              <Animated.View style={[styles.heartBurst, heartStyle]} pointerEvents="none">
+                <Text style={styles.heartEmoji}>❤️</Text>
+              </Animated.View>
+            )}
 
-          <View style={[styles.topBar, { paddingTop: topPad }]}>
-            <TouchableOpacity onPress={onClose} style={styles.closeCircle}>
-              <Ionicons name="close" size={22} color="#fff" />
-            </TouchableOpacity>
+            <View style={[styles.topBar, { paddingTop: topPad }]}>
+              <TouchableOpacity onPress={onClose} style={styles.closeCircle}>
+                <Ionicons name="close" size={22} color="#fff" />
+              </TouchableOpacity>
+              {items.length > 1 && (
+                <View style={styles.counterBadge}>
+                  <Text style={styles.counterText}>{current + 1} / {items.length}</Text>
+                </View>
+              )}
+              <TouchableOpacity style={styles.moreCircle}>
+                <Ionicons name="ellipsis-horizontal" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {current > 0 && (
+              <TouchableOpacity onPress={doGoPrev} style={styles.prevBtn} activeOpacity={0.8}>
+                <Ionicons name="chevron-back" size={28} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+            )}
+            {current < items.length - 1 && (
+              <TouchableOpacity onPress={doGoNext} style={styles.nextBtn} activeOpacity={0.8}>
+                <Ionicons name="chevron-forward" size={28} color="rgba(255,255,255,0.85)" />
+              </TouchableOpacity>
+            )}
+
             {items.length > 1 && (
-              <View style={styles.counterBadge}>
-                <Text style={styles.counterText}>{current + 1} / {items.length}</Text>
+              <View style={styles.dotsRow} pointerEvents="none">
+                {items.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.dot, { backgroundColor: i === current ? "#fff" : "rgba(255,255,255,0.4)" }]}
+                  />
+                ))}
               </View>
             )}
-            <TouchableOpacity style={styles.moreCircle}>
-              <Ionicons name="ellipsis-horizontal" size={18} color="#fff" />
-            </TouchableOpacity>
-          </View>
 
-          {current > 0 && (
-            <TouchableOpacity onPress={doGoPrev} style={styles.prevBtn} activeOpacity={0.8}>
-              <Ionicons name="chevron-back" size={28} color="rgba(255,255,255,0.85)" />
-            </TouchableOpacity>
-          )}
-          {current < items.length - 1 && (
-            <TouchableOpacity onPress={doGoNext} style={styles.nextBtn} activeOpacity={0.8}>
-              <Ionicons name="chevron-forward" size={28} color="rgba(255,255,255,0.85)" />
-            </TouchableOpacity>
-          )}
-
-          {items.length > 1 && (
-            <View style={styles.dotsRow} pointerEvents="none">
-              {items.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, { backgroundColor: i === current ? "#fff" : "rgba(255,255,255,0.4)" }]}
-                />
-              ))}
+            <View style={[styles.bottomBar, { paddingBottom: Platform.OS === "web" ? 24 : insets.bottom + 16 }]}>
+              {item.username && (
+                <Text style={styles.usernameText}>@{item.username}</Text>
+              )}
+              {item.caption && (
+                <TouchableOpacity onPress={() => setCaptionExpanded((e) => !e)} activeOpacity={0.9}>
+                  <Text style={styles.caption} numberOfLines={captionExpanded ? undefined : 2}>
+                    {item.caption}
+                    {!captionExpanded && item.caption.length > 80 && (
+                      <Text style={styles.moreText}> more</Text>
+                    )}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.actionsRow}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const nowLiked = !liked;
+                    setLiked(nowLiked);
+                    setLocalLikes((l) => nowLiked ? l + 1 : l - 1);
+                    if (nowLiked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }}
+                  style={styles.actionBtn}
+                >
+                  <Ionicons
+                    name="heart"
+                    size={28}
+                    color={liked ? "#F97316" : "rgba(255,255,255,0.75)"}
+                  />
+                  <Text style={styles.actionLabel}>
+                    {localLikes >= 1000 ? `${(localLikes / 1000).toFixed(1)}k` : localLikes}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Ionicons name="chatbubble" size={26} color="#fff" />
+                  <Text style={styles.actionLabel}>Comments</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Ionicons name="paper-plane" size={26} color="#fff" />
+                  <Text style={styles.actionLabel}>Share</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Ionicons name="bookmark" size={26} color="#fff" />
+                  <Text style={styles.actionLabel}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-
-          <View style={[styles.bottomBar, { paddingBottom: Platform.OS === "web" ? 24 : insets.bottom + 16 }]}>
-            {item.username && (
-              <Text style={styles.usernameText}>@{item.username}</Text>
-            )}
-            {item.caption && (
-              <TouchableOpacity onPress={() => setCaptionExpanded((e) => !e)} activeOpacity={0.9}>
-                <Text style={styles.caption} numberOfLines={captionExpanded ? undefined : 2}>
-                  {item.caption}
-                  {!captionExpanded && item.caption.length > 80 && (
-                    <Text style={styles.moreText}> more</Text>
-                  )}
-                </Text>
-              </TouchableOpacity>
-            )}
-            <View style={styles.actionsRow}>
-              <TouchableOpacity
-                onPress={() => {
-                  const nowLiked = !liked;
-                  setLiked(nowLiked);
-                  setLocalLikes((l) => nowLiked ? l + 1 : l - 1);
-                  if (nowLiked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                }}
-                style={styles.actionBtn}
-              >
-                <Ionicons
-                  name={liked ? "heart" : "heart-outline"}
-                  size={28}
-                  color={liked ? "#F97316" : "#fff"}
-                />
-                <Text style={styles.actionLabel}>
-                  {localLikes >= 1000 ? `${(localLikes / 1000).toFixed(1)}k` : localLikes}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Ionicons name="chatbubble-outline" size={26} color="#fff" />
-                <Text style={styles.actionLabel}>Comments</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Ionicons name="paper-plane-outline" size={26} color="#fff" />
-                <Text style={styles.actionLabel}>Share</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Ionicons name="bookmark-outline" size={26} color="#fff" />
-                <Text style={styles.actionLabel}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
-      </GestureDetector>
+          </Animated.View>
+        </GestureDetector>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalFill: { flex: 1 },
   container: { flex: 1, backgroundColor: "#000" },
-  image: { flex: 1 },
+  image: { width: W, height: H },
   heartBurst: {
     position: "absolute",
     top: "38%",
