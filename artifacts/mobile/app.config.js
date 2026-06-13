@@ -20,6 +20,9 @@ module.exports = {
       ["expo-build-properties", {
         android: { minSdkVersion: 26 },
       }],
+      // Always runs — adds/removes @banuba/react-native from expo.autolinking.exclude
+      // so expo-modules-autolinking skips the native Gradle subproject when disabled.
+      "./plugins/withBanubaAutolink",
       // withBanuba is only included when BANUBA_ENABLED=true.
       // When omitted, expo prebuild produces no Banuba Maven deps or native .so files.
       ...(banubaEnabled ? ["./plugins/withBanuba"] : []),
