@@ -73,6 +73,7 @@
     "@supabase/supabase-js": "^2.106.2",
     "expo": "~54.0.35",
     "expo-av": "^16.0.8",
+    "expo-build-properties": "^56.0.18",
     "expo-camera": "~17.0.10",
     "expo-contacts": "~15.0.11",
     "expo-face-detector": "^13.0.2",

@@ -11,6 +11,9 @@ module.exports = {
     },
     plugins: [
       ...base.plugins,
+      ["expo-build-properties", {
+        android: { minSdkVersion: 26 },
+      }],
       "./plugins/withBanuba",
     ],
   },
