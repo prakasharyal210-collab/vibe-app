@@ -1279,57 +1279,50 @@ export function extractHashtags(caption: string): string[] {
   return matches ? matches.map((h) => h.slice(1)) : [];
 }
 
-export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem[]> {
-  // Try with is_pinned ordering; if column absent fall back to created_at only
-  const fetchPosts = async () => {
-    const res = await supabase.from('posts').select('*').eq('user_id', userId)
-      .order('is_pinned', { ascending: false }).order('created_at', { ascending: false });
-    if (res.error) {
-      return supabase.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    }
-    return res;
-  };
-  const [postsRes, reelsRes] = await Promise.allSettled([
-    fetchPosts(),
-    supabase.from('reels').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
-  ]);
-  const posts: ProfileGridItem[] =
-    postsRes.status === 'fulfilled' && postsRes.value.data
-      ? (postsRes.value.data as any[]).map((p) => ({
-          id: p.id,
-          image_url: p.image_url ?? p.media_url ?? '',
-          isReel: false,
-          likes: p.likes_count ?? 0,
-          comments: p.comments_count ?? 0,
-          caption: p.caption ?? '',
-          created_at: p.created_at,
-          is_pinned: p.is_pinned ?? false,
-        }))
-      : [];
-  const reels: ProfileGridItem[] =
-    reelsRes.status === 'fulfilled' && reelsRes.value.data
-      ? (reelsRes.value.data as any[]).map((r) => ({
-          id: `reel_${r.id}`,
-          image_url: r.thumbnail_url ?? '',
-          video_url: r.video_url,
-          isReel: true,
-          likes: r.likes_count ?? 0,
-          comments: r.comments_count ?? 0,
-          caption: r.caption ?? '',
-          duration: r.duration,
-          created_at: r.created_at,
-          is_pinned: false,
-        }))
-      : [];
-  // Pinned posts always first, then sort remaining by date
-  const pinned = posts.filter((p) => p.is_pinned);
-  const rest = [...posts.filter((p) => !p.is_pinned), ...reels].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
-  return [...pinned, ...rest];
-}
-
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+export async function fetchProfilePosts(userId: string): Promise<ProfileGridItem[]> {
+  try {
+    // Route through API server (service role) to bypass RLS on posts/reels tables
+    const res = await fetch(`${API_BASE}/posts/user/${userId}`);
+    if (res.ok) {
+      const { posts: rawPosts, reels: rawReels } = await res.json() as {
+        posts: any[];
+        reels: any[];
+      };
+      const posts: ProfileGridItem[] = rawPosts.map((p: any) => ({
+        id: p.id,
+        image_url: p.media_url ?? p.image_url ?? '',
+        isReel: false,
+        likes: p.likes_count ?? 0,
+        comments: p.comments_count ?? 0,
+        caption: p.caption ?? '',
+        created_at: p.created_at,
+        is_pinned: p.is_pinned ?? false,
+      }));
+      const reels: ProfileGridItem[] = rawReels.map((r: any) => ({
+        id: `reel_${r.id}`,
+        image_url: r.thumbnail_url ?? '',
+        video_url: r.video_url,
+        isReel: true,
+        likes: r.likes_count ?? 0,
+        comments: r.comments_count ?? 0,
+        caption: r.caption ?? '',
+        duration: r.duration,
+        created_at: r.created_at,
+        is_pinned: false,
+      }));
+      const pinned = posts.filter((p) => p.is_pinned);
+      const rest = [...posts.filter((p) => !p.is_pinned), ...reels].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      return [...pinned, ...rest];
+    }
+  } catch (err) {
+    console.log('fetchProfilePosts API error:', err);
+  }
+  return [];
+}
 
 export async function uploadPostMedia(
   userId: string,

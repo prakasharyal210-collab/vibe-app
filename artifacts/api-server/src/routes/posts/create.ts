@@ -3,6 +3,29 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
+function makeSupabase() {
+  const url =
+    process.env["EXPO_PUBLIC_SUPABASE_URL"] ??
+    "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
+
+// GET /api/posts/user/:userId — fetch profile posts + reels bypassing RLS
+router.get("/user/:userId", async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  const [postsRes, reelsRes] = await Promise.allSettled([
+    sb.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+    sb.from("reels").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+  ]);
+  res.json({
+    posts: postsRes.status === "fulfilled" ? (postsRes.value.data ?? []) : [],
+    reels: reelsRes.status === "fulfilled" ? (reelsRes.value.data ?? []) : [],
+  });
+});
+
 router.post("/create", async (req, res) => {
   const {
     userId,
