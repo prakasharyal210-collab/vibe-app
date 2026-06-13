@@ -1,0 +1,27 @@
+Integrate Banuba Face AR SDK using the official @banuba/react-native module, replacing the "AR Lenses coming soon" placeholder. This is a CLEAN integration — DeepAR has been fully removed already.
+Banuba client token (store in .env, NOT hardcoded):
+BANUBA_CLIENT_TOKEN=Qk5CIJihZpewjiv+2o56GC0lnjigwlc4FlKpefmZ5s28/jp1PIhFbyT33gkwOs6UeHFo8WT/Sjl86DxBGx6CT5d+n1ho/sH4nuNntSngYaDQ4DQaJFbEoPcfSu7WxoaTISQBOw4wCRBe484xhgiEZsGQmPkFYlx8WbbX+PN+oLqgulAOGYXg+xplbFUa3BzUN9YJP9H30TKTZMXllOG6r5gcrbtDJACmOyQJVysWgdypyllrXsuXes9jVMH6zDvjHE3+AoZxXnsIrQ3orE6lrhw3ff7k3iWwX9uAPgb81pC/J2X0QMsnlWmmKt8US1iMhXYeKPrUlEtPN6IXV1b9RkDnpGc2UXbZh/LQq2DWmcktaMlL/DcX7wSefnLeGy35Bpo85uvZMzUslcsUyIjtTsqkMoq8KgcQKSrcCiK+jwIUVZtQaSh4SFPV8Kss9oP4yX9tjgyCXgrWmZe83dzzFvdtLhBNbP18AsGkHOHI3wz2pBft7JutJM7WZToNADoJqkXYk5Psd5ziPBpkrlQLuy59YN60pRzKXR2s3hu++ciaZbBe7H4qs2zAxJX2Dt7aY1U2kQ4ZMsNiVsLz9GemdqJZksEzkqSlYdyD2JZoJkyXN7IY9c+KQGSOG0GplEozjQEiIpGnVRHL/kmoay6o6hw=
+Steps:
+
+Read Banuba's official React Native integration docs first — search for @banuba/react-native on npm and check their GitHub repo for the latest setup guide (Expo compatibility section especially).
+Install: pnpm add @banuba/react-native
+Add the client token to .env and eas.json (both preview + production profiles), following the same pattern used for the previous DeepAR keys.
+Create a config plugin (or use Banuba's official Expo plugin if one exists in their package) for:
+
+Android: Banuba SDK dependency + permissions
+iOS: Banuba pod + Info.plist permissions
+
+
+Create BanubaCameraView.tsx wrapping Banuba's camera component:
+
+Initialize with client token from env
+Expose applyEffect(effectName) method
+Falls back gracefully with "Lenses require a dev build" message in Expo Go
+
+
+Replace the "✨ AR Lenses coming soon" placeholder in LensOverlay.tsx with BanubaCameraView.
+CRITICAL — verify capture still works: takePictureAsync/video recording must continue working via Banuba's capture methods (or fall back to expo-camera when no effect is active, whichever Banuba's architecture supports). Test passthrough mode FIRST before adding effects.
+Download 2-3 free effects from Banuba's effect library/asset store to test with.
+expo prebuild --clean then report readiness for EAS build — confirm before running.
+
+Report the plan and any New Architecture compatibility notes BEFORE writing code (Banuba reportedly supports New Arch, so newArchEnabled: true might be fine this time — confirm from docs).
