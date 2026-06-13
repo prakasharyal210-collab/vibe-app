@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Animated, Dimensions,
+  Platform, Dimensions,
 } from "react-native";
 import RAnimated, {
   useSharedValue,

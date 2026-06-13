@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import {
   Alert,
-  Animated,
   Dimensions,
   FlatList,
   Image,

@@ -44,7 +44,7 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 
 **Root cause:** Any file that imports `Animated` from BOTH `react-native` (old API) AND `react-native-reanimated` (new API) causes the Reanimated frame scheduler to conflict with the legacy Animated frame callback. Reanimated 4 (Expo SDK 54) has zero tolerance for this — even `useNativeDriver: false` on the old API is not safe if BOTH libraries are imported in the same file.
 
-**All files fixed (complete list as of this session):**
+**All files fixed (complete list — all 10):**
 - `components/camera/LensOverlay.tsx` — was MIXED (FallingEmoji/RisingBubble used old Animated)
 - `app/(tabs)/find.tsx` — was MIXED (toast used old Animated)
 - `components/AICaptionSheet.tsx` — was MIXED (sheet slide used old Animated.timing)
@@ -53,6 +53,8 @@ Current state: `app.json` has `"reactCompiler": false` and `babel-plugin-react-c
 - `components/CuratedFeedList.tsx` — was MIXED (fadeAnim used old Animated.timing)
 - `components/AchievementModal.tsx` — was OLD-ONLY but mounted inside find.tsx; converted to pure Reanimated (Sparkle component, slideAnim/opacityAnim/badgeScale/shineAnim)
 - `app/(tabs)/create.tsx` — was MIXED (26 old calls: FocusRing, DraggableTextOverlay, CelebrationModal confetti, controlsOpacity, timerScaleAnim)
+- `components/JyotishaTab.tsx` — dead import: `Animated` destructured from `react-native` (never used in old API, just sitting in import line) alongside `RAnimated` from reanimated; removed dead import
+- `app/(tabs)/profile.tsx` — dead import: same pattern, `Animated` destructured from `react-native` alongside `RAnimated` from reanimated; removed dead import
 
 **create.tsx conversion details:**
 - FocusRing: `useRef(new Animated.Value)` → `useSharedValue` + `withSpring` + `withDelay`
