@@ -136,4 +136,168 @@ router.post("/conversation", async (req, res) => {
   }
 });
 
+// GET /api/users/social/followers/:username?viewerId=X
+// Returns list of users who follow this user
+router.get("/followers/:username", async (req, res) => {
+  const { username } = req.params;
+  const { viewerId } = req.query as { viewerId?: string };
+  const sb = makeSupabase();
+  try {
+    // Resolve username → userId
+    const { data: profile, error: profileErr } = await sb
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+    if (profileErr || !profile) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const userId = profile.id;
+
+    // Get all follower IDs
+    const { data: followRows, error: followErr } = await sb
+      .from("follows")
+      .select("follower_id")
+      .eq("following_id", userId);
+    if (followErr) {
+      res.status(500).json({ error: followErr.message });
+      return;
+    }
+    const followerIds = (followRows ?? []).map((r: any) => r.follower_id);
+    if (followerIds.length === 0) {
+      res.json({ users: [] });
+      return;
+    }
+
+    // Get profile info for each follower
+    const { data: profiles } = await sb
+      .from("profiles")
+      .select("id, username, full_name, avatar_url, is_verified")
+      .in("id", followerIds);
+
+    // For profiles with null username, fall back to auth.users metadata
+    const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+    const noUsername = followerIds.filter((id) => !profileMap.get(id)?.username);
+    for (const uid of noUsername) {
+      try {
+        const { data: authUser } = await sb.auth.admin.getUserById(uid);
+        if (authUser?.user) {
+          const u = authUser.user;
+          const fallbackUsername = u.user_metadata?.username
+            ?? u.email?.split("@")[0]
+            ?? `user_${uid.slice(0, 6)}`;
+          const existing = profileMap.get(uid) ?? { id: uid };
+          profileMap.set(uid, {
+            ...existing,
+            username: fallbackUsername,
+            full_name: u.user_metadata?.full_name ?? existing.full_name ?? null,
+            avatar_url: existing.avatar_url ?? null,
+            is_verified: existing.is_verified ?? false,
+          });
+        }
+      } catch { /* skip */ }
+    }
+
+    // Check which ones the viewer already follows
+    let viewerFollowingSet = new Set<string>();
+    if (viewerId && followerIds.length > 0) {
+      const { data: vf } = await sb
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", viewerId)
+        .in("following_id", followerIds);
+      viewerFollowingSet = new Set((vf ?? []).map((r: any) => r.following_id));
+    }
+
+    const users = followerIds
+      .map((id) => profileMap.get(id))
+      .filter((p: any) => p?.username)
+      .map((p: any) => ({
+        id: p.id,
+        username: p.username,
+        full_name: p.full_name,
+        avatar_url: p.avatar_url,
+        is_verified: p.is_verified ?? false,
+        viewer_is_following: viewerFollowingSet.has(p.id),
+        is_self: viewerId ? p.id === viewerId : false,
+      }));
+
+    res.json({ users });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "followers exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /api/users/social/following/:username?viewerId=X
+// Returns list of users this user follows
+router.get("/following/:username", async (req, res) => {
+  const { username } = req.params;
+  const { viewerId } = req.query as { viewerId?: string };
+  const sb = makeSupabase();
+  try {
+    // Resolve username → userId
+    const { data: profile, error: profileErr } = await sb
+      .from("profiles")
+      .select("id")
+      .eq("username", username)
+      .maybeSingle();
+    if (profileErr || !profile) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const userId = profile.id;
+
+    // Get all following IDs
+    const { data: followRows, error: followErr } = await sb
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", userId);
+    if (followErr) {
+      res.status(500).json({ error: followErr.message });
+      return;
+    }
+    const followingIds = (followRows ?? []).map((r: any) => r.following_id);
+    if (followingIds.length === 0) {
+      res.json({ users: [] });
+      return;
+    }
+
+    // Get profile info for each followed user
+    const { data: profiles } = await sb
+      .from("profiles")
+      .select("id, username, full_name, avatar_url, is_verified")
+      .in("id", followingIds);
+
+    // Check which ones the viewer already follows
+    let viewerFollowingSet = new Set<string>();
+    if (viewerId && followingIds.length > 0) {
+      const { data: vf } = await sb
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", viewerId)
+        .in("following_id", followingIds);
+      viewerFollowingSet = new Set((vf ?? []).map((r: any) => r.following_id));
+    }
+
+    const users = (profiles ?? [])
+      .filter((p: any) => p.username)
+      .map((p: any) => ({
+        id: p.id,
+        username: p.username,
+        full_name: p.full_name,
+        avatar_url: p.avatar_url,
+        is_verified: p.is_verified ?? false,
+        viewer_is_following: viewerFollowingSet.has(p.id),
+        is_self: viewerId ? p.id === viewerId : false,
+      }));
+
+    res.json({ users });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "following exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
 export default router;

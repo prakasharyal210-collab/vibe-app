@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   StyleSheet,
@@ -13,43 +14,103 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
 type ListType = "followers" | "following";
 
-const MOCK_FOLLOWERS = [
-  { id: "f1", username: "alex.w", fullName: "Alex Williams", mutual: 3, isFollowing: false },
-  { id: "f2", username: "mia_nearby", fullName: "Mia Chen", mutual: 12, isFollowing: true },
-  { id: "f3", username: "luna_sky", fullName: "Luna Sky", mutual: 8, isFollowing: false },
-  { id: "f4", username: "kai_adventures", fullName: "Kai Tanaka", mutual: 5, isFollowing: true },
-  { id: "f5", username: "nadia.official", fullName: "Nadia Gomez", mutual: 2, isFollowing: false },
-  { id: "f6", username: "zoe.creates", fullName: "Zoe Patel", mutual: 0, isFollowing: false },
-  { id: "f7", username: "marcus_vibe", fullName: "Marcus Rivera", mutual: 7, isFollowing: true },
-  { id: "f8", username: "sofia_near", fullName: "Sofia Bloom", mutual: 1, isFollowing: false },
-  { id: "f9", username: "jay_create", fullName: "Jay Kim", mutual: 4, isFollowing: false },
-  { id: "f10", username: "maya_art", fullName: "Maya Torres", mutual: 9, isFollowing: true },
-];
+interface FollowUser {
+  id: string;
+  username: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  is_verified: boolean;
+  viewer_is_following: boolean;
+  is_self: boolean;
+}
 
-const MOCK_FOLLOWING = [
-  { id: "g1", username: "luna_sky", fullName: "Luna Sky", mutual: 8, isFollowing: true },
-  { id: "g2", username: "marcus_vibe", fullName: "Marcus Rivera", mutual: 7, isFollowing: true },
-  { id: "g3", username: "zoe.creates", fullName: "Zoe Patel", mutual: 0, isFollowing: true },
-  { id: "g4", username: "kai_adventures", fullName: "Kai Tanaka", mutual: 5, isFollowing: true },
-  { id: "g5", username: "nadia.official", fullName: "Nadia Gomez", mutual: 2, isFollowing: true },
-  { id: "g6", username: "alex.w", fullName: "Alex Williams", mutual: 3, isFollowing: true },
-  { id: "g7", username: "maya_art", fullName: "Maya Torres", mutual: 9, isFollowing: true },
-];
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
-function UserRow({ user, isOwn, listType }: {
-  user: typeof MOCK_FOLLOWERS[0];
-  isOwn: boolean;
+async function fetchList(username: string, type: ListType, viewerId?: string): Promise<FollowUser[]> {
+  try {
+    const viewerParam = viewerId ? `?viewerId=${encodeURIComponent(viewerId)}` : "";
+    const endpoint = type === "followers"
+      ? `${API_BASE}/users/social/followers/${encodeURIComponent(username)}${viewerParam}`
+      : `${API_BASE}/users/social/following/${encodeURIComponent(username)}${viewerParam}`;
+    const res = await fetch(endpoint);
+    if (!res.ok) return [];
+    const { users } = await res.json() as { users: FollowUser[] };
+    return users ?? [];
+  } catch {
+    return [];
+  }
+}
+
+async function apiFollow(followerId: string, followingId: string): Promise<void> {
+  await fetch(`${API_BASE}/users/social/follow`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ followerId, followingId }),
+  });
+}
+
+async function apiUnfollow(followerId: string, followingId: string): Promise<void> {
+  await fetch(`${API_BASE}/users/social/follow`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ followerId, followingId }),
+  });
+}
+
+function UserRow({
+  user,
+  isOwnProfile,
+  listType,
+  myId,
+  profileUserId,
+}: {
+  user: FollowUser;
+  isOwnProfile: boolean;
   listType: ListType;
+  myId?: string;
+  profileUserId?: string;
 }) {
   const colors = useColors();
-  const [following, setFollowing] = useState(user.isFollowing);
+  const [following, setFollowing] = useState(user.viewer_is_following);
   const [removed, setRemoved] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   if (removed) return null;
+
+  const handleFollowToggle = async () => {
+    if (!myId || busy) return;
+    setBusy(true);
+    const next = !following;
+    setFollowing(next);
+    try {
+      if (next) {
+        await apiFollow(myId, user.id);
+      } else {
+        await apiUnfollow(myId, user.id);
+      }
+    } catch {
+      setFollowing(!next);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!myId || !profileUserId || busy) return;
+    setBusy(true);
+    try {
+      // Remove follower = unfollow from follower's perspective
+      await apiUnfollow(user.id, profileUserId);
+      setRemoved(true);
+    } catch {
+      setBusy(false);
+    }
+  };
 
   return (
     <View style={[styles.row, { borderBottomColor: colors.border }]}>
@@ -58,29 +119,33 @@ function UserRow({ user, isOwn, listType }: {
         style={styles.userInfo}
         activeOpacity={0.8}
       >
-        <UserAvatar username={user.username} size={48} />
+        <UserAvatar username={user.username} url={user.avatar_url} size={48} />
         <View style={styles.textCol}>
-          <Text style={[styles.username, { color: colors.foreground }]}>{user.username}</Text>
-          <Text style={[styles.fullName, { color: colors.mutedForeground }]}>{user.fullName}</Text>
-          {user.mutual > 0 && (
-            <Text style={[styles.mutual, { color: colors.mutedForeground }]}>
-              {user.mutual} mutual follower{user.mutual > 1 ? "s" : ""}
-            </Text>
-          )}
+          <View style={styles.nameRow}>
+            <Text style={[styles.username, { color: colors.foreground }]}>{user.username}</Text>
+            {user.is_verified && (
+              <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />
+            )}
+          </View>
+          {user.full_name ? (
+            <Text style={[styles.fullName, { color: colors.mutedForeground }]}>{user.full_name}</Text>
+          ) : null}
         </View>
       </TouchableOpacity>
 
       <View style={styles.actions}>
-        {listType === "followers" && isOwn ? (
+        {user.is_self ? null : listType === "followers" && isOwnProfile ? (
           <TouchableOpacity
-            onPress={() => setRemoved(true)}
+            onPress={handleRemove}
+            disabled={busy}
             style={[styles.removeBtn, { borderColor: colors.border }]}
           >
             <Text style={[styles.removeBtnText, { color: colors.foreground }]}>Remove</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            onPress={() => setFollowing((f) => !f)}
+            onPress={handleFollowToggle}
+            disabled={busy || !myId}
             style={[
               styles.followBtn,
               following && { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border },
@@ -106,26 +171,46 @@ function UserRow({ user, isOwn, listType }: {
 }
 
 export default function FollowersScreen() {
-  const { username, type } = useLocalSearchParams<{ username: string; type: ListType }>();
+  const { username, type, userId: profileUserIdParam } = useLocalSearchParams<{
+    username: string;
+    type: ListType;
+    userId?: string;
+  }>();
+  const { session } = useAuth();
+  const myId = session?.user?.id;
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const listType: ListType = type === "following" ? "following" : "followers";
   const [query, setQuery] = useState("");
+  const [users, setUsers] = useState<FollowUser[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const isOwn = false;
+  const isOwnProfile = !!myId && (myId === profileUserIdParam);
 
-  const source = listType === "followers" ? MOCK_FOLLOWERS : MOCK_FOLLOWING;
+  const load = useCallback(async () => {
+    setLoading(true);
+    const result = await fetchList(username, listType, myId);
+    setUsers(result);
+    setLoading(false);
+  }, [username, listType, myId]);
+
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return source;
+    if (!query.trim()) return users;
     const q = query.toLowerCase();
-    return source.filter(
-      (u) => u.username.toLowerCase().includes(q) || u.fullName.toLowerCase().includes(q)
+    return users.filter(
+      (u) =>
+        u.username.toLowerCase().includes(q) ||
+        (u.full_name ?? "").toLowerCase().includes(q)
     );
-  }, [query, source]);
+  }, [query, users]);
 
   const title = listType === "followers" ? "Followers" : "Following";
   const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
+
+  // Find profileUserId from the loaded list for "remove follower" (own profile)
+  const profileUserId = profileUserIdParam ?? myId;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -141,7 +226,7 @@ export default function FollowersScreen() {
       </View>
 
       <View style={[styles.searchWrap, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-        <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+        <Ionicons name="search" size={16} color={colors.mutedForeground} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -156,22 +241,34 @@ export default function FollowersScreen() {
         )}
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <UserRow user={item} isOwn={isOwn} listType={listType} />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              {query ? "No results found" : `No ${listType} yet`}
-            </Text>
-          </View>
-        }
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-      />
+      {loading ? (
+        <View style={styles.loader}>
+          <ActivityIndicator size="large" color="#7C3AED" />
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <UserRow
+              user={item}
+              isOwnProfile={isOwnProfile}
+              listType={listType}
+              myId={myId}
+              profileUserId={profileUserId}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                {query ? "No results found" : `No ${listType} yet`}
+              </Text>
+            </View>
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+        />
+      )}
     </View>
   );
 }
@@ -204,6 +301,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     fontSize: 14,
   },
+  loader: { flex: 1, alignItems: "center", justifyContent: "center" },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -213,9 +311,9 @@ const styles = StyleSheet.create({
   },
   userInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   textCol: { flex: 1 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   username: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   fullName: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: -2 },
-  mutual: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
   actions: {},
   followBtn: { borderRadius: 10, overflow: "hidden", height: 34, minWidth: 88, justifyContent: "center", alignItems: "center", paddingHorizontal: 8 },
   followGrad: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
