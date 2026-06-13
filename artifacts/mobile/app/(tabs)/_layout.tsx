@@ -170,7 +170,7 @@ const TAB_EMOJI: Record<string, string> = {
   "home": "⌂",
   "home-outline": "⌂",
   "heart": "♥",
-  "heart-outline": "♡",
+  "heart-outline": "♥",
   "person": "◉",
   "person-outline": "○",
 };

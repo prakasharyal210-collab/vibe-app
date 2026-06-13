@@ -422,28 +422,27 @@ export default function ProfileScreen() {
   const loadProfile = useCallback(async (uid: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (!data) return;
-    // Fetch live counts directly to avoid cached-column drift
-    // posts_count = posts + reels (profile grid shows both)
-    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
-      supabase.from("posts").select("*", { count: "exact", head: true }).eq("user_id", uid),
-      supabase.from("reels").select("*", { count: "exact", head: true }).eq("user_id", uid),
-      supabase.from("follows").select("*", { count: "exact", head: true }).eq("following_id", uid),
-      supabase.from("follows").select("*", { count: "exact", head: true }).eq("follower_id", uid),
-    ]);
-    const postsCount = (postsRes.status === "fulfilled" ? (postsRes.value.count ?? 0) : 0)
-      + (reelsRes.status === "fulfilled" ? (reelsRes.value.count ?? 0) : 0);
-    setProfile({
-      ...(data as Profile),
-      posts_count: postsCount > 0 ? postsCount : (data.posts_count ?? 0),
-      followers_count:
-        followersRes.status === "fulfilled" && followersRes.value.count !== null
-          ? followersRes.value.count
-          : (data.followers_count ?? 0),
-      following_count:
-        followingRes.status === "fulfilled" && followingRes.value.count !== null
-          ? followingRes.value.count
-          : (data.following_count ?? 0),
-    });
+    // Fetch live counts via API server (uses service-role key, bypasses RLS +
+    // avoids the Android Supabase-client hang on COUNT queries).
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    let liveCounts = {
+      posts_count: data.posts_count ?? 0,
+      followers_count: data.followers_count ?? 0,
+      following_count: data.following_count ?? 0,
+    };
+    try {
+      const apiRes = await fetch(`${apiBase}/users/profile/${encodeURIComponent(data.username)}`);
+      if (apiRes.ok) {
+        const json = await apiRes.json();
+        const p = json.profile ?? json;
+        liveCounts = {
+          posts_count: p.posts_count ?? liveCounts.posts_count,
+          followers_count: p.followers_count ?? liveCounts.followers_count,
+          following_count: p.following_count ?? liveCounts.following_count,
+        };
+      }
+    } catch {}
+    setProfile({ ...(data as Profile), ...liveCounts });
   }, []);
 
   useEffect(() => {
