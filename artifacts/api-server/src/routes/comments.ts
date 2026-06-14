@@ -9,7 +9,154 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
-// POST /api/comments/like
+// ─── Inline profanity filter (mirrors mobile/lib/profanityFilter.ts) ──────────
+const BLOCKED_WORDS = [
+  "fuck", "shit", "cunt", "nigger", "nigga", "faggot", "kike", "spic",
+  "chink", "wetback", "retard", "whore", "slut", "bitch", "asshole",
+  "bastard", "cock", "pussy", "dick", "penis", "vagina", "dildo", "cum",
+  "jizz", "motherfucker", "fucker", "bullshit", "jackass", "dipshit",
+];
+
+function normalise(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/0/g, "o").replace(/1/g, "i").replace(/3/g, "e")
+    .replace(/4/g, "a").replace(/5/g, "s").replace(/8/g, "b")
+    .replace(/@/g, "a").replace(/\$/g, "s").replace(/!/g, "i");
+}
+
+function checkProfanity(text: string): { ok: boolean; reason?: string } {
+  if (!text?.trim()) return { ok: true };
+  const n = normalise(text);
+  for (const word of BLOCKED_WORDS) {
+    if (n.includes(word)) {
+      return {
+        ok: false,
+        reason: "Your message contains content that violates our community guidelines. Please revise before posting.",
+      };
+    }
+  }
+  return { ok: true };
+}
+
+// ─── POST /api/comments ───────────────────────────────────────────────────────
+// body: { userId, postId?, reelId?, text, contentType: "post" | "reel" }
+// Enforces: profanity filter + block check vs content owner → 403 if blocked.
+router.post("/", async (req, res) => {
+  const { userId, postId, reelId, text, contentType } = req.body as {
+    userId?: string;
+    postId?: string;
+    reelId?: string;
+    text?: string;
+    contentType?: "post" | "reel";
+  };
+
+  if (!userId || !text?.trim() || !contentType) {
+    res.status(400).json({ error: "userId, text, and contentType required" });
+    return;
+  }
+  if (contentType === "post" && !postId) {
+    res.status(400).json({ error: "postId required for post comments" });
+    return;
+  }
+  if (contentType === "reel" && !reelId) {
+    res.status(400).json({ error: "reelId required for reel comments" });
+    return;
+  }
+
+  // Profanity gate
+  const pf = checkProfanity(text);
+  if (!pf.ok) {
+    res.status(422).json({ error: pf.reason });
+    return;
+  }
+
+  const sb = makeSupabase();
+  const contentId = contentType === "post" ? postId! : reelId!;
+  const ownerTable = contentType === "post" ? "posts" : "reels";
+
+  try {
+    // Look up content owner
+    const { data: content, error: contentErr } = await sb
+      .from(ownerTable)
+      .select("user_id")
+      .eq("id", contentId)
+      .maybeSingle();
+
+    if (contentErr || !content) {
+      res.status(404).json({ error: "Content not found" });
+      return;
+    }
+
+    const ownerId: string = content.user_id;
+
+    // Block check — skip if commenting on own content
+    if (userId !== ownerId) {
+      const [b1, b2] = await Promise.all([
+        sb.from("blocks").select("id").eq("blocker_id", userId).eq("blocked_id", ownerId).maybeSingle(),
+        sb.from("blocks").select("id").eq("blocker_id", ownerId).eq("blocked_id", userId).maybeSingle(),
+      ]);
+      if (b1.data || b2.data) {
+        res.status(403).json({ error: "Cannot comment on this content" });
+        return;
+      }
+    }
+
+    const trimmed = text.trim();
+
+    if (contentType === "reel") {
+      // Try the RPC first (handles comment-count increment atomically)
+      const { data: rpcData } = await sb.rpc("add_reel_comment", {
+        p_user_id: userId,
+        p_reel_id: reelId,
+        p_content: trimmed,
+      });
+      if (rpcData) {
+        const c = rpcData as Record<string, any>;
+        res.status(201).json({ comment: { ...c, text: c.content ?? c.text ?? trimmed } });
+        return;
+      }
+
+      // RPC unavailable — direct insert fallback
+      const { data: inserted, error: insertErr } = await sb
+        .from("reel_comments")
+        .insert({ reel_id: reelId, user_id: userId, content: trimmed })
+        .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
+        .single();
+
+      if (insertErr) {
+        req.log.warn({ error: insertErr.message }, "reel_comments insert error");
+        res.status(500).json({ error: "Failed to save comment" });
+        return;
+      }
+
+      const c = inserted as Record<string, any>;
+      res.status(201).json({ comment: { ...c, text: c.content ?? c.text ?? trimmed } });
+      return;
+    }
+
+    // Post comment
+    const { data: inserted, error: insertErr } = await sb
+      .from("comments")
+      .insert({ post_id: postId, user_id: userId, content: trimmed })
+      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
+      .single();
+
+    if (insertErr) {
+      req.log.warn({ error: insertErr.message }, "comments insert error");
+      res.status(500).json({ error: "Failed to save comment" });
+      return;
+    }
+
+    const c = inserted as Record<string, any>;
+    res.status(201).json({ comment: { ...c, text: c.content ?? c.text ?? trimmed } });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "comment post exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ─── POST /api/comments/like ──────────────────────────────────────────────────
 // Toggle a comment like. Returns { liked: boolean, likes_count: number }
 router.post("/like", async (req, res) => {
   const { userId, commentId } = req.body as { userId?: string; commentId?: string };
@@ -41,7 +188,7 @@ router.post("/like", async (req, res) => {
   }
 });
 
-// GET /api/comments/liked?userId=&commentIds=id1,id2,...
+// ─── GET /api/comments/liked ──────────────────────────────────────────────────
 // Returns set of comment IDs the user has liked
 router.get("/liked", async (req, res) => {
   const { userId, commentIds } = req.query as { userId?: string; commentIds?: string };

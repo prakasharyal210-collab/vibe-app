@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   FlatList,
@@ -178,8 +179,9 @@ export function CommentsSheet({
 
     const userId = session?.user?.id;
     const username = session?.user?.email?.split("@")[0] ?? "you";
+    const optimisticId = Date.now().toString();
     const optimistic: Comment = {
-      id: Date.now().toString(),
+      id: optimisticId,
       post_id: postId,
       user_id: userId ?? "me",
       text,
@@ -191,11 +193,21 @@ export function CommentsSheet({
     listRef.current?.scrollToOffset({ offset: 0, animated: true });
 
     if (userId) {
-      const saved = contentType === "reel"
-        ? await addReelComment(postId, userId, text)
-        : await addComment(postId, userId, text);
-      if (saved) {
-        setComments((c) => c.map((item) => (item.id === optimistic.id ? saved : item)));
+      try {
+        const saved = contentType === "reel"
+          ? await addReelComment(postId, userId, text)
+          : await addComment(postId, userId, text);
+        if (saved) {
+          setComments((c) => c.map((item) => (item.id === optimisticId ? saved : item)));
+        } else {
+          // Server returned null — silently remove the optimistic comment
+          setComments((c) => c.filter((item) => item.id !== optimisticId));
+        }
+      } catch (err: any) {
+        // Remove the optimistic comment and surface the error
+        setComments((c) => c.filter((item) => item.id !== optimisticId));
+        const msg: string = err?.message ?? "Could not post comment. Try again.";
+        Alert.alert("Comment not posted", msg);
       }
     }
     setSubmitting(false);

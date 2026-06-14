@@ -76,20 +76,26 @@ export async function addComment(
   userId: string,
   text: string,
 ): Promise<Comment | null> {
+  // Client-side profanity check for instant feedback
   const { checkProfanity } = await import("./profanityFilter");
   const check = checkProfanity(text);
   if (!check.ok) throw new Error(check.reason);
-  try {
-    const { data, error } = await supabase
-      .from("comments")
-      .insert({ post_id: postId, user_id: userId, text })
-      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
-      .single();
-    if (!error && data) return data as unknown as Comment;
-  } catch (err: any) {
-    if (err?.message?.includes("guidelines")) throw err;
+
+  const res = await fetch(`${API_BASE}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, postId, text, contentType: "post" }),
+  });
+  if (res.status === 422) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Comment violates community guidelines.");
   }
-  return null;
+  if (res.status === 403) {
+    throw new Error("You cannot comment on this post.");
+  }
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  return (data?.comment as Comment) ?? null;
 }
 
 // ─── Reel Comments ────────────────────────────────────────────────────────────
@@ -116,28 +122,26 @@ export async function addReelComment(
   userId: string,
   text: string,
 ): Promise<Comment | null> {
+  // Client-side profanity check for instant feedback
   const { checkProfanity } = await import("./profanityFilter");
   const check = checkProfanity(text);
   if (!check.ok) throw new Error(check.reason);
-  try {
-    const { data: rpcData } = await supabase.rpc("add_reel_comment", {
-      p_user_id: userId,
-      p_reel_id: reelId,
-      p_content: text,
-    });
-    if (rpcData) return rpcData as Comment;
-  } catch (err: any) {
-    if (err?.message?.includes("guidelines")) throw err;
+
+  const res = await fetch(`${API_BASE}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, reelId, text, contentType: "reel" }),
+  });
+  if (res.status === 422) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? "Comment violates community guidelines.");
   }
-  try {
-    const { data, error } = await supabase
-      .from("reel_comments")
-      .insert({ reel_id: reelId, user_id: userId, text })
-      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
-      .single();
-    if (!error && data) return data as unknown as Comment;
-  } catch {}
-  return null;
+  if (res.status === 403) {
+    throw new Error("You cannot comment on this reel.");
+  }
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  return (data?.comment as Comment) ?? null;
 }
 
 // ─── Search History ────────────────────────────────────────────────────────────
