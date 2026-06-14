@@ -1306,10 +1306,14 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
 
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   console.log('[getFriendsFeed] called userId:', userId?.slice(0, 8));
-  const [rpcResult, fresh] = await Promise.allSettled([
+  // Wrap RPC in a 3s timeout — get_friends_feed may not exist or may hang
+  const rpcWithTimeout = Promise.race([
     supabase.rpc('get_friends_feed', { p_user_id: userId, p_limit: limit, p_offset: offset }),
-    fetchFreshPosts(limit),
+    new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'rpc timeout' } }), 3000)
+    ),
   ]);
+  const [rpcResult, fresh] = await Promise.allSettled([rpcWithTimeout, fetchFreshPosts(limit)]);
   const friendsPosts = rpcResult.status === 'fulfilled' && !rpcResult.value.error && rpcResult.value.data?.length
     ? rpcResult.value.data as Post[]
     : null;
