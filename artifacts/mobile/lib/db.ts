@@ -2426,3 +2426,53 @@ export async function createStory(opts: {
     return null;
   }
 }
+
+export async function uploadStoryMedia(
+  userId: string,
+  uri: string,
+  caption?: string,
+  storyType: "image" | "video" = "image",
+): Promise<string | null> {
+  try {
+    const cleanUri = uri.split("?")[0];
+    const ext = (cleanUri.split(".").pop() ?? "jpg").toLowerCase();
+    const mimeType =
+      storyType === "video"
+        ? ext === "mov"
+          ? "video/quicktime"
+          : "video/mp4"
+        : ext === "png"
+          ? "image/png"
+          : "image/jpeg";
+
+    let imageBase64: string | undefined;
+    try {
+      imageBase64 = await withTimeout(localUriToBase64(uri), 25_000, "story file read");
+    } catch (readErr) {
+      console.log("Story file read failed:", readErr);
+    }
+
+    const res = await withTimeout(
+      fetch(`${API_BASE}/stories`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          imageBase64,
+          mimeType,
+          ext,
+          caption,
+          storyType,
+        }),
+      }),
+      60_000,
+      "story media create API",
+    );
+
+    if (!res.ok) return null;
+    const data = (await res.json()) as { id: string };
+    return data.id;
+  } catch {
+    return null;
+  }
+}

@@ -12,17 +12,30 @@ function makeSupabase() {
 }
 
 // ─── POST /api/stories ────────────────────────────────────────────────────────
-// body: { userId, mediaUrl?, caption?, bgGradient?, textContent?, storyType }
+// body: { userId, storyType, textContent?, bgGradient?, caption?,
+//         mediaUrl?, imageBase64?, mimeType?, ext? }
 router.post("/", async (req, res) => {
-  const { userId, mediaUrl, caption, bgGradient, textContent, storyType } =
-    req.body as {
-      userId?: string;
-      mediaUrl?: string;
-      caption?: string;
-      bgGradient?: string;
-      textContent?: string;
-      storyType?: string;
-    };
+  const {
+    userId,
+    mediaUrl,
+    caption,
+    bgGradient,
+    textContent,
+    storyType,
+    imageBase64,
+    mimeType,
+    ext,
+  } = req.body as {
+    userId?: string;
+    mediaUrl?: string;
+    caption?: string;
+    bgGradient?: string;
+    textContent?: string;
+    storyType?: string;
+    imageBase64?: string;
+    mimeType?: string;
+    ext?: string;
+  };
 
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
@@ -31,11 +44,33 @@ router.post("/", async (req, res) => {
 
   const supabase = makeSupabase();
 
+  // Upload media to storage if base64 blob provided
+  let finalMediaUrl = mediaUrl ?? null;
+  if (imageBase64 && mimeType && ext) {
+    const filename = `stories/${userId}/${Date.now()}.${ext}`;
+    try {
+      const buffer = Buffer.from(imageBase64, "base64");
+      const { error: upErr } = await supabase.storage
+        .from("media")
+        .upload(filename, buffer, { contentType: mimeType, upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage
+          .from("media")
+          .getPublicUrl(filename);
+        finalMediaUrl = urlData.publicUrl;
+      } else {
+        req.log.warn({ err: upErr.message }, "story storage upload error");
+      }
+    } catch (err) {
+      req.log.warn({ err }, "story storage upload failed");
+    }
+  }
+
   const { data, error } = await supabase
     .from("stories")
     .insert({
       user_id: userId,
-      media_url: mediaUrl ?? null,
+      media_url: finalMediaUrl,
       caption: caption ?? null,
       bg_gradient: bgGradient ?? null,
       text_content: textContent ?? null,
@@ -51,11 +86,11 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  res.status(201).json({ id: data.id });
+  res.status(201).json({ id: data.id, mediaUrl: finalMediaUrl });
 });
 
 // ─── GET /api/stories ─────────────────────────────────────────────────────────
-// query: { userId }  — returns active stories from mutual follows + own
+// query: { userId }  — own story + stories from accounts the user follows
 router.get("/", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   if (!userId) {
@@ -66,20 +101,16 @@ router.get("/", async (req, res) => {
   const supabase = makeSupabase();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  // Get mutual followers
-  const [{ data: followingData }, { data: followersData }] = await Promise.all([
-    supabase.from("follows").select("following_id").eq("follower_id", userId),
-    supabase.from("follows").select("follower_id").eq("following_id", userId),
-  ]);
+  // One-directional: anyone the current user follows
+  const { data: followingData } = await supabase
+    .from("follows")
+    .select("following_id")
+    .eq("follower_id", userId);
 
-  const followingSet = new Set(
-    (followingData ?? []).map((f: any) => f.following_id as string)
+  const followingIds = (followingData ?? []).map(
+    (f: any) => f.following_id as string,
   );
-  const mutualIds = (followersData ?? [])
-    .map((f: any) => f.follower_id as string)
-    .filter((id) => followingSet.has(id));
-
-  const allIds = [userId, ...mutualIds];
+  const allIds = [userId, ...followingIds];
 
   const { data: storiesData, error } = await supabase
     .from("stories")

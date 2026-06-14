@@ -393,7 +393,7 @@ function StoryItem({ story, onPress }: { story: Story; onPress: () => void }) {
 }
 
 // ─── Public StoryRow ─────────────────────────────────────────────────────────
-export function StoryRow({ stories, userId }: { stories: Story[]; userId?: string }) {
+export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]; userId?: string; onStoryCreated?: () => void }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerStart, setViewerStart] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
@@ -434,7 +434,10 @@ export function StoryRow({ stories, userId }: { stories: Story[]; userId?: strin
       <CreateStorySheet
         visible={createOpen}
         onClose={() => setCreateOpen(false)}
-        onPost={() => setCreateOpen(false)}
+        onPost={() => {
+          setCreateOpen(false);
+          onStoryCreated?.();
+        }}
         userId={userId}
       />
     </>

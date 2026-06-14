@@ -300,7 +300,7 @@ function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts:
   );
 }
 
-function FriendsStoriesBar({ stories, colors, userId }: { stories: StoryEntry[]; colors: any; userId?: string }) {
+function FriendsStoriesBar({ stories, colors, userId, onStoryCreated }: { stories: StoryEntry[]; colors: any; userId?: string; onStoryCreated?: () => void }) {
   return (
     <View style={{ backgroundColor: colors.background }}>
       <View style={storiesBarStyles.header}>
@@ -313,7 +313,7 @@ function FriendsStoriesBar({ stories, colors, userId }: { stories: StoryEntry[];
           </Text>
         </View>
       </View>
-      <StoryRow stories={stories} />
+      <StoryRow stories={stories} userId={userId} onStoryCreated={onStoryCreated} />
       <View style={[storiesBarStyles.divider, { backgroundColor: colors.border }]} />
     </View>
   );
@@ -466,6 +466,14 @@ export default function FeedScreen() {
     Promise.race([fetchFriendStories(userId, myUsername), timeout])
       .then(setFriendStories)
       .catch(() => {}); // keep placeholder on error / timeout
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const refreshStories = React.useCallback(() => {
+    if (!userId) return;
+    fetchFriendStories(userId, myUsername)
+      .then(setFriendStories)
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
@@ -734,7 +742,7 @@ export default function FeedScreen() {
                     return (
                       <>
                         {tab.id === "friends" && activeTab === "friends" && (
-                          <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />
+                          <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} onStoryCreated={refreshStories} />
                         )}
                         <TrendingGrid
                           posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
@@ -745,7 +753,7 @@ export default function FeedScreen() {
                     );
                   }
                   if (tab.id === "friends" && activeTab === "friends") {
-                    return <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />;
+                    return <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} onStoryCreated={refreshStories} />;
                   }
                   if (tab.id === "foryou") {
                     // Always show Pexels curated content — above user posts when they exist,
