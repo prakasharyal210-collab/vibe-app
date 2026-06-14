@@ -32,6 +32,8 @@ function notifTypeText(type: string): string {
   }
 }
 
+const NOTIF_FALLBACK = { icon: "notifications", color: "#9CA3AF", bg: "rgba(156,163,175,0.15)" };
+
 const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
   like: { icon: "heart", color: "#F97316", bg: "rgba(249,115,22,0.15)" },
   comment: { icon: "chatbubble", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
@@ -39,11 +41,13 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
   vibe: { icon: "heart-circle", color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
   mention: { icon: "at-circle", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
   tag: { icon: "pricetag", color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  repost: { icon: "repeat", color: "#06B6D4", bg: "rgba(6,182,212,0.15)" },
+  save: { icon: "bookmark", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
 };
 
 function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string) => void }) {
   const colors = useColors();
-  const config = TYPE_CONFIG[notif.type];
+  const config = TYPE_CONFIG[notif.type] ?? NOTIF_FALLBACK;
 
   const handlePress = () => {
     onRead(notif.id);
