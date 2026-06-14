@@ -134,17 +134,7 @@ router.get("/profile/:username", async (req, res) => {
     }
 
     if (!profile) {
-      // DEBUG: sample the profiles table to confirm API can read it at all
-      const { data: sample, error: sampleErr } = await sb
-        .from("profiles")
-        .select("id, username")
-        .limit(5);
-      req.log.warn({
-        username,
-        sampleCount: sample?.length ?? 0,
-        sampleUsernames: sample?.map((r: any) => r.username) ?? [],
-        sampleError: sampleErr?.message,
-      }, "profile lookup: not found — debug sample");
+      req.log.info({ username }, "profile lookup: not found");
       res.status(404).json({ error: "not found" });
       return;
     }

@@ -12,6 +12,18 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// Normalise a DB row: the messages table uses "content" but the mobile
+// Message interface expects "text". Map content → text on every outgoing row.
+function normalise(row: any): any {
+  if (!row) return row;
+  const out = { ...row };
+  if ("content" in out && !("text" in out)) {
+    out.text = out.content;
+    delete out.content;
+  }
+  return out;
+}
+
 // GET /api/messages?myId=&otherId=&limit=100
 // Fetch messages between two users (service-role bypasses RLS)
 router.get("/", async (req, res) => {
@@ -37,7 +49,7 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: error.message });
     return;
   }
-  res.json({ messages: data ?? [] });
+  res.json({ messages: (data ?? []).map(normalise) });
 });
 
 // POST /api/messages
@@ -64,9 +76,10 @@ router.post("/", async (req, res) => {
     return;
   }
 
+  // DB column is "content", not "text"
   const { data, error } = await sb
     .from("messages")
-    .insert({ sender_id: senderId, receiver_id: receiverId, text })
+    .insert({ sender_id: senderId, receiver_id: receiverId, content: text })
     .select()
     .single();
   if (error) {
@@ -77,7 +90,7 @@ router.post("/", async (req, res) => {
   // Send push to receiver (non-blocking)
   void (async () => {
     const { data: sender } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
-    const senderName = sender?.username ?? "Someone";
+    const senderName = (sender as any)?.username ?? "Someone";
     const preview = text.length > 60 ? text.slice(0, 57) + "…" : text;
     void sendPushToUser(sb, receiverId, {
       title: `@${senderName}`,
@@ -86,7 +99,30 @@ router.post("/", async (req, res) => {
     }, "notif_messages");
   })();
 
-  res.json({ message: data });
+  res.json({ message: normalise(data) });
+});
+
+// PATCH /api/messages/:id
+// Update a message's content (used by snap-viewed flow).
+// body: { content }
+router.patch("/:id", async (req, res) => {
+  const { id } = req.params;
+  const { content } = req.body as { content?: string };
+  if (!id || !content) {
+    res.status(400).json({ error: "id and content required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const { error } = await sb
+      .from("messages")
+      .update({ content })
+      .eq("id", id);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ ok: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
 });
 
 // GET /api/messages/conversations?userId=
@@ -139,6 +175,8 @@ router.get("/conversations", async (req, res) => {
       msg.sender_id === userId ? msg.receiver : msg.sender;
     if (!seen.has(otherId) && otherUser) {
       seen.add(otherId);
+      // Use content (DB column name) with fallback to text for normalisation
+      const lastMsg = msg.content ?? msg.text ?? "";
       convos.push({
         id: `conv_${otherId}`,
         other_user: {
@@ -146,7 +184,7 @@ router.get("/conversations", async (req, res) => {
           username: otherUser.username,
           avatar_url: otherUser.avatar_url,
         },
-        last_message: msg.text,
+        last_message: lastMsg,
         last_message_at: msg.created_at,
         unread_count: unreadByOther.get(otherId) ?? 0,
       });
