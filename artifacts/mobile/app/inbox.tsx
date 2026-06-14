@@ -33,6 +33,7 @@ import {
   fetchConversations,
   fetchMessageRequests,
   fetchSnapConversations,
+  markMessagesRead,
 } from "@/lib/db";
 import {
   encodeSnap,
@@ -651,9 +652,10 @@ const subSt = StyleSheet.create({
 // ─── ChatsTab ─────────────────────────────────────────────────────────────────
 
 function ChatsTab({
-  conversations, snapConvos, refreshing, onRefresh, usersWithStories,
+  myId, conversations, snapConvos, refreshing, onRefresh, usersWithStories,
   onCamera, onSnapCamera, onSnapView, show, requests,
 }: {
+  myId: string;
   conversations: Conversation[];
   snapConvos: SnapConversation[];
   refreshing: boolean;
@@ -733,7 +735,7 @@ function ChatsTab({
   const unreadCount = useMemo(() => allItems.filter((i) => i.hasUnread).length, [allItems]);
   const favCount = useMemo(() => allItems.filter((i) => favIds.has(i.userId)).length, [allItems, favIds]);
 
-  const handleLongPress = useCallback((id: string, username: string, isPinned: boolean, isFav: boolean) => {
+  const handleLongPress = useCallback((id: string, otherId: string, username: string, isPinned: boolean, isFav: boolean) => {
     Alert.alert(`@${username}`, undefined, [
       {
         text: isPinned ? "Unpin" : "📌 Pin Conversation",
@@ -749,11 +751,14 @@ function ChatsTab({
       },
       {
         text: "✓ Mark as Read",
-        onPress: () => show(`@${username} marked as read`),
+        onPress: () => {
+          if (myId && otherId) void markMessagesRead(myId, otherId);
+          show(`@${username} marked as read`);
+        },
       },
       { text: "Cancel", style: "cancel" },
     ]);
-  }, [mutedIds, show]);
+  }, [myId, mutedIds, show]);
 
   const TABS: Array<{ id: ChatFilter; label: string; badge?: number }> = [
     { id: "all", label: "All" },
@@ -847,7 +852,7 @@ function ChatsTab({
                   isFavorite={isFav}
                   hasStory={item.hasStory}
                   onCamera={() => onSnapCamera(c.other_user.username)}
-                  onLongPress={() => handleLongPress(c.id, c.other_user.username, item.isPinned, isFav)}
+                  onLongPress={() => handleLongPress(c.id, c.other_user.id, c.other_user.username, item.isPinned, isFav)}
                   onDelete={() => Alert.alert("Delete?", `Delete conversation with @${c.other_user.username}?`, [
                     { text: "Cancel", style: "cancel" },
                     { text: "Delete", style: "destructive", onPress: () => show("Conversation deleted") },
@@ -869,7 +874,7 @@ function ChatsTab({
                   streak={0}
                   onView={() => onSnapView(c)}
                   onCamera={() => onSnapCamera(c.other_user.username)}
-                  onLongPress={() => handleLongPress(c.message_id, c.other_user.username, item.isPinned, false)}
+                  onLongPress={() => handleLongPress(c.message_id, c.other_user.id, c.other_user.username, item.isPinned, false)}
                   onDelete={() => show("Snap deleted")}
                 />
               );
@@ -1381,6 +1386,7 @@ export default function InboxScreen() {
         >
           <View key="chats" style={{ flex: 1 }}>
             <ChatsTab
+              myId={userId ?? ""}
               conversations={conversations}
               snapConvos={snapConvos}
               refreshing={refreshing}

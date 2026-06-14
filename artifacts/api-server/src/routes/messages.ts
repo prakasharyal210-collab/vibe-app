@@ -91,7 +91,8 @@ router.post("/", async (req, res) => {
 
 // GET /api/messages/conversations?userId=
 // Returns a de-duplicated list of conversations for the given user,
-// each decorated with the other party's profile (username, avatar_url).
+// each decorated with the other party's profile (username, avatar_url)
+// and a real unread_count from messages.read_at IS NULL.
 router.get("/conversations", async (req, res) => {
   const { userId } = req.query as { userId?: string };
   if (!userId) {
@@ -99,21 +100,39 @@ router.get("/conversations", async (req, res) => {
     return;
   }
   const sb = makeSupabase();
-  const { data, error } = await sb
-    .from("messages")
-    .select(
-      "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
-    )
-    .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-    .order("created_at", { ascending: false })
-    .limit(50);
-  if (error) {
-    res.status(500).json({ error: error.message });
+
+  // Fetch last 100 messages + real unread counts in parallel
+  const [msgRes, unreadRes] = await Promise.all([
+    sb
+      .from("messages")
+      .select(
+        "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
+      )
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    sb
+      .from("messages")
+      .select("sender_id")
+      .eq("receiver_id", userId)
+      .is("read_at", null),
+  ]);
+
+  if (msgRes.error) {
+    res.status(500).json({ error: msgRes.error.message });
     return;
   }
+
+  // Build unread counts map: senderId → count of unread messages they sent me
+  const unreadByOther = new Map<string, number>();
+  for (const row of (unreadRes.data ?? []) as any[]) {
+    const sid = row.sender_id as string;
+    unreadByOther.set(sid, (unreadByOther.get(sid) ?? 0) + 1);
+  }
+
   const seen = new Set<string>();
   const convos: object[] = [];
-  for (const msg of (data ?? []) as any[]) {
+  for (const msg of (msgRes.data ?? []) as any[]) {
     const otherId =
       msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
     const otherUser =
@@ -129,7 +148,7 @@ router.get("/conversations", async (req, res) => {
         },
         last_message: msg.text,
         last_message_at: msg.created_at,
-        unread_count: 0,
+        unread_count: unreadByOther.get(otherId) ?? 0,
       });
     }
   }

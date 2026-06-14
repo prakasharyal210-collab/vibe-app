@@ -24,7 +24,7 @@ import { SnapCaptureSheet, SnapViewerModal } from "@/components/SnapViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchMessages, sendMessageToUser } from "@/lib/db";
+import { fetchMessages, getOtherUserActivity, markMessagesRead, sendMessageToUser } from "@/lib/db";
 import {
   encodeSnap,
   isSnap,
@@ -315,6 +315,7 @@ export default function ChatScreen() {
     msgText: string;
   } | null>(null);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
+  const [lastActiveAt, setLastActiveAt] = useState<string | null>(null);
 
   const flatRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -324,18 +325,25 @@ export default function ChatScreen() {
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
 
-  // ── Load messages ──────────────────────────────────────────────────────────
+  // ── Load messages + activity status ────────────────────────────────────────
   useEffect(() => {
     if (!myId || !otherId) return;
     setLoading(true);
-    fetchMessages(myId, otherId)
-      .then((msgs) => {
+    // Load messages, mark them read, and fetch the other user's last-active in parallel
+    Promise.all([
+      fetchMessages(myId, otherId),
+      getOtherUserActivity(otherId),
+    ])
+      .then(([msgs, activeAt]) => {
         setMessages(msgs);
+        setLastActiveAt(activeAt);
         setLoading(false);
         setTimeout(
           () => flatRef.current?.scrollToEnd({ animated: false }),
           80,
         );
+        // Mark incoming messages as read (fire-and-forget)
+        void markMessagesRead(myId, otherId);
       })
       .catch(() => setLoading(false));
   }, [myId, otherId]);
@@ -365,6 +373,8 @@ export default function ChatScreen() {
             () => flatRef.current?.scrollToEnd({ animated: true }),
             50,
           );
+          // User is actively viewing chat — immediately mark the new message read
+          void markMessagesRead(myId, otherId);
         },
       )
       .on(
@@ -593,8 +603,26 @@ export default function ChatScreen() {
                 </View>
               )}
             </View>
-            <Text style={[chatStyles.headerStatus, { color: "#10B981" }]}>
-              ● Active now
+            <Text
+              style={[
+                chatStyles.headerStatus,
+                {
+                  color: (() => {
+                    if (!lastActiveAt) return "rgba(255,255,255,0.35)";
+                    const mins = (Date.now() - new Date(lastActiveAt).getTime()) / 60000;
+                    return mins < 5 ? "#10B981" : "rgba(255,255,255,0.35)";
+                  })(),
+                },
+              ]}
+            >
+              {(() => {
+                if (!lastActiveAt) return "● Offline";
+                const mins = (Date.now() - new Date(lastActiveAt).getTime()) / 60000;
+                if (mins < 5) return "● Active now";
+                if (mins < 60) return `● Active ${Math.floor(mins)}m ago`;
+                const hrs = Math.floor(mins / 60);
+                return `● Active ${hrs}h ago`;
+              })()}
             </Text>
           </View>
         </TouchableOpacity>

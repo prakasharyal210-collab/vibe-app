@@ -878,6 +878,27 @@ export async function fetchMessages(myId: string, otherId: string): Promise<impo
   return [];
 }
 
+export async function markMessagesRead(myId: string, otherId: string): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/messages/read`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ myId, otherId }),
+    });
+  } catch {}
+}
+
+export async function getOtherUserActivity(userId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${API_BASE}/messages/activity?userId=${encodeURIComponent(userId)}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return (json.lastActiveAt as string | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendMessageToUser(
   senderId: string,
   receiverId: string,
