@@ -128,6 +128,43 @@ router.get("/", async (req, res) => {
   res.json({ stories: storiesData ?? [] });
 });
 
+// ─── GET /api/stories/check ───────────────────────────────────────────────────
+// query: { userId }  — lightweight own-story existence check (no follows lookup)
+// Returns: { exists: boolean, storyId?: string, storyType?, textContent?, bgGradient?, caption? }
+router.get("/check", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  if (!userId) {
+    res.status(400).json({ error: "userId is required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("stories")
+    .select("id, story_type, text_content, bg_gradient, caption")
+    .eq("user_id", userId)
+    .gt("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) {
+    res.json({ exists: false });
+    return;
+  }
+
+  res.json({
+    exists: true,
+    storyId: data.id,
+    storyType: data.story_type ?? undefined,
+    textContent: data.text_content ?? undefined,
+    bgGradient: data.bg_gradient ?? undefined,
+    caption: data.caption ?? undefined,
+  });
+});
+
 // ─── DELETE /api/stories/:storyId ─────────────────────────────────────────────
 router.delete("/:storyId", async (req, res) => {
   const { storyId } = req.params;

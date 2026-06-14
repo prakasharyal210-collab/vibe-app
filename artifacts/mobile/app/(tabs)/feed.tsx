@@ -459,12 +459,35 @@ export default function FeedScreen() {
     if (!userId) return;
     // Always show the "Your Story" button immediately while we wait
     setFriendStories([{ ...ownStoryPlaceholder, userId }]);
-    // Fetch with a 5 s timeout — if Supabase hangs, we keep the placeholder
+    // Fetch with a 15 s timeout — keeps the placeholder on error / timeout.
+    // The generous timeout handles Android + Replit proxy latency.
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("stories_timeout")), 5000),
+      setTimeout(() => reject(new Error("stories_timeout")), 15000),
     );
     Promise.race([fetchFriendStories(userId, myUsername), timeout])
-      .then(setFriendStories)
+      .then((entries) => {
+        setFriendStories(entries);
+        // If own story is still showing as placeholder after fetch, do a
+        // lightweight own-story check so hasExistingStory is correct even
+        // when the friends-stories slice timed out or returned no own entry.
+        const ownEntry = entries.find((e) => e.isOwn);
+        if (ownEntry && !ownEntry.hasExistingStory && ownEntry.id === "own_placeholder") {
+          fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/stories/check?userId=${encodeURIComponent(userId)}`)
+            .then((r) => r.json())
+            .then((data: any) => {
+              if (data?.exists && data?.storyId) {
+                setFriendStories((prev) =>
+                  prev.map((s) =>
+                    s.isOwn
+                      ? { ...s, id: data.storyId, hasExistingStory: true, storyType: data.storyType ?? s.storyType, textContent: data.textContent ?? s.textContent, bgGradient: data.bgGradient ?? s.bgGradient, caption: data.caption ?? s.caption }
+                      : s,
+                  ),
+                );
+              }
+            })
+            .catch(() => {});
+        }
+      })
       .catch(() => {}); // keep placeholder on error / timeout
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
