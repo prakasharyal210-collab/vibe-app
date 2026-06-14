@@ -323,16 +323,23 @@ export default function UserProfileScreen() {
     setFollowSaving(true);
     try {
       const method = wasFollowing ? "DELETE" : "POST";
-      const res = await fetch(`/api/users/social/follow`, {
+      const res = await fetch(`${API_BASE}/users/social/follow`, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ followerId: myId, followingId: profile.id }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    } catch {
-      // Revert optimistic update on failure
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `HTTP ${res.status}`);
+      }
+    } catch (e: any) {
+      // Revert optimistic update and show error
       setFollowing(wasFollowing);
       setFollowersCount((n) => (wasFollowing ? n + 1 : Math.max(0, n - 1)));
+      Alert.alert(
+        wasFollowing ? "Unfollow Failed" : "Follow Failed",
+        e?.message ?? "Something went wrong. Please try again."
+      );
     } finally {
       setFollowSaving(false);
     }

@@ -1924,32 +1924,27 @@ export async function reportContent(
   } catch {}
 }
 
-export async function isUserBlocked(myId: string, theirId: string): Promise<boolean> {
+// Fetches both block directions in one API call (service-role, avoids Android hang)
+async function fetchBlockStatus(myId: string, theirId: string): Promise<{ iBlockedThem: boolean; theyBlockedMe: boolean }> {
   try {
-    const { data } = await supabase
-      .from("blocks")
-      .select("id")
-      .eq("blocker_id", myId)
-      .eq("blocked_id", theirId)
-      .maybeSingle();
-    return !!data;
+    const res = await fetch(
+      `${API_BASE}/users/social/block-status?myId=${encodeURIComponent(myId)}&theirId=${encodeURIComponent(theirId)}`
+    );
+    if (!res.ok) return { iBlockedThem: false, theyBlockedMe: false };
+    return await res.json();
   } catch {
-    return false;
+    return { iBlockedThem: false, theyBlockedMe: false };
   }
 }
 
+export async function isUserBlocked(myId: string, theirId: string): Promise<boolean> {
+  const { iBlockedThem } = await fetchBlockStatus(myId, theirId);
+  return iBlockedThem;
+}
+
 export async function amIBlockedBy(myId: string, theirId: string): Promise<boolean> {
-  try {
-    const { data } = await supabase
-      .from("blocks")
-      .select("id")
-      .eq("blocker_id", theirId)
-      .eq("blocked_id", myId)
-      .maybeSingle();
-    return !!data;
-  } catch {
-    return false;
-  }
+  const { theyBlockedMe } = await fetchBlockStatus(myId, theirId);
+  return theyBlockedMe;
 }
 
 export async function fetchMessageRequests(userId: string): Promise<Conversation[]> {

@@ -107,6 +107,28 @@ router.delete("/follow", async (req, res) => {
   }
 });
 
+// GET /api/users/social/block-status?myId=X&theirId=Y
+// Returns both block directions in one round trip, routed through API (service role)
+// so Android clients don't need to call Supabase directly.
+router.get("/block-status", async (req, res) => {
+  const { myId, theirId } = req.query as { myId?: string; theirId?: string };
+  if (!myId || !theirId) {
+    res.status(400).json({ error: "myId and theirId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const [b1, b2] = await Promise.all([
+      sb.from("blocks").select("id").eq("blocker_id", myId).eq("blocked_id", theirId).maybeSingle(),
+      sb.from("blocks").select("id").eq("blocker_id", theirId).eq("blocked_id", myId).maybeSingle(),
+    ]);
+    res.json({ iBlockedThem: !!b1.data, theyBlockedMe: !!b2.data });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "block-status exception");
+    res.json({ iBlockedThem: false, theyBlockedMe: false });
+  }
+});
+
 // POST /api/users/social/conversation  body: { userId, otherId }
 // Get or create a conversation between two users
 router.post("/conversation", async (req, res) => {
@@ -117,15 +139,17 @@ router.post("/conversation", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    // Check existing conversation in either direction
-    const { data: existing } = await sb
+    // Check existing conversation in either direction.
+    // Use .limit(1) not .maybeSingle() — avoids 406 if duplicates exist.
+    const { data: rows } = await sb
       .from("conversations")
       .select("id")
       .or(
         `and(user_id.eq.${userId},other_user_id.eq.${otherId}),and(user_id.eq.${otherId},other_user_id.eq.${userId})`
       )
-      .maybeSingle();
+      .limit(1);
 
+    const existing = rows?.[0];
     if (existing?.id) {
       res.json({ conversationId: existing.id });
       return;
@@ -146,8 +170,17 @@ router.post("/conversation", async (req, res) => {
       .single();
 
     if (error) {
-      req.log.warn({ error: error.message }, "conversation create error — falling back to otherId");
-      res.json({ conversationId: otherId });
+      // Could be a race-condition duplicate — try fetching again before giving up
+      req.log.warn({ error: error.message }, "conversation insert failed — re-querying");
+      const { data: retry } = await sb
+        .from("conversations")
+        .select("id")
+        .or(
+          `and(user_id.eq.${userId},other_user_id.eq.${otherId}),and(user_id.eq.${otherId},other_user_id.eq.${userId})`
+        )
+        .limit(1);
+      const found = retry?.[0];
+      res.json({ conversationId: found?.id ?? otherId });
       return;
     }
 
