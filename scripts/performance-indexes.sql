@@ -1,12 +1,11 @@
 -- ══════════════════════════════════════════════════════════════════════════════
 -- Performance: missing indexes + atomic bump_affinity RPC
--- Run in Supabase SQL Editor
+-- Run in Supabase SQL Editor — safe to re-run (IF NOT EXISTS / OR REPLACE)
 -- ══════════════════════════════════════════════════════════════════════════════
 
 -- ── 1. Indexes ────────────────────────────────────────────────────────────────
 
 -- user_interests: primary lookup in engage route (user_id + interest_key)
--- Likely already a PK/unique constraint — CREATE INDEX IF NOT EXISTS is safe.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_interests_uid_key
   ON public.user_interests (user_id, interest_key);
 
@@ -22,21 +21,32 @@ CREATE INDEX IF NOT EXISTS idx_follows_follower_id
 CREATE INDEX IF NOT EXISTS idx_messages_conv_created
   ON public.messages (conversation_id, created_at DESC);
 
--- messages: unread count per receiver
-CREATE INDEX IF NOT EXISTS idx_messages_receiver_read
-  ON public.messages (receiver_id, read) WHERE read = false;
-
 -- notifications: per-user feed sorted by time
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created
   ON public.notifications (user_id, created_at DESC);
 
 -- posts: score-ordered feed (get_for_you_feed_v2/v3 ORDER BY score)
-CREATE INDEX IF NOT EXISTS idx_posts_score_desc
-  ON public.posts (score DESC NULLS LAST);
+-- Only created if the score column exists (added by personalization-migration.sql)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'score'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_posts_score_desc ON public.posts (score DESC NULLS LAST)';
+  END IF;
+END $$;
 
 -- reels: score-ordered reel feed
-CREATE INDEX IF NOT EXISTS idx_reels_score_desc
-  ON public.reels (score DESC NULLS LAST);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'reels' AND column_name = 'score'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_reels_score_desc ON public.reels (score DESC NULLS LAST)';
+  END IF;
+END $$;
 
 -- post_hashtags: hashtag→posts lookup (used by /api/posts/hashtag/:tag)
 CREATE INDEX IF NOT EXISTS idx_post_hashtags_hashtag_id
