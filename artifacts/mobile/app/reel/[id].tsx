@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import { Video, ResizeMode } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { UserAvatar } from "@/components/UserAvatar";
@@ -28,6 +29,9 @@ export default function ReelDetailScreen() {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [videoError, setVideoError] = useState(false);
+  const videoRef = useRef<Video>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -87,10 +91,32 @@ export default function ReelDetailScreen() {
 
   const username = (reel as any).profiles?.username ?? "user";
   const thumbnail = reel.thumbnail_url ?? `https://picsum.photos/seed/${reel.id}/450/900`;
+  const videoUrl = reel.video_url;
+
+  const handleVideoTap = () => {
+    setIsPlaying((p) => !p);
+  };
 
   return (
-    <View style={styles.container}>
-      <Image source={{ uri: thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
+    <TouchableOpacity style={styles.container} activeOpacity={1} onPress={handleVideoTap}>
+      {/* Video player — falls back to thumbnail image if no video_url or on error */}
+      {videoUrl && !videoError ? (
+        <Video
+          ref={videoRef}
+          source={{ uri: videoUrl }}
+          style={StyleSheet.absoluteFill}
+          resizeMode={ResizeMode.COVER}
+          isLooping
+          isMuted={false}
+          shouldPlay={isPlaying}
+          useNativeControls={false}
+          posterSource={{ uri: thumbnail }}
+          usePoster
+          onError={() => setVideoError(true)}
+        />
+      ) : (
+        <Image source={{ uri: thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      )}
 
       <LinearGradient
         colors={["rgba(0,0,0,0.55)", "transparent", "transparent", "rgba(0,0,0,0.75)"]}
@@ -148,11 +174,17 @@ export default function ReelDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Play icon overlay */}
-      <View style={styles.playOverlay} pointerEvents="none">
-        <Ionicons name="play-circle" size={72} color="rgba(255,255,255,0.6)" />
-      </View>
-    </View>
+      {/* Play/pause indicator — shown briefly when toggling, or always if no video */}
+      {(!videoUrl || videoError || !isPlaying) && (
+        <View style={styles.playOverlay} pointerEvents="none">
+          <Ionicons
+            name={isPlaying && videoUrl && !videoError ? "pause-circle" : "play-circle"}
+            size={72}
+            color="rgba(255,255,255,0.7)"
+          />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 }
 

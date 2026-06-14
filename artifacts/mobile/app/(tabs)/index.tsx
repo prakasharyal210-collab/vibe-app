@@ -24,6 +24,7 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import { Video, ResizeMode } from "expo-av";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -54,7 +55,8 @@ const SCREEN_H = H;
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface Reel {
   id: string;
-  image: string;
+  image: string;       // thumbnail / poster fallback
+  videoUrl?: string;   // actual video URL for playback (DB reels only)
   username: string;
   caption: string;
   likes: number;
@@ -170,6 +172,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showReportReasons, setShowReportReasons] = useState(false);
   const [reporting, setReporting] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState(false);
 
   // animations
   const progress = useSharedValue(0);
@@ -323,14 +326,29 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       }}
       delayLongPress={400}
     >
-      {/* Background image */}
-      <Image
-        source={{ uri: reel.image }}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        transition={300}
-        priority={isActive ? "high" : "normal"}
-      />
+      {/* Background: real video for DB reels, image poster for Pexels/placeholder */}
+      {reel.videoUrl && !videoError ? (
+        <Video
+          source={{ uri: reel.videoUrl }}
+          style={StyleSheet.absoluteFill}
+          resizeMode={ResizeMode.COVER}
+          isLooping
+          isMuted={!soundOn}
+          shouldPlay={isActive && !paused}
+          useNativeControls={false}
+          posterSource={{ uri: reel.image }}
+          usePoster
+          onError={() => setVideoError(true)}
+        />
+      ) : (
+        <Image
+          source={{ uri: reel.image }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          transition={300}
+          priority={isActive ? "high" : "normal"}
+        />
+      )}
 
       {/* Slow-mo overlay */}
       {slowMo && (
@@ -581,7 +599,8 @@ export default function ReelsScreen() {
   // Helper: map a reels-table row to the Reel shape
   const reelRowToReel = (r: any): Reel => ({
     id: `reel_${r.id}`,
-    image: r.thumbnail_url ?? r.video_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+    image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+    videoUrl: r.video_url ?? undefined,
     username: r.profiles?.username ?? "user",
     caption: r.caption ?? "",
     likes: r.likes_count ?? 0,
@@ -676,6 +695,7 @@ export default function ReelsScreen() {
           const rpcReels: Reel[] = fyData.map((r: any) => ({
             id: r.id,
             image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+            videoUrl: r.video_url ?? undefined,
             username: r.username ?? r.profiles?.username ?? "user",
             caption: r.caption ?? "",
             likes: r.likes_count ?? 0,
@@ -706,6 +726,7 @@ export default function ReelsScreen() {
           const followingBase: Reel[] = flData.map((r: any) => ({
             id: r.id,
             image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+            videoUrl: r.video_url ?? undefined,
             username: r.username ?? r.profiles?.username ?? "user",
             caption: r.caption ?? "",
             likes: r.likes_count ?? 0,

@@ -514,7 +514,9 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
 
         <View style={[styles.previewTopBar, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity onPress={onDiscard} style={styles.topBtn}>
-            <Icon name="arrow-back-outline" size={22} color="#fff" />
+            <View style={styles.discardXBtn}>
+              <Icon name="close" size={20} color="#fff" />
+            </View>
           </TouchableOpacity>
           <Text style={styles.previewTitle}>{isPhoto ? "Photo Editor" : "Video Editor"}</Text>
           {activeTab === "adjust" && hasAdjust ? (
@@ -944,6 +946,7 @@ const styles = StyleSheet.create({
   preview: { flex: 1, position: "relative", backgroundColor: "#000", overflow: "hidden" },
   previewTopBar: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingBottom: 8 },
   topBtn: { width: 38, height: 38, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  discardXBtn: { width: 34, height: 34, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 17, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.3)", alignItems: "center", justifyContent: "center" },
   previewTitle: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
   resetBtn: { backgroundColor: "rgba(239,68,68,0.2)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(239,68,68,0.4)" },
   resetText: { color: "#FCA5A5", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
