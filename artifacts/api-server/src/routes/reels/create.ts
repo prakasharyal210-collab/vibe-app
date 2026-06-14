@@ -42,32 +42,34 @@ router.post("/create", async (req, res) => {
   }
   const sb = createClient(supabaseUrl, serviceKey);
 
+  const ts = Date.now();
   let videoUrl: string | null = null;
   let thumbnailUrl: string | null = null;
 
+  // Upload video — stored under {userId}/{timestamp}.{ext} in the `reels` bucket
   if (videoBase64) {
     try {
-      const filename = `${userId}/${Date.now()}.${ext}`;
+      const filename = `${userId}/${ts}.${ext}`;
       const buffer = Buffer.from(videoBase64, "base64");
       const { error: upErr } = await sb.storage
         .from("reels")
         .upload(filename, buffer, { contentType: mimeType, upsert: true });
       if (!upErr) {
-        const { data: urlData } = sb.storage
-          .from("reels")
-          .getPublicUrl(filename);
+        const { data: urlData } = sb.storage.from("reels").getPublicUrl(filename);
         videoUrl = urlData.publicUrl;
       } else {
-        req.log.warn({ err: upErr.message }, "Reel storage upload error");
+        req.log.warn({ err: upErr.message }, "Reel video upload error");
       }
     } catch (err) {
-      req.log.warn({ err }, "Reel storage upload failed");
+      req.log.warn({ err }, "Reel video upload failed");
     }
   }
 
+  // Upload thumbnail — stored under thumbnails/{userId}/{timestamp}.jpg in the `reels` bucket
+  // (separate subfolder keeps video files and thumbs distinguishable without a second bucket)
   if (thumbnailBase64) {
     try {
-      const thumbFilename = `${userId}/thumb_${Date.now()}.jpg`;
+      const thumbFilename = `thumbnails/${userId}/${ts}.jpg`;
       const thumbBuffer = Buffer.from(thumbnailBase64, "base64");
       const { error: thumbErr } = await sb.storage
         .from("reels")
@@ -76,12 +78,16 @@ router.post("/create", async (req, res) => {
           upsert: true,
         });
       if (!thumbErr) {
-        const { data: thumbUrl } = sb.storage
+        const { data: thumbUrlData } = sb.storage
           .from("reels")
           .getPublicUrl(thumbFilename);
-        thumbnailUrl = thumbUrl.publicUrl;
+        thumbnailUrl = thumbUrlData.publicUrl;
+      } else {
+        req.log.warn({ err: thumbErr.message }, "Reel thumbnail upload error");
       }
-    } catch {}
+    } catch (err) {
+      req.log.warn({ err }, "Reel thumbnail upload failed");
+    }
   }
 
   const { data, error } = await sb
@@ -108,8 +114,20 @@ router.post("/create", async (req, res) => {
     return;
   }
 
+  const reelId = (data as { id: string }).id;
+
+  // Seed initial score immediately — pg_cron runs every 15 min so new reels start at 0 without this
+  void Promise.resolve(sb.rpc("calculate_reel_score", { p_reel_id: reelId }))
+    .then(({ data: score }) => {
+      if (typeof score === "number") {
+        return Promise.resolve(sb.from("reels").update({ score }).eq("id", reelId));
+      }
+      return undefined;
+    })
+    .catch(() => {}); // non-fatal
+
   res.json({
-    id: (data as { id: string }).id,
+    id: reelId,
     videoUrl: videoUrl ?? "",
     thumbnailUrl: thumbnailUrl ?? null,
   });

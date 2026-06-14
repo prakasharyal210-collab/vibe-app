@@ -1,4 +1,6 @@
 import { readAsStringAsync } from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import {
   MOCK_COMMENTS,
   MOCK_CONVERSATIONS,
@@ -1405,15 +1407,37 @@ export async function uploadPostMedia(
 ): Promise<{ id: string; mediaUrl: string } | null> {
   try {
     const cleanUri = uri.split('?')[0];
-    const ext = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
-    const mimeType = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+    const rawExt = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
+    const isGif = rawExt === 'gif';
 
-    // Read file as base64 for upload
+    // Compress + resize photo before upload (skip for GIFs — manipulator strips animation)
+    let uploadUri = uri;
+    if (!isGif) {
+      try {
+        const result = await withTimeout(
+          ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 1080 } }],
+            { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
+          ),
+          15_000,
+          'image compress'
+        );
+        uploadUri = result.uri;
+      } catch {
+        // Compression failed — fall back to original
+      }
+    }
+
+    const ext = isGif ? 'gif' : 'jpg';
+    const mimeType = isGif ? 'image/gif' : 'image/jpeg';
+
+    // Read compressed file as base64 for upload
     let imageBase64: string | undefined;
     try {
-      imageBase64 = await withTimeout(localUriToBase64(uri), 20_000, 'file read');
+      imageBase64 = await withTimeout(localUriToBase64(uploadUri), 20_000, 'file read');
     } catch (readErr) {
-      console.log('File read failed (posting without image):', readErr);
+      // File read failed — post without image
     }
 
     // Send to API server — service role key handles storage + DB insert, bypassing RLS
@@ -1445,18 +1469,40 @@ export async function uploadReelMedia(
   uri: string,
   caption: string,
   duration?: number
-): Promise<{ id: string; videoUrl: string } | null> {
+): Promise<{ id: string; videoUrl: string; thumbnailUrl?: string } | null> {
   try {
     const cleanUri = uri.split('?')[0];
     const ext = (cleanUri.split('.').pop() ?? 'mp4').toLowerCase();
     const mimeType = ext === 'mov' ? 'video/quicktime' : ext === 'webm' ? 'video/webm' : 'video/mp4';
 
+    // Generate thumbnail from video frame at 1 s and compress it
+    let thumbnailBase64: string | undefined;
+    try {
+      const { uri: rawThumbUri } = await withTimeout(
+        VideoThumbnails.getThumbnailAsync(uri, { time: 1000 }),
+        10_000,
+        'thumbnail gen'
+      );
+      const compressed = await withTimeout(
+        ImageManipulator.manipulateAsync(
+          rawThumbUri,
+          [{ resize: { width: 720 } }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        ),
+        10_000,
+        'thumbnail compress'
+      );
+      thumbnailBase64 = await withTimeout(localUriToBase64(compressed.uri), 10_000, 'thumbnail read');
+    } catch {
+      // Thumbnail gen failed — reel will upload without it
+    }
+
     // Read video as base64 for upload
     let videoBase64: string | undefined;
     try {
       videoBase64 = await withTimeout(localUriToBase64(uri), 30_000, 'reel file read');
-    } catch (readErr) {
-      console.log('Reel file read failed (posting without video):', readErr);
+    } catch {
+      // File read failed — uploading without video data
     }
 
     // Send to API server — service role key handles storage + DB insert, bypassing RLS
@@ -1464,7 +1510,7 @@ export async function uploadReelMedia(
       fetch(`${API_BASE}/reels/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, videoBase64, mimeType, ext, caption, duration }),
+        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration }),
       }),
       120_000,
       'reel create API'
@@ -1475,10 +1521,10 @@ export async function uploadReelMedia(
       throw new Error(`Reel create API ${res.status}: ${errText}`);
     }
 
-    const result = await res.json() as { id: string; videoUrl: string };
+    const result = await res.json() as { id: string; videoUrl: string; thumbnailUrl?: string };
     return result;
   } catch (err) {
-    console.log('uploadReelMedia error:', err);
+    // Silent failure — caller checks null
     return null;
   }
 }

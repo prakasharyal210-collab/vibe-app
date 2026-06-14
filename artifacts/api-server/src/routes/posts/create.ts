@@ -124,18 +124,28 @@ router.post("/create", async (req, res) => {
 
   const postId = (data as { id: string }).id;
 
-  // Save tagged users (fire-and-forget)
+  // Fire-and-forget: tag users
   if (options.taggedUsers?.length) {
-    sb.from("post_tags")
-      .insert(
+    void Promise.resolve(
+      sb.from("post_tags").insert(
         options.taggedUsers.map((uid) => ({
           post_id: postId,
           tagged_user_id: uid,
           tagged_by: userId,
         })),
       )
-      .then(() => {}, () => {});
+    ).catch(() => {});
   }
+
+  // Seed score immediately — pg_cron runs every 15 min so new posts start at 0 without this
+  void Promise.resolve(sb.rpc("calculate_post_score", { p_post_id: postId }))
+    .then(({ data: score }) => {
+      if (typeof score === "number") {
+        return Promise.resolve(sb.from("posts").update({ score }).eq("id", postId));
+      }
+      return undefined;
+    })
+    .catch(() => {}); // non-fatal if function doesn't exist yet
 
   res.json({ id: postId, mediaUrl: mediaUrl ?? "" });
 });
