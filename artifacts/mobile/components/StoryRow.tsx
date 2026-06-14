@@ -444,12 +444,20 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
   const openStory = (index: number) => {
     const story = stories[index];
     if (story.isOwn) {
-      if (!story.hasExistingStory) {
-        // No story yet → open the create sheet
+      // Use story.id as the authoritative signal — fetchFriendStories sets a real
+      // UUID as id only when a story was found; otherwise it stays "own_placeholder".
+      // hasExistingStory is checked as a fallback for cases where id is missing.
+      const hasRealStory =
+        (typeof story.id === "string" && story.id.length > 0 && story.id !== "own_placeholder") ||
+        story.hasExistingStory === true;
+
+      if (!hasRealStory) {
+        // No active story → open create flow
         setCreateOpen(true);
       } else {
-        // Has an existing story → open the own-story viewer
-        const storyType = story.storyType === "text" ? "text" : story.storyType === "video" ? "video" : "image";
+        // Active story exists → open own-story viewer
+        const storyType =
+          story.storyType === "text" ? "text" : story.storyType === "video" ? "video" : "image";
         setOwnStoryPending({
           storyType,
           textContent: story.textContent,

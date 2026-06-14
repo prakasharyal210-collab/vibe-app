@@ -610,7 +610,7 @@ export default function FeedScreen() {
               style={styles.iconBtn}
               onPress={() => { clearNotifBadge(); setUnreadCount(0); router.push("/notifications"); }}
             >
-              <Ionicons name="notifications-outline" size={24} color={colors.foreground} />
+              <Ionicons name="notifications" size={24} color={colors.foreground} />
               {(unreadCount + rtNotifCount) > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>
@@ -623,7 +623,7 @@ export default function FeedScreen() {
               style={styles.iconBtn}
               onPress={() => { if (!isLoggedIn) { setShowLoginPrompt(true); return; } clearMessageBadge(); router.push("/inbox"); }}
             >
-              <Ionicons name="chatbubble-outline" size={24} color={colors.foreground} />
+              <Ionicons name="chatbubble" size={24} color={colors.foreground} />
               {rtMsgCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>
@@ -633,7 +633,7 @@ export default function FeedScreen() {
               )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconBtn} onPress={() => router.push("/search")}>
-              <Ionicons name="search-outline" size={24} color={colors.foreground} />
+              <Ionicons name="search" size={24} color={colors.foreground} />
             </TouchableOpacity>
           </View>
         </View>

@@ -171,8 +171,8 @@ const EDIT_TOOLS = [
   { icon: "musical-notes", label: "Music" },
   { icon: "heart", label: "Stickers" },
   { icon: "chatbubble", label: "Text" },
-  { icon: "sparkles-outline", label: "Effects" },
-  { icon: "person-add-outline", label: "Mention" },
+  { icon: "sparkles", label: "Effects" },
+  { icon: "person-add", label: "Mention" },
 ] as const;
 
 function MediaEditScreen({
