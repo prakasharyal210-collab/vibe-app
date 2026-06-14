@@ -756,15 +756,26 @@ export default function ReelsScreen() {
     loadFeedAds(session?.user?.id, "reel").then(setReelAds).catch(() => setReelAds(HOUSE_REEL_ADS));
   }, [session?.user?.id]);
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
-    if (viewableItems[0]) setActiveIndex(viewableItems[0].index ?? 0);
-  }, []);
-
-  const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 60 }), []);
+  // Settle on nearest item after natural momentum scroll ends (Facebook-style)
+  const onMomentumScrollEnd = useCallback((e: any) => {
+    const offsetY = e.nativeEvent.contentOffset.y;
+    const index = Math.round(offsetY / SCREEN_H);
+    const clamped = Math.max(0, Math.min(index, displayReels.length - 1));
+    const targetOffset = clamped * SCREEN_H;
+    // Nudge to exact boundary if momentum left us slightly off
+    if (Math.abs(offsetY - targetOffset) > 2) {
+      flatListRef.current?.scrollToOffset({ offset: targetOffset, animated: true });
+    }
+    setActiveIndex(clamped);
+  }, [displayReels.length]);
 
   const handleComplete = useCallback(() => {
     const next = activeIndex + 1;
-    if (next < displayReels.length) flatListRef.current?.scrollToIndex({ index: next, animated: true });
+    if (next < displayReels.length) {
+      const targetOffset = next * SCREEN_H;
+      flatListRef.current?.scrollToOffset({ offset: targetOffset, animated: true });
+      setActiveIndex(next);
+    }
   }, [activeIndex, displayReels.length]);
 
   const switchTab = (tab: "foryou" | "following") => {
@@ -773,7 +784,7 @@ export default function ReelsScreen() {
     setTimeout(() => {
       const targetReels = tab === "foryou" ? forYouReels : followingReels;
       if (flatListRef.current && targetReels.length > 0) {
-        flatListRef.current.scrollToIndex({ index: 0, animated: false });
+        flatListRef.current.scrollToOffset({ offset: 0, animated: false });
       }
     }, 50);
   };
@@ -807,12 +818,10 @@ export default function ReelsScreen() {
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
-        pagingEnabled
-        decelerationRate="fast"
+        decelerationRate={0.985}
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => ({ length: SCREEN_H, offset: SCREEN_H * index, index })}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
+        onMomentumScrollEnd={onMomentumScrollEnd}
         initialNumToRender={2}
         maxToRenderPerBatch={3}
         windowSize={5}
@@ -834,7 +843,8 @@ export default function ReelsScreen() {
                 onSkip={() => {
                   const next = index + 1;
                   if (next < displayReels.length) {
-                    flatListRef.current?.scrollToIndex({ index: next, animated: true });
+                    flatListRef.current?.scrollToOffset({ offset: next * SCREEN_H, animated: true });
+                    setActiveIndex(next);
                   }
                 }}
               />
