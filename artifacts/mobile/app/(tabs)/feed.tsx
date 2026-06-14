@@ -428,8 +428,15 @@ export default function FeedScreen() {
       }
 
       const prev = reset ? [] : tabStatesRef.current[tab].posts;
+      const merged = [...prev, ...data];
+      const seenIds = new Set<string>();
+      const deduped = merged.filter((p) => {
+        if (seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+        return true;
+      });
       updateTab(tab, {
-        posts: [...prev, ...data],
+        posts: deduped,
         loading: false,
         loadingMore: false,
         offset: offset + data.length,
@@ -740,7 +747,11 @@ export default function FeedScreen() {
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
                 data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
-                keyExtractor={(item, index) => (('isAd' in item && (item as AdItem).isAd) ? `ad-${(item as AdItem).ad_id}` : ((item as Post).id ?? `fallback-${index}`)) + tab.id}
+                keyExtractor={(item, index) => {
+                  if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}-${tab.id}`;
+                  const id = (item as Post).id;
+                  return id ? `${id}-${tab.id}` : `fallback-${tab.id}-${index}`;
+                }}
                 renderItem={renderTabPost(tab.id, snapH)}
                 snapToInterval={snapH}
                 decelerationRate="fast"
