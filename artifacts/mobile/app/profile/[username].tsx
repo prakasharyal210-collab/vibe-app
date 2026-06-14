@@ -350,12 +350,14 @@ export default function UserProfileScreen() {
     if (!myId || !profile?.id || openingChat) return;
     setOpeningChat(true);
     try {
-      const res = await fetch("/api/users/social/conversation", {
+      const res = await fetch(`${API_BASE}/users/social/conversation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: myId, otherId: profile.id }),
       });
       const json = res.ok ? await res.json() : {};
+      // conversationId is a real conversation UUID; fall back to the other user's ID
+      // so the chat screen can at least open (it will create a conversation on first send).
       const targetId = json.conversationId ?? profile.id;
       router.push({
         pathname: "/chat/[userId]",
@@ -407,6 +409,31 @@ export default function UserProfileScreen() {
     isVideo: p.isReel || p.is_video,
     username: u,
   }));
+
+  // ── Profile failed to load (blocked, deleted, or network error) ─────────────
+  if (profileLoaded && !profile) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={[styles.topBar, { paddingTop: topPad, backgroundColor: colors.background }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
+            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+          </TouchableOpacity>
+          <Text style={[styles.topTitle, { color: colors.foreground }]}>Profile</Text>
+          <View style={styles.iconBtn} />
+        </View>
+        <View style={notFoundSt.wrap}>
+          <Text style={{ fontSize: 64 }}>🔍</Text>
+          <Text style={[notFoundSt.title, { color: colors.foreground }]}>User not found</Text>
+          <Text style={[notFoundSt.sub, { color: colors.mutedForeground }]}>
+            This account doesn't exist or is unavailable.
+          </Text>
+          <TouchableOpacity onPress={() => router.back()} style={[notFoundSt.backBtn, { borderColor: colors.border }]}>
+            <Text style={[notFoundSt.backBtnText, { color: colors.foreground }]}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   // ── "User not found" — they blocked me ───────────────────────────────────────
   if (profileLoaded && amBlocked) {
