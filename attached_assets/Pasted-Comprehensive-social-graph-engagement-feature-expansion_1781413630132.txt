@@ -1,0 +1,34 @@
+Comprehensive social-graph & engagement feature expansion for Gundruk — implement in phases, reporting after each phase. Ensure every new engagement signal feeds into the existing personalization system (user_interests, record_engagement(), scoring_config) so the algorithm improves as these features are used.
+
+PHASE 1 — Core relationship refinements
+
+Mute — new muted_users (muter_id, muted_id) table. Muted users' posts/reels disappear from the muter's feeds (For You + Friends), but follow relationship stays intact and the muted user is NOT notified. Add "Mute" option alongside existing "Block" in the profile menu.
+Close Friends list — close_friends (user_id, friend_id) table. Add "Close Friends" management screen (search + add/remove from your followers). When posting a Story, add a "Close Friends only" audience option (green ring indicator on their avatar, like Instagram).
+Message Requests — if User A messages User B and they have NO existing conversation AND B doesn't follow A, the message goes to a "Requests" folder (separate from main inbox) until B accepts/declines. Accepting moves it to the main inbox; declining deletes it (or blocks future requests from A).
+Mutual friends display — on profile screens, show "Followed by X, Y, and N others" (mutual followers) — extend the get_suggested_accounts work already queued to also surface this on profile views.
+
+
+PHASE 2 — Comments & sharing
+
+Comment likes — comment_likes (user_id, comment_id) table + trigger to maintain comments.likes_count. Like button on each comment.
+Comment replies (nested) — add parent_comment_id to comments table (nullable, self-referencing). UI: "Reply" under each comment, indented thread view.
+Comment ranking — order comments by likes_count DESC, created_at DESC by default ("Top comments"), with option to sort "Most recent".
+Share tracking — wire up the actual "Share" action (already has shares_count in scoring): sharing a post to a Story, via DM, or external app increments shares_count AND records +0.4 affinity via record_engagement() for the SHARER's affinity toward that creator/category.
+
+
+PHASE 3 — Discovery & saved content
+
+Hashtag pages — tapping a #hashtag in a caption navigates to a page showing all posts/reels with that hashtag (uses the categories/hashtag extraction from the queued category-detection work), sorted by score.
+Saved posts collection — "Saved" tab on own profile showing all posts/reels the user has saved (saves table should already exist from saves_count tracking — verify and build the UI).
+"People You May Know" suggestions — extend get_suggested_accounts (already queued) into a dedicated discovery section on the Find Vibe / search screen, refreshed periodically.
+
+
+PHASE 4 — Presence & messaging polish
+
+Activity status — profiles.last_active_at timestamp, updated on app foreground/heartbeat. Show "Active now" / "Active Xm ago" in chat headers and DM list.
+Read receipts — messages.read_at timestamp. Show "Seen" indicator in chat once the recipient has viewed the message.
+Message reactions — message_reactions (message_id, user_id, emoji) — long-press a message to react with an emoji.
+
+
+Cross-cutting requirement: Every NEW engagement action (mute, close-friend add, comment like, comment reply, share, save) that signals interest/disinterest should call record_engagement() with appropriate weight deltas — extend the existing weight table (like +0.3, comment +0.5, share +0.4, save +0.7, mute/block −1.5 to −2.0, close-friend-add +1.0, comment-like +0.2, comment-reply +0.4).
+Implementation order: Phase 1 → Phase 2 → Phase 3 → Phase 4. Report completion of each phase with a summary + any SQL migrations to run before proceeding to the next.

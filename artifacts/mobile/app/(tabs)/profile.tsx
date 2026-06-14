@@ -355,7 +355,7 @@ function GuestProfile() {
   );
 }
 
-type ProfileTab = "posts" | "reels" | "tagged";
+type ProfileTab = "posts" | "reels" | "tagged" | "saved";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -374,6 +374,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [myPosts, setMyPosts] = useState<GridItem[]>([]);
   const [taggedPosts, setTaggedPosts] = useState<GridItem[]>([]);
+  const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -389,6 +390,31 @@ export default function ProfileScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
   const mainTabSwipe = useMainTabSwipe("profile");
+
+  const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+  useEffect(() => {
+    if (!session?.user?.id || activeTab !== "saved") return;
+    const uid = session.user.id;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/posts/saved?userId=${uid}`);
+        if (res.ok) {
+          const json = await res.json();
+          setSavedPosts(
+            (json.posts ?? []).map((p: any) => ({
+              id: p.id,
+              image_url: p.image_url,
+              isReel: false,
+              likes: p.likes ?? 0,
+              comments: p.comments ?? 0,
+              caption: p.caption ?? "",
+            }))
+          );
+        }
+      } catch {}
+    })();
+  }, [activeTab, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || activeTab !== "tagged") return;
@@ -533,6 +559,7 @@ export default function ProfileScreen() {
   const gridData: GridItem[] =
     activeTab === "posts" ? myPosts :
     activeTab === "reels" ? reelsOnly :
+    activeTab === "saved" ? savedPosts :
     taggedPosts;
 
   const ListHeader = (
@@ -662,6 +689,7 @@ export default function ProfileScreen() {
           { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
           { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
           { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
+          { key: "saved" as ProfileTab, icon: "bookmark-outline", label: "Saved" },
         ]).map((tab) => (
           <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
             style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
@@ -683,11 +711,17 @@ export default function ProfileScreen() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListEmptyComponent={
-          (activeTab === "posts" || activeTab === "reels")
-            ? postsLoading
-              ? <SkeletonGrid />
-              : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
-            : null
+          activeTab === "saved"
+            ? <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
+                <Text style={{ fontSize: 44 }}>🔖</Text>
+                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No saved posts</Text>
+                <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Posts you save will appear here</Text>
+              </View>
+            : (activeTab === "posts" || activeTab === "reels")
+              ? postsLoading
+                ? <SkeletonGrid />
+                : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
+              : null
         }
         renderItem={({ item, index }) => (
           <TouchableOpacity

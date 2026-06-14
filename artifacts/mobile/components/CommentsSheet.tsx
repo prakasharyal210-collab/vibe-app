@@ -22,7 +22,10 @@ import { Comment, timeAgo } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
 
 const { height: H } = Dimensions.get("window");
-const SHEET_HEIGHT = H * 0.72;
+const SHEET_HEIGHT = H * 0.76;
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+type SortMode = "top" | "recent";
 
 interface CommentsSheetProps {
   visible: boolean;
@@ -34,15 +37,43 @@ interface CommentsSheetProps {
 }
 
 interface CommentItemProps {
+  commentId: string;
   username: string;
   text: string;
   time: string;
   likes: number;
+  userId?: string;
+  onReply: () => void;
 }
 
-function CommentItem({ username, text, time, likes }: CommentItemProps) {
+function CommentItem({ commentId, username, text, time, likes, userId, onReply }: CommentItemProps) {
   const colors = useColors();
+  const { session } = useAuth();
+  const myId = session?.user?.id;
   const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(likes);
+
+  const handleLike = async () => {
+    if (!myId) return;
+    const nowLiked = !liked;
+    setLiked(nowLiked);
+    setLikesCount((n) => nowLiked ? n + 1 : Math.max(0, n - 1));
+    try {
+      const res = await fetch(`${API_BASE}/comments/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: myId, commentId }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setLiked(json.liked);
+        setLikesCount(json.likes_count ?? likesCount);
+      }
+    } catch {
+      setLiked(!nowLiked);
+      setLikesCount((n) => !nowLiked ? n + 1 : Math.max(0, n - 1));
+    }
+  };
 
   return (
     <View style={styles.commentRow}>
@@ -51,25 +82,29 @@ function CommentItem({ username, text, time, likes }: CommentItemProps) {
       </TouchableOpacity>
       <View style={styles.commentBody}>
         <Text style={[styles.commentUser, { color: colors.foreground }]}>
-          <Text onPress={() => router.push(`/profile/${username}` as any)} style={styles.commentUser}>{username}</Text>{" "}
+          <Text onPress={() => router.push(`/profile/${username}` as any)} style={styles.commentUser}>
+            {username}
+          </Text>{" "}
           <Text style={[styles.commentText, { color: colors.foreground }]}>{text}</Text>
         </Text>
         <View style={styles.commentMeta}>
           <Text style={[styles.commentTime, { color: colors.mutedForeground }]}>{time}</Text>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={onReply}>
             <Text style={[styles.commentTime, { color: colors.mutedForeground }]}>Reply</Text>
           </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity onPress={() => setLiked((l) => !l)} style={styles.commentLike}>
+      <TouchableOpacity onPress={handleLike} style={styles.commentLike}>
         <Ionicons
           name={liked ? "heart" : "heart-outline"}
           size={16}
           color={liked ? "#F97316" : colors.mutedForeground}
         />
-        <Text style={[styles.likeCount, { color: colors.mutedForeground }]}>
-          {liked ? likes + 1 : likes}
-        </Text>
+        {likesCount > 0 && (
+          <Text style={[styles.likeCount, { color: colors.mutedForeground }]}>
+            {likesCount}
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -90,7 +125,10 @@ export function CommentsSheet({
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("recent");
+  const [replyTo, setReplyTo] = useState<{ id: string; username: string } | null>(null);
   const listRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) {
@@ -107,6 +145,7 @@ export function CommentsSheet({
         duration: 260,
         useNativeDriver: false,
       }).start();
+      setReplyTo(null);
     }
   }, [visible, postId]);
 
@@ -122,11 +161,19 @@ export function CommentsSheet({
     }
   };
 
+  const sortedComments = [...comments].sort((a, b) => {
+    if (sortMode === "top") {
+      return (b.likes_count ?? 0) - (a.likes_count ?? 0);
+    }
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
   const submitComment = async () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
     if (!comment.trim()) return;
     const text = comment.trim();
     setComment("");
+    setReplyTo(null);
     setSubmitting(true);
 
     const userId = session?.user?.id;
@@ -154,6 +201,17 @@ export function CommentsSheet({
     setSubmitting(false);
   };
 
+  const handleReply = (commentId: string, username: string) => {
+    setReplyTo({ id: commentId, username });
+    setComment(`@${username} `);
+    inputRef.current?.focus();
+  };
+
+  const clearReply = () => {
+    setReplyTo(null);
+    setComment("");
+  };
+
   if (!visible) return null;
 
   return (
@@ -167,13 +225,33 @@ export function CommentsSheet({
         ]}
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
+
+        {/* Header with sort toggle */}
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.foreground }]}>
             Comments {comments.length > 0 ? `(${comments.length})` : ""}
           </Text>
-          <TouchableOpacity onPress={onClose}>
-            <Ionicons name="close" size={22} color={colors.mutedForeground} />
-          </TouchableOpacity>
+          <View style={styles.sortRow}>
+            <TouchableOpacity
+              onPress={() => setSortMode("top")}
+              style={[styles.sortBtn, sortMode === "top" && { backgroundColor: "rgba(139,92,246,0.15)" }]}
+            >
+              <Text style={[styles.sortText, { color: sortMode === "top" ? "#8B5CF6" : colors.mutedForeground }]}>
+                Top
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setSortMode("recent")}
+              style={[styles.sortBtn, sortMode === "recent" && { backgroundColor: "rgba(139,92,246,0.15)" }]}
+            >
+              <Text style={[styles.sortText, { color: sortMode === "recent" ? "#8B5CF6" : colors.mutedForeground }]}>
+                Recent
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={{ marginLeft: 8 }}>
+              <Ionicons name="close" size={22} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading ? (
@@ -183,14 +261,17 @@ export function CommentsSheet({
         ) : (
           <FlatList
             ref={listRef}
-            data={comments}
+            data={sortedComments}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <CommentItem
+                commentId={item.id}
                 username={item.profiles?.username ?? "user"}
                 text={item.text}
                 time={timeAgo(item.created_at)}
                 likes={item.likes_count ?? 0}
+                userId={item.user_id}
+                onReply={() => handleReply(item.id, item.profiles?.username ?? "user")}
               />
             )}
             showsVerticalScrollIndicator={false}
@@ -207,11 +288,23 @@ export function CommentsSheet({
         )}
 
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          {/* Reply banner */}
+          {replyTo && (
+            <View style={[styles.replyBanner, { backgroundColor: colors.muted, borderTopColor: colors.border }]}>
+              <Text style={[styles.replyText, { color: colors.mutedForeground }]}>
+                Replying to <Text style={{ color: colors.foreground }}>@{replyTo.username}</Text>
+              </Text>
+              <TouchableOpacity onPress={clearReply}>
+                <Ionicons name="close" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+          )}
           <View
             style={[styles.inputRow, { borderTopColor: colors.border, backgroundColor: colors.card }]}
           >
             <UserAvatar username={session?.user?.email?.split("@")[0] ?? "you"} size={32} />
             <TextInput
+              ref={inputRef}
               value={comment}
               onChangeText={setComment}
               placeholder={isLoggedIn ? "Add a comment..." : "Sign in to comment..."}
@@ -261,16 +354,19 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     alignSelf: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   title: { fontSize: 17, fontFamily: "Poppins_700Bold" },
+  sortRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  sortBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
+  sortText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   loadingRow: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 60 },
   commentRow: {
     flexDirection: "row",
@@ -288,6 +384,11 @@ const styles = StyleSheet.create({
   likeCount: { fontSize: 11, fontFamily: "Poppins_400Regular" },
   empty: { padding: 32, alignItems: "center", gap: 12 },
   emptyText: { fontSize: 14, fontFamily: "Poppins_400Regular" },
+  replyBanner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 0.5,
+  },
+  replyText: { fontSize: 13, fontFamily: "Poppins_400Regular" },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",

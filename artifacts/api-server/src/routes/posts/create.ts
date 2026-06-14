@@ -140,4 +140,39 @@ router.post("/create", async (req, res) => {
   res.json({ id: postId, mediaUrl: mediaUrl ?? "" });
 });
 
+// GET /api/posts/saved?userId=
+// Returns a user's saved (favourited) posts
+router.get("/saved", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("favourites")
+      .select("post_id, created_at, posts(id, media_url, caption, likes_count, comments_count, user_id, profiles:user_id(username, avatar_url))")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    const posts = (data ?? [])
+      .map((r: any) => r.posts)
+      .filter(Boolean)
+      .map((p: any) => ({
+        id: p.id,
+        image_url: p.media_url,
+        caption: p.caption ?? "",
+        likes: p.likes_count ?? 0,
+        comments: p.comments_count ?? 0,
+        user_id: p.user_id,
+        username: p.profiles?.username,
+        avatar_url: p.profiles?.avatar_url,
+        isReel: false,
+      }));
+    res.json({ posts });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "saved posts exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
 export default router;

@@ -17,6 +17,7 @@ import messagesRouter from "./messages";
 import usersSetupRouter from "./users/setup";
 import moderationRouter from "./moderation";
 import storiesRouter from "./stories";
+import commentsRouter from "./comments";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/messages", messagesRouter);
 router.use("/users", usersSetupRouter);
 router.use("/moderation", moderationRouter);
 router.use("/stories", storiesRouter);
+router.use("/comments", commentsRouter);
 
 export default router;

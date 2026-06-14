@@ -396,4 +396,180 @@ router.get("/following-ids", async (req, res) => {
   }
 });
 
+// ─── Mute ─────────────────────────────────────────────────────────────────────
+
+// POST /api/users/social/mute  body: { muterId, mutedId }
+router.post("/mute", async (req, res) => {
+  const { muterId, mutedId } = req.body as { muterId?: string; mutedId?: string };
+  if (!muterId || !mutedId) {
+    res.status(400).json({ error: "muterId and mutedId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb.from("muted_users").upsert(
+      { muter_id: muterId, muted_id: mutedId },
+      { onConflict: "muter_id,muted_id" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "mute exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// DELETE /api/users/social/mute  body: { muterId, mutedId }
+router.delete("/mute", async (req, res) => {
+  const { muterId, mutedId } = req.body as { muterId?: string; mutedId?: string };
+  if (!muterId || !mutedId) {
+    res.status(400).json({ error: "muterId and mutedId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb.from("muted_users").delete().eq("muter_id", muterId).eq("muted_id", mutedId);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "unmute exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// GET /api/users/social/muted?userId=
+// Returns array of muted user IDs
+router.get("/muted", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data } = await sb.from("muted_users").select("muted_id").eq("muter_id", userId);
+    res.json({ mutedIds: (data ?? []).map((r: any) => r.muted_id) });
+  } catch {
+    res.json({ mutedIds: [] });
+  }
+});
+
+// GET /api/users/social/mute-status?muterId=&mutedId=
+router.get("/mute-status", async (req, res) => {
+  const { muterId, mutedId } = req.query as { muterId?: string; mutedId?: string };
+  if (!muterId || !mutedId) { res.json({ muted: false }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data } = await sb
+      .from("muted_users").select("id").eq("muter_id", muterId).eq("muted_id", mutedId).maybeSingle();
+    res.json({ muted: !!data });
+  } catch {
+    res.json({ muted: false });
+  }
+});
+
+// ─── Close Friends ────────────────────────────────────────────────────────────
+
+// GET /api/users/social/close-friends?userId=
+router.get("/close-friends", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data } = await sb
+      .from("close_friends")
+      .select("friend_id, profiles!close_friends_friend_id_fkey(id, username, avatar_url, is_verified)")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    const friends = (data ?? []).map((r: any) => ({
+      id: r.friend_id,
+      username: r.profiles?.username ?? "user",
+      avatar_url: r.profiles?.avatar_url ?? null,
+      is_verified: r.profiles?.is_verified ?? false,
+    }));
+    res.json({ friends });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "close-friends get exception");
+    res.json({ friends: [] });
+  }
+});
+
+// POST /api/users/social/close-friends  body: { userId, friendId }
+router.post("/close-friends", async (req, res) => {
+  const { userId, friendId } = req.body as { userId?: string; friendId?: string };
+  if (!userId || !friendId) {
+    res.status(400).json({ error: "userId and friendId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb.from("close_friends").upsert(
+      { user_id: userId, friend_id: friendId },
+      { onConflict: "user_id,friend_id" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "close-friends add exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// DELETE /api/users/social/close-friends  body: { userId, friendId }
+router.delete("/close-friends", async (req, res) => {
+  const { userId, friendId } = req.body as { userId?: string; friendId?: string };
+  if (!userId || !friendId) {
+    res.status(400).json({ error: "userId and friendId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb.from("close_friends").delete().eq("user_id", userId).eq("friend_id", friendId);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "close-friends remove exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// ─── Mutual Followers ─────────────────────────────────────────────────────────
+
+// GET /api/users/social/mutuals?viewerId=&targetId=
+// Returns users who follow BOTH viewerId and targetId (up to 5 names + total count)
+router.get("/mutuals", async (req, res) => {
+  const { viewerId, targetId } = req.query as { viewerId?: string; targetId?: string };
+  if (!viewerId || !targetId) { res.json({ mutuals: [], count: 0 }); return; }
+  const sb = makeSupabase();
+  try {
+    // IDs that viewerId follows
+    const { data: viewerFollowing } = await sb
+      .from("follows").select("following_id").eq("follower_id", viewerId);
+    const viewerSet = new Set((viewerFollowing ?? []).map((r: any) => r.following_id as string));
+
+    // IDs that follow targetId
+    const { data: targetFollowers } = await sb
+      .from("follows").select("follower_id").eq("following_id", targetId);
+    const targetFollowerIds = (targetFollowers ?? []).map((r: any) => r.follower_id as string);
+
+    // Intersection (exclude viewerId and targetId themselves)
+    const mutualIds = targetFollowerIds.filter(
+      (id) => viewerSet.has(id) && id !== viewerId && id !== targetId
+    );
+
+    if (mutualIds.length === 0) { res.json({ mutuals: [], count: 0 }); return; }
+
+    // Get profile info for up to 5
+    const { data: profiles } = await sb
+      .from("profiles")
+      .select("id, username, avatar_url")
+      .in("id", mutualIds.slice(0, 5));
+
+    res.json({
+      mutuals: (profiles ?? []).map((p: any) => ({
+        id: p.id,
+        username: p.username,
+        avatar_url: p.avatar_url,
+      })),
+      count: mutualIds.length,
+    });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "mutuals exception");
+    res.json({ mutuals: [], count: 0 });
+  }
+});
+
 export default router;

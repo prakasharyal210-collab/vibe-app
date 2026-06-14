@@ -1,0 +1,45 @@
+Continue building and improving the Gundruk app — an Instagram-like social media platform.
+Current Tech Stack (do NOT change the core stack, work strictly within it):
+Backend / Database:
+
+Supabase (project: tatroqgcyebuqqkhmvpa) — PostgreSQL, Auth, Realtime (WebSockets), Storage buckets for images/videos/stories.
+pg_cron — scheduled job every 15 minutes to refresh post/reel scores using refresh_recent_scores().
+Custom Node.js/Express API server located in artifacts/api-server — uses Supabase service-role key. Handles routes for posts, profiles, social graph, messages, stories, moderation, engagement, notifications, and push.
+
+Mobile App:
+
+Expo SDK 54 + React Native 0.81.5
+Expo Router (file-based routing in app/ directory)
+EAS Build for APKs/AABs
+Use existing libraries: expo-image-picker, expo-image-manipulator, expo-video-thumbnails, expo-notifications, expo-camera, expo-font, etc.
+Do NOT enable Banuba or DeepAR for now (keep BANUBA_ENABLED=false).
+
+Dev Environment: Working inside Replit (~/workspace). Use pnpm.
+Project Goal: Make Gundruk function like Instagram in data handling, flows, and features — saving, storing, transferring user data across posts, reels, stories, following, messaging, feeds, etc.
+Required Features & Architecture (Implement / Fix / Enhance step-by-step):
+1. Data Models — Ensure complete Supabase tables (raw SQL) for: Users (profile, counts, close_friends, interests/affinity), Posts/Reels/Stories (media URLs, metadata, visibility, expires_at, tags, categories, score), Follows, Mutes, Blocks, Close Friends, Comments (nested with parent_id), Messages/Conversations (1:1 + message requests), Notifications, Engagements, Reports.
+2. Media Handling (Critical) — Upload flow: Client → Supabase Storage (via service role through API server) → save metadata to Postgres via API server. Generate thumbnails, transcode short videos where needed. Proper folder structure (users/{user_id}/posts/, stories/, etc.).
+3. Social Graph — Follow/Unfollow, Followers/Following lists, Close Friends, Mute, Block. Mutual followers for suggestions.
+4. Feeds (Most Important) — Friends Feed: chronological from followed users + Stories bar (Supabase Realtime). For You Feed: algorithmic using score = likes×1 + comments×3 + shares×5 + saves×4 + watch_ratio×10 - hours_since×0.5, with new-creator multiplier (1.5x) and explore boost (2.0x). Redis is likely NOT available in this environment — optimize with Supabase + API server caching instead. Implement fan-out on write for Friends feed where possible.
+5. Engagement & Scoring — Track all signals (Like +0.3, Comment +0.5, Save +0.7, Share +0.4, Watch ≥80% +0.4, etc.). Update user affinity and post scores. Confirm pg_cron refresh_recent_scores() runs every 15 min.
+6. Other Features — Nested comments with ranking + profanity filter. Real-time messaging (1:1, inbox, message requests, reactions, read receipts) via Supabase Realtime + API server. Push + in-app notifications. User search, suggested accounts ("People You May Know"). Hashtag/category pages. Report system + admin moderation queue. Visibility enforcement on all reads (public/friends/close-friends/only-me).
+Technical Rules:
+
+All heavy logic (scoring, fan-out, notifications, media processing) goes through artifacts/api-server.
+Use Supabase Realtime for chat, notifications, live updates.
+Mobile app calls the custom API server for most operations (avoid direct Supabase client calls — established pattern due to Android-hang issues).
+Clean folder structure, error handling, Zod validation, TypeScript.
+Focus on data flow consistency: how data is saved → processed → transferred → shown across features.
+
+Build Instructions — STRICT STEP-BY-STEP, NO SKIPPING AHEAD:
+
+First, show me: current project structure (especially artifacts/api-server and mobile app/ folders) and the full Supabase schema (existing tables + any missing ones needed).
+STOP and wait for my confirmation before proceeding.
+Then implement Media Handling (upload flow + storage structure) ONLY. Report back. STOP and wait for confirmation.
+Then Social Graph (Close Friends, Mute — Block already exists, verify it). Report back. STOP and wait.
+Then Feeds (verify/improve Friends + For You feed). Report back. STOP and wait.
+Then Messaging (message requests, read receipts, reactions). Report back. STOP and wait.
+Then Comments (nested, ranking, profanity filter — verify existing filter applies here too). Report back. STOP and wait.
+Finally Discovery/Scoring polish (suggested accounts, hashtag pages, scoring_config).
+
+Do NOT implement multiple sections in one batch. Fix any existing Supabase integration bugs you encounter along the way, but report them separately from new feature work

@@ -652,7 +652,7 @@ const subSt = StyleSheet.create({
 
 function ChatsTab({
   conversations, snapConvos, refreshing, onRefresh, usersWithStories,
-  onCamera, onSnapCamera, onSnapView, show,
+  onCamera, onSnapCamera, onSnapView, show, requests,
 }: {
   conversations: Conversation[];
   snapConvos: SnapConversation[];
@@ -663,6 +663,7 @@ function ChatsTab({
   onSnapCamera: (preSearch?: string) => void;
   onSnapView: (c: SnapConversation) => void;
   show: (msg: string) => void;
+  requests: Conversation[];
 }) {
   const colors = useColors();
   const [search, setSearch] = useState("");
@@ -796,7 +797,32 @@ function ChatsTab({
           data={filtered}
           keyExtractor={(item) => item.key}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8B5CF6" colors={["#8B5CF6"]} />}
-          ListHeaderComponent={filter === "all" ? <GundrukAIRow borderColor={colors.border} /> : null}
+          ListHeaderComponent={filter === "all" ? (
+            <>
+              {requests.length > 0 && (
+                <TouchableOpacity
+                  style={[chatTabSt.requestsRow, { borderBottomColor: colors.border, backgroundColor: colors.card }]}
+                  onPress={() => router.push("/inbox/requests" as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={chatTabSt.requestsIcon}>
+                    <Ionicons name="chatbubble-ellipses" size={20} color="#8B5CF6" />
+                    <View style={chatTabSt.requestsBadge}>
+                      <Text style={chatTabSt.requestsBadgeText}>{requests.length}</Text>
+                    </View>
+                  </View>
+                  <View style={chatTabSt.requestsInfo}>
+                    <Text style={[chatTabSt.requestsTitle, { color: colors.foreground }]}>Message Requests</Text>
+                    <Text style={[chatTabSt.requestsSub, { color: colors.mutedForeground }]}>
+                      {requests.length} {requests.length === 1 ? "person" : "people"} sent you a request
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+                </TouchableOpacity>
+              )}
+              <GundrukAIRow borderColor={colors.border} />
+            </>
+          ) : null}
           ListEmptyComponent={
             <View style={chatTabSt.empty}>
               <Text style={{ fontSize: 44 }}>{filter === "unread" ? "✅" : filter === "favorites" ? "⭐" : "💬"}</Text>
@@ -879,6 +905,19 @@ const chatTabSt = StyleSheet.create({
     shadowColor: "#7C3AED", shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 4 }, elevation: 10,
   },
   fabGrad: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
+  requestsRow: {
+    flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 0.5, gap: 12,
+  },
+  requestsIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center", position: "relative" },
+  requestsBadge: {
+    position: "absolute", top: -2, right: -4, backgroundColor: "#8B5CF6",
+    borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+  },
+  requestsBadgeText: { fontSize: 10, fontFamily: "Poppins_700Bold", color: "#fff" },
+  requestsInfo: { flex: 1 },
+  requestsTitle: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  requestsSub: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 1 },
 });
 
 // ─── SnapsTab ─────────────────────────────────────────────────────────────────
@@ -1179,6 +1218,7 @@ export default function InboxScreen() {
   const pagerRef = useRef<PagerViewHandle>(null);
   const scrollOffset = useRef(new Animated.Value(0)).current;
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messageRequests, setMessageRequests] = useState<Conversation[]>([]);
   const [snapConvos, setSnapConvos] = useState<SnapConversation[]>([]);
   const [usersWithStories, setUsersWithStories] = useState<Set<string>>(new Set());
   const [streaks, setStreaks] = useState<Map<string, number>>(new Map());
@@ -1200,6 +1240,7 @@ export default function InboxScreen() {
       fetchConversations(userId).then(setConversations).catch(() => {}),
       fetchSnapConversations(userId).then(setSnapConvos).catch(() => {}),
       fetchStreaks(userId).then(setStreaks).catch(() => {}),
+      fetchMessageRequests(userId).then(setMessageRequests).catch(() => {}),
     ]);
   }, [userId]);
 
@@ -1349,6 +1390,7 @@ export default function InboxScreen() {
               onSnapCamera={openSnapCamera}
               onSnapView={handleViewSnap}
               show={show}
+              requests={messageRequests}
             />
           </View>
           <View key="snaps" style={{ flex: 1 }}>

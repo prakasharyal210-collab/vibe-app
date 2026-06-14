@@ -36,6 +36,43 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
 
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+async function muteUser(muterId: string, mutedId: string): Promise<void> {
+  await fetch(`${API_BASE}/users/social/mute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ muterId, mutedId }),
+  });
+}
+
+async function unmuteUser(muterId: string, mutedId: string): Promise<void> {
+  await fetch(`${API_BASE}/users/social/mute`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ muterId, mutedId }),
+  });
+}
+
+async function getMuteStatus(muterId: string, mutedId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/users/social/mute-status?muterId=${muterId}&mutedId=${mutedId}`);
+    const json = res.ok ? await res.json() : {};
+    return !!json.muted;
+  } catch { return false; }
+}
+
+async function getMutualFollowers(viewerId: string, targetId: string): Promise<{ usernames: string[]; count: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/users/social/mutuals?viewerId=${viewerId}&targetId=${targetId}`);
+    const json = res.ok ? await res.json() : { mutuals: [], count: 0 };
+    return {
+      usernames: (json.mutuals ?? []).map((m: any) => m.username),
+      count: json.count ?? 0,
+    };
+  } catch { return { usernames: [], count: 0 }; }
+}
+
 const { width: W } = Dimensions.get("window");
 const GRID_SIZE = (W - 3) / 3;
 const COVER_H = 150;
@@ -72,6 +109,32 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
   const [showReport, setShowReport] = useState(false);
   const [busy, setBusy] = useState(false);
   const [reporting, setReporting] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+
+  useEffect(() => {
+    if (myId && userId) {
+      getMuteStatus(myId, userId).then(setIsMuted).catch(() => {});
+    }
+  }, [myId, userId]);
+
+  const handleMute = async () => {
+    if (!myId || !userId) return;
+    setBusy(true);
+    const nowMuted = !isMuted;
+    setIsMuted(nowMuted);
+    try {
+      if (nowMuted) await muteUser(myId, userId);
+      else await unmuteUser(myId, userId);
+      onClose();
+      Alert.alert(
+        nowMuted ? `Muted @${username}` : `Unmuted @${username}`,
+        nowMuted ? "Their posts won't appear in your feed." : "Their posts will appear again."
+      );
+    } catch {
+      setIsMuted(!nowMuted);
+      Alert.alert("Error", "Could not update mute status.");
+    } finally { setBusy(false); }
+  };
 
   const handleBlock = () => {
     if (!myId) { Alert.alert("Sign in to block users"); return; }
@@ -139,6 +202,7 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
   const options: { icon: string; label: string; action: () => void; destructive?: boolean }[] = [
     { icon: "share-social", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
     { icon: "copy", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `gundruk.app/@${username} copied to clipboard`) },
+    { icon: "volume-mute", label: isMuted ? `Unmute @${username}` : `Mute @${username}`, action: handleMute },
     { icon: "person-remove", label: busy ? "Please wait…" : `Block @${username}`, action: handleBlock, destructive: true },
     { icon: "eye-off", label: `Restrict @${username}`, action: handleRestrict, destructive: true },
     { icon: "flag", label: "Report User", action: () => setShowReport(true), destructive: true },
@@ -239,11 +303,14 @@ export default function UserProfileScreen() {
     fetchProfilePosts(profile.id, myId).then(setPosts).catch(() => {});
   }, [profile?.id]);
 
+  const [mutuals, setMutuals] = useState<{ usernames: string[]; count: number }>({ usernames: [], count: 0 });
+
   useEffect(() => {
     if (!myId || !profile?.id) return;
     checkIsFollowing(myId, profile.id).then(setFollowing).catch(() => {});
     isUserBlocked(myId, profile.id).then(setIsBlocked).catch(() => {});
     amIBlockedBy(myId, profile.id).then(setAmBlocked).catch(() => {});
+    getMutualFollowers(myId, profile.id).then(setMutuals).catch(() => {});
   }, [myId, profile?.id]);
 
   // ── Follow / Unfollow ──────────────────────────────────────────────────────
@@ -425,6 +492,15 @@ export default function UserProfileScreen() {
               </View>
             ) : null}
             {userData.bio ? <Text style={[styles.bio, { color: colors.foreground }]}>{userData.bio}</Text> : null}
+            {mutuals.count > 0 && (
+              <Text style={[styles.mutuals, { color: colors.mutedForeground }]}>
+                {"Followed by "}
+                <Text style={{ color: colors.foreground }}>
+                  {mutuals.usernames.slice(0, 2).join(", ")}
+                </Text>
+                {mutuals.count > 2 ? ` and ${mutuals.count - 2} others` : ""}
+              </Text>
+            )}
             {userData.website ? (
               <TouchableOpacity onPress={() => Linking.openURL(`https://${userData.website}`)} style={styles.websiteRow}>
                 <Ionicons name="link" size={13} color="#7C3AED" />
@@ -615,6 +691,7 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   locationText: { fontFamily: "Poppins_400Regular", fontSize: 12 },
   bio: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
+  mutuals: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18 },
   websiteRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   websiteText: { color: "#7C3AED", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   actionRow: { flexDirection: "row", gap: 8, marginBottom: 16 },
