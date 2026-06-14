@@ -610,6 +610,25 @@ export default function ReelsScreen() {
     return result;
   };
 
+  // Session-level diversity cap — limits any single creator to maxPerCreator
+  // slots in the For You reel feed (overflow pushed to the end).
+  const applyReelDiversity = (reels: Reel[], maxPerCreator = 2): Reel[] => {
+    const creatorCount = new Map<string, number>();
+    const primary: Reel[] = [];
+    const overflow: Reel[] = [];
+    for (const reel of reels) {
+      const creator = reel.username;
+      const n = creatorCount.get(creator) ?? 0;
+      if (n < maxPerCreator) {
+        primary.push(reel);
+        creatorCount.set(creator, n + 1);
+      } else {
+        overflow.push(reel);
+      }
+    }
+    return [...primary, ...overflow];
+  };
+
   const loadFeed = useCallback(async () => {
     const uid = session?.user?.id;
 
@@ -666,7 +685,7 @@ export default function ReelsScreen() {
             sound: r.sound_name ?? "Original Sound",
             isVerified: r.is_verified ?? false,
           }));
-          setForYouReels(interleaveBoost(rpcReels, freshItems));
+          setForYouReels(applyReelDiversity(interleaveBoost(rpcReels, freshItems)));
         }
       } catch {}
     }
