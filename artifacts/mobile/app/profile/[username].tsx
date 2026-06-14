@@ -416,7 +416,7 @@ export default function UserProfileScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.topBar, { paddingTop: topPad, backgroundColor: colors.background }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+            <Text style={{ color: colors.foreground, fontSize: 26, lineHeight: 28, includeFontPadding: false }}>{'←'}</Text>
           </TouchableOpacity>
           <Text style={[styles.topTitle, { color: colors.foreground }]}>Profile</Text>
           <View style={styles.iconBtn} />
@@ -441,7 +441,7 @@ export default function UserProfileScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={[styles.topBar, { paddingTop: topPad, backgroundColor: colors.background }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+            <Text style={{ color: colors.foreground, fontSize: 26, lineHeight: 28, includeFontPadding: false }}>{'←'}</Text>
           </TouchableOpacity>
           <Text style={[styles.topTitle, { color: colors.foreground }]}>Profile</Text>
           <View style={styles.iconBtn} />

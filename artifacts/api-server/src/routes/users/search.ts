@@ -106,7 +106,9 @@ router.get("/profile/:username", async (req, res) => {
   req.log.info({ username }, "profile lookup");
 
   try {
-    const { data: profile, error } = await sb
+    // Try exact match first, then fall back to case-insensitive match.
+    // ilike without wildcards is equivalent to LOWER(col) = LOWER(val).
+    let { data: profile, error } = await sb
       .from("profiles")
       .select("id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private")
       .eq("username", username)
@@ -117,7 +119,22 @@ router.get("/profile/:username", async (req, res) => {
       res.status(500).json({ error: error.message });
       return;
     }
+
+    // If exact match found nothing, try case-insensitive (handles "Haceriz" → "haceriz")
     if (!profile) {
+      const { data: ilikeProfile, error: ilikeError } = await sb
+        .from("profiles")
+        .select("id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private")
+        .ilike("username", username)
+        .maybeSingle();
+      if (!ilikeError && ilikeProfile) {
+        profile = ilikeProfile;
+        req.log.info({ username, matched: ilikeProfile.username }, "profile lookup: case-insensitive fallback matched");
+      }
+    }
+
+    if (!profile) {
+      req.log.info({ username }, "profile lookup: not found");
       res.status(404).json({ error: "not found" });
       return;
     }
