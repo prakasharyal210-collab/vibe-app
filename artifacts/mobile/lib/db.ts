@@ -2191,6 +2191,29 @@ export async function ensureUserSetup(userId: string, username: string, email?: 
 
 // ─── Nearby Users ──────────────────────────────────────────────────────────────
 
+// ── Suggested Accounts ("People You May Know") ────────────────────────────────
+export interface SuggestedAccount {
+  id: string;
+  username: string;
+  full_name?: string;
+  avatar_url?: string;
+  followers_count: number;
+  is_verified: boolean;
+  mutual_count: number;
+}
+
+export async function fetchSuggestedAccounts(userId: string, limit = 10): Promise<SuggestedAccount[]> {
+  try {
+    const params = new URLSearchParams({ viewer_id: userId, q: "", limit: String(limit) });
+    const res = await fetch(`${API_BASE}/users/search?${params.toString()}`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.profiles ?? []) as SuggestedAccount[];
+  } catch {
+    return [];
+  }
+}
+
 export async function getNearbyUsers(
   userId: string,
   lat: number | undefined,

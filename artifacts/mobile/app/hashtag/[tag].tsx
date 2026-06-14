@@ -15,10 +15,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 const ITEM = (W - 3) / 3;
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
 function fmt(n: number) {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -26,7 +26,7 @@ function fmt(n: number) {
   return String(n);
 }
 
-interface GridPost { id: string; image_url?: string; media_url?: string; likes_count: number; is_reel?: boolean; }
+interface GridPost { id: string; media_url?: string; likes_count: number; is_reel?: boolean; }
 
 export default function HashtagScreen() {
   const { tag } = useLocalSearchParams<{ tag: string }>();
@@ -41,24 +41,22 @@ export default function HashtagScreen() {
 
   useEffect(() => {
     if (!tag) return;
+    setLoading(true);
     (async () => {
-      setLoading(true);
       try {
-        const { data, count: c } = await supabase
-          .from("posts")
-          .select("id, media_url, likes_count, is_reel", { count: "exact" })
-          .ilike("caption", `%#${tag}%`)
-          .order("created_at", { ascending: false })
-          .limit(60);
-        setPosts(data ?? []);
-        setCount(c ?? 0);
+        // Route through API → uses indexed post_hashtags join table, sorted by likes_count
+        const res = await fetch(`${API_BASE}/posts/hashtag/${encodeURIComponent(tag.toLowerCase())}`);
+        if (res.ok) {
+          const json = await res.json();
+          setPosts(json.posts ?? []);
+          setCount(json.count ?? 0);
+        } else {
+          setPosts([]);
+          setCount(0);
+        }
       } catch {
-        setPosts(Array.from({ length: 9 }, (_, i) => ({
-          id: String(i),
-          image_url: `https://picsum.photos/seed/${tag}${i}/300/300`,
-          likes_count: Math.floor(Math.random() * 10000 + 100),
-        })));
-        setCount(Math.floor(Math.random() * 8000 + 300));
+        setPosts([]);
+        setCount(0);
       } finally {
         setLoading(false);
       }
@@ -110,7 +108,7 @@ export default function HashtagScreen() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
           renderItem={({ item }) => (
             <TouchableOpacity activeOpacity={0.85} style={{ position: "relative" }}>
-              <Image source={{ uri: item.media_url ?? item.image_url }} style={styles.gridImg} resizeMode="cover" />
+              <Image source={{ uri: item.media_url }} style={styles.gridImg} resizeMode="cover" />
               {item.is_reel && (
                 <View style={styles.reelBadge}><Ionicons name="play" size={11} color="#fff" /></View>
               )}

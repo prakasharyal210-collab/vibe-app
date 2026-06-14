@@ -6,8 +6,10 @@ import { callAI, parseAIJson } from "@/lib/ai";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
+  FlatList,
   Image,
   Modal,
   Platform,
@@ -52,10 +54,12 @@ import {
   getVibeMatches,
   getVibePreferences,
   recordVibeSwipe,
+  fetchSuggestedAccounts,
   RELATIONSHIP_GOALS,
   saveGundrukProfile,
   saveUserGoals,
   sendVibeRequest,
+  SuggestedAccount,
   updateVibeScore,
   VibeMatchProfile,
   VibePrefsRow,
@@ -1341,10 +1345,93 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
   );
 }
 
-function GoalsDiscoveryTab({ onGoalSelect }: { onGoalSelect: (goal: string) => void }) {
+// ── People You May Know ──────────────────────────────────────────────────────
+function SuggestedAccountsSection({ userId }: { userId?: string }) {
+  const colors = useColors();
+  const [accounts, setAccounts] = useState<SuggestedAccount[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!userId) return;
+    setLoading(true);
+    fetchSuggestedAccounts(userId, 12)
+      .then(setAccounts)
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  const visible = accounts.filter((a) => !dismissed.has(a.id));
+
+  if (!userId || (!loading && visible.length === 0)) return null;
+
+  return (
+    <View style={saStyles.wrapper}>
+      <Text style={[saStyles.heading, { color: colors.foreground }]}>👥 People You May Know</Text>
+      {loading ? (
+        <ActivityIndicator color="#7C3AED" style={{ marginVertical: 16 }} />
+      ) : (
+        <FlatList
+          data={visible}
+          horizontal
+          keyExtractor={(a) => a.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingRight: 16 }}
+          ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+          renderItem={({ item }) => (
+            <View style={[saStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <TouchableOpacity onPress={() => setDismissed((d) => new Set([...d, item.id]))} style={saStyles.dismiss}>
+                <Ionicons name="close" size={13} color={colors.mutedForeground} />
+              </TouchableOpacity>
+              {item.avatar_url ? (
+                <Image source={{ uri: item.avatar_url }} style={saStyles.avatar} />
+              ) : (
+                <View style={[saStyles.avatar, { backgroundColor: "rgba(124,58,237,0.25)", alignItems: "center", justifyContent: "center" }]}>
+                  <Text style={{ fontSize: 22 }}>👤</Text>
+                </View>
+              )}
+              <Text style={[saStyles.name, { color: colors.foreground }]} numberOfLines={1}>
+                {item.full_name || item.username}
+              </Text>
+              <Text style={[saStyles.handle, { color: colors.mutedForeground }]} numberOfLines={1}>
+                @{item.username}
+              </Text>
+              {item.mutual_count > 0 && (
+                <Text style={[saStyles.mutual, { color: colors.mutedForeground }]}>
+                  {item.mutual_count} mutual{item.mutual_count > 1 ? "s" : ""}
+                </Text>
+              )}
+              <TouchableOpacity style={saStyles.followBtn} activeOpacity={0.8}>
+                <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={saStyles.followGrad}>
+                  <Text style={saStyles.followText}>Follow</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+        />
+      )}
+    </View>
+  );
+}
+
+const saStyles = StyleSheet.create({
+  wrapper: { marginBottom: 24 },
+  heading: { fontFamily: "Poppins_700Bold", fontSize: 17, marginBottom: 14 },
+  card: { width: 148, borderRadius: 18, padding: 14, borderWidth: 0.5, alignItems: "center", gap: 4 },
+  dismiss: { position: "absolute", top: 8, right: 8, padding: 4, zIndex: 1 },
+  avatar: { width: 64, height: 64, borderRadius: 32, marginBottom: 6 },
+  name: { fontFamily: "Poppins_600SemiBold", fontSize: 13, textAlign: "center" },
+  handle: { fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center" },
+  mutual: { fontFamily: "Poppins_400Regular", fontSize: 10, textAlign: "center" },
+  followBtn: { marginTop: 8, borderRadius: 10, overflow: "hidden", width: "100%", height: 32 },
+  followGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  followText: { fontFamily: "Poppins_700Bold", fontSize: 12, color: "#fff" },
+});
+
+function GoalsDiscoveryTab({ onGoalSelect, userId }: { onGoalSelect: (goal: string) => void; userId?: string }) {
   const colors = useColors();
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
+      <SuggestedAccountsSection userId={userId} />
       <Text style={[gdStyles.title, { color: colors.foreground }]}>🎯 Browse by Intention</Text>
       <Text style={[gdStyles.sub, { color: colors.mutedForeground }]}>
         Find people who want the same things as you
@@ -2301,7 +2388,7 @@ function FindVibeContent() {
 
         {/* Page 1 — Goals Discovery */}
         <View key="1" style={{ flex: 1 }}>
-          <GoalsDiscoveryTab onGoalSelect={handleGoalTap} />
+          <GoalsDiscoveryTab onGoalSelect={handleGoalTap} userId={userId} />
         </View>
 
         {/* Page 2 — Matches */}

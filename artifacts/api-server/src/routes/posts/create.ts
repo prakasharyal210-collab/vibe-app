@@ -67,6 +67,63 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// GET /api/posts/hashtag/:tag
+// Returns posts tagged with :tag via the indexed post_hashtags join table,
+// sorted by likes_count (score proxy). Falls back to caption ILIKE if needed.
+router.get("/hashtag/:tag", async (req, res) => {
+  const tag = (req.params["tag"] ?? "").toLowerCase().trim();
+  if (!tag) { res.status(400).json({ error: "tag required" }); return; }
+  const sb = makeSupabase();
+
+  try {
+    // 1 — Look up hashtag row (gives us posts_count for the header)
+    const { data: hashtagRow } = await sb
+      .from("hashtags")
+      .select("id, posts_count")
+      .eq("name", tag)
+      .maybeSingle();
+
+    if (!hashtagRow) {
+      // Hashtag not in index yet — fall back to caption scan
+      const { data: fallback, count: fbCount } = await sb
+        .from("posts")
+        .select("id, media_url, likes_count, is_reel", { count: "exact" })
+        .ilike("caption", `%#${tag}%`)
+        .order("likes_count", { ascending: false })
+        .limit(60);
+      res.json({ posts: fallback ?? [], count: fbCount ?? 0 });
+      return;
+    }
+
+    // 2 — Get post IDs from indexed join table
+    const { data: joins } = await sb
+      .from("post_hashtags")
+      .select("post_id")
+      .eq("hashtag_id", hashtagRow.id)
+      .limit(200);
+
+    const postIds = (joins ?? []).map((r: any) => r.post_id as string);
+
+    if (!postIds.length) {
+      res.json({ posts: [], count: hashtagRow.posts_count ?? 0 });
+      return;
+    }
+
+    // 3 — Fetch posts sorted by score (likes_count desc)
+    const { data: posts } = await sb
+      .from("posts")
+      .select("id, media_url, likes_count, is_reel")
+      .in("id", postIds)
+      .order("likes_count", { ascending: false })
+      .limit(60);
+
+    res.json({ posts: posts ?? [], count: hashtagRow.posts_count ?? 0 });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "hashtag posts error");
+    res.status(500).json({ error: "Failed to load hashtag posts" });
+  }
+});
+
 // GET /api/posts/user/:userId — fetch profile posts + reels bypassing RLS
 router.get("/user/:userId", async (req, res) => {
   const { userId } = req.params;
