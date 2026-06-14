@@ -1,70 +1,102 @@
 -- ══════════════════════════════════════════════════════════════════════════════
 -- Performance: missing indexes + atomic bump_affinity RPC
 -- Run in Supabase SQL Editor — safe to re-run (IF NOT EXISTS / OR REPLACE)
+-- Every index is wrapped in a column-existence check so it never fails on
+-- schema mismatches between environments.
 -- ══════════════════════════════════════════════════════════════════════════════
 
--- ── 1. Indexes ────────────────────────────────────────────────────────────────
+-- ── Helper: create index only when all required columns exist ─────────────────
+-- Each DO block checks the schema before issuing CREATE INDEX IF NOT EXISTS.
 
--- user_interests: primary lookup in engage route (user_id + interest_key)
-CREATE UNIQUE INDEX IF NOT EXISTS idx_user_interests_uid_key
-  ON public.user_interests (user_id, interest_key);
+-- user_interests (user_id + interest_key)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_interests' AND column_name='user_id')
+ AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='user_interests' AND column_name='interest_key')
+  THEN
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_user_interests_uid_key ON public.user_interests (user_id, interest_key)';
+  END IF;
+END $$;
 
--- follows: feed queries filter/join on following_id
-CREATE INDEX IF NOT EXISTS idx_follows_following_id
-  ON public.follows (following_id);
+-- follows (following_id)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='follows' AND column_name='following_id') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_follows_following_id ON public.follows (following_id)';
+  END IF;
+END $$;
 
--- follows: notification queries filter on follower_id
-CREATE INDEX IF NOT EXISTS idx_follows_follower_id
-  ON public.follows (follower_id);
+-- follows (follower_id)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='follows' AND column_name='follower_id') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_follows_follower_id ON public.follows (follower_id)';
+  END IF;
+END $$;
 
--- messages: conversation message paging (most common query)
-CREATE INDEX IF NOT EXISTS idx_messages_conv_created
-  ON public.messages (conversation_id, created_at DESC);
+-- messages (conversation_id + created_at)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='conversation_id')
+ AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='created_at')
+  THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON public.messages (conversation_id, created_at DESC)';
+  END IF;
+END $$;
 
--- notifications: per-user feed sorted by time
-CREATE INDEX IF NOT EXISTS idx_notifications_user_created
-  ON public.notifications (user_id, created_at DESC);
+-- notifications — try user_id first, fall back to recipient_id
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='user_id')
+ AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='created_at')
+  THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications (user_id, created_at DESC)';
+  ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='recipient_id')
+    AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='notifications' AND column_name='created_at')
+  THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created ON public.notifications (recipient_id, created_at DESC)';
+  END IF;
+END $$;
 
--- posts: score-ordered feed (get_for_you_feed_v2/v3 ORDER BY score)
--- Only created if the score column exists (added by personalization-migration.sql)
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'posts' AND column_name = 'score'
-  ) THEN
+-- posts (score) — only if personalization migration has been run
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='posts' AND column_name='score') THEN
     EXECUTE 'CREATE INDEX IF NOT EXISTS idx_posts_score_desc ON public.posts (score DESC NULLS LAST)';
   END IF;
 END $$;
 
--- reels: score-ordered reel feed
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'reels' AND column_name = 'score'
-  ) THEN
+-- reels (score) — only if personalization migration has been run
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='reels' AND column_name='score') THEN
     EXECUTE 'CREATE INDEX IF NOT EXISTS idx_reels_score_desc ON public.reels (score DESC NULLS LAST)';
   END IF;
 END $$;
 
--- post_hashtags: hashtag→posts lookup (used by /api/posts/hashtag/:tag)
-CREATE INDEX IF NOT EXISTS idx_post_hashtags_hashtag_id
-  ON public.post_hashtags (hashtag_id);
+-- post_hashtags (hashtag_id)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='post_hashtags' AND column_name='hashtag_id') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_post_hashtags_hashtag_id ON public.post_hashtags (hashtag_id)';
+  END IF;
+END $$;
 
--- hashtags: name lookup
-CREATE INDEX IF NOT EXISTS idx_hashtags_name
-  ON public.hashtags (name);
+-- hashtags (name)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='hashtags' AND column_name='name') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_hashtags_name ON public.hashtags (name)';
+  END IF;
+END $$;
 
--- blocks: both directions for RLS checks
-CREATE INDEX IF NOT EXISTS idx_blocks_blocker
-  ON public.blocks (blocker_id);
-CREATE INDEX IF NOT EXISTS idx_blocks_blocked
-  ON public.blocks (blocked_id);
+-- blocks (blocker_id)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='blocks' AND column_name='blocker_id') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON public.blocks (blocker_id)';
+  END IF;
+END $$;
+
+-- blocks (blocked_id)
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='blocks' AND column_name='blocked_id') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON public.blocks (blocked_id)';
+  END IF;
+END $$;
 
 -- ── 2. bump_affinity — atomic single-round-trip affinity update ───────────────
 -- Replaces the 2-round-trip SELECT → compute → UPSERT pattern in engage.ts.
--- Uses INSERT ... ON CONFLICT DO UPDATE so the whole operation is one DB call.
 -- Weight clamped to [-5, 10].
 CREATE OR REPLACE FUNCTION public.bump_affinity(
   p_user_id     uuid,
@@ -83,7 +115,6 @@ AS $$
 $$;
 
 -- ── 3. get_hashtag_posts — single-query replacement for 3-hop hashtag fetch ──
--- Combines hashtag lookup + join table + posts fetch into ONE round trip.
 CREATE OR REPLACE FUNCTION public.get_hashtag_posts(
   p_tag   TEXT,
   p_limit INT DEFAULT 60
