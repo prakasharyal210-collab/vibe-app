@@ -44,15 +44,22 @@ interface CommentItemProps {
   time: string;
   likes: number;
   userId?: string;
+  initialLiked: boolean;
+  isReply?: boolean;
   onReply: () => void;
 }
 
-function CommentItem({ commentId, username, text, time, likes, userId, onReply }: CommentItemProps) {
+function CommentItem({ commentId, username, text, time, likes, userId, initialLiked, isReply, onReply }: CommentItemProps) {
   const colors = useColors();
   const { session } = useAuth();
   const myId = session?.user?.id;
-  const [liked, setLiked] = useState(false);
+  const [liked, setLiked] = useState(initialLiked);
   const [likesCount, setLikesCount] = useState(likes);
+
+  // Sync if parent passes a changed initialLiked (e.g. after batch load)
+  useEffect(() => {
+    setLiked(initialLiked);
+  }, [initialLiked]);
 
   const handleLike = async () => {
     if (!myId) return;
@@ -77,9 +84,10 @@ function CommentItem({ commentId, username, text, time, likes, userId, onReply }
   };
 
   return (
-    <View style={styles.commentRow}>
+    <View style={[styles.commentRow, isReply && styles.replyIndent]}>
+      {isReply && <View style={styles.replyLine} />}
       <TouchableOpacity onPress={() => router.push(`/profile/${username}` as any)} activeOpacity={0.8}>
-        <UserAvatar username={username} size={34} />
+        <UserAvatar username={username} size={isReply ? 28 : 34} />
       </TouchableOpacity>
       <View style={styles.commentBody}>
         <Text style={[styles.commentUser, { color: colors.foreground }]}>
@@ -111,6 +119,26 @@ function CommentItem({ commentId, username, text, time, likes, userId, onReply }
   );
 }
 
+// Flatten comments into: top-level first, then each reply immediately after its parent
+function buildThreadedList(comments: Comment[]): Comment[] {
+  const topLevel = comments.filter((c) => !c.parent_comment_id);
+  const repliesByParent = new Map<string, Comment[]>();
+  for (const c of comments) {
+    if (c.parent_comment_id) {
+      const existing = repliesByParent.get(c.parent_comment_id) ?? [];
+      existing.push(c);
+      repliesByParent.set(c.parent_comment_id, existing);
+    }
+  }
+  const result: Comment[] = [];
+  for (const top of topLevel) {
+    result.push(top);
+    const replies = repliesByParent.get(top.id) ?? [];
+    for (const r of replies) result.push(r);
+  }
+  return result;
+}
+
 export function CommentsSheet({
   visible,
   onClose,
@@ -124,6 +152,7 @@ export function CommentsSheet({
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recent");
@@ -157,22 +186,39 @@ export function CommentsSheet({
         ? await fetchReelComments(postId)
         : await fetchComments(postId);
       setComments(data);
+
+      // Batch-fetch which comments the current user has already liked
+      const userId = session?.user?.id;
+      if (userId && data.length > 0) {
+        const ids = data.map((c) => c.id).join(",");
+        try {
+          const res = await fetch(`${API_BASE}/comments/liked?userId=${encodeURIComponent(userId)}&commentIds=${ids}`);
+          if (res.ok) {
+            const json = await res.json();
+            setLikedIds(new Set<string>(json.likedIds ?? []));
+          }
+        } catch {}
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const sortedComments = [...comments].sort((a, b) => {
-    if (sortMode === "top") {
-      return (b.likes_count ?? 0) - (a.likes_count ?? 0);
-    }
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  // Sort top-level first then replies; apply sort within each group
+  const sortedComments = (() => {
+    const cmp = sortMode === "top"
+      ? (a: Comment, b: Comment) => (b.likes_count ?? 0) - (a.likes_count ?? 0)
+      : (a: Comment, b: Comment) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    const topLevel = comments.filter((c) => !c.parent_comment_id).sort(cmp);
+    const replies = comments.filter((c) => !!c.parent_comment_id).sort(cmp);
+    return buildThreadedList([...topLevel, ...replies]);
+  })();
 
   const submitComment = async () => {
     if (!isLoggedIn) { onRequireLogin(); return; }
     if (!comment.trim()) return;
     const text = comment.trim();
+    const parentCommentId = replyTo?.id;
     setComment("");
     setReplyTo(null);
     setSubmitting(true);
@@ -187,6 +233,7 @@ export function CommentsSheet({
       text,
       created_at: new Date().toISOString(),
       likes_count: 0,
+      parent_comment_id: parentCommentId ?? null,
       profiles: { id: userId ?? "me", username },
     };
     setComments((c) => [optimistic, ...c]);
@@ -195,16 +242,14 @@ export function CommentsSheet({
     if (userId) {
       try {
         const saved = contentType === "reel"
-          ? await addReelComment(postId, userId, text)
-          : await addComment(postId, userId, text);
+          ? await addReelComment(postId, userId, text, parentCommentId)
+          : await addComment(postId, userId, text, parentCommentId);
         if (saved) {
           setComments((c) => c.map((item) => (item.id === optimisticId ? saved : item)));
         } else {
-          // Server returned null — silently remove the optimistic comment
           setComments((c) => c.filter((item) => item.id !== optimisticId));
         }
       } catch (err: any) {
-        // Remove the optimistic comment and surface the error
         setComments((c) => c.filter((item) => item.id !== optimisticId));
         const msg: string = err?.message ?? "Could not post comment. Try again.";
         Alert.alert("Comment not posted", msg);
@@ -283,6 +328,8 @@ export function CommentsSheet({
                 time={timeAgo(item.created_at)}
                 likes={item.likes_count ?? 0}
                 userId={item.user_id}
+                initialLiked={likedIds.has(item.id)}
+                isReply={!!item.parent_comment_id}
                 onReply={() => handleReply(item.id, item.profiles?.username ?? "user")}
               />
             )}
@@ -386,6 +433,18 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 10,
     alignItems: "flex-start",
+  },
+  replyIndent: {
+    paddingLeft: 38,
+  },
+  replyLine: {
+    position: "absolute",
+    left: 30,
+    top: 0,
+    bottom: 0,
+    width: 1.5,
+    backgroundColor: "rgba(139,92,246,0.25)",
+    borderRadius: 1,
   },
   commentBody: { flex: 1, gap: 4 },
   commentUser: { fontSize: 13, fontFamily: "Poppins_600SemiBold", lineHeight: 18 },

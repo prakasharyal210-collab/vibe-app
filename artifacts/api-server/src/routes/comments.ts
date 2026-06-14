@@ -40,15 +40,16 @@ function checkProfanity(text: string): { ok: boolean; reason?: string } {
 }
 
 // ─── POST /api/comments ───────────────────────────────────────────────────────
-// body: { userId, postId?, reelId?, text, contentType: "post" | "reel" }
+// body: { userId, postId?, reelId?, text, contentType: "post" | "reel", parentCommentId? }
 // Enforces: profanity filter + block check vs content owner → 403 if blocked.
 router.post("/", async (req, res) => {
-  const { userId, postId, reelId, text, contentType } = req.body as {
+  const { userId, postId, reelId, text, contentType, parentCommentId } = req.body as {
     userId?: string;
     postId?: string;
     reelId?: string;
     text?: string;
     contentType?: "post" | "reel";
+    parentCommentId?: string;
   };
 
   if (!userId || !text?.trim() || !contentType) {
@@ -117,10 +118,12 @@ router.post("/", async (req, res) => {
         return;
       }
 
-      // RPC unavailable — direct insert fallback
+      // RPC unavailable — direct insert fallback (with optional reply threading)
+      const reelRow: Record<string, unknown> = { reel_id: reelId, user_id: userId, content: trimmed };
+      if (parentCommentId) reelRow["parent_comment_id"] = parentCommentId;
       const { data: inserted, error: insertErr } = await sb
         .from("reel_comments")
-        .insert({ reel_id: reelId, user_id: userId, content: trimmed })
+        .insert(reelRow)
         .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
         .single();
 
@@ -135,10 +138,12 @@ router.post("/", async (req, res) => {
       return;
     }
 
-    // Post comment
+    // Post comment (with optional reply threading via parent_comment_id)
+    const postRow: Record<string, unknown> = { post_id: postId, user_id: userId, content: trimmed };
+    if (parentCommentId) postRow["parent_comment_id"] = parentCommentId;
     const { data: inserted, error: insertErr } = await sb
       .from("comments")
-      .insert({ post_id: postId, user_id: userId, content: trimmed })
+      .insert(postRow)
       .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
       .single();
 

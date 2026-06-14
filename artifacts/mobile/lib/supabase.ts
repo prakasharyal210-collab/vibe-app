@@ -70,6 +70,7 @@ export interface Comment {
   text: string;
   created_at: string;
   likes_count?: number;
+  parent_comment_id?: string | null;
   profiles?: Profile;
 }
 

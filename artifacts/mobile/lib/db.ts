@@ -65,16 +65,16 @@ export async function fetchComments(postId: string): Promise<Comment[]> {
       .eq("post_id", postId)
       .order("created_at", { ascending: false })
       .limit(50);
-    if (!error && data && data.length > 0) return data as unknown as Comment[];
+    if (!error && data) return data as unknown as Comment[];
   } catch {}
-  const filtered = MOCK_COMMENTS.filter((c) => c.post_id === postId);
-  return filtered.length > 0 ? filtered : MOCK_COMMENTS.slice(0, 5);
+  return [];
 }
 
 export async function addComment(
   postId: string,
   userId: string,
   text: string,
+  parentCommentId?: string,
 ): Promise<Comment | null> {
   // Client-side profanity check for instant feedback
   const { checkProfanity } = await import("./profanityFilter");
@@ -84,7 +84,7 @@ export async function addComment(
   const res = await fetch(`${API_BASE}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, postId, text, contentType: "post" }),
+    body: JSON.stringify({ userId, postId, text, contentType: "post", parentCommentId }),
   });
   if (res.status === 422) {
     const body = await res.json().catch(() => ({}));
@@ -121,6 +121,7 @@ export async function addReelComment(
   reelId: string,
   userId: string,
   text: string,
+  parentCommentId?: string,
 ): Promise<Comment | null> {
   // Client-side profanity check for instant feedback
   const { checkProfanity } = await import("./profanityFilter");
@@ -130,7 +131,7 @@ export async function addReelComment(
   const res = await fetch(`${API_BASE}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, reelId, text, contentType: "reel" }),
+    body: JSON.stringify({ userId, reelId, text, contentType: "reel", parentCommentId }),
   });
   if (res.status === 422) {
     const body = await res.json().catch(() => ({}));
