@@ -1171,7 +1171,7 @@ async function fetchFreshPosts(limit = 20): Promise<Post[]> {
   try {
     const { data, error } = await supabase
       .from('posts')
-      .select('*, profiles!user_id(*)')
+      .select('*, profiles(id, username, display_name, avatar_url, is_verified)')
       .or('visibility.eq.public,visibility.is.null')
       .order('score', { ascending: false })
       .order('created_at', { ascending: false })
@@ -1180,7 +1180,7 @@ async function fetchFreshPosts(limit = 20): Promise<Post[]> {
     // visibility column not yet added (migration pending) — return all posts
     const { data: fallback } = await supabase
       .from('posts')
-      .select('*, profiles!user_id(*)')
+      .select('*, profiles(id, username, display_name, avatar_url, is_verified)')
       .order('score', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);

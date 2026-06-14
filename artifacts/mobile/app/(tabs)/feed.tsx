@@ -592,6 +592,7 @@ export default function FeedScreen() {
           isLoggedIn={isLoggedIn}
           fullScreen
           itemHeight={snapHeight}
+          onPress={() => router.push(`/post/${post.id}` as any)}
         />
         {tabId === "foryou" && (
           <View style={{ position: "absolute", bottom: 8, left: 0, right: 0, alignItems: "center", pointerEvents: "none" }}>

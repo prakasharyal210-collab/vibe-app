@@ -54,9 +54,10 @@ interface PostCardProps {
   onRequireLogin?: () => void;
   fullScreen?: boolean;
   itemHeight?: number;
+  onPress?: () => void;
 }
 
-export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight }: PostCardProps) {
+export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight, onPress }: PostCardProps) {
   const colors = useColors();
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -173,6 +174,15 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             </View>
           )}
         </View>
+
+        {/* Transparent tap target — sits below header/actions in z-order so they capture their own touches */}
+        {onPress && (
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={onPress}
+            activeOpacity={0.92}
+          />
+        )}
 
         {/* Header overlaid on top of image */}
         <View style={[styles.header, { backgroundColor: "transparent" }]}>
