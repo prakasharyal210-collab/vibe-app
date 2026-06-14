@@ -9,7 +9,7 @@ async function ensureSupabaseSetup() {
   const sb = createClient(url, serviceKey);
 
   // Ensure storage buckets exist
-  for (const bucket of ["posts", "reels", "media", "avatars"]) {
+  for (const bucket of ["posts", "reels", "media", "avatars", "snaps"]) {
     const { error } = await sb.storage.createBucket(bucket, { public: true });
     if (error && !error.message.includes("already exists")) {
       logger.warn({ bucket, err: error.message }, "Could not create storage bucket");

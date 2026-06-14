@@ -9,6 +9,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   PanResponder,
   Platform,
   Pressable,
@@ -526,11 +527,11 @@ function SnapSendSheet({
         <Text style={[snapSendSt.title, { color: colors.foreground }]}>Send Snap to…</Text>
         <View style={{ width: 32 }} />
       </View>
-      <View style={{ width: "100%", height: 140, backgroundColor: "#1a1a2e", overflow: "hidden" }}>
-        <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
-          <Ionicons name="camera" size={40} color="rgba(234,88,12,0.4)" />
-        </View>
-      </View>
+      <Image
+        source={{ uri }}
+        style={{ width: "100%", height: 220, backgroundColor: "#1a1a2e" }}
+        resizeMode="cover"
+      />
       <View style={snapSendSt.noteRow}>
         <Ionicons name="eye-off-outline" size={13} color="rgba(255,255,255,0.4)" />
         <Text style={snapSendSt.note}>Disappears after the recipient views it once</Text>

@@ -1,4 +1,5 @@
-import { Message, supabase } from "./supabase";
+import * as FileSystem from "expo-file-system";
+import { Message } from "./supabase";
 
 const API_BASE = `${process.env["EXPO_PUBLIC_API_URL"] ?? ""}/api`;
 
@@ -64,17 +65,22 @@ export async function markSnapViewed(messageId: string, currentText: string): Pr
   } catch {}
 }
 
+// Upload snap image through the API server (service-role key bypasses RLS +
+// avoids the Android Supabase client hang). Uses expo-file-system to read the
+// local URI as base64 and POSTs JSON to /api/storage/snap.
 export async function uploadSnapToStorage(uri: string, userId: string): Promise<string | null> {
   try {
-    const fileName = `${userId}/${Date.now()}.jpg`;
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    const { error } = await supabase.storage
-      .from("snaps")
-      .upload(fileName, blob, { contentType: "image/jpeg", upsert: false });
-    if (error) return null;
-    const { data: urlData } = supabase.storage.from("snaps").getPublicUrl(fileName);
-    return urlData.publicUrl;
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: "base64" as any,
+    });
+    const res = await fetch(`${API_BASE}/storage/snap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base64, userId, mimeType: "image/jpeg" }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as { url?: string };
+    return json.url ?? null;
   } catch {
     return null;
   }
