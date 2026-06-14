@@ -1171,21 +1171,26 @@ async function fetchFreshPosts(limit = 20): Promise<Post[]> {
   try {
     const { data, error } = await supabase
       .from('posts')
-      .select('*, profiles(*)')
+      .select('*, profiles!user_id(*)')
       .or('visibility.eq.public,visibility.is.null')
       .order('score', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (!error) return (data as Post[]) ?? [];
-    // visibility column not yet added (migration pending) — return all posts
-    const { data: fallback } = await supabase
+    if (!error) {
+      console.log('[fetchFreshPosts] primary ok, rows:', data?.length ?? 0);
+      return (data as Post[]) ?? [];
+    }
+    console.log('[fetchFreshPosts] primary error:', error.message, '— trying fallback');
+    const { data: fallback, error: fbErr } = await supabase
       .from('posts')
-      .select('*, profiles(*)')
+      .select('*, profiles!user_id(*)')
       .order('score', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
+    console.log('[fetchFreshPosts] fallback:', fbErr?.message ?? 'ok', 'rows:', fallback?.length ?? 0);
     return (fallback as Post[]) ?? [];
-  } catch {
+  } catch (e: any) {
+    console.log('[fetchFreshPosts] threw:', e?.message);
     return [];
   }
 }
@@ -1262,8 +1267,7 @@ function applyDiversity(posts: Post[], maxPerCreator = 2): Post[] {
 }
 
 export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  // Try personalised v2 first (requires personalization-migration.sql to be run),
-  // then fall back to the original RPC, then to fresh recent posts.
+  console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset);
   const [v2Result, v1Result, freshResult] = await Promise.allSettled([
     supabase.rpc('get_for_you_feed_v2', { p_user_id: userId, p_limit: limit, p_offset: offset }),
     supabase.rpc('get_for_you_feed',    { p_user_id: userId, p_limit: limit, p_offset: offset }),
@@ -1276,10 +1280,17 @@ export async function getForYouFeed(userId: string, limit = 20, offset = 0): Pro
     ? v1Result.value.data as Post[] : null;
   const freshPosts = freshResult.status === 'fulfilled' ? freshResult.value : [];
 
+  console.log('[getForYouFeed] v2:', v2Posts?.length ?? 'null', 'v1:', v1Posts?.length ?? 'null', 'fresh:', freshPosts.length);
+  if (v2Result.status === 'fulfilled' && v2Result.value.error) console.log('[getForYouFeed] v2 error:', v2Result.value.error.message);
+  if (v1Result.status === 'fulfilled' && v1Result.value.error) console.log('[getForYouFeed] v1 error:', v1Result.value.error.message);
+
   const ranked = v2Posts ?? v1Posts;
   if (ranked && ranked.length > 0) {
-    return applyDiversity(viralBoostFeed(ranked, freshPosts));
+    const result = applyDiversity(viralBoostFeed(ranked, freshPosts));
+    console.log('[getForYouFeed] returning', result.length, 'posts (ranked path)');
+    return result;
   }
+  console.log('[getForYouFeed] returning', freshPosts.length, 'posts (fresh fallback)');
   return freshPosts;
 }
 
@@ -1294,7 +1305,7 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
 }
 
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  // Fetch friends feed and fresh posts in parallel
+  console.log('[getFriendsFeed] called userId:', userId?.slice(0, 8));
   const [rpcResult, fresh] = await Promise.allSettled([
     supabase.rpc('get_friends_feed', { p_user_id: userId, p_limit: limit, p_offset: offset }),
     fetchFreshPosts(limit),
@@ -1303,11 +1314,14 @@ export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Pr
     ? rpcResult.value.data as Post[]
     : null;
   const freshFallback = fresh.status === 'fulfilled' ? fresh.value : [];
+  if (rpcResult.status === 'fulfilled' && rpcResult.value.error) console.log('[getFriendsFeed] rpc error:', rpcResult.value.error.message);
+  console.log('[getFriendsFeed] friends:', friendsPosts?.length ?? 'null', 'fresh fallback:', freshFallback.length);
   if (friendsPosts && friendsPosts.length > 0) {
-    // Friends content + viral boost injection every 3rd slot
-    return viralBoostFeed(friendsPosts, freshFallback);
+    const result = viralBoostFeed(friendsPosts, freshFallback);
+    console.log('[getFriendsFeed] returning', result.length, 'posts (friends path)');
+    return result;
   }
-  // No friends yet — show fresh content from everyone so the tab is never empty
+  console.log('[getFriendsFeed] returning', freshFallback.length, 'posts (fresh fallback)');
   return freshFallback;
 }
 

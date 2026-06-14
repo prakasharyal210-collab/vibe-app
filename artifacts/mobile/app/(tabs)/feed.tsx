@@ -422,15 +422,15 @@ export default function FeedScreen() {
       let data: Post[] = [];
       if (tab === "foryou") {
         data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset) : MOCK_FOR_YOU;
-        if (!userId) { updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
+        if (!userId) { console.log('[loadTabData] no userId, showing mock'); updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
       }
 
+      console.log('[loadTabData] tab:', tab, 'data.length:', data.length, 'reset:', reset);
+
       const prev = reset ? [] : tabStatesRef.current[tab].posts;
       const merged = [...prev, ...data];
-      // seenIds is declared INSIDE this function — fresh Set on every invocation, never persists.
-      // Use index-based fallback key so posts with undefined/null id are never falsely deduplicated.
       const seenIds = new Set<string>();
       const deduped = merged.filter((p, i) => {
         const key = p.id ? `id:${p.id}` : `idx:${i}`;
@@ -438,6 +438,7 @@ export default function FeedScreen() {
         seenIds.add(key);
         return true;
       });
+      console.log('[loadTabData] tab:', tab, 'deduped:', deduped.length, 'posts');
       updateTab(tab, {
         posts: deduped,
         loading: false,
@@ -446,7 +447,8 @@ export default function FeedScreen() {
         hasMore: data.length === PAGE_SIZE,
       });
       loadedTabs.current.add(tab);
-    } catch {
+    } catch (e: any) {
+      console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message);
       updateTab(tab, { loading: false, loadingMore: false });
     }
   }, [userId, updateTab]);
