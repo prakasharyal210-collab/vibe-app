@@ -66,6 +66,7 @@ router.get("/:userId", async (req, res) => {
         time: timeAgoShort(n.created_at),
         read: n.is_read ?? false,
         post_image: n.thumbnail_url ?? null,
+        post_id: n.post_id ?? null,
       };
     });
     res.json({ notifications });

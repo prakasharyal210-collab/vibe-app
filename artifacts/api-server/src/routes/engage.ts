@@ -51,6 +51,22 @@ router.post("/", async (req, res) => {
 
   const sb = makeSupabase();
 
+  // Fire-and-forget like / repost notifications
+  if ((action === "like" || action === "repost") && contentId && contentType === "post") {
+    void (async () => {
+      try {
+        await sb.from("notifications").insert({
+          recipient_id: creatorId,
+          sender_id: userId,
+          type: action,
+          message: action === "like" ? "liked your post" : "reposted your post",
+          post_id: contentId,
+          is_read: false,
+        });
+      } catch {}
+    })();
+  }
+
   // ── Atomic affinity bump via bump_affinity RPC (single round trip per key) ──
   // Falls back to legacy SELECT+UPSERT if the RPC hasn't been deployed yet.
   async function bumpAffinity(key: string, d: number): Promise<void> {

@@ -32,17 +32,17 @@ function notifTypeText(type: string): string {
   }
 }
 
-const NOTIF_FALLBACK = { icon: "notifications", color: "#9CA3AF", bg: "rgba(156,163,175,0.15)" };
+const NOTIF_FALLBACK = { icon: "notifications-outline", color: "#9CA3AF", bg: "rgba(156,163,175,0.15)" };
 
 const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
-  like: { icon: "heart", color: "#F97316", bg: "rgba(249,115,22,0.15)" },
-  comment: { icon: "chatbubble", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
-  follow: { icon: "person-add", color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
-  vibe: { icon: "heart-circle", color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
-  mention: { icon: "at-circle", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
-  tag: { icon: "pricetag", color: "#10B981", bg: "rgba(16,185,129,0.15)" },
-  repost: { icon: "repeat", color: "#06B6D4", bg: "rgba(6,182,212,0.15)" },
-  save: { icon: "bookmark", color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
+  like:    { icon: "heart",                color: "#F97316", bg: "rgba(249,115,22,0.15)" },
+  comment: { icon: "chatbubble-ellipses",  color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
+  follow:  { icon: "person-add-outline",   color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
+  vibe:    { icon: "heart-circle",         color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
+  mention: { icon: "at-circle-outline",    color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  tag:     { icon: "pricetag-outline",     color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  repost:  { icon: "repeat-outline",       color: "#06B6D4", bg: "rgba(6,182,212,0.15)" },
+  save:    { icon: "bookmark-outline",     color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
 };
 
 function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string) => void }) {
@@ -53,10 +53,14 @@ function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string
     onRead(notif.id);
     if (notif.type === "follow") {
       router.push(`/profile/${notif.username}` as any);
-    } else if (notif.type === "like" || notif.type === "comment" || notif.type === "mention") {
-      router.push(`/profile/${notif.username}` as any);
     } else if (notif.type === "vibe") {
       router.push("/(tabs)/find" as any);
+    } else if (notif.post_id) {
+      // like, comment, tag, repost, mention, save — all reference a specific post
+      router.push(`/post/${notif.post_id}` as any);
+    } else {
+      // fallback: sender profile
+      router.push(`/profile/${notif.username}` as any);
     }
   };
 

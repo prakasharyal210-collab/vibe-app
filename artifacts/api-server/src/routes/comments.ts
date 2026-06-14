@@ -154,6 +154,23 @@ router.post("/", async (req, res) => {
     }
 
     const c = inserted as Record<string, any>;
+
+    // Notify post owner (non-blocking, skip if commenting on own post)
+    if (userId !== ownerId) {
+      void (async () => {
+        try {
+          await sb.from("notifications").insert({
+            recipient_id: ownerId,
+            sender_id: userId,
+            type: "comment",
+            message: "commented on your post",
+            post_id: postId,
+            is_read: false,
+          });
+        } catch {}
+      })();
+    }
+
     res.status(201).json({ comment: { ...c, text: c.content ?? c.text ?? trimmed } });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "comment post exception");

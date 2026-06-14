@@ -92,13 +92,14 @@ export interface Conversation {
 
 export interface Notification {
   id: string;
-  type: "like" | "comment" | "follow" | "vibe" | "mention";
+  type: "like" | "comment" | "follow" | "vibe" | "mention" | "tag" | "repost" | "save";
   username: string;
   avatar_url?: string | null;
   text: string;
   time: string;
   read: boolean;
   post_image?: string;
+  post_id?: string | null;
 }
 
 export interface Hashtag {
