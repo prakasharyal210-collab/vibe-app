@@ -1,0 +1,29 @@
+Implement Category Auto-Tagging — the final piece of algorithm enhancement #1 (queued earlier, not yet built).
+Goal: Automatically detect content categories from post/reel captions and hashtags, then use category-level affinity (alongside existing creator-level affinity in user_interests) to improve "For You" feed personalization.
+1. Database
+
+Add categories TEXT[] column to posts and reels tables (nullable, default '{}')
+Create a predefined category list relevant to Gundruk's audience: cooking, travel, fitness, fashion, music, comedy, art, tech, astrology, gaming, beauty, food, dance, education, nature, sports, motivation, lifestyle
+Build a simple keyword/hashtag-to-category mapping table OR hardcoded mapping in code (e.g., #cooking, #recipe, #foodie → cooking; #travel, #wanderlust → travel; #astrology, #vedic, #horoscope → astrology — tie this to the existing Vedic Astrology feature)
+
+2. Auto-tagging on create
+
+In posts/create.ts and reels/create.ts: after insert, extract categories from the caption (hashtag matching first, then keyword matching against caption text) → write to the new categories array column
+Reuse the existing hashtag-extraction logic from post_hashtags wiring (Step 7) where possible — categories can derive from the SAME hashtags already being parsed
+
+3. Category-level affinity
+
+Extend record_engagement() usage: whenever a user engages (like/save/watch_complete/share) with a post/reel that has categories, ALSO call record_engagement(user_id, 'category:{name}', delta) for EACH category on that content — same weight deltas as creator affinity
+This populates user_interests with BOTH creator:{uuid} AND category:{name} keys
+
+4. Feed integration
+
+Update get_for_you_feed_v2/get_for_you_reels_v2 (or create v3 if cleaner): boost score by COMBINED affinity — sum of creator affinity AND the MAX category affinity among the content's categories (avoid double-counting if content matches multiple categories the user likes — take the strongest signal, capped same as before at 2.0)
+Read the combination weight from scoring_config (new key: category_affinity_weight, default same as affinity_boost_factor)
+
+5. Backfill (optional but valuable)
+
+For EXISTING posts/reels with categories = '{}', run a one-time backfill script that applies the same extraction logic to existing captions
+
+Test: Create a post with #cooking in caption → confirm categories array includes 'cooking'. Like/save several cooking posts as a test user → confirm user_interests gains a category:cooking entry with increasing weight → confirm For You feed starts surfacing MORE cooking-tagged content for that user, even from creators they don't follow.
+Implement step-by-step (DB → auto-tagging → affinity → feed integration → backfill), report after each, wait for confirmation before proceeding to the next.
