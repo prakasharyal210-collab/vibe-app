@@ -1497,7 +1497,8 @@ export async function uploadReelMedia(
   userId: string,
   uri: string,
   caption: string,
-  duration?: number
+  duration?: number,
+  visibility?: string
 ): Promise<{ id: string; videoUrl: string; thumbnailUrl?: string } | null> {
   try {
     const cleanUri = uri.split('?')[0];
@@ -1539,7 +1540,7 @@ export async function uploadReelMedia(
       fetch(`${API_BASE}/reels/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration }),
+        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration, visibility }),
       }),
       120_000,
       'reel create API'

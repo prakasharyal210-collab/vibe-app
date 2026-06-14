@@ -107,11 +107,12 @@ router.get("/hashtag/:tag", async (req, res) => {
       .maybeSingle();
 
     if (!hashtagRow) {
-      // Not in index yet — caption scan
+      // Not in index yet — caption scan (only public posts visible on hashtag pages)
       const { data: fallback, count: fbCount } = await sb
         .from("posts")
         .select("id, media_url, likes_count, is_reel", { count: "exact" })
         .ilike("caption", `%#${tag}%`)
+        .or("visibility.eq.public,visibility.is.null")
         .order("likes_count", { ascending: false })
         .limit(60);
       res.json({ posts: fallback ?? [], count: fbCount ?? 0 });
@@ -131,6 +132,7 @@ router.get("/hashtag/:tag", async (req, res) => {
       .from("posts")
       .select("id, media_url, likes_count, is_reel")
       .in("id", postIds)
+      .or("visibility.eq.public,visibility.is.null")
       .order("likes_count", { ascending: false })
       .limit(60);
 
@@ -142,18 +144,55 @@ router.get("/hashtag/:tag", async (req, res) => {
 });
 
 // GET /api/posts/user/:userId — fetch profile posts + reels bypassing RLS
+// Visibility rules applied when viewerId != userId:
+//   - owner (viewerId === userId):          all posts including private
+//   - follower (viewerId follows userId):   public + friends (not private)
+//   - stranger:                             public only
+// Old posts with NULL visibility are treated as public.
+// Falls back to unfiltered if visibility column not yet added via migration.
 router.get("/user/:userId", async (req, res) => {
   const { userId } = req.params;
+  const { viewerId } = req.query as { viewerId?: string };
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
   const sb = makeSupabase();
-  const [postsRes, reelsRes] = await Promise.allSettled([
-    sb.from("posts").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-    sb.from("reels").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
-  ]);
-  res.json({
-    posts: postsRes.status === "fulfilled" ? (postsRes.value.data ?? []) : [],
-    reels: reelsRes.status === "fulfilled" ? (reelsRes.value.data ?? []) : [],
-  });
+
+  const isOwner = !!viewerId && viewerId === userId;
+
+  // Check if viewer follows the post owner (determines "friends" visibility)
+  let viewerFollows = false;
+  if (!isOwner && viewerId) {
+    try {
+      const { data: follow } = await sb
+        .from("follows")
+        .select("id")
+        .eq("follower_id", viewerId)
+        .eq("following_id", userId)
+        .maybeSingle();
+      viewerFollows = !!follow;
+    } catch {}
+  }
+
+  // Build the visibility OR clause (null = no filter needed for owner)
+  const visFilter = isOwner
+    ? null
+    : viewerFollows
+      ? "visibility.eq.public,visibility.eq.friends,visibility.is.null"
+      : "visibility.eq.public,visibility.is.null";
+
+  // Apply filter with graceful fallback if the visibility column doesn't exist yet
+  async function queryTable(table: "posts" | "reels") {
+    const base = sb.from(table).select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (visFilter) {
+      const { data, error } = await base.or(visFilter);
+      if (!error) return data ?? [];
+      // Column missing (migration not run yet) — fall back to returning all
+    }
+    const { data } = await sb.from(table).select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    return data ?? [];
+  }
+
+  const [posts, reels] = await Promise.all([queryTable("posts"), queryTable("reels")]);
+  res.json({ posts, reels });
 });
 
 router.post("/create", async (req, res) => {
@@ -217,12 +256,16 @@ router.post("/create", async (req, res) => {
   }
 
   // Insert post record (service role bypasses RLS)
-  // NOTE: 'visibility', 'comments_enabled', 'downloads_enabled' columns do not
-  // exist in the Supabase posts table — omit them to avoid schema-cache errors.
+  const VALID_VISIBILITIES = ["public", "friends", "private"] as const;
+  const safeVisibility: string = VALID_VISIBILITIES.includes(options.visibility as any)
+    ? (options.visibility as string)
+    : "public";
+
   const payload: Record<string, unknown> = {
     user_id: userId,
     media_url: mediaUrl ?? "",
     caption,
+    visibility: safeVisibility,
     likes_count: 0,
     comments_count: 0,
     views_count: 0,

@@ -1331,6 +1331,15 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
             onPost={async (data) => {
               const uri = recordedUri;
               const wasPhoto = capturedIsPhoto;
+              // Map VideoEditorSheet audience labels → DB visibility values
+              const audienceToVisibility = (aud?: string): "public" | "friends" | "private" => {
+                if (!aud) return "public";
+                const a = aud.toLowerCase();
+                if (a === "only me") return "private";
+                if (a === "friends" || a === "close friends" || a === "followers") return "friends";
+                return "public";
+              };
+              const visibility = audienceToVisibility((data as any).audience);
               try {
                 if (uri && session?.user?.id) {
                   if (wasPhoto || !isVideoMode) {
@@ -1339,9 +1348,10 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                       taggedUsers: data.taggedUsers,
                       commentsEnabled: data.commentsEnabled,
                       downloadsEnabled: data.downloadsEnabled,
+                      visibility,
                     });
                   } else {
-                    await uploadReelMedia(session.user.id, uri, data.caption ?? "");
+                    await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility);
                   }
                 }
                 setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null);

@@ -17,6 +17,7 @@ router.post("/create", async (req, res) => {
     ext = "mp4",
     caption = "",
     duration,
+    visibility,
   } = req.body as {
     userId: string;
     videoBase64?: string;
@@ -25,6 +26,7 @@ router.post("/create", async (req, res) => {
     ext?: string;
     caption?: string;
     duration?: number;
+    visibility?: string;
   };
 
   if (!userId) {
@@ -90,6 +92,11 @@ router.post("/create", async (req, res) => {
     }
   }
 
+  const VALID_VISIBILITIES = ["public", "friends", "private"] as const;
+  const safeVisibility: string = VALID_VISIBILITIES.includes(visibility as any)
+    ? (visibility as string)
+    : "public";
+
   const { data, error } = await sb
     .from("reels")
     .insert({
@@ -99,6 +106,7 @@ router.post("/create", async (req, res) => {
       caption,
       hashtags: extractHashtags(caption),
       duration: duration ?? null,
+      visibility: safeVisibility,
       is_public: true,
       likes_count: 0,
       comments_count: 0,
