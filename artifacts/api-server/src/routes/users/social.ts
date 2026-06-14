@@ -58,11 +58,11 @@ router.post("/follow", async (req, res) => {
     // Write a "follow" notification + push (non-blocking)
     void (async () => {
       const { error: ne } = await sb.from("notifications").insert({
-        user_id: followingId,
-        actor_id: followerId,
+        recipient_id: followingId,
+        sender_id: followerId,
         type: "follow",
         message: "started following you",
-        read: false,
+        is_read: false,
       });
       if (ne) req.log.warn({ error: ne.message }, "follow notif insert failed");
       // Look up actor username for push body
@@ -383,8 +383,8 @@ router.post("/toggle-follow", async (req, res) => {
       // Send follow notification (non-blocking)
       void (async () => {
         const { error: ne } = await sb.from("notifications").insert({
-          user_id: followingId, actor_id: followerId, type: "follow",
-          message: "started following you", read: false,
+          recipient_id: followingId, sender_id: followerId, type: "follow",
+          message: "started following you", is_read: false,
         });
         if (ne) req.log.warn({ error: ne.message }, "follow notif failed");
         const { data: actor } = await sb.from("profiles").select("username").eq("id", followerId).maybeSingle();

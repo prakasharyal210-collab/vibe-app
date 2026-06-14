@@ -23,6 +23,7 @@ function timeAgoShort(iso: string): string {
 }
 
 // GET /api/users/notifications/:userId
+// Actual schema: recipient_id, sender_id, is_read, type, message, post_id, created_at
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
@@ -31,7 +32,7 @@ router.get("/:userId", async (req, res) => {
     const { data, error } = await sb
       .from("notifications")
       .select("*")
-      .eq("user_id", userId)
+      .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) {
@@ -41,30 +42,30 @@ router.get("/:userId", async (req, res) => {
     }
     const rows = data ?? [];
 
-    // Resolve actor usernames in one batch query
-    const actorIds = [...new Set(rows.map((n: any) => n.actor_id).filter(Boolean))];
+    // Resolve sender usernames in one batch query
+    const senderIds = [...new Set(rows.map((n: any) => n.sender_id).filter(Boolean))];
     let profileMap = new Map<string, { username: string; avatar_url: string | null }>();
-    if (actorIds.length > 0) {
+    if (senderIds.length > 0) {
       const { data: profiles } = await sb
         .from("profiles")
         .select("id, username, avatar_url")
-        .in("id", actorIds);
+        .in("id", senderIds);
       for (const p of profiles ?? []) {
         profileMap.set(p.id, { username: p.username ?? "user", avatar_url: p.avatar_url });
       }
     }
 
     const notifications = rows.map((n: any) => {
-      const actor = profileMap.get(n.actor_id) ?? { username: "user", avatar_url: null };
+      const sender = profileMap.get(n.sender_id) ?? { username: "user", avatar_url: null };
       return {
         id: n.id,
         type: n.type,
-        username: actor.username,
-        avatar_url: actor.avatar_url,
+        username: sender.username,
+        avatar_url: sender.avatar_url,
         text: n.message ?? "",
         time: timeAgoShort(n.created_at),
-        read: n.read ?? false,
-        post_image: null,
+        read: n.is_read ?? false,
+        post_image: n.thumbnail_url ?? null,
       };
     });
     res.json({ notifications });
@@ -79,7 +80,7 @@ router.patch("/:notifId/read", async (req, res) => {
   const { notifId } = req.params;
   const sb = makeSupabase();
   try {
-    await sb.from("notifications").update({ read: true }).eq("id", notifId);
+    await sb.from("notifications").update({ is_read: true }).eq("id", notifId);
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "mark-read exception");
@@ -92,7 +93,11 @@ router.patch("/read-all/:userId", async (req, res) => {
   const { userId } = req.params;
   const sb = makeSupabase();
   try {
-    await sb.from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
+    await sb
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("recipient_id", userId)
+      .eq("is_read", false);
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "mark-all-read exception");
