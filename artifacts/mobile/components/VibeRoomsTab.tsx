@@ -142,26 +142,32 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
       }
     }).catch(() => {});
 
-    const channel = supabase
-      .channel(`room:${room.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_room_messages", filter: `room_id=eq.${room.id}` }, (payload) => {
-        const row = payload.new as any;
-        const msg: RoomMessage = {
-          id: row.id ?? Date.now().toString(),
-          userId: row.user_id,
-          username: row.username ?? "Vibe User",
-          text: row.text,
-          time: "now",
-          avatar: `seed/${(row.user_id ?? "").slice(0, 8)}`,
-        };
-        setMessages((prev) => [...prev, msg]);
-        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-      })
-      .subscribe();
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`room:${room.id}:${suffix}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_room_messages", filter: `room_id=eq.${room.id}` }, (payload) => {
+          try {
+            const row = payload.new as any;
+            const msg: RoomMessage = {
+              id: row.id ?? Date.now().toString(),
+              userId: row.user_id,
+              username: row.username ?? "Vibe User",
+              text: row.text,
+              time: "now",
+              avatar: `seed/${(row.user_id ?? "").slice(0, 8)}`,
+            };
+            setMessages((prev) => [...prev, msg]);
+            setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+          } catch { /* never crash on realtime payload */ }
+        })
+        .subscribe();
+    } catch { /* channel collision — safe to ignore */ }
     channelRef.current = channel;
 
     return () => {
-      channel.unsubscribe();
+      if (channel) supabase.removeChannel(channel);
       channelRef.current = null;
     };
   }, [joined, room.id, userId]);

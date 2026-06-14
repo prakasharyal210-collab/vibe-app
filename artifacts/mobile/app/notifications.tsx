@@ -122,28 +122,37 @@ export default function NotificationsScreen() {
     const uid = session.user.id;
     fetchNotifications(uid).then(setNotifications).catch(() => {});
 
-    const channel = supabase
-      .channel(`notifications-${uid}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` },
-        (payload) => {
-          const n = payload.new as any;
-          const newNotif: Notification = {
-            id: n.id,
-            type: n.type ?? "like",
-            username: n.actor_username ?? "someone",
-            text: n.message ?? notifTypeText(n.type),
-            time: "just now",
-            read: false,
-            post_image: n.post_image ?? undefined,
-          };
-          setNotifications((prev) => [newNotif, ...prev]);
-        }
-      )
-      .subscribe();
+    // Unique suffix per mount so rapid unmount/remount never hits
+    // "can't add callbacks after subscribe()" on the same channel name.
+    // Filter uses recipient_id (actual column — not user_id).
+    const channelName = `notifications-${uid}-${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${uid}` },
+          (payload) => {
+            try {
+              const n = payload.new as any;
+              const newNotif: Notification = {
+                id: n.id,
+                type: n.type ?? "like",
+                username: n.sender_username ?? "someone",
+                text: n.message ?? notifTypeText(n.type),
+                time: "just now",
+                read: n.is_read ?? false,
+                post_image: n.thumbnail_url ?? undefined,
+              };
+              setNotifications((prev) => [newNotif, ...prev]);
+            } catch { /* never crash on realtime payload */ }
+          }
+        )
+        .subscribe();
+    } catch { /* channel collision — safe to ignore */ }
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
   const markRead = (id: string) => {

@@ -511,22 +511,30 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!session?.user?.id) return;
     const uid = session.user.id;
-    const channel = supabase
-      .channel(`profile-grid-${uid}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts', filter: `user_id=eq.${uid}` }, (payload) => {
-        const p = payload.new as any;
-        const mediaUrl = p.media_url ?? p.image_url ?? '';
-        const isVid = isVideoUrl(mediaUrl);
-        setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at }, ...prev]);
-        setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reels', filter: `user_id=eq.${uid}` }, (payload) => {
-        const r = payload.new as any;
-        setMyPosts((prev) => [{ id: `reel_${r.id}`, image_url: r.thumbnail_url ?? '', video_url: r.video_url, isReel: true, likes: 0, comments: 0, caption: r.caption ?? '', duration: r.duration, created_at: r.created_at }, ...prev]);
-        setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`profile-grid-${uid}-${suffix}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts', filter: `user_id=eq.${uid}` }, (payload) => {
+          try {
+            const p = payload.new as any;
+            const mediaUrl = p.media_url ?? p.image_url ?? '';
+            const isVid = isVideoUrl(mediaUrl);
+            setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at }, ...prev]);
+            setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
+          } catch { /* never crash on realtime payload */ }
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reels', filter: `user_id=eq.${uid}` }, (payload) => {
+          try {
+            const r = payload.new as any;
+            setMyPosts((prev) => [{ id: `reel_${r.id}`, image_url: r.thumbnail_url ?? '', video_url: r.video_url, isReel: true, likes: 0, comments: 0, caption: r.caption ?? '', duration: r.duration, created_at: r.created_at }, ...prev]);
+            setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
+          } catch { /* never crash on realtime payload */ }
+        })
+        .subscribe();
+    } catch { /* channel collision — safe to ignore */ }
+    return () => { if (channel) supabase.removeChannel(channel); };
   }, [session?.user?.id]);
 
   const handleRefresh = useCallback(async () => {

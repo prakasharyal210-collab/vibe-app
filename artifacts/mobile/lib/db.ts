@@ -1000,8 +1000,9 @@ export function subscribeToMessages(
   userId: string,
   onNew: (msg: any) => void
 ) {
+  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
   return supabase
-    .channel(`messages:${userId}`)
+    .channel(`messages:${userId}:${suffix}`)
     .on(
       "postgres_changes",
       {
@@ -1010,7 +1011,7 @@ export function subscribeToMessages(
         table: "messages",
         filter: `receiver_id=eq.${userId}`,
       },
-      (payload) => onNew(payload.new)
+      (payload) => { try { onNew(payload.new); } catch { /* never crash */ } }
     )
     .subscribe();
 }
@@ -1019,17 +1020,19 @@ export function subscribeToNotifications(
   userId: string,
   onNew: (notif: any) => void
 ) {
+  // filter uses recipient_id (actual column name, not user_id)
+  const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
   return supabase
-    .channel(`notifications:${userId}`)
+    .channel(`notifications:${userId}:${suffix}`)
     .on(
       "postgres_changes",
       {
         event: "INSERT",
         schema: "public",
         table: "notifications",
-        filter: `user_id=eq.${userId}`,
+        filter: `recipient_id=eq.${userId}`,
       },
-      (payload) => onNew(payload.new)
+      (payload) => { try { onNew(payload.new); } catch { /* never crash */ } }
     )
     .subscribe();
 }

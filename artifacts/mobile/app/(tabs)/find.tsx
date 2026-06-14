@@ -1705,22 +1705,27 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
 
   // Realtime — new match arrives
   useEffect(() => {
-    const ch = supabase
-      .channel(`my-matches-${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_matches" }, async (payload) => {
-        const row = payload.new as any;
-        if (row.user_id === userId || row.matched_user_id === userId) {
-          const updated = await getMyVibeMatches(userId).catch(() => [] as VibeMatchProfile[]);
-          if (updated.length > 0) {
-            setMatches(updated);
-            // Show toast for the newest match
-            const newest = updated[0];
-            if (newest) showMatchToast(newest);
-          }
-        }
-      })
-      .subscribe();
-    return () => { ch.unsubscribe(); };
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      ch = supabase
+        .channel(`my-matches-${userId}-${suffix}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_matches" }, async (payload) => {
+          try {
+            const row = payload.new as any;
+            if (row.user_id === userId || row.matched_user_id === userId) {
+              const updated = await getMyVibeMatches(userId).catch(() => [] as VibeMatchProfile[]);
+              if (updated.length > 0) {
+                setMatches(updated);
+                const newest = updated[0];
+                if (newest) showMatchToast(newest);
+              }
+            }
+          } catch { /* never crash on realtime payload */ }
+        })
+        .subscribe();
+    } catch { /* channel collision — safe to ignore */ }
+    return () => { if (ch) supabase.removeChannel(ch); };
   }, [userId]);
 
   // Float hearts animation for empty state

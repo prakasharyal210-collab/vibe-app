@@ -205,47 +205,51 @@ export function usePostRealtime(postId: string | undefined, initial: PostCounts)
   const [counts, setCounts] = useState<PostCounts>(initial);
   const prevCounts = useRef<PostCounts>(initial);
   const [bumped, setBumped] = useState<keyof PostCounts | null>(null);
+  // Unique suffix per mount so rapid unmount/remount never collides with a
+  // still-tearing-down channel of the same name ("can't add callbacks after subscribe").
+  const channelSuffix = useRef(`${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
-    if (!postId) return; // don't subscribe if id is not yet available
-    const channel = supabase
-      .channel(`post:${postId}`)
-      .on(
-        "postgres_changes" as any,
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "posts",
-          filter: `id=eq.${postId}`,
-        },
-        (payload: any) => {
-          const n = payload.new as PostCounts;
-          const prev = prevCounts.current;
-
-          // find which field increased for animation
-          const bumpKey =
-            (n.likes_count ?? 0) > (prev.likes_count ?? 0) ? "likes_count" :
-            (n.comments_count ?? 0) > (prev.comments_count ?? 0) ? "comments_count" :
-            (n.reposts_count ?? 0) > (prev.reposts_count ?? 0) ? "reposts_count" :
-            null;
-
-          setCounts({
-            likes_count: Math.max(0, n.likes_count ?? prev.likes_count),
-            comments_count: Math.max(0, n.comments_count ?? prev.comments_count),
-            reposts_count: Math.max(0, n.reposts_count ?? prev.reposts_count ?? 0),
-            views_count: Math.max(0, n.views_count ?? prev.views_count ?? 0),
-          });
-          prevCounts.current = n;
-
-          if (bumpKey) {
-            setBumped(bumpKey);
-            setTimeout(() => setBumped(null), 600);
+    if (!postId) return;
+    const channelName = `post:${postId}:${channelSuffix.current}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes" as any,
+          { event: "UPDATE", schema: "public", table: "posts", filter: `id=eq.${postId}` },
+          (payload: any) => {
+            try {
+              const n = payload.new as PostCounts;
+              const prev = prevCounts.current;
+              const bumpKey =
+                (n.likes_count ?? 0) > (prev.likes_count ?? 0) ? "likes_count" :
+                (n.comments_count ?? 0) > (prev.comments_count ?? 0) ? "comments_count" :
+                (n.reposts_count ?? 0) > (prev.reposts_count ?? 0) ? "reposts_count" :
+                null;
+              setCounts({
+                likes_count: Math.max(0, n.likes_count ?? prev.likes_count),
+                comments_count: Math.max(0, n.comments_count ?? prev.comments_count),
+                reposts_count: Math.max(0, n.reposts_count ?? prev.reposts_count ?? 0),
+                views_count: Math.max(0, n.views_count ?? prev.views_count ?? 0),
+              });
+              prevCounts.current = n;
+              if (bumpKey) {
+                setBumped(bumpKey);
+                setTimeout(() => setBumped(null), 600);
+              }
+            } catch { /* never crash on realtime payload */ }
           }
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+        )
+        .subscribe();
+    } catch {
+      // Supabase threw "can't add callbacks after subscribe()" — safe to ignore,
+      // the feed works fine without live count updates.
+    }
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [postId]);
 
   return { counts, bumped };
@@ -260,35 +264,43 @@ interface ProfileCounts {
 
 export function useProfileRealtime(profileId: string | null, initial: ProfileCounts) {
   const [counts, setCounts] = useState<ProfileCounts>(initial);
+  // Unique suffix per mount — same race-condition fix as usePostRealtime
+  const channelSuffix = useRef(`${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     if (!profileId) return;
-    const channel = supabase
-      .channel(`profile:${profileId}`)
-      .on(
-        "postgres_changes" as any,
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${profileId}`,
-        },
-        (payload: any) => {
-          const n = payload.new;
-          setCounts({
-            followers_count: Math.max(0, n.followers_count ?? 0),
-            following_count: Math.max(0, n.following_count ?? 0),
-            posts_count: Math.max(0, n.posts_count ?? 0),
-          });
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const channelName = `profile:${profileId}:${channelSuffix.current}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(channelName)
+        .on(
+          "postgres_changes" as any,
+          { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${profileId}` },
+          (payload: any) => {
+            try {
+              const n = payload.new;
+              setCounts({
+                followers_count: Math.max(0, n.followers_count ?? 0),
+                following_count: Math.max(0, n.following_count ?? 0),
+                posts_count: Math.max(0, n.posts_count ?? 0),
+              });
+            } catch { /* never crash on realtime payload */ }
+          }
+        )
+        .subscribe();
+    } catch {
+      // Supabase threw "can't add callbacks after subscribe()" — safe to ignore
+    }
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [profileId]);
 
   // sync when initial changes (e.g. profile loaded from DB)
-  useEffect(() => { setCounts(initial); }, [initial.followers_count, initial.following_count, initial.posts_count]);
+  useEffect(() => {
+    setCounts(initial);
+  }, [initial.followers_count, initial.following_count, initial.posts_count]);
 
   return counts;
 }

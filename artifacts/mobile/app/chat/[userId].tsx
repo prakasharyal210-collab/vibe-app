@@ -352,9 +352,12 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!myId || !otherId) return;
 
-    const channel = supabase
-      .channel(`chat:${[myId, otherId].sort().join(":")}`)
-      .on(
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      channel = supabase
+        .channel(`chat:${[myId, otherId].sort().join(":")}:${suffix}`)
+        .on(
         "postgres_changes" as any,
         {
           event: "INSERT",
@@ -393,10 +396,12 @@ export default function ChatScreen() {
         },
       )
       .subscribe();
+    } catch { /* channel collision — safe to ignore */ }
 
     channelRef.current = channel;
     return () => {
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [myId, otherId]);
 
