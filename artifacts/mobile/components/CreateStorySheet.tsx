@@ -359,7 +359,7 @@ export function CreateStorySheet({ visible, onClose, onPost, userId }: CreateSto
     { icon: "camera-outline", label: "Camera", sub: "Take photo or video", onPress: handleCamera, color: "#7C3AED" },
     { icon: "images-outline", label: "Gallery", sub: "Choose from your library", onPress: handleGallery, color: "#F97316" },
     { icon: "text", label: "Text Story", sub: "Colored background with text", onPress: handleTextStory, color: "#EC4899" },
-    { icon: "repeat-outline", label: "Boomerang", sub: "Looping video clip", onPress: handleBoomerang, color: "#3B82F6" },
+    { icon: "repeat-outline", label: "Quick Clip", sub: "Short looping video", onPress: handleBoomerang, color: "#3B82F6" },
   ];
 
   return (

@@ -739,6 +739,10 @@ export type StoryEntry = {
   isOnline?: boolean;
   userId?: string;
   hasExistingStory?: boolean;
+  storyType?: string;
+  textContent?: string;
+  bgGradient?: string;
+  caption?: string;
 };
 
 const MOCK_FRIEND_STORIES: StoryEntry[] = [
@@ -805,6 +809,10 @@ export async function fetchFriendStories(
       username: myStory?.profiles?.username ?? myUsername ?? "you",
       image: myStory?.media_url ?? "",
       hasExistingStory: !!myStory,
+      storyType: myStory?.story_type ?? undefined,
+      textContent: myStory?.text_content ?? undefined,
+      bgGradient: myStory?.bg_gradient ?? undefined,
+      caption: myStory?.caption ?? undefined,
     };
 
     // Followed accounts — one entry per user, deduplicated
@@ -817,11 +825,15 @@ export async function fetchFriendStories(
       friendEntries.push({
         id: s.id,
         username: s.profiles?.username ?? "user",
-        image: s.media_url ?? `https://picsum.photos/seed/${s.id}/200/200`,
+        image: s.media_url ?? "",
         hasNew: !s.viewed,
         isOwn: false,
         userId: s.user_id,
         isOnline: false,
+        storyType: s.story_type ?? undefined,
+        textContent: s.text_content ?? undefined,
+        bgGradient: s.bg_gradient ?? undefined,
+        caption: s.caption ?? undefined,
       });
     }
 

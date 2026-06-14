@@ -63,6 +63,10 @@ export interface Story {
   isOnline?: boolean;
   userId?: string;
   hasExistingStory?: boolean;
+  storyType?: string;
+  textContent?: string;
+  bgGradient?: string;
+  caption?: string;
 }
 
 // ─── Progress bar ────────────────────────────────────────────────────────────
@@ -91,8 +95,9 @@ interface StoryViewerProps {
 
 function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const insets = useSafeAreaInsets();
-  const viewable = stories.filter((s) => !s.isOwn);
-  const [current, setCurrent] = useState(Math.max(0, startIndex - 1));
+  // Include own story when they have an existing one
+  const viewable = stories.filter((s) => !s.isOwn || s.hasExistingStory);
+  const [current, setCurrent] = useState(Math.max(0, startIndex));
   const [reacted, setReacted] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const [showReactions, setShowReactions] = useState(false);
@@ -100,9 +105,13 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const translateY = useSharedValue(0);
 
-  const storyImage = viewable[current]?.image || STORY_IMAGES[current % STORY_IMAGES.length];
-  const caption = STORY_CAPTIONS[current % STORY_CAPTIONS.length];
   const story = viewable[current];
+  const isTextStory = story?.storyType === "text" || (!!story?.textContent && !story?.image);
+  const storyImage = story?.image || (!isTextStory ? STORY_IMAGES[current % STORY_IMAGES.length] : "");
+  const caption = story?.caption || (!isTextStory ? STORY_CAPTIONS[current % STORY_CAPTIONS.length] : "");
+  const bgColors: [string, string] = story?.bgGradient
+    ? (story.bgGradient.split(",").slice(0, 2) as [string, string])
+    : ["#7C3AED", "#EA580C"];
 
   const clearTimer = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -174,11 +183,22 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View style={[viewerStyles.container, sheetStyle]}>
-        <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        <LinearGradient
-          colors={["rgba(0,0,0,0.65)", "transparent", "transparent", "rgba(0,0,0,0.75)"]}
-          style={StyleSheet.absoluteFill}
-        />
+        {isTextStory ? (
+          <>
+            <LinearGradient colors={bgColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+            <View style={viewerStyles.textStoryContent} pointerEvents="none">
+              <Text style={viewerStyles.textStoryText}>{story.textContent}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <LinearGradient
+              colors={["rgba(0,0,0,0.65)", "transparent", "transparent", "rgba(0,0,0,0.75)"]}
+              style={StyleSheet.absoluteFill}
+            />
+          </>
+        )}
 
         <StoryProgressBar total={viewable.length} current={current} progress={progress} />
 
@@ -321,6 +341,22 @@ const viewerStyles = StyleSheet.create({
     width: 42, height: 42, borderRadius: 21,
     backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center",
   },
+  textStoryContent: {
+    ...StyleSheet.absoluteFillObject as any,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  textStoryText: {
+    color: "#fff",
+    fontFamily: "Poppins_700Bold",
+    fontSize: 28,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.45)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    lineHeight: 38,
+  },
 });
 
 // ─── Story circle item ────────────────────────────────────────────────────────
@@ -398,13 +434,19 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
   const [viewerStart, setViewerStart] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
 
+  // Viewable list mirrors the filter used inside StoryViewer
+  const viewable = stories.filter((s) => !s.isOwn || s.hasExistingStory);
+
   const openStory = (index: number) => {
     const story = stories[index];
-    if (story.isOwn) {
+    if (story.isOwn && !story.hasExistingStory) {
+      // No existing story yet → open the create sheet
       setCreateOpen(true);
       return;
     }
-    setViewerStart(index);
+    // Find the correct index in the viewable list so StoryViewer starts on the right slide
+    const viewableIndex = viewable.findIndex((s) => s.id === story.id);
+    setViewerStart(viewableIndex >= 0 ? viewableIndex : 0);
     setViewerOpen(true);
   };
 
