@@ -38,7 +38,7 @@ export default function ReelDetailScreen() {
     (async () => {
       const { data } = await supabase
         .from("reels")
-        .select("*, profiles(id, username, avatar_url, is_verified)")
+        .select("*, profiles!user_id(id, username, avatar_url, is_verified)")
         .eq("id", id)
         .single();
       if (data) {

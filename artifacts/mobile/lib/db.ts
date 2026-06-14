@@ -1050,7 +1050,7 @@ export async function getPersonalizedFeed(userId: string, limit = 20, offset = 0
   } catch {}
   const { data: fallback } = await supabase
     .from('posts')
-    .select('*, profiles(*)')
+    .select('*, profiles!user_id(*)')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
   return (fallback as Post[]) ?? [];
@@ -1123,7 +1123,7 @@ export async function fetchLeaderboard(period = 'weekly'): Promise<LeaderboardEn
   try {
     const { data, error } = await supabase
       .from('leaderboard')
-      .select('*, profiles(username, avatar_url)')
+      .select('*, profiles!user_id(username, avatar_url)')
       .eq('period', period)
       .order('rank', { ascending: true })
       .limit(10);
@@ -1332,9 +1332,9 @@ export async function getNearbyFeed(lat: number, lng: number, userId: string, li
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data: nd, error: ne } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  const { data: nd, error: ne } = await supabase.from('posts').select('*, profiles!user_id(*)').or('visibility.eq.public,visibility.is.null').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
   if (!ne) return (nd as Post[]) ?? [];
-  const { data: nf } = await supabase.from('posts').select('*, profiles(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  const { data: nf } = await supabase.from('posts').select('*, profiles!user_id(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
   return (nf as Post[]) ?? [];
 }
 
@@ -1345,9 +1345,9 @@ export async function getVibesFeed(userId: string, limit = 20, offset = 0): Prom
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data: vd, error: ve } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
+  const { data: vd, error: ve } = await supabase.from('posts').select('*, profiles!user_id(*)').or('visibility.eq.public,visibility.is.null').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
   if (!ve) return (vd as Post[]) ?? [];
-  const { data: vf } = await supabase.from('posts').select('*, profiles(*)').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
+  const { data: vf } = await supabase.from('posts').select('*, profiles!user_id(*)').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
   return (vf as Post[]) ?? [];
 }
 
@@ -2294,7 +2294,7 @@ export async function getRoomMessages(roomId: string): Promise<VibeRoomMessage[]
   try {
     const { data, error } = await supabase
       .from("vibe_room_messages")
-      .select("id, room_id, user_id, text, created_at, profiles(display_name, username, avatar_url)")
+      .select("id, room_id, user_id, text, created_at, profiles!user_id(display_name, username, avatar_url)")
       .eq("room_id", roomId)
       .order("created_at", { ascending: true })
       .limit(100);

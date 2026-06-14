@@ -35,7 +35,7 @@ export default function PostDetailScreen() {
     (async () => {
       const { data } = await supabase
         .from("posts")
-        .select("*, profiles(id, username, avatar_url, is_verified)")
+        .select("*, profiles!user_id(id, username, avatar_url, is_verified)")
         .eq("id", id)
         .single();
       if (data) {
