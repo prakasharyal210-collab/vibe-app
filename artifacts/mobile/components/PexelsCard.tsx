@@ -164,7 +164,7 @@ export function PexelsCard({ photo, category }: Props) {
           />
           {/* Pexels watermark */}
           <View style={styles.pexelsBadge}>
-            <Ionicons name="aperture-outline" size={11} color="#fff" />
+            <Ionicons name="aperture" size={11} color="#fff" />
             <Text style={styles.pexelsBadgeText}>Pexels</Text>
           </View>
         </View>

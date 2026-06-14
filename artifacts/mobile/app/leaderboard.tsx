@@ -180,7 +180,7 @@ export default function LeaderboardScreen() {
           <Text style={[styles.countdown, { color: colors.mutedForeground }]}>{countdown}</Text>
         </View>
         <TouchableOpacity onPress={load} style={styles.refreshBtn}>
-          <Ionicons name="refresh-outline" size={22} color={colors.mutedForeground} />
+          <Ionicons name="refresh" size={22} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
 

@@ -460,7 +460,7 @@ export function MusicPickerSheet({ visible, onClose, onSelect, selectedTrack }: 
           </View>
         ) : !deezerError && tracks.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="musical-notes-outline" size={48} color={colors.mutedForeground} />
+            <Ionicons name="musical-notes" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
               {category === "Favorites" ? "No saved sounds yet" : "No tracks found"}
             </Text>

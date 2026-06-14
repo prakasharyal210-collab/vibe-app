@@ -1,0 +1,19 @@
+
+Two issues to fix:
+1. ROOT CAUSE INVESTIGATION — Broken icons (empty boxes/tofu) persist across the ENTIRE app despite multiple targeted icon-name fixes. This is likely a FONT-LOADING issue, not individual icon name mismatches.
+Before doing any more icon-name swaps, investigate:
+
+Is @expo/vector-icons's Ionicons font properly loaded via expo-font's useFonts() hook in the root layout/App component?
+Is the app waiting (via SplashScreen.preventAutoHideAsync() + useFonts() + hiding splash only after fonts load) before rendering ANY UI? If fonts load asynchronously but the UI renders immediately, icons will show as boxes until the font loads — and may never re-render once loaded if not handled correctly.
+Test: does ANY icon ANYWHERE in the app currently render correctly? If essentially zero icons work regardless of "correct" name, it's a font-loading bug, not naming.
+Check app.config.js/app.json — is expo-font plugin configured? Are font assets included in assetBundlePatterns?
+
+If this is the root cause: fix font loading ONCE at the app root (wrap app in useFonts({ ...Ionicons.font }) + proper splash-screen handling) — this could resolve dozens of individual icon bugs across every screen we've patched so far, without needing further icon-name swaps.
+2. "Your Story" tap-to-view should open PostedStoryViewer (Instagram-style reference layout):
+When tapping "Your Story" avatar (when an active story exists), open a full-screen viewer with:
+
+Top: progress bar, your avatar + username + "Just now"/time-ago + heart icon + "•••" menu
+Bottom bar: "No viewers yet" (▲ + count, tappable for viewer list), "Add new" (+, re-opens create-story flow), "Share" (forward to DM), "Share as post" (cross-post to feed grid)
+
+Per the earlier implementation summary, PostedStoryViewer already exists and is shown immediately after posting — but confirm tapping "Your Story" AGAIN later (to re-view an active story, not just right after posting) ALSO opens this same viewer with the correct content and options.
+Priority: fix #1 first (icon font loading) since it likely affects #2's icons too (heart, ellipsis, +, share icons in the viewer) and every other screen in the app.

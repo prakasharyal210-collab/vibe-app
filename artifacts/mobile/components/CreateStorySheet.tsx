@@ -42,7 +42,7 @@ const TEXT_ALIGNS: ("left" | "center" | "right")[] = ["left", "center", "right"]
 type Mode = "sheet" | "text" | "media-edit" | "share-options" | "uploading" | "posted-viewer";
 type Audience = "public" | "friends" | "close_friends";
 
-interface PendingStory {
+export interface PendingStory {
   textContent?: string;
   bgGradient?: string;
   mediaUri?: string;
@@ -424,7 +424,7 @@ function ShareOptionsScreen({
 
 // ─── Posted Story Viewer ──────────────────────────────────────────────────────
 
-function PostedStoryViewer({
+export function PostedStoryViewer({
   pending,
   username,
   onClose,

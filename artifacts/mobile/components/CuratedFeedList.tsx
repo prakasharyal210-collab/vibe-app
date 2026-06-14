@@ -165,7 +165,7 @@ export function CuratedFeedList({ mode, maxPhotos = 10, maxVideos = 5 }: Props) 
           {/* ── Attribution footer ── */}
           <View style={styles.attribution}>
             <View style={styles.attrRow}>
-              <Ionicons name="aperture-outline" size={12} color="rgba(255,255,255,0.3)" />
+              <Ionicons name="aperture" size={12} color="rgba(255,255,255,0.3)" />
               <Text style={[styles.attrText, { color: colors.mutedForeground }]}>Photos & Videos by Pexels</Text>
             </View>
           </View>

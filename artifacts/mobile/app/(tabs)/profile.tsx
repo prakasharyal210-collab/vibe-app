@@ -603,7 +603,7 @@ export default function ProfileScreen() {
             }}
             style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           >
-            <Ionicons name="share-outline" size={18} color={colors.foreground} />
+            <Ionicons name="share-social-outline" size={18} color={colors.foreground} />
           </TouchableOpacity>
           <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => router.push("/suggested-users" as any)}>
             <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
@@ -723,7 +723,7 @@ export default function ProfileScreen() {
             )}
             {(item as any).is_pinned && (
               <View style={styles.pinBadge}>
-                <Ionicons name="pin" size={10} color="#fff" />
+                <Ionicons name="location" size={10} color="#fff" />
               </View>
             )}
             {(item.isReel || item.is_video) && (

@@ -865,7 +865,7 @@ export default function ReelsScreen() {
             <Ionicons name="search-outline" size={23} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowSounds(true)} style={S.topIconBtn}>
-            <Ionicons name="musical-notes-outline" size={23} color="#fff" />
+            <Ionicons name="musical-notes" size={23} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>

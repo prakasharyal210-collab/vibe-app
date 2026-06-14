@@ -165,7 +165,7 @@ export function PexelsVideoCard({ video }: Props) {
         <View style={{ flex: 1 }} />
 
         <View style={styles.pexelsAttr}>
-          <Ionicons name="aperture-outline" size={11} color="rgba(255,255,255,0.3)" />
+          <Ionicons name="aperture" size={11} color="rgba(255,255,255,0.3)" />
           <Text style={styles.pexelsAttrText}>Pexels</Text>
         </View>
       </View>

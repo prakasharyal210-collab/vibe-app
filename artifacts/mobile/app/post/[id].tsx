@@ -93,7 +93,7 @@ export default function PostDetailScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Post</Text>
         <TouchableOpacity onPress={handleShare} style={styles.backBtn}>
-          <Ionicons name="share-outline" size={22} color={colors.foreground} />
+          <Ionicons name="share-social-outline" size={22} color={colors.foreground} />
         </TouchableOpacity>
       </View>
 
@@ -134,7 +134,7 @@ export default function PostDetailScreen() {
             <Text style={[styles.actionCount, { color: colors.foreground }]}>{formatCount(post.comments_count ?? 0)}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => {}} style={styles.actionItem}>
-            <Ionicons name="repeat-outline" size={28} color={colors.foreground} />
+            <Ionicons name="refresh" size={28} color={colors.foreground} />
           </TouchableOpacity>
           <View style={{ flex: 1 }} />
           <TouchableOpacity onPress={() => setSaved((v) => !v)} style={styles.actionItem}>

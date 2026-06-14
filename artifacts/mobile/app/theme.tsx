@@ -101,7 +101,7 @@ export default function ThemeScreen() {
                   <Text style={styles.cardName}>{t.emoji} {t.name}</Text>
                   {t.premium ? (
                     <View style={styles.premiumBadge}>
-                      <Ionicons name="ribbon" size={9} color="#F59E0B" />
+                      <Ionicons name="star" size={9} color="#F59E0B" />
                       <Text style={styles.premiumText}>Premium</Text>
                     </View>
                   ) : (

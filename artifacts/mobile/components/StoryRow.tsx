@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { CreateStorySheet } from "./CreateStorySheet";
+import { CreateStorySheet, PendingStory, PostedStoryViewer } from "./CreateStorySheet";
 import {
   Dimensions,
   Image,
@@ -433,6 +433,8 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerStart, setViewerStart] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
+  const [ownViewerOpen, setOwnViewerOpen] = useState(false);
+  const [ownStoryPending, setOwnStoryPending] = useState<PendingStory | null>(null);
 
   const ownUsername = stories.find((s) => s.isOwn)?.username ?? "";
 
@@ -441,9 +443,22 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
 
   const openStory = (index: number) => {
     const story = stories[index];
-    if (story.isOwn && !story.hasExistingStory) {
-      // No existing story yet → open the create sheet
-      setCreateOpen(true);
+    if (story.isOwn) {
+      if (!story.hasExistingStory) {
+        // No story yet → open the create sheet
+        setCreateOpen(true);
+      } else {
+        // Has an existing story → open the own-story viewer
+        const storyType = story.storyType === "text" ? "text" : story.storyType === "video" ? "video" : "image";
+        setOwnStoryPending({
+          storyType,
+          textContent: story.textContent,
+          bgGradient: story.bgGradient,
+          mediaUri: storyType !== "text" ? story.image : undefined,
+          caption: story.caption,
+        });
+        setOwnViewerOpen(true);
+      }
       return;
     }
     // Find the correct index in the viewable list so StoryViewer starts on the right slide
@@ -471,6 +486,20 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
             stories={stories}
             startIndex={viewerStart}
             onClose={() => setViewerOpen(false)}
+          />
+        </Modal>
+      )}
+
+      {ownViewerOpen && ownStoryPending && (
+        <Modal visible animationType="fade" transparent onRequestClose={() => setOwnViewerOpen(false)}>
+          <PostedStoryViewer
+            pending={ownStoryPending}
+            username={ownUsername}
+            onClose={() => setOwnViewerOpen(false)}
+            onAddNew={() => {
+              setOwnViewerOpen(false);
+              setCreateOpen(true);
+            }}
           />
         </Modal>
       )}

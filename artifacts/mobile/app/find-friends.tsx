@@ -292,7 +292,7 @@ function QRModal({
             }}
           >
             <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={qrS.shareBtnGrad}>
-              <Ionicons name="share-outline" size={18} color="#fff" />
+              <Ionicons name="share-social-outline" size={18} color="#fff" />
               <Text style={qrS.shareBtnText}>Share QR Code</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -623,7 +623,7 @@ export default function FindFriendsScreen() {
                 }}
               >
                 <LinearGradient colors={["#EAB308", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={S.referralShareGrad}>
-                  <Ionicons name="share-outline" size={14} color="#fff" />
+                  <Ionicons name="share-social-outline" size={14} color="#fff" />
                   <Text style={S.referralShareText}>Invite</Text>
                 </LinearGradient>
               </TouchableOpacity>
