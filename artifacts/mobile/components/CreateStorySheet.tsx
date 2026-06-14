@@ -168,11 +168,11 @@ function TextStoryEditor({
 // ─── Media Edit Screen ────────────────────────────────────────────────────────
 
 const EDIT_TOOLS = [
-  { icon: "musical-notes-outline", label: "Music" },
-  { icon: "happy-outline", label: "Stickers" },
-  { icon: "text", label: "Text" },
+  { icon: "musical-notes", label: "Music" },
+  { icon: "heart", label: "Stickers" },
+  { icon: "chatbubble", label: "Text" },
   { icon: "sparkles-outline", label: "Effects" },
-  { icon: "at-outline", label: "Mention" },
+  { icon: "person-add-outline", label: "Mention" },
 ] as const;
 
 function MediaEditScreen({
@@ -208,7 +208,7 @@ function MediaEditScreen({
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
         <TouchableOpacity onPress={() => stub("Music")} style={meStyles.musicChip}>
-          <Ionicons name="musical-notes-outline" size={14} color="#fff" />
+          <Ionicons name="musical-notes" size={14} color="#fff" />
           <Text style={meStyles.musicChipText}>Add music</Text>
         </TouchableOpacity>
         <View style={meStyles.topRight}>
@@ -672,9 +672,9 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
 
   const options = [
     { icon: "camera-outline", label: "Camera", sub: "Take a photo", onPress: handleCamera, color: "#7C3AED" },
-    { icon: "images-outline", label: "Gallery", sub: "Choose from library", onPress: handleGallery, color: "#F97316" },
-    { icon: "text", label: "Text Story", sub: "Colored background", onPress: () => setMode("text"), color: "#EC4899" },
-    { icon: "repeat-outline", label: "Quick Clip", sub: "Short looping video", onPress: handleQuickClip, color: "#3B82F6" },
+    { icon: "image-outline", label: "Gallery", sub: "Choose from library", onPress: handleGallery, color: "#F97316" },
+    { icon: "chatbubble", label: "Text Story", sub: "Colored background", onPress: () => setMode("text"), color: "#EC4899" },
+    { icon: "refresh", label: "Quick Clip", sub: "Short looping video", onPress: handleQuickClip, color: "#3B82F6" },
   ];
 
   return (
