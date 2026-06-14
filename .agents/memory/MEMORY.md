@@ -6,6 +6,7 @@
 - [Android black screen: iOS-only imports](expo-go-native-crashes.md) — top-level import of any iOS-only module (expo-glass-effect, unstable-native-tabs) crashes the whole tab layout on Android; use platform files or inline require().
 - [AI caption generator](ai-caption-feature.md) — API route at /api/ai/caption uses claude-sonnet-4-5; AICaptionSheet + VideoEditorSheet wired; ai_caption_requests Supabase table; EXPO_PUBLIC_API_URL="" (empty = relative URL, works via Replit proxy).
 - [EAS Android build fixes](eas-android-build.md) — hermesc linux64-bin (HBC v96, RN 0.81.5) can't compile class declarations OR async arrow functions; babel preset-reversal pattern fixes both.
+- [Expo SDK version drift: AnyTypeCache crash](expo-sdk-version-drift.md) — expo-device/notifications/build-properties at SDK 56 while core expo is SDK 54 causes NoClassDefFoundError:AnyTypeCache; fix by pinning to bundledNativeModules.json versions.
 - [Find Gundruk privacy settings](find-gundruk-privacy.md) — 3 profile columns (show_in_matching, find_gundruk_mode, vibe_request_privacy); profiles table lives in Supabase not local Drizzle DB; migration SQL at artifacts/mobile/supabase_migration_privacy.sql
 - [Vibe smart matching algorithm](vibe-smart-matching.md) — 100-pt scoring SQL in scripts/vibe-matching-migration.sql; new db.ts exports; find.tsx swipe limits wired in SwipeCardDeck.
 - [Gundruk AI system](gundruk-ai-system.md) — all AI calls via POST /api/ai/chat; 15+ feature types; mobile lib/ai.ts with AsyncStorage cache; parseAIJson handles markdown-wrapped JSON from Claude.
