@@ -274,23 +274,28 @@ router.post("/create", async (req, res) => {
     ...(options.location ? { location: options.location } : {}),
   };
 
-  const { data, error } = await sb
-    .from("posts")
-    .insert(payload)
-    .select("id")
-    .single();
-
-  if (error) {
-    req.log.error({ err: error.message }, "Post insert failed");
-    res.status(500).json({ error: error.message });
+  const r1 = await sb.from("posts").insert(payload).select("id").single();
+  // Graceful fallback: if visibility column not yet created, retry without it
+  let insertData = r1.data as { id: string } | null;
+  let insertErr = r1.error;
+  if (insertErr?.message?.includes("visibility")) {
+    const payloadNoVis = { ...payload };
+    delete payloadNoVis.visibility;
+    const r2 = await sb.from("posts").insert(payloadNoVis).select("id").single();
+    insertData = r2.data as { id: string } | null;
+    insertErr = r2.error;
+  }
+  if (insertErr) {
+    req.log.error({ err: insertErr.message }, "Post insert failed");
+    res.status(500).json({ error: insertErr.message });
     return;
   }
 
-  const postId = (data as { id: string }).id;
+  const postId = (insertData as { id: string }).id;
 
   // ── Fire-and-forget side-effects ─────────────────────────────────────────────
 
-  // 1. Tag users
+  // 1. Tag users + send a "tag" notification to each tagged user
   if (options.taggedUsers?.length) {
     void Promise.resolve(
       sb.from("post_tags").insert(
@@ -298,6 +303,19 @@ router.post("/create", async (req, res) => {
           post_id: postId,
           tagged_user_id: uid,
           tagged_by: userId,
+        }))
+      )
+    ).catch(() => {});
+
+    void Promise.resolve(
+      sb.from("notifications").insert(
+        options.taggedUsers.map((uid) => ({
+          recipient_id: uid,
+          sender_id: userId,
+          type: "tag",
+          message: "tagged you in a post",
+          post_id: postId,
+          is_read: false,
         }))
       )
     ).catch(() => {});

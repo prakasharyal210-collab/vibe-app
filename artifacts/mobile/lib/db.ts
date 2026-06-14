@@ -1169,14 +1169,22 @@ function viralBoostFeed(base: Post[], fresh: Post[], everyN = 3): Post[] {
 
 async function fetchFreshPosts(limit = 20): Promise<Post[]> {
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('posts')
       .select('*, profiles!user_id(*)')
       .or('visibility.eq.public,visibility.is.null')
       .order('score', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(limit);
-    return (data as Post[]) ?? [];
+    if (!error) return (data as Post[]) ?? [];
+    // visibility column not yet added (migration pending) — return all posts
+    const { data: fallback } = await supabase
+      .from('posts')
+      .select('*, profiles!user_id(*)')
+      .order('score', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    return (fallback as Post[]) ?? [];
   } catch {
     return [];
   }
@@ -1310,8 +1318,10 @@ export async function getNearbyFeed(lat: number, lng: number, userId: string, li
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-  return (data as Post[]) ?? [];
+  const { data: nd, error: ne } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  if (!ne) return (nd as Post[]) ?? [];
+  const { data: nf } = await supabase.from('posts').select('*, profiles(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+  return (nf as Post[]) ?? [];
 }
 
 export async function getVibesFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
@@ -1321,8 +1331,10 @@ export async function getVibesFeed(userId: string, limit = 20, offset = 0): Prom
     });
     if (!error && data && data.length > 0) return data as Post[];
   } catch {}
-  const { data } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
-  return (data as Post[]) ?? [];
+  const { data: vd, error: ve } = await supabase.from('posts').select('*, profiles(*)').or('visibility.eq.public,visibility.is.null').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
+  if (!ve) return (vd as Post[]) ?? [];
+  const { data: vf } = await supabase.from('posts').select('*, profiles(*)').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
+  return (vf as Post[]) ?? [];
 }
 
 export async function markPostSeen(userId: string, postId: string): Promise<void> {

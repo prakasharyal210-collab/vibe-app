@@ -97,24 +97,32 @@ router.post("/create", async (req, res) => {
     ? (visibility as string)
     : "public";
 
-  const { data, error } = await sb
-    .from("reels")
-    .insert({
-      user_id: userId,
-      video_url: videoUrl ?? "",
-      thumbnail_url: thumbnailUrl ?? null,
-      caption,
-      hashtags: extractHashtags(caption),
-      duration: duration ?? null,
-      visibility: safeVisibility,
-      is_public: true,
-      likes_count: 0,
-      comments_count: 0,
-      views_count: 0,
-      created_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+  const reelPayload: Record<string, unknown> = {
+    user_id: userId,
+    video_url: videoUrl ?? "",
+    thumbnail_url: thumbnailUrl ?? null,
+    caption,
+    hashtags: extractHashtags(caption),
+    duration: duration ?? null,
+    visibility: safeVisibility,
+    is_public: true,
+    likes_count: 0,
+    comments_count: 0,
+    views_count: 0,
+    created_at: new Date().toISOString(),
+  };
+
+  const rr1 = await sb.from("reels").insert(reelPayload).select("id").single();
+  // Graceful fallback: if visibility column not yet created, retry without it
+  let data = rr1.data;
+  let error = rr1.error;
+  if (error?.message?.includes("visibility")) {
+    const payloadNoVis = { ...reelPayload };
+    delete payloadNoVis.visibility;
+    const rr2 = await sb.from("reels").insert(payloadNoVis).select("id").single();
+    data = rr2.data;
+    error = rr2.error;
+  }
 
   if (error) {
     req.log.error({ err: error.message }, "Reel insert failed");

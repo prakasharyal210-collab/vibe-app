@@ -27,17 +27,19 @@ function notifTypeText(type: string): string {
     case "follow": return "started following you";
     case "vibe": return "sent you a vibe ✨";
     case "mention": return "mentioned you in a comment";
+    case "tag": return "tagged you in a post";
     default: return "interacted with you";
   }
 }
 
-const TYPE_CONFIG = {
+const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
   like: { icon: "heart", color: "#F97316", bg: "rgba(249,115,22,0.15)" },
   comment: { icon: "chatbubble", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
   follow: { icon: "person-add", color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
   vibe: { icon: "heart-circle", color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
   mention: { icon: "at-circle", color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
-} as const;
+  tag: { icon: "pricetag", color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+};
 
 function NotifItem({ notif, onRead }: { notif: Notification; onRead: (id: string) => void }) {
   const colors = useColors();
