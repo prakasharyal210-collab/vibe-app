@@ -2296,29 +2296,12 @@ export interface SnapConversation {
 
 export async function fetchSnapConversations(userId: string): Promise<SnapConversation[]> {
   try {
-    const { data, error } = await supabase
-      .from("messages")
-      .select("*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)")
-      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-      .like("text", "__SNAP__%")
-      .order("created_at", { ascending: false })
-      .limit(200);
-    if (error || !data) return [];
-    const seen = new Map<string, SnapConversation>();
-    for (const msg of data as any[]) {
-      const isIncoming = msg.receiver_id === userId;
-      const otherId = isIncoming ? msg.sender_id : msg.receiver_id;
-      const otherUser = isIncoming ? msg.sender : msg.receiver;
-      if (!otherUser || seen.has(otherId)) continue;
-      seen.set(otherId, {
-        other_user: { id: otherId, username: otherUser.username, avatar_url: otherUser.avatar_url },
-        message_id: msg.id,
-        message_text: msg.text,
-        is_incoming: isIncoming,
-        created_at: msg.created_at,
-      });
-    }
-    return Array.from(seen.values());
+    // Route through API server — direct Supabase client hangs on Android,
+    // and the old filter used "text" (wrong column, should be "content").
+    const res = await fetch(`${API_BASE}/messages/snaps?userId=${encodeURIComponent(userId)}`);
+    if (!res.ok) return [];
+    const json = await res.json() as { snapConvos?: SnapConversation[] };
+    return json.snapConvos ?? [];
   } catch { return []; }
 }
 

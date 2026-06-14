@@ -217,10 +217,8 @@ router.post("/create", async (req, res) => {
   }
 
   // Insert post record (service role bypasses RLS)
-  const safeVisibility = (["public", "friends", "private"] as const).includes(
-    options.visibility as "public" | "friends" | "private"
-  ) ? options.visibility : "public";
-
+  // NOTE: 'visibility', 'comments_enabled', 'downloads_enabled' columns do not
+  // exist in the Supabase posts table — omit them to avoid schema-cache errors.
   const payload: Record<string, unknown> = {
     user_id: userId,
     media_url: mediaUrl ?? "",
@@ -228,7 +226,6 @@ router.post("/create", async (req, res) => {
     likes_count: 0,
     comments_count: 0,
     views_count: 0,
-    visibility: safeVisibility,
     created_at: new Date().toISOString(),
     ...(options.filterId ? { filter_id: options.filterId } : {}),
     ...(options.location ? { location: options.location } : {}),

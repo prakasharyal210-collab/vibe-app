@@ -76,10 +76,19 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  // DB column is "content", not "text"
+  // DB column is "content", not "text".
+  // Auto-detect snap messages so Snaps tab can filter by message_type='snap'.
+  const isSnap = text.startsWith("__SNAP__:");
+  const insertRow: Record<string, unknown> = {
+    sender_id: senderId,
+    receiver_id: receiverId,
+    content: text,
+  };
+  if (isSnap) insertRow["message_type"] = "snap";
+
   const { data, error } = await sb
     .from("messages")
-    .insert({ sender_id: senderId, receiver_id: receiverId, content: text })
+    .insert(insertRow)
     .select()
     .single();
   if (error) {
@@ -122,6 +131,49 @@ router.patch("/:id", async (req, res) => {
     res.json({ ok: true });
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
+// GET /api/messages/snaps?userId=
+// Returns snap conversations (messages whose content starts with __SNAP__:)
+// grouped by conversation partner, most-recent first.
+router.get("/snaps", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("messages")
+      .select("*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)")
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .like("content", "__SNAP__%")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    const seen = new Map<string, object>();
+    for (const msg of (data ?? []) as any[]) {
+      const isIncoming = msg.receiver_id === userId;
+      const otherId = isIncoming ? msg.sender_id : msg.receiver_id;
+      const otherUser = isIncoming ? msg.sender : msg.receiver;
+      if (!otherUser || seen.has(otherId)) continue;
+      seen.set(otherId, {
+        other_user: { id: otherId, username: otherUser.username, avatar_url: otherUser.avatar_url },
+        message_id: msg.id,
+        message_text: msg.content,
+        is_incoming: isIncoming,
+        created_at: msg.created_at,
+      });
+    }
+    res.json({ snapConvos: Array.from(seen.values()) });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "snaps exception");
+    res.status(500).json({ error: "Failed" });
   }
 });
 
