@@ -722,7 +722,7 @@ export default function FeedScreen() {
                   if (isTrending) {
                     return (
                       <>
-                        {tab.id === "friends" && friendStories.length > 0 && (
+                        {tab.id === "friends" && activeTab === "friends" && friendStories.length > 0 && (
                           <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />
                         )}
                         <TrendingGrid
@@ -733,7 +733,7 @@ export default function FeedScreen() {
                       </>
                     );
                   }
-                  if (tab.id === "friends") {
+                  if (tab.id === "friends" && activeTab === "friends") {
                     return <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />;
                   }
                   if (tab.id === "foryou") {

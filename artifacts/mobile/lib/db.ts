@@ -797,16 +797,13 @@ export async function fetchFriendStories(myUserId: string): Promise<StoryEntry[]
       hasExistingStory: !!myStory,
     };
 
-    // Find mutual followers (people I follow AND who follow me back)
-    const [{ data: followingData }, { data: followersData }] = await Promise.all([
-      supabase.from("follows").select("following_id").eq("follower_id", myUserId),
-      supabase.from("follows").select("follower_id").eq("following_id", myUserId),
-    ]);
+    // One-directional: show stories from anyone the current user follows
+    const { data: followingData } = await supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", myUserId);
 
-    const followingSet = new Set((followingData ?? []).map((f: any) => f.following_id));
-    const mutualIds = (followersData ?? [])
-      .map((f: any) => f.follower_id)
-      .filter((id: string) => followingSet.has(id));
+    const mutualIds = (followingData ?? []).map((f: any) => f.following_id as string);
 
     if (mutualIds.length === 0) return [ownEntry, ...MOCK_FRIEND_STORIES];
 
