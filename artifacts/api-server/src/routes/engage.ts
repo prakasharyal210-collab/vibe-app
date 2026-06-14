@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
 
+// Cached per-process: skip bump_affinity RPC once we know it's not deployed.
+let bumpAffinityRpcAvailable = true;
+
 function makeSupabase() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
@@ -15,7 +18,7 @@ const DELTAS: Record<string, number> = {
   comment:        0.5,
   save:           0.7,
   share:          0.4,
-  watch_complete: 0.4,  // reel watched to >80% completion
+  watch_complete: 0.4,
   skip:          -0.2,
   hide:          -1.5,
 };
@@ -48,12 +51,27 @@ router.post("/", async (req, res) => {
 
   const sb = makeSupabase();
 
-  // ── Helper: read-modify-write a single affinity key (clamped [-5, 10]) ────
-  async function upsertAffinity(key: string, d: number) {
+  // ── Atomic affinity bump via bump_affinity RPC (single round trip per key) ──
+  // Falls back to legacy SELECT+UPSERT if the RPC hasn't been deployed yet.
+  async function bumpAffinity(key: string, d: number): Promise<void> {
+    if (bumpAffinityRpcAvailable) {
+      const { error } = await sb.rpc("bump_affinity", {
+        p_user_id: userId,
+        p_key:     key,
+        p_delta:   d,
+      });
+      if (!error) return;
+
+      // Mark unavailable so subsequent calls skip the wasted round trip.
+      bumpAffinityRpcAvailable = false;
+      req.log.info({ err: error.message }, "bump_affinity RPC unavailable — run performance-indexes.sql in Supabase to activate 1-query path");
+    }
+
+    // Fallback: read-modify-write (2 round trips instead of 1)
     const { data: row } = await sb
       .from("user_interests")
       .select("weight")
-      .eq("user_id", userId)
+      .eq("user_id", userId!)
       .eq("interest_key", key)
       .maybeSingle();
 
@@ -67,30 +85,37 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1. Creator affinity (always)
-    await upsertAffinity(`creator:${creatorId}`, delta);
+    // 1. Creator affinity — always, first (await so we can respond quickly)
+    await bumpAffinity(`creator:${creatorId}`, delta);
 
-    // 2. Category affinity — positive signals only, requires contentId
+    // 2. Category affinity — positive signals only, fire-and-forget (non-blocking)
+    //    Fetches content categories then bumps all matching keys in parallel.
+    //    Not awaited so the response returns immediately after creator bump.
     if (contentId && contentType && delta > 0) {
-      const table = contentType === "reel" ? "reels" : "posts";
-      const { data: content } = await sb
-        .from(table)
-        .select("categories")
-        .eq("id", contentId)
-        .maybeSingle();
+      void (async () => {
+        try {
+          const table = contentType === "reel" ? "reels" : "posts";
+          const { data: content } = await sb
+            .from(table)
+            .select("categories")
+            .eq("id", contentId)
+            .maybeSingle();
 
-      const categories: string[] = (content as any)?.categories ?? [];
-      if (categories.length > 0) {
-        await Promise.all(
-          categories.map((cat) => upsertAffinity(`category:${cat}`, delta))
-        );
-        req.log.debug({ categories, action, contentId }, "recorded category affinities");
-      }
+          const categories: string[] = (content as any)?.categories ?? [];
+          if (categories.length > 0) {
+            await Promise.all(
+              categories.map((cat) => bumpAffinity(`category:${cat}`, delta))
+            );
+            req.log.debug({ categories, action, contentId }, "category affinities bumped");
+          }
+        } catch (catErr: any) {
+          req.log.warn({ err: catErr?.message }, "category affinity bump failed (non-fatal)");
+        }
+      })();
     }
 
     res.json({ ok: true });
   } catch (err: any) {
-    // Non-fatal — migration may not have run yet
     req.log.warn({ err: err?.message }, "engage upsert failed (migration needed?)");
     res.json({ ok: true });
   }

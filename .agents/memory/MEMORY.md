@@ -19,3 +19,4 @@
 - [Stories feature wiring](stories-wiring.md) — stories table + follows bug (followed_id wrong → following_id); createStory() in db.ts via POST /api/stories; userId prop chain: FriendsStoriesBar→StoryRow→CreateStorySheet; stories-migration.sql needs Supabase dashboard run.
 - [Supabase RLS bypass via API server](supabase-rls-bypass.md) — posts/reels tables block mobile client inserts (hang 15s) and selects (return []); all post/reel create+read must go through API server with service role key.
 - [Auth routing pattern](auth-routing.md) — all post-login/logout navigation lives in _layout.tsx RootLayoutNav; login screen must NOT call router.replace after signIn (race condition → black screen).
+- [Performance audit results](performance-audit.md) — latency measurements, engage/hashtag fixes; SQL needed for full speedup

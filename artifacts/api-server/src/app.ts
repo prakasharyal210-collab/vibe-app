@@ -29,6 +29,17 @@ app.use(cors());
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
+// Response-time header — intercepts res.end() so the header is set before flush
+app.use((_req, res, next) => {
+  const start = Date.now();
+  const origEnd = res.end.bind(res) as typeof res.end;
+  (res.end as any) = (...args: Parameters<typeof res.end>) => {
+    res.setHeader("X-Response-Time", `${Date.now() - start}ms`);
+    return origEnd(...args);
+  };
+  next();
+});
+
 app.use("/api", router);
 
 export default app;

@@ -3,6 +3,10 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const router = Router();
 
+// Remembered per-process once the RPC availability is confirmed/denied.
+// Avoids adding a failed round-trip before the 3-hop fallback on every request.
+let hashtagRpcAvailable = true;
+
 function extractHashtags(text: string): string[] {
   const matches = text.match(/#[\w]+/g);
   return matches ? [...new Set(matches.map((h) => h.slice(1).toLowerCase()))] : [];
@@ -76,7 +80,26 @@ router.get("/hashtag/:tag", async (req, res) => {
   const sb = makeSupabase();
 
   try {
-    // 1 — Look up hashtag row (gives us posts_count for the header)
+    // ── Fast path: single-round-trip JOIN via get_hashtag_posts RPC ──────────
+    // Skipped once we learn the RPC isn't deployed (avoids wasted round trip).
+    if (hashtagRpcAvailable) {
+      const { data: rpcData, error: rpcErr } = await sb
+        .rpc("get_hashtag_posts", { p_tag: tag, p_limit: 60 });
+
+      if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
+        const rows = rpcData as { id: string; media_url: string; likes_count: number; is_reel: boolean; posts_count: number }[];
+        const count = rows[0]?.posts_count ?? rows.length;
+        res.json({ posts: rows.map(({ posts_count: _pc, ...rest }) => rest), count });
+        return;
+      }
+
+      if (rpcErr) {
+        hashtagRpcAvailable = false;
+        req.log.info({ err: rpcErr.message }, "get_hashtag_posts RPC unavailable — run performance-indexes.sql in Supabase to activate 1-query path");
+      }
+    }
+
+    // ── Fallback: 3-query sequential path (used until RPC is deployed) ───────
     const { data: hashtagRow } = await sb
       .from("hashtags")
       .select("id, posts_count")
@@ -84,7 +107,7 @@ router.get("/hashtag/:tag", async (req, res) => {
       .maybeSingle();
 
     if (!hashtagRow) {
-      // Hashtag not in index yet — fall back to caption scan
+      // Not in index yet — caption scan
       const { data: fallback, count: fbCount } = await sb
         .from("posts")
         .select("id, media_url, likes_count, is_reel", { count: "exact" })
@@ -95,7 +118,6 @@ router.get("/hashtag/:tag", async (req, res) => {
       return;
     }
 
-    // 2 — Get post IDs from indexed join table
     const { data: joins } = await sb
       .from("post_hashtags")
       .select("post_id")
@@ -103,13 +125,8 @@ router.get("/hashtag/:tag", async (req, res) => {
       .limit(200);
 
     const postIds = (joins ?? []).map((r: any) => r.post_id as string);
+    if (!postIds.length) { res.json({ posts: [], count: hashtagRow.posts_count ?? 0 }); return; }
 
-    if (!postIds.length) {
-      res.json({ posts: [], count: hashtagRow.posts_count ?? 0 });
-      return;
-    }
-
-    // 3 — Fetch posts sorted by score (likes_count desc)
     const { data: posts } = await sb
       .from("posts")
       .select("id, media_url, likes_count, is_reel")
