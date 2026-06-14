@@ -807,10 +807,8 @@ export default function ReelsScreen() {
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
-        snapToInterval={SCREEN_H}
-        snapToAlignment="start"
-        decelerationRate="fast"
         pagingEnabled
+        decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => ({ length: SCREEN_H, offset: SCREEN_H * index, index })}
         onViewableItemsChanged={onViewableItemsChanged}
