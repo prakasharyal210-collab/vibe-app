@@ -2439,6 +2439,36 @@ export async function createStory(opts: {
   }
 }
 
+export async function createFeedPost(opts: {
+  userId: string;
+  caption?: string;
+  mediaUri?: string;
+  visibility?: string;
+}): Promise<string | null> {
+  try {
+    if (opts.mediaUri) {
+      const result = await uploadPostMedia(opts.userId, opts.mediaUri, opts.caption ?? "", { visibility: opts.visibility ?? "public" });
+      return result?.id ?? null;
+    }
+    // Text-only post
+    const API_BASE_LOCAL = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await withTimeout(
+      fetch(`${API_BASE_LOCAL}/posts/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: opts.userId, caption: opts.caption, options: { visibility: opts.visibility ?? "public" } }),
+      }),
+      30_000,
+      "create feed post API",
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { id: string };
+    return data.id;
+  } catch {
+    return null;
+  }
+}
+
 export async function uploadStoryMedia(
   userId: string,
   uri: string,

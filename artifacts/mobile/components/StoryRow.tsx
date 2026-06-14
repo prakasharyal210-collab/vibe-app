@@ -434,6 +434,8 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
   const [viewerStart, setViewerStart] = useState(0);
   const [createOpen, setCreateOpen] = useState(false);
 
+  const ownUsername = stories.find((s) => s.isOwn)?.username ?? "";
+
   // Viewable list mirrors the filter used inside StoryViewer
   const viewable = stories.filter((s) => !s.isOwn || s.hasExistingStory);
 
@@ -481,6 +483,7 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
           onStoryCreated?.();
         }}
         userId={userId}
+        username={ownUsername}
       />
     </>
   );

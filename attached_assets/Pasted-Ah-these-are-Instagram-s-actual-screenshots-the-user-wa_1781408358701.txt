@@ -1,0 +1,37 @@
+Ah, these are Instagram's actual screenshots — the user wants Gundruk's story flow to match this UX exactly. Here's the prompt:
+
+Redesign Gundruk's "Create Story" flow to match Instagram's UX (reference screenshots provided showing Instagram's actual flow):
+Step 1 — Capture/Edit screen (after picking photo/video):
+
+Full-screen preview of the selected photo/video
+Top bar: back arrow (left), music/audio chip showing selected song (center, if music added), close "X" and "•••" menu (right)
+Bottom toolbar row of icons: 🎵 Music, 😊 Stickers, Aa Text, ✨ Effects, @ Mention — each opens its respective tool
+Bottom-left: "Your story" chip with profile picture (shows who's posting)
+Bottom-right: "Next" button (white, prominent) — proceeds to sharing options
+
+Step 2 — Sharing Options screen (after tapping "Next"):
+
+Shows a smaller preview of the story at top (with username, music info overlaid)
+Below: "Sharing options" sheet with rows:
+
+🌍 Story audience — shows current setting (Public/Friends/Close Friends), tappable to change
+📤 Also share to... — option to cross-post to main feed/profile grid as a regular post
+💬 Message — send story directly to a specific friend via DM
+
+
+Large blue "Share" button at bottom — posts the story
+
+Step 3 — After posting (story viewer, immediately shown):
+
+Full-screen story with progress bar at top
+Top-left: profile pic + name + "Just now" timestamp + "•••" menu
+Top-right: heart/like icon
+Bottom bar: "No viewers yet" (or viewer count), "Add new" (+), "Share" (forward to DM), "Share as post" (cross-post to grid)
+
+Implementation for Gundruk:
+
+Restructure CreateStorySheet/MediaStoryEditor into this 2-step flow (Edit → Share Options) instead of immediate posting
+Add Story Audience picker (Public / Friends / Close Friends — reuse the visibility concept from Post compose if applicable)
+Add "Also share to..." toggle — if enabled, ALSO create a regular post (insert into posts table) alongside the story
+After posting, immediately open the Story Viewer showing the just-posted story (not return to feed) — matching Instagram's "see your own story immediately" behavior
+Story Viewer bottom bar: "No viewers yet" / viewer count, "Add new" (+, opens create flow again), "Share" (DM), "Share as post" (manual cross-post option even if not selected at creation time)
