@@ -145,7 +145,7 @@ interface Props {
 
 const TEXT_COLORS = ["#ffffff", "#000000", "#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899"];
 const STICKER_EMOJIS = ["🔥", "💜", "✨", "😍", "🎶", "👑", "💯", "🌊", "🦋", "🌸", "💫", "🎉", "😂", "🙌", "💪", "🌈", "⚡", "🎯", "🦄", "🤩", "😘", "🍀", "🌺", "💎", "🏆", "🎵", "🌟", "🎸", "🍕", "❤️"];
-const AUDIENCES = ["Everyone", "Friends", "Followers", "Only Me"];
+const AUDIENCES = ["Everyone", "Close Friends", "Friends", "Followers", "Only Me"];
 const TRIM_W = W - 32;
 
 // ── Sub-components ─────────────────────────────────────────────────────────────

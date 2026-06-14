@@ -287,7 +287,7 @@ export default function UserProfileScreen() {
 
   useEffect(() => {
     if (!u) return;
-    lookupProfileByUsername(u)
+    lookupProfileByUsername(u, myId ?? undefined)
       .then((p) => {
         if (p) {
           setProfile(p);
@@ -296,7 +296,7 @@ export default function UserProfileScreen() {
         setProfileLoaded(true);
       })
       .catch(() => setProfileLoaded(true));
-  }, [u]);
+  }, [u, myId]);
 
   useEffect(() => {
     if (!profile?.id) return;

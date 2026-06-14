@@ -13,7 +13,8 @@ function makeSupabase() {
 
 // ─── POST /api/stories ────────────────────────────────────────────────────────
 // body: { userId, storyType, textContent?, bgGradient?, caption?,
-//         mediaUrl?, imageBase64?, mimeType?, ext? }
+//         mediaUrl?, imageBase64?, mimeType?, ext?, audience? }
+// audience values: "Everyone" | "Close Friends" | "Friends" | "Followers" | "Only Me"
 router.post("/", async (req, res) => {
   const {
     userId,
@@ -25,6 +26,7 @@ router.post("/", async (req, res) => {
     imageBase64,
     mimeType,
     ext,
+    audience,
   } = req.body as {
     userId?: string;
     mediaUrl?: string;
@@ -35,6 +37,7 @@ router.post("/", async (req, res) => {
     imageBase64?: string;
     mimeType?: string;
     ext?: string;
+    audience?: string;
   };
 
   if (!userId) {
@@ -66,6 +69,16 @@ router.post("/", async (req, res) => {
     }
   }
 
+  // Normalise audience value — map UI labels to DB values
+  const audienceMap: Record<string, string> = {
+    "Close Friends": "close_friends",
+    "Everyone": "everyone",
+    "Friends": "friends",
+    "Followers": "followers",
+    "Only Me": "only_me",
+  };
+  const audienceDb = (audience && audienceMap[audience]) ? audienceMap[audience] : "everyone";
+
   const { data, error } = await supabase
     .from("stories")
     .insert({
@@ -75,6 +88,7 @@ router.post("/", async (req, res) => {
       bg_gradient: bgGradient ?? null,
       text_content: textContent ?? null,
       story_type: storyType ?? "text",
+      audience: audienceDb,
       created_at: new Date().toISOString(),
     })
     .select("id")
@@ -90,7 +104,11 @@ router.post("/", async (req, res) => {
 });
 
 // ─── GET /api/stories ─────────────────────────────────────────────────────────
-// query: { userId }  — own story + stories from accounts the user follows
+// query: { userId }  — own story + stories from followed accounts
+// Applies three filters:
+//   1. Excludes stories from muted users
+//   2. Excludes "close_friends" stories unless the viewer is in the author's close friends list
+//   3. Excludes "only_me" stories from other users
 router.get("/", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   if (!userId) {
@@ -101,15 +119,31 @@ router.get("/", async (req, res) => {
   const supabase = makeSupabase();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  // One-directional: anyone the current user follows
-  const { data: followingData } = await supabase
-    .from("follows")
-    .select("following_id")
-    .eq("follower_id", userId);
+  // Fetch follow list, muted list, and close-friend-of list in parallel
+  const [followingRes, mutedRes, cfRes] = await Promise.allSettled([
+    supabase.from("follows").select("following_id").eq("follower_id", userId),
+    supabase.from("muted_users").select("muted_id").eq("muter_id", userId),
+    // "close-friend-of": users who have added ME as their close friend
+    supabase.from("close_friends").select("user_id").eq("friend_id", userId),
+  ]);
 
-  const followingIds = (followingData ?? []).map(
-    (f: any) => f.following_id as string,
+  const followingIds = followingRes.status === "fulfilled"
+    ? (followingRes.value.data ?? []).map((f: any) => f.following_id as string)
+    : [];
+  const mutedSet = new Set<string>(
+    mutedRes.status === "fulfilled"
+      ? (mutedRes.value.data ?? []).map((r: any) => r.muted_id as string)
+      : []
   );
+  // Authors who have added the viewer as a close friend — viewer can see their close-friends stories
+  const cfAuthorIds = new Set<string>(
+    cfRes.status === "fulfilled"
+      ? (cfRes.value.data ?? []).map((r: any) => r.user_id as string)
+      : []
+  );
+  // Always include yourself for all audience types
+  cfAuthorIds.add(userId);
+
   const allIds = [userId, ...followingIds];
 
   const { data: storiesData, error } = await supabase
@@ -125,12 +159,25 @@ router.get("/", async (req, res) => {
     return;
   }
 
-  res.json({ stories: storiesData ?? [] });
+  // Apply audience + mute filters
+  const stories = (storiesData ?? []).filter((s: any) => {
+    // Always show own stories
+    if (s.user_id === userId) return true;
+    // Exclude muted users
+    if (mutedSet.has(s.user_id)) return false;
+    // Exclude "only_me" stories from others
+    if (s.audience === "only_me") return false;
+    // Exclude close-friends stories unless viewer is in author's close-friends list
+    if (s.audience === "close_friends" && !cfAuthorIds.has(s.user_id)) return false;
+    return true;
+  });
+
+  res.json({ stories });
 });
 
 // ─── GET /api/stories/check ───────────────────────────────────────────────────
 // query: { userId }  — lightweight own-story existence check (no follows lookup)
-// Returns: { exists: boolean, storyId?: string, storyType?, textContent?, bgGradient?, caption? }
+// Returns: { exists: boolean, storyId?, storyType?, textContent?, bgGradient?, caption? }
 router.get("/check", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   if (!userId) {

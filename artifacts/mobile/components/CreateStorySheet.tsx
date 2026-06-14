@@ -644,6 +644,14 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
     if (!pending || !userId) return;
     setMode("uploading");
 
+    // Map internal audience key to API label
+    const audienceLabel: Record<Audience, string> = {
+      public: "Everyone",
+      friends: "Friends",
+      close_friends: "Close Friends",
+    };
+    const audienceValue = audienceLabel[audience] ?? "Everyone";
+
     // Create the story
     if (pending.storyType === "text") {
       await createStory({
@@ -651,9 +659,10 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
         storyType: "text",
         textContent: pending.textContent,
         bgGradient: pending.bgGradient,
+        audience: audienceValue,
       }).catch(() => null);
     } else {
-      await uploadStoryMedia(userId, pending.mediaUri!, pending.caption, pending.storyType).catch(() => null);
+      await uploadStoryMedia(userId, pending.mediaUri!, pending.caption, pending.storyType, audienceValue).catch(() => null);
     }
 
     // Cross-post to feed if requested

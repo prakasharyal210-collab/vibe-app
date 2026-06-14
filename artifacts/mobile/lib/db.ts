@@ -2121,9 +2121,10 @@ export interface PublicProfile {
   posts_count?: number;
 }
 
-export async function lookupProfileByUsername(username: string): Promise<PublicProfile | null> {
+export async function lookupProfileByUsername(username: string, viewerId?: string): Promise<PublicProfile | null> {
   try {
-    const url = `${API_BASE}/users/profile/${encodeURIComponent(username)}`;
+    const base = `${API_BASE}/users/profile/${encodeURIComponent(username)}`;
+    const url = viewerId ? `${base}?viewer_id=${encodeURIComponent(viewerId)}` : base;
     const res = await fetch(url);
     if (res.status === 404) return null;
     if (!res.ok) {
@@ -2463,6 +2464,7 @@ export async function createStory(opts: {
   bgGradient?: string;
   textContent?: string;
   storyType?: "text" | "image" | "video";
+  audience?: string;
 }): Promise<string | null> {
   try {
     const res = await fetch(`${API_BASE}/stories`, {
@@ -2475,6 +2477,7 @@ export async function createStory(opts: {
         bgGradient: opts.bgGradient,
         textContent: opts.textContent,
         storyType: opts.storyType ?? "text",
+        audience: opts.audience ?? "Everyone",
       }),
     });
     if (!res.ok) return null;
@@ -2520,6 +2523,7 @@ export async function uploadStoryMedia(
   uri: string,
   caption?: string,
   storyType: "image" | "video" = "image",
+  audience = "Everyone",
 ): Promise<string | null> {
   try {
     const cleanUri = uri.split("?")[0];
@@ -2551,6 +2555,7 @@ export async function uploadStoryMedia(
           ext,
           caption,
           storyType,
+          audience,
         }),
       }),
       60_000,

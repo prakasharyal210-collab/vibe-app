@@ -53,6 +53,17 @@ router.post("/", async (req, res) => {
     return;
   }
   const sb = makeSupabase();
+
+  // Block check — refuse send if either party has blocked the other
+  const [b1, b2] = await Promise.all([
+    sb.from("blocks").select("id").eq("blocker_id", senderId).eq("blocked_id", receiverId).maybeSingle(),
+    sb.from("blocks").select("id").eq("blocker_id", receiverId).eq("blocked_id", senderId).maybeSingle(),
+  ]);
+  if (b1.data || b2.data) {
+    res.status(403).json({ error: "Cannot send message to this user" });
+    return;
+  }
+
   const { data, error } = await sb
     .from("messages")
     .insert({ sender_id: senderId, receiver_id: receiverId, text })

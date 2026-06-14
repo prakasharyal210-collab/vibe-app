@@ -53,15 +53,34 @@ router.get("/search", async (req, res) => {
     }
 
     // ── Fallback: plain followers-ordered search (no viewer_id or RPC failed) ──
-    const baseQuery = sb
+
+    // Collect blocked IDs in both directions so we can exclude them
+    let excludeIds: string[] = [];
+    if (viewerId) {
+      const [myBlocks, blockedByMe] = await Promise.all([
+        sb.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
+        sb.from("blocks").select("blocker_id").eq("blocked_id", viewerId),
+      ]);
+      excludeIds = [
+        ...(myBlocks.data ?? []).map((r: any) => r.blocked_id as string),
+        ...(blockedByMe.data ?? []).map((r: any) => r.blocker_id as string),
+      ];
+    }
+
+    let query = sb
       .from("profiles")
       .select("id, username, full_name, bio, avatar_url, followers_count, following_count, is_verified, is_private")
       .order("followers_count", { ascending: false })
       .limit(limit);
 
-    const { data, error } = q
-      ? await baseQuery.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`)
-      : await baseQuery;
+    if (q) {
+      query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
+    }
+    if (excludeIds.length > 0) {
+      query = query.not("id", "in", `(${excludeIds.join(",")})`);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       req.log.warn({ error: error.message }, "profiles search fallback error");
@@ -76,10 +95,12 @@ router.get("/search", async (req, res) => {
   }
 });
 
-// GET /api/users/profile/:username — lookup profile by username with live stats
+// GET /api/users/profile/:username?viewer_id=<uuid>
+// lookup profile by username with live stats; returns 404 if blocked in either direction
 router.get("/profile/:username", async (req, res) => {
   const { username } = req.params;
   if (!username) { res.status(400).json({ error: "username required" }); return; }
+  const viewerId = (req.query["viewer_id"] as string | undefined)?.trim() || undefined;
   const sb = makeSupabase();
 
   req.log.info({ username }, "profile lookup");
@@ -99,6 +120,18 @@ router.get("/profile/:username", async (req, res) => {
     if (!profile) {
       res.status(404).json({ error: "not found" });
       return;
+    }
+
+    // Block visibility check — return 404 if either party has blocked the other
+    if (viewerId && viewerId !== profile.id) {
+      const [b1, b2] = await Promise.all([
+        sb.from("blocks").select("id").eq("blocker_id", viewerId).eq("blocked_id", profile.id).maybeSingle(),
+        sb.from("blocks").select("id").eq("blocker_id", profile.id).eq("blocked_id", viewerId).maybeSingle(),
+      ]);
+      if (b1.data || b2.data) {
+        res.status(404).json({ error: "not found" });
+        return;
+      }
     }
 
     // Live COUNT queries run in parallel — not stale cached columns
