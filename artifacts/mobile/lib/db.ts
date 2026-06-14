@@ -773,87 +773,61 @@ export async function fetchActiveStories(myUserId?: string): Promise<StoryEntry[
   return [];
 }
 
-export async function fetchFriendStories(myUserId: string): Promise<StoryEntry[]> {
+export async function fetchFriendStories(
+  myUserId: string,
+  myUsername?: string,
+): Promise<StoryEntry[]> {
+  const ownPlaceholder: StoryEntry = {
+    id: "own_placeholder",
+    username: myUsername ?? "you",
+    image: "",
+    hasNew: false,
+    isOwn: true,
+    userId: myUserId,
+    hasExistingStory: false,
+  };
+
   try {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Route through API server — avoids Android Supabase direct-client hang
+    const res = await fetch(
+      `${API_BASE}/stories?userId=${encodeURIComponent(myUserId)}`,
+    );
+    if (!res.ok) return [ownPlaceholder];
 
-    // Get my own story (if any)
-    const { data: myStoryData } = await supabase
-      .from("stories")
-      .select("id, media_url, profiles:user_id(username)")
-      .eq("user_id", myUserId)
-      .gt("created_at", cutoff)
-      .order("created_at", { ascending: false })
-      .limit(1);
+    const json = (await res.json()) as { stories: any[] };
+    const storiesData: any[] = json.stories ?? [];
 
-    const myStory = myStoryData?.[0];
+    // Own story (if posted in the last 24 h)
+    const myStory = storiesData.find((s) => s.user_id === myUserId);
     const ownEntry: StoryEntry = {
+      ...ownPlaceholder,
       id: myStory?.id ?? "own_placeholder",
-      username: (myStory as any)?.profiles?.username ?? "you",
-      image: (myStory as any)?.media_url ?? "",
-      hasNew: false,
-      isOwn: true,
-      userId: myUserId,
+      username: myStory?.profiles?.username ?? myUsername ?? "you",
+      image: myStory?.media_url ?? "",
       hasExistingStory: !!myStory,
     };
 
-    // One-directional: show stories from anyone the current user follows
-    const { data: followingData } = await supabase
-      .from("follows")
-      .select("following_id")
-      .eq("follower_id", myUserId);
-
-    const mutualIds = (followingData ?? []).map((f: any) => f.following_id as string);
-
-    if (mutualIds.length === 0) return [ownEntry, ...MOCK_FRIEND_STORIES];
-
-    // Fetch stories from mutual friends
-    const { data: storiesData, error } = await supabase
-      .from("stories")
-      .select("*, profiles:user_id(id, username, avatar_url)")
-      .in("user_id", mutualIds)
-      .gt("created_at", cutoff)
-      .order("created_at", { ascending: false });
-
-    if (error || !storiesData || storiesData.length === 0) return [ownEntry, ...MOCK_FRIEND_STORIES];
-
-    // Deduplicate: one entry per user (most recent story)
+    // Followed accounts — one entry per user, deduplicated
     const seenUsers = new Set<string>();
-    const uniqueStories = storiesData.filter((s: any) => {
-      if (seenUsers.has(s.user_id)) return false;
+    const friendEntries: StoryEntry[] = [];
+    for (const s of storiesData) {
+      if (s.user_id === myUserId) continue;
+      if (seenUsers.has(s.user_id)) continue;
       seenUsers.add(s.user_id);
-      return true;
-    });
-
-    // Sort: unseen first, then newest
-    uniqueStories.sort((a: any, b: any) => {
-      if (!a.viewed && b.viewed) return -1;
-      if (a.viewed && !b.viewed) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-
-    const friendEntries: StoryEntry[] = uniqueStories.map((s: any) => ({
-      id: s.id,
-      username: s.profiles?.username ?? "user",
-      image: s.media_url ?? `https://picsum.photos/seed/${s.id}/200/200`,
-      hasNew: !s.viewed,
-      isOwn: false,
-      userId: s.user_id,
-      isOnline: false,
-    }));
+      friendEntries.push({
+        id: s.id,
+        username: s.profiles?.username ?? "user",
+        image: s.media_url ?? `https://picsum.photos/seed/${s.id}/200/200`,
+        hasNew: !s.viewed,
+        isOwn: false,
+        userId: s.user_id,
+        isOnline: false,
+      });
+    }
 
     return [ownEntry, ...friendEntries];
   } catch {
-    const ownEntry: StoryEntry = {
-      id: "own_placeholder",
-      username: "you",
-      image: "",
-      hasNew: false,
-      isOwn: true,
-      userId: myUserId,
-      hasExistingStory: false,
-    };
-    return [ownEntry, ...MOCK_FRIEND_STORIES];
+    return [ownPlaceholder];
   }
 }
 

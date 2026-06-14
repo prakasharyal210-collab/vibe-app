@@ -362,7 +362,20 @@ export default function FeedScreen() {
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
 
   const [feedAds, setFeedAds] = useState<AdItem[]>(HOUSE_ADS);
-  const [friendStories, setFriendStories] = useState<StoryEntry[]>([]);
+  const myUsername: string =
+    session?.user?.user_metadata?.["username"] ??
+    session?.user?.email?.split("@")[0] ??
+    "you";
+  const ownStoryPlaceholder: StoryEntry = {
+    id: "own_placeholder",
+    username: myUsername,
+    image: "",
+    hasNew: false,
+    isOwn: true,
+    userId: userId || undefined,
+    hasExistingStory: false,
+  };
+  const [friendStories, setFriendStories] = useState<StoryEntry[]>([ownStoryPlaceholder]);
   const [refreshing, setRefreshing] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -441,21 +454,19 @@ export default function FeedScreen() {
     loadFeedAds(userId || undefined, "feed_post").then(setFeedAds).catch(() => setFeedAds(HOUSE_ADS));
   }, [userId]);
 
-  // Load friend stories (for Friends tab) + realtime subscription
+  // Load friend stories (for Friends tab)
   useEffect(() => {
     if (!userId) return;
-    fetchFriendStories(userId).then(setFriendStories).catch(() => {});
-
-    const channel = supabase
-      .channel(`friend-stories-${userId}-${Date.now()}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "stories" },
-        () => { fetchFriendStories(userId).then(setFriendStories).catch(() => {}); }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel).catch(() => {}); };
+    // Always show the "Your Story" button immediately while we wait
+    setFriendStories([{ ...ownStoryPlaceholder, userId }]);
+    // Fetch with a 5 s timeout — if Supabase hangs, we keep the placeholder
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("stories_timeout")), 5000),
+    );
+    Promise.race([fetchFriendStories(userId, myUsername), timeout])
+      .then(setFriendStories)
+      .catch(() => {}); // keep placeholder on error / timeout
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   useEffect(() => {
@@ -722,7 +733,7 @@ export default function FeedScreen() {
                   if (isTrending) {
                     return (
                       <>
-                        {tab.id === "friends" && activeTab === "friends" && friendStories.length > 0 && (
+                        {tab.id === "friends" && activeTab === "friends" && (
                           <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} />
                         )}
                         <TrendingGrid
