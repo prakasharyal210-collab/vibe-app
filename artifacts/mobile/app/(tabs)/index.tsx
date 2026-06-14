@@ -218,17 +218,17 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     };
   }, [isActive]);
 
-  // Progress bar animation
+  // Progress bar animation — loops visually with the video; never auto-advances
   useEffect(() => {
     if (!isActive || paused) {
       cancelAnimation(progress);
       return;
     }
-    const remaining = 1 - pausedAtRef.current;
-    const duration = remaining * 14000;
-    progress.value = withTiming(1, { duration, easing: Easing.linear }, (finished) => {
-      if (finished) runOnJS(onComplete)();
-    });
+    progress.value = withRepeat(
+      withTiming(1, { duration: 14000, easing: Easing.linear }),
+      -1,
+      false
+    );
     return () => cancelAnimation(progress);
   }, [isActive, paused]);
 
