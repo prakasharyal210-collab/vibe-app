@@ -429,10 +429,13 @@ export default function FeedScreen() {
 
       const prev = reset ? [] : tabStatesRef.current[tab].posts;
       const merged = [...prev, ...data];
+      // seenIds is declared INSIDE this function — fresh Set on every invocation, never persists.
+      // Use index-based fallback key so posts with undefined/null id are never falsely deduplicated.
       const seenIds = new Set<string>();
-      const deduped = merged.filter((p) => {
-        if (seenIds.has(p.id)) return false;
-        seenIds.add(p.id);
+      const deduped = merged.filter((p, i) => {
+        const key = p.id ? `id:${p.id}` : `idx:${i}`;
+        if (seenIds.has(key)) return false;
+        seenIds.add(key);
         return true;
       });
       updateTab(tab, {
@@ -749,9 +752,11 @@ export default function FeedScreen() {
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
                 data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
                 keyExtractor={(item, index) => {
-                  if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}-${tab.id}`;
-                  const id = (item as Post).id;
-                  return id ? `${id}-${tab.id}` : `fallback-${tab.id}-${index}`;
+                  if ('isAd' in item && (item as AdItem).isAd) {
+                    return `ad_${(item as AdItem).ad_id}_${tab.id}`;
+                  }
+                  const postId = (item as Post).id;
+                  return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
                 renderItem={renderTabPost(tab.id, snapH)}
                 snapToInterval={snapH}
