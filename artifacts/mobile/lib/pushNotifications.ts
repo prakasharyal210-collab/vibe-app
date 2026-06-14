@@ -1,26 +1,33 @@
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 
-// ─── Notification handler (shows alerts while app is foregrounded) ────────────
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+/** True when running inside Expo Go — remote push is unavailable there (SDK 53+). */
+const isExpoGo = Constants.appOwnership === "expo";
+
+/** Register the foreground notification handler. No-op in Expo Go. */
+export function setupNotificationHandler(): void {
+  if (isExpoGo) return;
+  // Lazy require prevents expo-notifications from loading in Expo Go
+  const Notifications = require("expo-notifications") as typeof import("expo-notifications");
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 /** Request permission and register the device's Expo push token with the API. */
 export async function registerForPushNotificationsAsync(userId: string): Promise<void> {
-  if (!Device.isDevice) {
-    // Push notifications are not available in the simulator / Expo Go web
-    return;
-  }
+  if (isExpoGo) return;
+  if (!Device.isDevice) return;
 
-  // Set up the Android notification channel first
+  // Lazy require keeps expo-notifications from loading (and crashing) in Expo Go
+  const Notifications = require("expo-notifications") as typeof import("expo-notifications");
+
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "Gundruk",
@@ -31,9 +38,6 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     });
   }
 
-  // Check / request permission
-  // Cast via `any` because NotificationPermissionsStatus extends expo's PermissionResponse
-  // (which carries `.granted`), but the TS declarations don't surface it directly.
   const existing = await Notifications.getPermissionsAsync() as any;
   let granted: boolean = existing.granted ?? false;
   if (!granted) {
@@ -42,7 +46,6 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
   }
   if (!granted) return;
 
-  // Get Expo push token — requires the EAS projectId
   const projectId =
     (Constants.expoConfig?.extra as any)?.eas?.projectId ??
     Constants.easConfig?.projectId ??
@@ -56,7 +59,6 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     return;
   }
 
-  // Store the token on the server
   const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   await fetch(`${apiBase}/users/push-token`, {
     method: "POST",
@@ -65,9 +67,11 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
   }).catch(() => {});
 }
 
-/** Convenience: add a listener that fires when the user taps a notification. */
+/** Add a listener for when the user taps a notification. No-op in Expo Go. */
 export function addNotificationResponseListener(
-  handler: (response: Notifications.NotificationResponse) => void,
-): Notifications.EventSubscription {
+  handler: (response: import("expo-notifications").NotificationResponse) => void,
+): { remove(): void } {
+  if (isExpoGo) return { remove() {} };
+  const Notifications = require("expo-notifications") as typeof import("expo-notifications");
   return Notifications.addNotificationResponseReceivedListener(handler);
 }

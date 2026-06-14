@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { ensureUserSetup } from "@/lib/db";
-import { registerForPushNotificationsAsync } from "@/lib/pushNotifications";
+import { registerForPushNotificationsAsync, setupNotificationHandler } from "@/lib/pushNotifications";
 
 interface AuthContextType {
   session: Session | null;
@@ -22,6 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setupNotificationHandler();
+
     // Safety timeout — if Supabase never responds (no network at cold start),
     // release the loading gate after 8 s so the app isn't permanently frozen.
     const loadingTimeout = setTimeout(() => setLoading(false), 8000);
