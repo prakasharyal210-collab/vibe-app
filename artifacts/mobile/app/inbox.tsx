@@ -47,7 +47,7 @@ import {
 import { Conversation, supabase, timeAgo } from "@/lib/supabase";
 
 type MainTab = "chats" | "snaps" | "calls";
-type ChatFilter = "all" | "unread" | "favorites" | "groups";
+type ChatFilter = "all" | "groups";
 type SnapFilter = "all" | "received" | "sent" | "opened";
 type ConvoStatus = "new_snap" | "new_chat" | "snap_delivered" | "chat_delivered" | "opened";
 
@@ -727,14 +727,11 @@ function ChatsTab({
         return n.toLowerCase().includes(q);
       });
     }
-    if (filter === "unread") return base.filter((i) => i.hasUnread);
-    if (filter === "favorites") return base.filter((i) => favIds.has(i.userId));
     if (filter === "groups") return [];
     return base;
   }, [allItems, filter, search, favIds]);
 
   const unreadCount = useMemo(() => allItems.filter((i) => i.hasUnread).length, [allItems]);
-  const favCount = useMemo(() => allItems.filter((i) => favIds.has(i.userId)).length, [allItems, favIds]);
 
   const handleLongPress = useCallback((id: string, otherId: string, username: string, isPinned: boolean, isFav: boolean) => {
     Alert.alert(`@${username}`, undefined, [
@@ -762,9 +759,7 @@ function ChatsTab({
   }, [myId, mutedIds, show]);
 
   const TABS: Array<{ id: ChatFilter; label: string; badge?: number }> = [
-    { id: "all", label: "All" },
-    { id: "unread", label: "Unread", badge: unreadCount || undefined },
-    { id: "favorites", label: "⭐ Favorites", badge: favCount || undefined },
+    { id: "all", label: "All", badge: unreadCount || undefined },
     { id: "groups", label: "Groups" },
   ];
 
@@ -791,6 +786,9 @@ function ChatsTab({
       {/* Sub-filter tabs */}
       <SubFilterBar tabs={TABS} active={filter} onChange={setFilter} />
 
+      {/* Gundruk AI row — rendered outside FlatList so RefreshControl can't overlap it */}
+      {filter === "all" && <GundrukAIRow borderColor={colors.border} />}
+
       {/* Main list */}
       {filter === "groups" ? (
         <View style={chatTabSt.empty}>
@@ -803,41 +801,32 @@ function ChatsTab({
           data={filtered}
           keyExtractor={(item) => item.key}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#8B5CF6" colors={["#8B5CF6"]} />}
-          ListHeaderComponent={filter === "all" ? (
-            <>
-              {requests.length > 0 && (
-                <TouchableOpacity
-                  style={[chatTabSt.requestsRow, { borderBottomColor: colors.border, backgroundColor: colors.card }]}
-                  onPress={() => router.push("/inbox/requests" as any)}
-                  activeOpacity={0.7}
-                >
-                  <View style={chatTabSt.requestsIcon}>
-                    <Ionicons name="chatbubble-ellipses" size={20} color="#8B5CF6" />
-                    <View style={chatTabSt.requestsBadge}>
-                      <Text style={chatTabSt.requestsBadgeText}>{requests.length}</Text>
-                    </View>
-                  </View>
-                  <View style={chatTabSt.requestsInfo}>
-                    <Text style={[chatTabSt.requestsTitle, { color: colors.foreground }]}>Message Requests</Text>
-                    <Text style={[chatTabSt.requestsSub, { color: colors.mutedForeground }]}>
-                      {requests.length} {requests.length === 1 ? "person" : "people"} sent you a request
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
-                </TouchableOpacity>
-              )}
-              <GundrukAIRow borderColor={colors.border} />
-            </>
+          ListHeaderComponent={filter === "all" && requests.length > 0 ? (
+            <TouchableOpacity
+              style={[chatTabSt.requestsRow, { borderBottomColor: colors.border, backgroundColor: colors.card }]}
+              onPress={() => router.push("/inbox/requests" as any)}
+              activeOpacity={0.7}
+            >
+              <View style={chatTabSt.requestsIcon}>
+                <Ionicons name="chatbubble-ellipses" size={20} color="#8B5CF6" />
+                <View style={chatTabSt.requestsBadge}>
+                  <Text style={chatTabSt.requestsBadgeText}>{requests.length}</Text>
+                </View>
+              </View>
+              <View style={chatTabSt.requestsInfo}>
+                <Text style={[chatTabSt.requestsTitle, { color: colors.foreground }]}>Message Requests</Text>
+                <Text style={[chatTabSt.requestsSub, { color: colors.mutedForeground }]}>
+                  {requests.length} {requests.length === 1 ? "person" : "people"} sent you a request
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+            </TouchableOpacity>
           ) : null}
           ListEmptyComponent={
             <View style={chatTabSt.empty}>
-              <Text style={{ fontSize: 44 }}>{filter === "unread" ? "✅" : filter === "favorites" ? "⭐" : "💬"}</Text>
-              <Text style={[chatTabSt.emptyTitle, { color: colors.foreground }]}>
-                {filter === "unread" ? "All caught up!" : filter === "favorites" ? "No favorites yet" : "No messages yet"}
-              </Text>
-              <Text style={[chatTabSt.emptySub, { color: colors.mutedForeground }]}>
-                {filter === "unread" ? "You've read all your messages" : filter === "favorites" ? "Long-press a chat to add it" : "Start a conversation"}
-              </Text>
+              <Text style={{ fontSize: 44 }}>💬</Text>
+              <Text style={[chatTabSt.emptyTitle, { color: colors.foreground }]}>No messages yet</Text>
+              <Text style={[chatTabSt.emptySub, { color: colors.mutedForeground }]}>Start a conversation</Text>
             </View>
           }
           renderItem={({ item }) => {
