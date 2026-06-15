@@ -180,7 +180,7 @@ function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
     return (
       <View style={tabIconStyles.wrap}>
         <Text style={{ fontSize: 19, lineHeight: 24, color: INACTIVE }}>🔒</Text>
-        <Text style={[tabIconStyles.label, { color: INACTIVE }]}>Locked</Text>
+        <Text style={[tabIconStyles.label, { color: INACTIVE }]} numberOfLines={1}>Locked</Text>
       </View>
     );
   }
@@ -188,7 +188,7 @@ function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
   return (
     <View style={tabIconStyles.wrap}>
       <Text style={{ fontSize: 22, lineHeight: 26, color, textAlign: "center" }}>{icon}</Text>
-      <Text style={[tabIconStyles.label, { color }]}>{label}</Text>
+      <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>{label}</Text>
       {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
   );
@@ -196,7 +196,7 @@ function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
 
 const tabIconStyles = StyleSheet.create({
   wrap: { alignItems: "center", justifyContent: "center", gap: 2, paddingTop: 2 },
-  label: { fontSize: 10, fontFamily: "Poppins_500Medium" },
+  label: { fontSize: 9, fontFamily: "Poppins_500Medium" },
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 1 },
 });
 
