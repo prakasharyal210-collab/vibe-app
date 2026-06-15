@@ -575,6 +575,16 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           {rawMedia.length > 1 && (
             <View style={p.countBadge}><Text style={p.countBadgeText}>{previewIdx + 1}/{rawMedia.length}</Text></View>
           )}
+
+          {/* ── Clear media X button ─────────────────────────────────── */}
+          <TouchableOpacity
+            style={p.mediaCloseBtn}
+            onPress={() => { setRawMedia([]); setPreviewIdx(0); setVideoThumbnails({}); }}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+          >
+            <Ionicons name="close" size={18} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         {/* ── Filter strip ────────────────────────────────────────────── */}
@@ -969,6 +979,13 @@ const p = StyleSheet.create({
   dotActive: { backgroundColor: "#fff", width: 18, borderRadius: 3 },
   countBadge: { position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
   countBadgeText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
+  mediaCloseBtn: {
+    position: "absolute", top: 10, left: 10,
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.18)",
+    alignItems: "center", justifyContent: "center",
+  },
 
   // Filter
   filterSection: { marginHorizontal: 16, marginTop: 14, marginBottom: 4 },
