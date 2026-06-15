@@ -289,17 +289,19 @@ function ProfileTabBtn({
   );
 }
 
-// ─── ProfileGridItem ──────────────────────────────────────────────────────────
+// ─── ProfileGridThumb ─────────────────────────────────────────────────────────
 // Must be at MODULE SCOPE — same reason as ProfileTabBtn above.
+// Named ProfileGridThumb (not ProfileGridItem) because ProfileGridItem is
+// already imported as a type from @/lib/db in this file.
 
-type GridItemData = {
+type GridThumbData = {
   id: string;
   image: string;
   likes?: number | null;
   isVideo?: boolean;
 };
 
-function ProfileGridItem({ item, onPress }: { item: GridItemData; onPress: () => void }) {
+function ProfileGridThumb({ item, onPress }: { item: GridThumbData; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.gridItem} activeOpacity={0.88} onPress={onPress}>
       <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
@@ -701,7 +703,7 @@ export default function UserProfileScreen() {
 
             <View style={styles.grid}>
               {gridData.map((item, i) => (
-                <ProfileGridItem
+                <ProfileGridThumb
                   key={item.id}
                   item={item}
                   onPress={() => setMediaViewer({ visible: true, startIndex: i })}

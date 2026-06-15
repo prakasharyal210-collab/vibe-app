@@ -5,6 +5,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Video, ResizeMode } from "expo-av";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -26,6 +27,8 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { CAMERA_FILTERS, type CameraFilter } from "@/components/camera/CameraFilterStrip";
 import { searchVibeUsers, type SocialMatchUser, uploadPostMedia } from "@/lib/db";
+import { MusicPickerSheet } from "@/components/MusicPickerSheet";
+import type { Track } from "@/lib/music";
 
 const { width: W } = Dimensions.get("window");
 const PREVIEW_W = W - 32;
@@ -41,16 +44,30 @@ const AUDIENCE_OPTIONS: { key: Visibility; icon: string; label: string; desc: st
   { key: "private", icon: "🔒", label: "Only Me",  desc: "Only visible to you" },
 ];
 
-interface TaggedUser {
-  id: string;
-  username: string;
-  avatar_url?: string | null;
-}
+const FEELINGS: { emoji: string; label: string }[] = [
+  { emoji: "😊", label: "Happy" },
+  { emoji: "🥰", label: "In Love" },
+  { emoji: "🔥", label: "Motivated" },
+  { emoji: "😎", label: "Confident" },
+  { emoji: "🌟", label: "Inspired" },
+  { emoji: "🎉", label: "Celebrating" },
+  { emoji: "😌", label: "Peaceful" },
+  { emoji: "💪", label: "Strong" },
+  { emoji: "🙏", label: "Grateful" },
+  { emoji: "💭", label: "Thoughtful" },
+  { emoji: "😄", label: "Excited" },
+  { emoji: "😴", label: "Tired" },
+  { emoji: "🥲", label: "Nostalgic" },
+  { emoji: "😤", label: "Frustrated" },
+  { emoji: "😢", label: "Sad" },
+  { emoji: "🌈", label: "Creative" },
+];
+
+interface TaggedUser { id: string; username: string; avatar_url?: string | null; }
 
 interface Props {
   topInset?: number;
   bottomInset?: number;
-  /** True when this page is the active tab in the Reels↔Post pager */
   isActive?: boolean;
 }
 
@@ -64,44 +81,92 @@ const CROP_RATIOS: { key: CropRatio; label: string; icon: string }[] = [
 function previewHeight(ratio: CropRatio): number {
   if (ratio === "1:1") return PREVIEW_W;
   if (ratio === "4:5") return Math.round(PREVIEW_W * 5 / 4);
-  return Math.round(PREVIEW_W * 4 / 3);   // original ≈ 4:3
+  return Math.round(PREVIEW_W * 4 / 3);
 }
 
-async function cropToRatio(
-  uri: string,
-  imgW: number,
-  imgH: number,
-  ratio: CropRatio,
-): Promise<string> {
+async function cropToRatio(uri: string, imgW: number, imgH: number, ratio: CropRatio): Promise<string> {
   if (ratio === "original" || !imgW || !imgH) return uri;
   const target = ratio === "1:1" ? 1 : 4 / 5;
   const imgAR = imgW / imgH;
   if (Math.abs(imgAR - target) < 0.02) return uri;
-
   let cropW: number, cropH: number, originX: number, originY: number;
   if (imgAR > target) {
-    cropH = imgH;
-    cropW = Math.round(imgH * target);
-    originX = Math.round((imgW - cropW) / 2);
-    originY = 0;
+    cropH = imgH; cropW = Math.round(imgH * target); originX = Math.round((imgW - cropW) / 2); originY = 0;
   } else {
-    cropW = imgW;
-    cropH = Math.round(imgW / target);
-    originX = 0;
-    originY = Math.round((imgH - cropH) / 2);
+    cropW = imgW; cropH = Math.round(imgW / target); originX = 0; originY = Math.round((imgH - cropH) / 2);
   }
-
-  const result = await manipulateAsync(
-    uri,
-    [{ crop: { originX, originY, width: cropW, height: cropH } }],
-    { compress: 0.92, format: SaveFormat.JPEG },
-  );
+  const result = await manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.92, format: SaveFormat.JPEG });
   return result.uri;
+}
+
+// ── Module-scope sub-components ───────────────────────────────────────────────
+// Must stay at module scope so React doesn't remount them on every render,
+// which would cause Ionicons to lose their font reference (□ tofu glyphs).
+
+function AddPostBtn({
+  iconName,
+  label,
+  active,
+  onPress,
+  useTextIcon,
+  textIcon,
+}: {
+  iconName?: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  useTextIcon?: boolean;
+  textIcon?: string;
+}) {
+  return (
+    <TouchableOpacity style={p.addBtn} onPress={onPress} activeOpacity={0.7}>
+      <View style={[p.addBtnCircle, active && p.addBtnCircleActive]}>
+        {useTextIcon ? (
+          <Text style={[p.addBtnTextIcon, active && p.addBtnTextIconActive]}>{textIcon}</Text>
+        ) : iconName ? (
+          <Ionicons name={iconName} size={22} color={active ? "#A78BFA" : "rgba(255,255,255,0.6)"} />
+        ) : null}
+      </View>
+      <Text style={[p.addBtnLabel, active && p.addBtnLabelActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function TagResultRow({
+  item,
+  isTagged,
+  onToggle,
+}: {
+  item: SocialMatchUser;
+  isTagged: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <TouchableOpacity style={p.tagResultRow} onPress={onToggle} activeOpacity={0.8}>
+      {item.avatar_url ? (
+        <Image source={{ uri: item.avatar_url }} style={p.tagAvatar} />
+      ) : (
+        <View style={[p.tagAvatar, p.tagAvatarFallback]}>
+          <Text style={{ fontSize: 16 }}>👤</Text>
+        </View>
+      )}
+      <View style={{ flex: 1 }}>
+        <Text style={p.tagResultUsername}>@{item.username}</Text>
+        {item.bio ? <Text style={p.tagResultBio} numberOfLines={1}>{item.bio}</Text> : null}
+      </View>
+      <View style={[p.tagCheckCircle, isTagged && p.tagCheckCircleActive]}>
+        {isTagged && <Ionicons name="checkmark" size={13} color="#fff" />}
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PostPage({ topInset = 0, bottomInset = 0, isActive = false }: Props) {
   const { session } = useAuth();
+  const username: string = (session?.user?.user_metadata?.username as string | undefined) ?? session?.user?.email?.split("@")[0] ?? "you";
+  const avatarUrl: string | null = (session?.user?.user_metadata?.avatar_url as string | undefined) ?? null;
+  const initials = username.slice(0, 2).toUpperCase();
 
   // Phase
   const [phase, setPhase] = useState<Phase>("idle");
@@ -134,6 +199,18 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   const [tagResults, setTagResults] = useState<SocialMatchUser[]>([]);
   const [tagLoading, setTagLoading] = useState(false);
 
+  // Location modal
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationDraft, setLocationDraft] = useState("");
+
+  // Music
+  const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
+  const [showMusicPicker, setShowMusicPicker] = useState(false);
+
+  // Feeling
+  const [feeling, setFeeling] = useState<{ emoji: string; label: string } | null>(null);
+  const [showFeelingModal, setShowFeelingModal] = useState(false);
+
   // Camera
   const cameraRef = useRef<CameraView>(null);
   const [camPermission, requestCamPermission] = useCameraPermissions();
@@ -141,31 +218,24 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
 
   const PREV_H = previewHeight(cropRatio);
 
-  // Refs for the auto-trigger effect (must be declared before pickFromGallery
-  // so they're in scope, but the effect itself is placed after pickFromGallery).
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const prevIsActive = useRef(false);
 
-  // ── Tag search debounce ────────────────────────────────────────────────────
+  // ── Tag search debounce ──────────────────────────────────────────────────
   useEffect(() => {
-    if (!showTagModal || tagSearch.trim().length < 2) {
-      setTagResults([]);
-      return;
-    }
+    if (!showTagModal || tagSearch.trim().length < 2) { setTagResults([]); return; }
     const t = setTimeout(async () => {
       setTagLoading(true);
       try {
         const res = await searchVibeUsers(tagSearch.trim(), session?.user?.id ?? "");
         setTagResults(res);
-      } finally {
-        setTagLoading(false);
-      }
+      } finally { setTagLoading(false); }
     }, 280);
     return () => clearTimeout(t);
   }, [tagSearch, showTagModal, session?.user?.id]);
 
-  // ── Video thumbnail generation ─────────────────────────────────────────────
+  // ── Video thumbnails ────────────────────────────────────────────────────
   useEffect(() => {
     if (!rawMedia.some((a) => a.type === "video")) return;
     let cancelled = false;
@@ -186,7 +256,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     return () => { cancelled = true; };
   }, [rawMedia]);
 
-  // ── Gallery picker ─────────────────────────────────────────────────────────
+  // ── Gallery picker ──────────────────────────────────────────────────────
   const pickFromGallery = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images", "videos"] as ImagePicker.MediaType[],
@@ -203,13 +273,9 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     }
   }, []);
 
-  // ── Auto-open gallery when Post tab becomes active ─────────────────────────
-  // Fires only when isActive flips true→false→true; phaseRef lets us read the
-  // current phase without adding it as a dep (which would re-trigger on every
-  // phase change while the tab is already visible).
+  // ── Auto-open gallery when Post tab becomes active ──────────────────────
   useEffect(() => {
     if (isActive && !prevIsActive.current && phaseRef.current === "idle") {
-      // Brief delay so the swipe animation finishes before the OS sheet appears
       const t = setTimeout(() => pickFromGallery(), 180);
       prevIsActive.current = true;
       return () => clearTimeout(t);
@@ -217,7 +283,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     prevIsActive.current = isActive;
   }, [isActive, pickFromGallery]);
 
-  // ── Camera ─────────────────────────────────────────────────────────────────
+  // ── Camera ──────────────────────────────────────────────────────────────
   const openCamera = useCallback(async () => {
     if (!camPermission?.granted) {
       const { granted } = await requestCamPermission();
@@ -231,28 +297,16 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       const photo = await cameraRef.current?.takePictureAsync({ quality: 0.9 });
       if (photo) {
         const asset: ImagePicker.ImagePickerAsset = {
-          ...photo,
-          type: "image",
-          fileName: "capture.jpg",
-          assetId: null,
-          base64: null,
-          exif: null,
-          duration: null,
-          mimeType: "image/jpeg",
-          fileSize: 0,
+          ...photo, type: "image", fileName: "capture.jpg", assetId: null,
+          base64: null, exif: null, duration: null, mimeType: "image/jpeg", fileSize: 0,
         };
-        setRawMedia([asset]);
-        setPreviewIdx(0);
-        setCropRatio("original");
-        setActiveFilter(CAMERA_FILTERS[0]!);
-        setPhase("compose");
+        setRawMedia([asset]); setPreviewIdx(0); setCropRatio("original");
+        setActiveFilter(CAMERA_FILTERS[0]!); setPhase("compose");
       }
-    } catch {
-      Alert.alert("Capture failed", "Could not take photo. Try again.");
-    }
+    } catch { Alert.alert("Capture failed", "Could not take photo. Try again."); }
   }, []);
 
-  // ── Tag helpers ────────────────────────────────────────────────────────────
+  // ── Tag helpers ─────────────────────────────────────────────────────────
   const toggleTag = useCallback((user: SocialMatchUser) => {
     setTaggedUsers((prev) => {
       const exists = prev.some((t) => t.id === user.id);
@@ -262,40 +316,37 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     });
   }, []);
 
-  const removeTag = useCallback((id: string) => {
-    setTaggedUsers((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const removeTag = useCallback((id: string) => setTaggedUsers((prev) => prev.filter((t) => t.id !== id)), []);
 
-  // ── Post ───────────────────────────────────────────────────────────────────
+  // ── Post ────────────────────────────────────────────────────────────────
   const handlePost = useCallback(async () => {
     if (!session?.user?.id) { Alert.alert("Sign in required"); return; }
     if (rawMedia.length === 0) return;
     setPhase("uploading");
-
     try {
-      // 1. Crop images to selected ratio
       const finalUris = await Promise.all(
         rawMedia.map(async (asset) => {
           if (asset.type === "video") return asset.uri;
           return cropToRatio(asset.uri, asset.width ?? 0, asset.height ?? 0, cropRatio);
         }),
       );
+      const finalCaption = [
+        caption.trim(),
+        feeling ? `Feeling ${feeling.emoji} ${feeling.label}` : null,
+      ].filter(Boolean).join("\n");
 
-      // 2. Upload each
       for (const uri of finalUris) {
-        await uploadPostMedia(session.user.id, uri, caption.trim(), {
+        await uploadPostMedia(session.user.id, uri, finalCaption, {
           location: location.trim() || undefined,
           taggedUsers: taggedUsers.length ? taggedUsers.map((t) => t.id) : undefined,
           filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
           visibility,
         });
       }
-
-      // 3. Reset & celebrate
       setCaption(""); setLocation(""); setTaggedUsers([]);
       setRawMedia([]); setPreviewIdx(0); setCropRatio("original");
-      setActiveFilter(CAMERA_FILTERS[0]!);
-      setVisibility("public");
+      setActiveFilter(CAMERA_FILTERS[0]!); setVisibility("public");
+      setSelectedMusic(null); setFeeling(null);
       setPhase("idle");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -310,16 +361,19 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       setPhase("compose");
       Alert.alert("Post failed", err instanceof Error ? err.message : "Please try again.");
     }
-  }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers]);
+  }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling]);
 
   const discard = useCallback(() => {
     setRawMedia([]); setCaption(""); setLocation("");
     setTaggedUsers([]); setPreviewIdx(0); setCropRatio("original");
-    setActiveFilter(CAMERA_FILTERS[0]!);
+    setActiveFilter(CAMERA_FILTERS[0]!); setSelectedMusic(null); setFeeling(null);
     setPhase("idle");
   }, []);
 
-  // ── Idle (fallback — shown only if user dismisses the auto-opened picker) ──
+  // ── Audience helper ─────────────────────────────────────────────────────
+  const audienceSel = AUDIENCE_OPTIONS.find((o) => o.key === visibility) ?? AUDIENCE_OPTIONS[0]!;
+
+  // ── Idle ────────────────────────────────────────────────────────────────
   if (phase === "idle") {
     return (
       <View style={[p.fill, p.centered, { paddingTop: topInset, paddingBottom: bottomInset }]}>
@@ -329,7 +383,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         <Text style={p.fallbackSub}>Choose photos or videos to share</Text>
         <View style={p.fallbackRow}>
           <TouchableOpacity onPress={pickFromGallery} style={p.fallbackBtn} activeOpacity={0.8}>
-            <LinearGradient colors={["#7C3AED", "#5B21B6"]} style={p.fallbackBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <LinearGradient colors={["#EA580C", "#7C3AED"]} style={p.fallbackBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
               <Text style={p.fallbackBtnIcon}>🖼️</Text>
               <Text style={p.fallbackBtnText}>Gallery</Text>
             </LinearGradient>
@@ -345,7 +399,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     );
   }
 
-  // ── Camera ─────────────────────────────────────────────────────────────────
+  // ── Camera ──────────────────────────────────────────────────────────────
   if (phase === "camera") {
     return (
       <View style={p.fill}>
@@ -369,43 +423,85 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     );
   }
 
-  // ── Uploading ──────────────────────────────────────────────────────────────
+  // ── Uploading ────────────────────────────────────────────────────────────
   if (phase === "uploading") {
     return (
       <View style={[p.fill, p.centered]}>
         <StatusBar style="light" />
         <ActivityIndicator size="large" color="#A78BFA" />
         <Text style={p.uploadingText}>
-          Cropping &amp; uploading {rawMedia.length > 1 ? `${rawMedia.length} photos` : "your post"}{"\u2026"}
+          Uploading {rawMedia.length > 1 ? `${rawMedia.length} photos` : "your post"}…
         </Text>
       </View>
     );
   }
 
-  // ── Compose ────────────────────────────────────────────────────────────────
+  // ── Compose ──────────────────────────────────────────────────────────────
+  const hasActiveAddons = !!(selectedMusic || location.trim() || feeling || taggedUsers.length);
+
   return (
     <View style={p.fill}>
       <StatusBar style="light" />
       <ScrollView
         style={p.fill}
-        contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
+        contentContainerStyle={{ paddingBottom: bottomInset + 40 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Safe-area / tab-bar spacer — explicit View avoids a Fabric double-paint
-            bug that occurs when contentContainerStyle.paddingTop is large */}
+        {/* Safe-area spacer */}
         <View style={{ height: topInset + 8 }} />
 
-        {/* ── Header ── */}
-        <View style={p.composeHeader}>
-          <TouchableOpacity onPress={discard} style={p.discardBtn}>
+        {/* ── Header ─────────────────────────────────────────────────── */}
+        <View style={p.header}>
+          <TouchableOpacity onPress={discard} style={p.discardBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={p.discardText}>Discard</Text>
           </TouchableOpacity>
-          <Text style={p.composeTitle}>New Post</Text>
-          <View style={{ width: 72 }} />
+          <Text style={p.headerTitle}>New Post</Text>
+          {/* Audience pill in header */}
+          <TouchableOpacity style={p.audiencePill} onPress={() => setShowAudienceModal(true)} activeOpacity={0.8}>
+            <Text style={p.audiencePillIcon}>{audienceSel.icon}</Text>
+            <Text style={p.audiencePillLabel}>{audienceSel.label}</Text>
+            <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.5)" />
+          </TouchableOpacity>
         </View>
 
-        {/* ── Crop ratio selector ── */}
+        {/* ── Author row ──────────────────────────────────────────────── */}
+        <View style={p.authorRow}>
+          {/* Gradient-ring avatar */}
+          <LinearGradient colors={["#EA580C", "#7C3AED"]} style={p.avatarRing} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <View style={p.avatarInner}>
+              {avatarUrl ? (
+                <Image source={{ uri: avatarUrl }} style={p.avatarImg} />
+              ) : (
+                <Text style={p.avatarInitials}>{initials}</Text>
+              )}
+            </View>
+          </LinearGradient>
+          <View style={{ flex: 1 }}>
+            <Text style={p.authorName}>{username}</Text>
+            <Text style={p.authorSub}>Posting to Gundruk</Text>
+          </View>
+          {/* Camera button shortcut */}
+          <TouchableOpacity style={p.cameraShortcut} onPress={openCamera} activeOpacity={0.8}>
+            <Ionicons name="camera-outline" size={20} color="rgba(255,255,255,0.55)" />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Caption card ────────────────────────────────────────────── */}
+        <View style={p.captionCard}>
+          <TextInput
+            value={caption}
+            onChangeText={setCaption}
+            placeholder={`What's on your mind, ${username}?`}
+            placeholderTextColor="rgba(255,255,255,0.22)"
+            multiline
+            maxLength={500}
+            style={p.captionInput}
+          />
+          <Text style={p.charCount}>{caption.length} / 500</Text>
+        </View>
+
+        {/* ── Crop ratio selector ─────────────────────────────────────── */}
         <View style={p.ratioRow}>
           {CROP_RATIOS.map(({ key, label, icon }) => (
             <TouchableOpacity
@@ -420,14 +516,11 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           ))}
         </View>
 
-        {/* ── Media carousel ── */}
+        {/* ── Media carousel ──────────────────────────────────────────── */}
         <View style={[p.previewWrap, { height: PREV_H }]}>
           <ScrollView
             ref={carouselRef}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
+            horizontal pagingEnabled showsHorizontalScrollIndicator={false} bounces={false}
             onMomentumScrollEnd={(e) => {
               const idx = Math.round(e.nativeEvent.contentOffset.x / PREVIEW_W);
               setPreviewIdx(idx);
@@ -439,51 +532,25 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               <View key={i} style={{ width: PREVIEW_W, height: PREV_H, overflow: "hidden" }}>
                 {asset.type === "video" ? (
                   playingVideoIdx === i ? (
-                    <Video
-                      source={{ uri: asset.uri }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode={ResizeMode.COVER}
-                      useNativeControls
-                      shouldPlay
-                      onPlaybackStatusUpdate={(s) => {
-                        if (s.isLoaded && (s as any).didJustFinish) setPlayingVideoIdx(null);
-                      }}
-                    />
+                    <Video source={{ uri: asset.uri }} style={StyleSheet.absoluteFill}
+                      resizeMode={ResizeMode.COVER} useNativeControls shouldPlay
+                      onPlaybackStatusUpdate={(s) => { if (s.isLoaded && (s as any).didJustFinish) setPlayingVideoIdx(null); }} />
                   ) : (
                     <>
                       {videoThumbnails[i] ? (
-                        <Image
-                          source={{ uri: videoThumbnails[i] }}
-                          style={StyleSheet.absoluteFill}
-                          resizeMode="cover"
-                        />
+                        <Image source={{ uri: videoThumbnails[i] }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                       ) : (
-                        <View style={p.videoThumb}>
-                          <ActivityIndicator color="#A78BFA" size="large" />
-                        </View>
+                        <View style={p.videoThumb}><ActivityIndicator color="#A78BFA" size="large" /></View>
                       )}
-                      <TouchableOpacity
-                        style={p.videoPlayOverlay}
-                        onPress={() => setPlayingVideoIdx(i)}
-                        activeOpacity={0.85}
-                      >
-                        <View style={p.videoPlayBtn}>
-                          <Text style={p.videoPlayIcon}>▶</Text>
-                        </View>
-                        <View style={p.videoBadge}>
-                          <Text style={p.videoBadgeText}>VIDEO</Text>
-                        </View>
+                      <TouchableOpacity style={p.videoPlayOverlay} onPress={() => setPlayingVideoIdx(i)} activeOpacity={0.85}>
+                        <View style={p.videoPlayBtn}><Text style={p.videoPlayIcon}>▶</Text></View>
+                        <View style={p.videoBadge}><Text style={p.videoBadgeText}>VIDEO</Text></View>
                       </TouchableOpacity>
                     </>
                   )
                 ) : (
                   <>
-                    <Image
-                      source={{ uri: asset.uri }}
-                      style={StyleSheet.absoluteFill}
-                      resizeMode="cover"
-                    />
-                    {/* Filter overlay */}
+                    <Image source={{ uri: asset.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
                     {activeFilter.id !== "none" && (
                       activeFilter.grayscale ? (
                         <>
@@ -491,12 +558,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                           <View style={[StyleSheet.absoluteFill, { backgroundColor: "#9ca3af", opacity: 0.55, mixBlendMode: "saturation" } as any]} />
                         </>
                       ) : (
-                        <View
-                          style={[
-                            StyleSheet.absoluteFill,
-                            { backgroundColor: activeFilter.blendColor, opacity: activeFilter.blendOpacity },
-                          ]}
-                        />
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: activeFilter.blendColor, opacity: activeFilter.blendOpacity }]} />
                       )
                     )}
                   </>
@@ -505,41 +567,25 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
             ))}
           </ScrollView>
 
-          {/* Dots */}
           {rawMedia.length > 1 && (
             <View style={p.dotRow}>
-              {rawMedia.map((_, i) => (
-                <View key={i} style={[p.dot, i === previewIdx && p.dotActive]} />
-              ))}
+              {rawMedia.map((_, i) => <View key={i} style={[p.dot, i === previewIdx && p.dotActive]} />)}
             </View>
           )}
-
-          {/* Count badge */}
           {rawMedia.length > 1 && (
-            <View style={p.countBadge}>
-              <Text style={p.countBadgeText}>{previewIdx + 1}/{rawMedia.length}</Text>
-            </View>
+            <View style={p.countBadge}><Text style={p.countBadgeText}>{previewIdx + 1}/{rawMedia.length}</Text></View>
           )}
         </View>
 
-        {/* ── Filter strip ── */}
+        {/* ── Filter strip ────────────────────────────────────────────── */}
         <View style={p.filterSection}>
           <View style={p.filterHeaderRow}>
             <Text style={p.sectionLabel}>Filter</Text>
             <Text style={p.filterActiveName}>{activeFilter.label}</Text>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={p.filterScroll}
-          >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.filterScroll}>
             {CAMERA_FILTERS.map((f) => (
-              <TouchableOpacity
-                key={f.id}
-                onPress={() => setActiveFilter(f)}
-                style={p.filterThumbWrap}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity key={f.id} onPress={() => setActiveFilter(f)} style={p.filterThumbWrap} activeOpacity={0.8}>
                 <View style={[p.filterThumb, activeFilter.id === f.id && p.filterThumbActive]}>
                   <LinearGradient colors={["#1a0a2e", "#2d1b55"]} style={StyleSheet.absoluteFill} />
                   {f.id === "none" ? (
@@ -547,12 +593,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                   ) : f.grayscale ? (
                     <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(180,180,180,0.6)", borderRadius: 12 }]} />
                   ) : (
-                    <View
-                      style={[
-                        StyleSheet.absoluteFill,
-                        { backgroundColor: f.blendColor, opacity: Math.min(1, f.blendOpacity * 3.5), borderRadius: 12 },
-                      ]}
-                    />
+                    <View style={[StyleSheet.absoluteFill, { backgroundColor: f.blendColor, opacity: Math.min(1, f.blendOpacity * 3.5), borderRadius: 12 }]} />
                   )}
                   {activeFilter.id === f.id && (
                     <View style={p.filterCheck}>
@@ -560,117 +601,124 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                     </View>
                   )}
                 </View>
-                <Text style={[p.filterLabel, activeFilter.id === f.id && p.filterLabelActive]} numberOfLines={1}>
-                  {f.label}
-                </Text>
+                <Text style={[p.filterLabel, activeFilter.id === f.id && p.filterLabelActive]} numberOfLines={1}>{f.label}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* ── Caption ── */}
-        <View style={p.section}>
-          <Text style={p.sectionLabel}>Caption</Text>
-          <TextInput
-            value={caption}
-            onChangeText={setCaption}
-            placeholder="Write a caption…"
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            multiline
-            maxLength={500}
-            style={p.captionInput}
-          />
-          <Text style={p.charCount}>{caption.length} / 500</Text>
-        </View>
+        {/* ── Add to post ─────────────────────────────────────────────── */}
+        <View style={p.addToPostCard}>
+          <Text style={p.addToPostHeader}>ADD TO POST</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={p.addToPostScroll}
+          >
+            <AddPostBtn
+              iconName="musical-notes-outline"
+              label="Music"
+              active={!!selectedMusic}
+              onPress={() => setShowMusicPicker(true)}
+            />
+            <AddPostBtn
+              iconName="people-outline"
+              label="People"
+              active={taggedUsers.length > 0}
+              onPress={() => { setTagSearch(""); setShowTagModal(true); }}
+            />
+            <AddPostBtn
+              iconName="location-outline"
+              label="Location"
+              active={!!location.trim()}
+              onPress={() => { setLocationDraft(location); setShowLocationModal(true); }}
+            />
+            <AddPostBtn
+              iconName="happy-outline"
+              label="Feeling"
+              active={!!feeling}
+              onPress={() => setShowFeelingModal(true)}
+            />
+            <AddPostBtn
+              useTextIcon
+              textIcon="GIF"
+              label="GIF"
+              active={false}
+              onPress={() => Alert.alert("GIF", "GIF attachments are coming soon! 🎞️")}
+            />
+            <AddPostBtn
+              iconName="star-outline"
+              label="Effects"
+              active={false}
+              onPress={() => Alert.alert("Effects", "AR effects and stickers are coming soon! ✨")}
+            />
+          </ScrollView>
 
-        {/* ── Location ── */}
-        <View style={p.section}>
-          <Text style={p.sectionLabel}>Location (optional)</Text>
-          <TextInput
-            value={location}
-            onChangeText={setLocation}
-            placeholder="Add a location…"
-            placeholderTextColor="rgba(255,255,255,0.25)"
-            maxLength={80}
-            style={p.locationInput}
-          />
-        </View>
-
-        {/* ── Audience ── */}
-        <View style={p.section}>
-          <Text style={p.sectionLabel}>Audience</Text>
-          {(() => {
-            const sel = AUDIENCE_OPTIONS.find((o) => o.key === visibility) ?? AUDIENCE_OPTIONS[0]!;
-            return (
-              <TouchableOpacity style={p.tagBtn} onPress={() => setShowAudienceModal(true)} activeOpacity={0.8}>
-                <Text style={p.tagBtnIcon}>{sel.icon}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={p.tagBtnText}>{sel.label}</Text>
-                  <Text style={p.audienceDesc}>{sel.desc}</Text>
-                </View>
-                <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 18 }}>›</Text>
-              </TouchableOpacity>
-            );
-          })()}
-        </View>
-
-        {/* ── Tag People ── */}
-        <View style={p.section}>
-          <TouchableOpacity style={p.tagBtn} onPress={() => { setTagSearch(""); setShowTagModal(true); }}>
-            <Text style={p.tagBtnIcon}>🏷️</Text>
-            <Text style={p.tagBtnText}>Tag People</Text>
-            {taggedUsers.length > 0 && (
-              <View style={p.tagCountBadge}>
-                <Text style={p.tagCountText}>{taggedUsers.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {taggedUsers.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.tagChipScroll}>
-              {taggedUsers.map((u) => (
-                <TouchableOpacity key={u.id} style={p.tagChip} onPress={() => removeTag(u.id)}>
-                  <Text style={p.tagChipText}>@{u.username}</Text>
-                  <Text style={p.tagChipX}>×</Text>
+          {/* Active selection chips */}
+          {hasActiveAddons && (
+            <View style={p.chipRow}>
+              {selectedMusic && (
+                <TouchableOpacity style={p.chip} onPress={() => setSelectedMusic(null)}>
+                  <Ionicons name="musical-notes" size={12} color="#A78BFA" />
+                  <Text style={p.chipText} numberOfLines={1}>{selectedMusic.title}</Text>
+                  <Ionicons name="close" size={12} color="rgba(167,139,250,0.6)" />
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              )}
+              {location.trim() ? (
+                <TouchableOpacity style={p.chip} onPress={() => setLocation("")}>
+                  <Ionicons name="location" size={12} color="#34D399" />
+                  <Text style={[p.chipText, { color: "#6EE7B7" }]} numberOfLines={1}>{location}</Text>
+                  <Ionicons name="close" size={12} color="rgba(110,231,183,0.6)" />
+                </TouchableOpacity>
+              ) : null}
+              {feeling && (
+                <TouchableOpacity style={p.chip} onPress={() => setFeeling(null)}>
+                  <Text style={{ fontSize: 12 }}>{feeling.emoji}</Text>
+                  <Text style={[p.chipText, { color: "#FCD34D" }]}>{feeling.label}</Text>
+                  <Ionicons name="close" size={12} color="rgba(252,211,77,0.6)" />
+                </TouchableOpacity>
+              )}
+              {taggedUsers.length > 0 && (
+                <TouchableOpacity style={p.chip} onPress={() => { setTagSearch(""); setShowTagModal(true); }}>
+                  <Ionicons name="people" size={12} color="#60A5FA" />
+                  <Text style={[p.chipText, { color: "#93C5FD" }]}>
+                    {taggedUsers.length === 1 ? `@${taggedUsers[0]!.username}` : `${taggedUsers.length} people`}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
 
-        {/* ── Actions ── */}
+        {/* ── Change media & post ─────────────────────────────────────── */}
         <TouchableOpacity style={p.changeMedia} onPress={pickFromGallery}>
-          <Text style={p.changeMediaText}>🖼️ Change selection</Text>
+          <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.3)" />
+          <Text style={p.changeMediaText}>Change selection</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handlePost} activeOpacity={0.85} style={p.postBtnWrap}>
           <LinearGradient
-            colors={["#7C3AED", "#EA580C"]}
+            colors={["#EA580C", "#7C3AED"]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
             style={p.postBtn}
           >
             <Text style={p.postBtnText}>
-              {rawMedia.length > 1 ? `Post ${rawMedia.length} Photos 🔥` : "Post 🔥"}
+              {rawMedia.length > 1 ? `Share ${rawMedia.length} Photos 🔥` : "Share Post 🔥"}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── Audience Modal ── */}
-      <Modal
-        visible={showAudienceModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAudienceModal(false)}
-      >
+      {/* ── Audience Modal ────────────────────────────────────────────── */}
+      <Modal visible={showAudienceModal} transparent animationType="slide" onRequestClose={() => setShowAudienceModal(false)}>
         <View style={p.modalOverlay}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowAudienceModal(false)} />
-          <View style={[p.tagModalSheet, { paddingBottom: bottomInset + 24 }]}>
+          <View style={[p.sheet, { paddingBottom: bottomInset + 24 }]}>
             <View style={p.sheetHandle} />
-            <View style={p.tagModalHeader}>
-              <Text style={p.tagModalTitle}>Who can see this?</Text>
-              <TouchableOpacity onPress={() => setShowAudienceModal(false)} style={p.tagModalDone}>
-                <Text style={p.tagModalDoneText}>Done</Text>
+            <View style={p.sheetHeader}>
+              <Text style={p.sheetTitle}>Who can see this?</Text>
+              <TouchableOpacity onPress={() => setShowAudienceModal(false)} style={p.sheetDoneBtn}>
+                <Text style={p.sheetDoneText}>Done</Text>
               </TouchableOpacity>
             </View>
             {AUDIENCE_OPTIONS.map((opt) => (
@@ -687,7 +735,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                 </View>
                 {visibility === opt.key && (
                   <View style={p.audienceCheck}>
-                    <Text style={{ color: "#fff", fontSize: 11, lineHeight: 14 }}>✓</Text>
+                    <Ionicons name="checkmark" size={13} color="#fff" />
                   </View>
                 )}
               </TouchableOpacity>
@@ -696,59 +744,83 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         </View>
       </Modal>
 
-      {/* ── Tag People Modal ── */}
-      <Modal
-        visible={showTagModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowTagModal(false)}
-      >
+      {/* ── Location Modal ────────────────────────────────────────────── */}
+      <Modal visible={showLocationModal} transparent animationType="slide" onRequestClose={() => setShowLocationModal(false)}>
         <View style={p.modalOverlay}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowTagModal(false)} />
-          <View style={[p.tagModalSheet, { paddingBottom: bottomInset + 16 }]}>
-            {/* Handle */}
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowLocationModal(false)} />
+          <View style={[p.sheet, { paddingBottom: bottomInset + 24 }]}>
             <View style={p.sheetHandle} />
-
-            <View style={p.tagModalHeader}>
-              <Text style={p.tagModalTitle}>Tag People</Text>
-              <TouchableOpacity onPress={() => setShowTagModal(false)} style={p.tagModalDone}>
-                <Text style={p.tagModalDoneText}>Done</Text>
+            <View style={p.sheetHeader}>
+              <Text style={p.sheetTitle}>Add Location</Text>
+              <TouchableOpacity
+                onPress={() => { setLocation(locationDraft); setShowLocationModal(false); }}
+                style={p.sheetDoneBtn}
+              >
+                <Text style={p.sheetDoneText}>Save</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Search input */}
-            <View style={p.tagSearchRow}>
-              <Text style={p.tagSearchIcon}>🔍</Text>
+            <View style={p.locationRow}>
+              <Ionicons name="location-outline" size={20} color="#34D399" />
               <TextInput
-                value={tagSearch}
-                onChangeText={setTagSearch}
-                placeholder="Search username…"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={locationDraft}
+                onChangeText={setLocationDraft}
+                placeholder="City, neighbourhood, venue…"
+                placeholderTextColor="rgba(255,255,255,0.28)"
                 autoCorrect={false}
-                autoCapitalize="none"
-                style={p.tagSearchInput}
                 autoFocus
+                maxLength={80}
+                style={p.locationInput}
               />
-              {tagSearch.length > 0 && (
-                <TouchableOpacity onPress={() => setTagSearch("")}>
-                  <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 16, paddingHorizontal: 8 }}>×</Text>
+              {locationDraft.length > 0 && (
+                <TouchableOpacity onPress={() => setLocationDraft("")}>
+                  <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.3)" />
                 </TouchableOpacity>
               )}
             </View>
+            {location.trim() ? (
+              <TouchableOpacity style={p.locationClear} onPress={() => { setLocation(""); setShowLocationModal(false); }}>
+                <Text style={p.locationClearText}>Remove location</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
-            {/* Selected chips */}
+      {/* ── Tag People Modal ──────────────────────────────────────────── */}
+      <Modal visible={showTagModal} transparent animationType="slide" onRequestClose={() => setShowTagModal(false)}>
+        <View style={p.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowTagModal(false)} />
+          <View style={[p.sheet, { paddingBottom: bottomInset + 16 }]}>
+            <View style={p.sheetHandle} />
+            <View style={p.sheetHeader}>
+              <Text style={p.sheetTitle}>Tag People</Text>
+              <TouchableOpacity onPress={() => setShowTagModal(false)} style={p.sheetDoneBtn}>
+                <Text style={p.sheetDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={p.tagSearchRow}>
+              <Ionicons name="search-outline" size={16} color="rgba(255,255,255,0.4)" />
+              <TextInput
+                value={tagSearch} onChangeText={setTagSearch}
+                placeholder="Search username…" placeholderTextColor="rgba(255,255,255,0.3)"
+                autoCorrect={false} autoCapitalize="none" style={p.tagSearchInput} autoFocus
+              />
+              {tagSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setTagSearch("")}>
+                  <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.3)" />
+                </TouchableOpacity>
+              )}
+            </View>
             {taggedUsers.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={p.tagChipScroll} style={{ maxHeight: 44 }}>
                 {taggedUsers.map((u) => (
-                  <TouchableOpacity key={u.id} style={[p.tagChip, { backgroundColor: "rgba(124,58,237,0.4)" }]} onPress={() => removeTag(u.id)}>
+                  <TouchableOpacity key={u.id} style={p.tagChip} onPress={() => removeTag(u.id)}>
                     <Text style={p.tagChipText}>@{u.username}</Text>
-                    <Text style={p.tagChipX}>×</Text>
+                    <Ionicons name="close" size={11} color="rgba(167,139,250,0.6)" />
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
-
-            {/* Results */}
             {tagLoading ? (
               <ActivityIndicator color="#A78BFA" style={{ marginTop: 24 }} />
             ) : (
@@ -756,39 +828,69 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                 data={tagResults}
                 keyExtractor={(item) => item.id}
                 style={{ maxHeight: 320 }}
-                renderItem={({ item }) => {
-                  const isTagged = taggedUsers.some((t) => t.id === item.id);
-                  return (
-                    <TouchableOpacity style={p.tagResultRow} onPress={() => toggleTag(item)} activeOpacity={0.8}>
-                      {item.avatar_url ? (
-                        <Image source={{ uri: item.avatar_url }} style={p.tagAvatar} />
-                      ) : (
-                        <View style={[p.tagAvatar, { backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }]}>
-                          <Text style={{ fontSize: 16 }}>👤</Text>
-                        </View>
-                      )}
-                      <View style={{ flex: 1 }}>
-                        <Text style={p.tagResultUsername}>@{item.username}</Text>
-                        {item.bio ? <Text style={p.tagResultBio} numberOfLines={1}>{item.bio}</Text> : null}
-                      </View>
-                      <View style={[p.tagCheckCircle, isTagged && p.tagCheckCircleActive]}>
-                        {isTagged && <Text style={{ fontSize: 11, color: "#fff" }}>✓</Text>}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                }}
+                renderItem={({ item }) => (
+                  <TagResultRow
+                    item={item}
+                    isTagged={taggedUsers.some((t) => t.id === item.id)}
+                    onToggle={() => toggleTag(item)}
+                  />
+                )}
                 ListEmptyComponent={
-                  tagSearch.length >= 2 ? (
-                    <Text style={p.tagEmptyText}>No users found for "{tagSearch}"</Text>
-                  ) : (
-                    <Text style={p.tagEmptyText}>Type at least 2 characters to search</Text>
-                  )
+                  <Text style={p.tagEmptyText}>
+                    {tagSearch.length >= 2 ? `No users found for "${tagSearch}"` : "Type at least 2 characters to search"}
+                  </Text>
                 }
               />
             )}
           </View>
         </View>
       </Modal>
+
+      {/* ── Feeling Modal ─────────────────────────────────────────────── */}
+      <Modal visible={showFeelingModal} transparent animationType="slide" onRequestClose={() => setShowFeelingModal(false)}>
+        <View style={p.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFeelingModal(false)} />
+          <View style={[p.sheet, { paddingBottom: bottomInset + 24 }]}>
+            <View style={p.sheetHandle} />
+            <View style={p.sheetHeader}>
+              <Text style={p.sheetTitle}>How are you feeling?</Text>
+              <TouchableOpacity onPress={() => setShowFeelingModal(false)} style={p.sheetDoneBtn}>
+                <Text style={p.sheetDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {feeling && (
+              <TouchableOpacity style={p.feelingClearBtn} onPress={() => { setFeeling(null); setShowFeelingModal(false); }}>
+                <Text style={p.feelingClearText}>Clear feeling</Text>
+              </TouchableOpacity>
+            )}
+            <FlatList
+              data={FEELINGS}
+              numColumns={4}
+              keyExtractor={(item) => item.label}
+              style={{ maxHeight: 280 }}
+              contentContainerStyle={{ paddingHorizontal: 4 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[p.feelingOption, feeling?.label === item.label && p.feelingOptionActive]}
+                  onPress={() => { setFeeling(item); setShowFeelingModal(false); }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={p.feelingEmoji}>{item.emoji}</Text>
+                  <Text style={[p.feelingLabel, feeling?.label === item.label && p.feelingLabelActive]} numberOfLines={1}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Music Picker ──────────────────────────────────────────────── */}
+      <MusicPickerSheet
+        visible={showMusicPicker}
+        onClose={() => setShowMusicPicker(false)}
+        onSelect={setSelectedMusic}
+        selectedTrack={selectedMusic}
+      />
     </View>
   );
 }
@@ -798,7 +900,7 @@ const p = StyleSheet.create({
   fill: { flex: 1, backgroundColor: "#080810" },
   centered: { alignItems: "center", justifyContent: "center" },
 
-  // Fallback (shown only when user dismisses the auto-opened gallery picker)
+  // Fallback
   fallbackEmoji: { fontSize: 44, marginBottom: 12 },
   fallbackTitle: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold", marginBottom: 6 },
   fallbackSub: { color: "rgba(255,255,255,0.4)", fontSize: 13, fontFamily: "Poppins_400Regular", textAlign: "center", paddingHorizontal: 32, marginBottom: 28 },
@@ -821,16 +923,35 @@ const p = StyleSheet.create({
   // Uploading
   uploadingText: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_500Medium", fontSize: 15, marginTop: 16, textAlign: "center", paddingHorizontal: 32 },
 
-  // Compose header
-  composeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 12, height: 44 },
-  discardBtn: { padding: 4 },
+  // ── Compose ──
+  // Header
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, height: 50 },
+  discardBtn: { paddingVertical: 4, paddingRight: 8 },
   discardText: { color: "#EF4444", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
-  composeTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
+  headerTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
+  audiencePill: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#111126", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.12)" },
+  audiencePillIcon: { fontSize: 13 },
+  audiencePillLabel: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+
+  // Author row
+  authorRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  avatarRing: { width: 50, height: 50, borderRadius: 25, padding: 2.5, alignItems: "center", justifyContent: "center" },
+  avatarInner: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: "#1a1a32", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+  avatarImg: { width: 45, height: 45, borderRadius: 22.5 },
+  avatarInitials: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
+  authorName: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 15 },
+  authorSub: { color: "rgba(255,255,255,0.38)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  cameraShortcut: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#111126", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
+
+  // Caption card
+  captionCard: { marginHorizontal: 16, marginBottom: 14, backgroundColor: "#0F0F1E", borderRadius: 20, borderWidth: 1, borderColor: "rgba(124,58,237,0.25)", padding: 16 },
+  captionInput: { fontSize: 16, fontFamily: "Poppins_400Regular", color: "#F8F8FF", minHeight: 110, textAlignVertical: "top", lineHeight: 24 },
+  charCount: { color: "rgba(255,255,255,0.2)", fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "right", marginTop: 8 },
 
   // Crop ratio
   ratioRow: { flexDirection: "row", justifyContent: "center", gap: 10, marginHorizontal: 16, marginBottom: 12 },
   ratioBtn: { flex: 1, alignItems: "center", paddingVertical: 9, borderRadius: 12, backgroundColor: "#111126", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)", gap: 3 },
-  ratioBtnActive: { backgroundColor: "rgba(124,58,237,0.3)", borderColor: "#7C3AED" },
+  ratioBtnActive: { backgroundColor: "rgba(124,58,237,0.25)", borderColor: "#7C3AED" },
   ratioIcon: { fontSize: 16 },
   ratioLabel: { color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: "Poppins_600SemiBold" },
   ratioLabelActive: { color: "#A78BFA" },
@@ -852,6 +973,7 @@ const p = StyleSheet.create({
   // Filter
   filterSection: { marginHorizontal: 16, marginTop: 14, marginBottom: 4 },
   filterHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  sectionLabel: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_600SemiBold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase" },
   filterActiveName: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   filterScroll: { gap: 10, paddingVertical: 4, paddingHorizontal: 2 },
   filterThumbWrap: { alignItems: "center", gap: 5, width: 58 },
@@ -862,33 +984,44 @@ const p = StyleSheet.create({
   filterLabel: { color: "rgba(255,255,255,0.4)", fontSize: 10, fontFamily: "Poppins_500Medium", textAlign: "center" },
   filterLabelActive: { color: "#A78BFA" },
 
-  // Section
-  section: { marginHorizontal: 16, marginTop: 16, gap: 8 },
-  sectionLabel: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_600SemiBold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase" },
-  captionInput: { backgroundColor: "#111126", borderRadius: 14, padding: 14, fontSize: 15, fontFamily: "Poppins_400Regular", color: "#fff", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)", minHeight: 80, textAlignVertical: "top" },
-  charCount: { color: "rgba(255,255,255,0.2)", fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "right" },
-  locationInput: { backgroundColor: "#111126", borderRadius: 14, padding: 14, fontSize: 15, fontFamily: "Poppins_400Regular", color: "#fff", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)", height: 50 },
+  // Add to post card
+  addToPostCard: { marginHorizontal: 16, marginTop: 18, backgroundColor: "#0F0F1E", borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", paddingTop: 16, paddingBottom: 12, overflow: "hidden" },
+  addToPostHeader: { color: "rgba(255,255,255,0.38)", fontFamily: "Poppins_600SemiBold", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", paddingHorizontal: 16, marginBottom: 12 },
+  addToPostScroll: { paddingHorizontal: 12, gap: 4 },
 
-  // Tag button
-  tagBtn: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#111126", borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  tagBtnIcon: { fontSize: 18 },
-  tagBtnText: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_500Medium", fontSize: 15, flex: 1 },
-  tagCountBadge: { backgroundColor: "#7C3AED", borderRadius: 10, minWidth: 20, height: 20, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
-  tagCountText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_700Bold" },
-  tagChipScroll: { gap: 8, paddingVertical: 4, paddingHorizontal: 2 },
-  tagChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(124,58,237,0.25)", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(124,58,237,0.4)" },
-  tagChipText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
-  tagChipX: { color: "rgba(167,139,250,0.6)", fontSize: 14, lineHeight: 16 },
+  // Add post buttons (rendered at module scope as AddPostBtn component)
+  addBtn: { alignItems: "center", gap: 6, width: 68, paddingVertical: 4 },
+  addBtnCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: "#16162A", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)", alignItems: "center", justifyContent: "center" },
+  addBtnCircleActive: { backgroundColor: "rgba(124,58,237,0.22)", borderColor: "#7C3AED" },
+  addBtnTextIcon: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_700Bold", fontSize: 13, letterSpacing: 0.5 },
+  addBtnTextIconActive: { color: "#A78BFA" },
+  addBtnLabel: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_500Medium", fontSize: 11, textAlign: "center" },
+  addBtnLabelActive: { color: "#A78BFA" },
 
-  // Actions
-  changeMedia: { marginHorizontal: 16, marginTop: 14, alignSelf: "center", paddingVertical: 8, paddingHorizontal: 16 },
-  changeMediaText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 13 },
-  postBtnWrap: { marginHorizontal: 16, marginTop: 14, borderRadius: 18, overflow: "hidden" },
+  // Chips
+  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 8 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(124,58,237,0.18)", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(124,58,237,0.35)", maxWidth: 180 },
+  chipText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 12, flexShrink: 1 },
+
+  // Change media
+  changeMedia: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 16, marginTop: 14, alignSelf: "center", paddingVertical: 8, paddingHorizontal: 12 },
+  changeMediaText: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_500Medium", fontSize: 13 },
+
+  // Post button
+  postBtnWrap: { marginHorizontal: 16, marginTop: 12, borderRadius: 20, overflow: "hidden" },
   postBtn: { paddingVertical: 18, alignItems: "center", justifyContent: "center" },
   postBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17, letterSpacing: 0.3 },
 
+  // Shared modal styles
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
+  sheet: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 12, paddingHorizontal: 16, maxHeight: "85%" },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.18)", alignSelf: "center", marginBottom: 16 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
+  sheetTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
+  sheetDoneBtn: { paddingHorizontal: 14, paddingVertical: 7, backgroundColor: "rgba(124,58,237,0.28)", borderRadius: 14 },
+  sheetDoneText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+
   // Audience
-  audienceDesc: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   audienceOption: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, paddingHorizontal: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" },
   audienceOptionActive: { backgroundColor: "rgba(124,58,237,0.08)", borderRadius: 12, paddingHorizontal: 10 },
   audienceOptionIcon: { fontSize: 24, width: 34, textAlign: "center" },
@@ -896,22 +1029,33 @@ const p = StyleSheet.create({
   audienceOptionDesc: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   audienceCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
 
+  // Location modal
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#1a1a2e", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
+  locationInput: { flex: 1, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 15, paddingVertical: 14 },
+  locationClear: { marginTop: 14, alignSelf: "center", paddingVertical: 8, paddingHorizontal: 16 },
+  locationClearText: { color: "#EF4444", fontFamily: "Poppins_500Medium", fontSize: 14 },
+
   // Tag modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-  tagModalSheet: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 12, paddingHorizontal: 16, maxHeight: "85%" },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.2)", alignSelf: "center", marginBottom: 16 },
-  tagModalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
-  tagModalTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 },
-  tagModalDone: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "rgba(124,58,237,0.3)", borderRadius: 12 },
-  tagModalDoneText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
-  tagSearchRow: { flexDirection: "row", alignItems: "center", backgroundColor: "#1a1a2e", borderRadius: 14, paddingHorizontal: 12, marginBottom: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
-  tagSearchIcon: { fontSize: 16, marginRight: 6 },
+  tagSearchRow: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#1a1a2e", borderRadius: 14, paddingHorizontal: 12, marginBottom: 12, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.1)" },
   tagSearchInput: { flex: 1, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 15, paddingVertical: 12 },
+  tagChipScroll: { gap: 8, paddingVertical: 4, paddingHorizontal: 2 },
+  tagChip: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(124,58,237,0.3)", borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: "rgba(124,58,237,0.5)" },
+  tagChipText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
   tagResultRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" },
   tagAvatar: { width: 44, height: 44, borderRadius: 22 },
+  tagAvatarFallback: { backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" },
   tagResultUsername: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   tagResultBio: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   tagCheckCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center" },
   tagCheckCircleActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
   tagEmptyText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", marginTop: 24, paddingHorizontal: 16 },
+
+  // Feeling modal
+  feelingClearBtn: { alignSelf: "flex-start", marginBottom: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12 },
+  feelingClearText: { color: "#FCA5A5", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  feelingOption: { flex: 1, margin: 5, alignItems: "center", paddingVertical: 12, borderRadius: 16, backgroundColor: "#16162A", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", gap: 4 },
+  feelingOptionActive: { backgroundColor: "rgba(124,58,237,0.25)", borderColor: "#7C3AED" },
+  feelingEmoji: { fontSize: 26 },
+  feelingLabel: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_500Medium", fontSize: 10, textAlign: "center" },
+  feelingLabelActive: { color: "#A78BFA" },
 });
