@@ -20,6 +20,7 @@ import storiesRouter from "./stories";
 import commentsRouter from "./comments";
 import storageRouter from "./storage";
 import feedRouter from "./feed";
+import vibeRouter from "./vibe";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use("/stories", storiesRouter);
 router.use("/comments", commentsRouter);
 router.use("/storage", storageRouter);
 router.use("/feed", feedRouter);
+router.use("/vibe", vibeRouter);
 
 export default router;

@@ -2363,20 +2363,54 @@ export const COOLDOWN_CONSECUTIVE_LEFTS = 20;
 export const COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
 /**
- * Record a swipe (left / right / super) in vibe_swipes.
- * No-op if the table doesn't exist yet — app falls back gracefully.
+ * Record a swipe and check for a mutual match — proxied through the API server
+ * so the service-role key is used (bypasses RLS on vibe_swipes).
+ * Returns "matched" if both users right-swiped each other, "pending" otherwise.
+ */
+export async function vibeSwipe(
+  swiperId: string,
+  targetId: string,
+  direction: 'left' | 'right' | 'super',
+): Promise<'matched' | 'pending' | 'recorded'> {
+  try {
+    const res = await fetch(`${API_BASE}/vibe/swipe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ swiperId, targetId, direction }),
+    });
+    if (!res.ok) return 'recorded';
+    const json = await res.json();
+    return json.match ? 'matched' : 'pending';
+  } catch {
+    return 'recorded';
+  }
+}
+
+/**
+ * Returns all target IDs the user has already swiped on (any direction).
+ * Used to exclude seen profiles from the swipe deck.
+ */
+export async function getSwipedIds(userId: string): Promise<Set<string>> {
+  try {
+    const res = await fetch(`${API_BASE}/vibe/swiped?userId=${encodeURIComponent(userId)}`);
+    if (!res.ok) return new Set();
+    const json = await res.json();
+    return new Set<string>(json.targetIds ?? []);
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * @deprecated Use vibeSwipe() instead — this proxies through the API server
+ * to bypass RLS. Kept for backward compatibility.
  */
 export async function recordVibeSwipe(
   userId: string,
   targetId: string,
   direction: 'left' | 'right' | 'super',
 ): Promise<void> {
-  try {
-    await supabase.from('vibe_swipes').upsert(
-      { user_id: userId, target_id: targetId, direction, created_at: new Date().toISOString() },
-      { onConflict: 'user_id,target_id' },
-    );
-  } catch {}
+  await vibeSwipe(userId, targetId, direction).catch(() => {});
 }
 
 /**

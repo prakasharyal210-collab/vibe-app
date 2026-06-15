@@ -53,12 +53,12 @@ import {
   getUserGoals,
   getVibeMatches,
   getVibePreferences,
-  recordVibeSwipe,
+  getSwipedIds,
   fetchSuggestedAccounts,
   RELATIONSHIP_GOALS,
   saveGundrukProfile,
   saveUserGoals,
-  sendVibeRequest,
+  vibeSwipe,
   SuggestedAccount,
   updateVibeScore,
   VibeMatchProfile,
@@ -1083,35 +1083,34 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
       setConsecutiveLefts(0);
     }
 
-    // ── Record swipe in Supabase (fire-and-forget) ───────────────────────────
+    // ── Record swipe via API server (persistence + match detection in one call) ──
     if (userId && card) {
-      recordVibeSwipe(userId, card.id, isSuper ? "super" : direction).catch(() => {});
-    }
-
-    // ── Right-swipe logic (unchanged) ────────────────────────────────────────
-    if (direction === "right" && card) {
-      if (userId) {
-        sendVibeRequest(userId, card.id)
-          .then((result) => {
+      vibeSwipe(userId, card.id, isSuper ? "super" : direction)
+        .then((result) => {
+          if (direction === "right" || isSuper) {
             if (result === "matched") {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               setTimeout(() => setMatchCard(card), 400);
             } else if (!isSuper) {
               setTimeout(() => setIceBreakerCard(card), 400);
             }
-          })
-          .catch(() => { if (!isSuper) setTimeout(() => setIceBreakerCard(card), 400); });
+          }
+        })
+        .catch(() => {
+          if (direction === "right" && !isSuper) setTimeout(() => setIceBreakerCard(card), 400);
+        });
+      if (direction === "right" || isSuper) {
         updateVibeScore(userId, 10, "Sent vibe").catch(() => {});
         checkAchievements(userId)
           .then((unlocked) => { if (unlocked.length > 0) setAchievement(unlocked[0]); })
           .catch(() => {});
-      } else {
-        if (isSuper) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-          setTimeout(() => setMatchCard(card), 500);
-        } else {
-          setTimeout(() => setIceBreakerCard(card), 400);
-        }
+      }
+    } else if (card) {
+      if (isSuper) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        setTimeout(() => setMatchCard(card), 500);
+      } else if (direction === "right") {
+        setTimeout(() => setIceBreakerCard(card), 400);
       }
     }
   }, [cards, currentIndex, userId, translateX, translateY, dailySwipeCount, consecutiveLefts, cooldownUntil]);
@@ -1544,7 +1543,7 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
   const handleVibe = (targetId: string, name: string) => {
     if (!userId || sentVibes.has(targetId)) return;
     setSentVibes((prev) => { const next = new Set(prev); next.add(targetId); return next; });
-    void sendVibeRequest(userId, targetId).catch(() => {});
+    void vibeSwipe(userId, targetId, "right").catch(() => {});
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     showToast(`Vibe sent to ${name}! 💜`);
   };
@@ -2171,21 +2170,31 @@ function FindVibeContent() {
         // location unavailable — continue without it
       }
 
-      const [nearby, allVibe] = await Promise.all([
+      const [nearby, allVibe, swipedIds] = await Promise.all([
         getNearbyUsers(uid, lat, lng).catch(() => [] as VibeMatchProfile[]),
         getVibeMatches(uid, filters).catch(() => [] as VibeMatchProfile[]),
+        getSwipedIds(uid).catch(() => new Set<string>()),
       ]);
 
-      const rawNearby: VibeMatchProfile[] = nearby.length > 0
+      // Exclude own profile + already-swiped profiles; deduplicate across both sections
+      const seen = new Set<string>([uid]);
+      const keepCard = (c: VibeMatchProfile): boolean => {
+        if (seen.has(c.id) || swipedIds.has(c.id)) return false;
+        seen.add(c.id);
+        return true;
+      };
+
+      const rawNearby: VibeMatchProfile[] = (nearby.length > 0
         ? nearby.map((u) => ({ ...u, distance: u.distance ?? `${Math.floor(Math.random() * 15) + 1} km` }))
-        : allVibe.filter((c) => c.distance !== undefined);
+        : allVibe.filter((c) => c.distance !== undefined)
+      ).filter(keepCard);
       const sortedNearby = [...rawNearby].sort((a, b) => {
         const da = parseFloat((a.distance ?? "999 km").replace(/[^0-9.]/g, ""));
         const db = parseFloat((b.distance ?? "999 km").replace(/[^0-9.]/g, ""));
         return (isNaN(da) ? 999 : da) - (isNaN(db) ? 999 : db);
       });
       setNearbyCards(sortedNearby);
-      setSameVibeCards(allVibe.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
+      setSameVibeCards(allVibe.filter((c) => (c.vibe !== undefined || c.vibeScore !== undefined) && keepCard(c)));
     } catch {
     } finally {
       setCardsLoading(false);
