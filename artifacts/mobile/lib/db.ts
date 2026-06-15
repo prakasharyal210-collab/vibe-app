@@ -1293,30 +1293,28 @@ function applyDiversity(posts: Post[], maxPerCreator = 2): Post[] {
 
 export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset);
-  const [v2Result, v1Result, freshResult] = await Promise.allSettled([
-    rpcWithTimeout(supabase.rpc('get_for_you_feed_v2', { p_user_id: userId, p_limit: limit, p_offset: offset })),
-    rpcWithTimeout(supabase.rpc('get_for_you_feed',    { p_user_id: userId, p_limit: limit, p_offset: offset })),
-    fetchFreshPosts(limit),
-  ]);
-
-  const v2Posts = v2Result.status === 'fulfilled' && !v2Result.value.error && v2Result.value.data?.length
-    ? v2Result.value.data as Post[] : null;
-  const v1Posts = v1Result.status === 'fulfilled' && !v1Result.value.error && v1Result.value.data?.length
-    ? v1Result.value.data as Post[] : null;
-  const freshPosts = freshResult.status === 'fulfilled' ? freshResult.value : [];
-
-  console.log('[getForYouFeed] v2:', v2Posts?.length ?? 'null', 'v1:', v1Posts?.length ?? 'null', 'fresh:', freshPosts.length);
-  if (v2Result.status === 'fulfilled' && v2Result.value.error) console.log('[getForYouFeed] v2 error:', v2Result.value.error.message);
-  if (v1Result.status === 'fulfilled' && v1Result.value.error) console.log('[getForYouFeed] v1 error:', v1Result.value.error.message);
-
-  const ranked = v2Posts ?? v1Posts;
-  if (ranked && ranked.length > 0) {
-    const result = applyDiversity(viralBoostFeed(ranked, freshPosts));
-    console.log('[getForYouFeed] returning', result.length, 'posts (ranked path)');
-    return result;
+  try {
+    const params = new URLSearchParams({
+      userId,
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const res = await fetch(`${API_BASE}/feed/foryou?${params}`);
+    if (res.ok) {
+      const body = await res.json();
+      const posts = (body.data ?? []) as Post[];
+      console.log('[getForYouFeed] api server ok, source:', body.source, 'rows:', posts.length);
+      if (posts.length > 0) {
+        return applyDiversity(posts);
+      }
+    } else {
+      console.log('[getForYouFeed] api server error:', res.status);
+    }
+  } catch (e: any) {
+    console.log('[getForYouFeed] fetch threw:', e?.message);
   }
-  console.log('[getForYouFeed] returning', freshPosts.length, 'posts (fresh fallback)');
-  return freshPosts;
+  console.log('[getForYouFeed] returning []');
+  return [];
 }
 
 export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
@@ -1331,23 +1329,24 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
 
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   console.log('[getFriendsFeed] called userId:', userId?.slice(0, 8));
-  const [rpcResult, fresh] = await Promise.allSettled([
-    rpcWithTimeout(supabase.rpc('get_friends_feed', { p_user_id: userId, p_limit: limit, p_offset: offset })),
-    fetchFreshPosts(limit),
-  ]);
-  const friendsPosts = rpcResult.status === 'fulfilled' && !rpcResult.value.error && rpcResult.value.data?.length
-    ? rpcResult.value.data as Post[]
-    : null;
-  const freshFallback = fresh.status === 'fulfilled' ? fresh.value : [];
-  if (rpcResult.status === 'fulfilled' && rpcResult.value.error) console.log('[getFriendsFeed] rpc error:', rpcResult.value.error.message);
-  console.log('[getFriendsFeed] friends:', friendsPosts?.length ?? 'null', 'fresh fallback:', freshFallback.length);
-  if (friendsPosts && friendsPosts.length > 0) {
-    const result = viralBoostFeed(friendsPosts, freshFallback);
-    console.log('[getFriendsFeed] returning', result.length, 'posts (friends path)');
-    return result;
+  try {
+    const params = new URLSearchParams({
+      userId,
+      limit: String(limit),
+      offset: String(offset),
+    });
+    const res = await fetch(`${API_BASE}/feed/friends?${params}`);
+    if (res.ok) {
+      const body = await res.json();
+      const posts = (body.data ?? []) as Post[];
+      console.log('[getFriendsFeed] api server ok, source:', body.source, 'rows:', posts.length);
+      return posts;
+    }
+    console.log('[getFriendsFeed] api server error:', res.status);
+  } catch (e: any) {
+    console.log('[getFriendsFeed] fetch threw:', e?.message);
   }
-  console.log('[getFriendsFeed] returning', freshFallback.length, 'posts (fresh fallback)');
-  return freshFallback;
+  return [];
 }
 
 export async function getNearbyFeed(lat: number, lng: number, userId: string, limit = 20, offset = 0): Promise<Post[]> {

@@ -19,6 +19,7 @@
 - [Content moderation system](content-moderation.md) — profanityFilter.ts; POST /api/moderation/report+block; admin reports screen /admin/reports with ADMIN_SECRET header; moderation-migration.sql must run in Supabase dashboard.
 - [Stories feature wiring](stories-wiring.md) — stories table + follows bug (followed_id wrong → following_id); createStory() in db.ts via POST /api/stories; userId prop chain: FriendsStoriesBar→StoryRow→CreateStorySheet; stories-migration.sql needs Supabase dashboard run.
 - [Supabase RLS bypass via API server](supabase-rls-bypass.md) — posts/reels tables block mobile client inserts (hang 15s) and selects (return []); all post/reel create+read must go through API server with service role key.
+- [Feed fetching must go via API server](feed-via-api-server.md) — supabase.rpc() from mobile hangs forever AND blocks setTimeout timers; all feed RPCs proxied via /api/feed/* routes (service role key, <600 ms).
 - [profiles FK ambiguity on posts table](profiles-fk-ambiguity.md) — NEVER use profiles(*) or profiles(col,...) on the posts table; always use profiles!user_id(*) — the posts table has multiple FK paths to profiles and Supabase returns null on ambiguous joins.
 - [Auth routing pattern](auth-routing.md) — all post-login/logout navigation lives in _layout.tsx RootLayoutNav; login screen must NOT call router.replace after signIn (race condition → black screen).
 - [Performance audit results](performance-audit.md) — latency measurements, engage/hashtag fixes; SQL needed for full speedup
