@@ -260,6 +260,66 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
   );
 }
 
+// ─── ProfileTabBtn ────────────────────────────────────────────────────────────
+// Must be at MODULE SCOPE — defining inside UserProfileScreen would give it a
+// new identity on every render, causing Ionicons to lose their glyphs (□ tofu).
+
+const PROFILE_TABS = [
+  { id: "posts" as const, icon: "grid" as const },
+  { id: "reels" as const, icon: "film" as const },
+  { id: "tagged" as const, icon: "person" as const },
+];
+
+function ProfileTabBtn({
+  tab,
+  activeTab,
+  onPress,
+}: {
+  tab: (typeof PROFILE_TABS)[number];
+  activeTab: "posts" | "reels" | "tagged";
+  onPress: () => void;
+}) {
+  const colors = useColors();
+  const isActive = activeTab === tab.id;
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.tabBtn}>
+      <Ionicons name={tab.icon} size={22} color={isActive ? "#7C3AED" : colors.mutedForeground} />
+      {isActive && <View style={styles.tabIndicator} />}
+    </TouchableOpacity>
+  );
+}
+
+// ─── ProfileGridItem ──────────────────────────────────────────────────────────
+// Must be at MODULE SCOPE — same reason as ProfileTabBtn above.
+
+type GridItemData = {
+  id: string;
+  image: string;
+  likes?: number | null;
+  isVideo?: boolean;
+};
+
+function ProfileGridItem({ item, onPress }: { item: GridItemData; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.gridItem} activeOpacity={0.88} onPress={onPress}>
+      <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
+      {item.isVideo && (
+        <View style={styles.videoOverlay} pointerEvents="none">
+          <Ionicons name="play" size={18} color="#fff" />
+        </View>
+      )}
+      <View style={styles.gridLikeRow} pointerEvents="none">
+        <Ionicons name="heart" size={12} color="#fff" />
+        <Text style={styles.gridLikes}>
+          {(item.likes ?? 0) >= 1000
+            ? `${((item.likes ?? 0) / 1000).toFixed(1)}k`
+            : item.likes ?? 0}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 // ─── UserProfileScreen ────────────────────────────────────────────────────────
 
 export default function UserProfileScreen() {
@@ -629,32 +689,23 @@ export default function UserProfileScreen() {
             )}
 
             <View style={[styles.tabRow, { borderTopColor: colors.border, borderBottomColor: colors.border }]}>
-              {([
-                { id: "posts", icon: "grid" as const },
-                { id: "reels", icon: "film" as const },
-                { id: "tagged", icon: "person" as const },
-              ] as const).map((tab) => (
-                <TouchableOpacity key={tab.id} onPress={() => setActiveTab(tab.id)} style={styles.tabBtn}>
-                  <Ionicons name={tab.icon} size={22} color={activeTab === tab.id ? "#7C3AED" : colors.mutedForeground} />
-                  {activeTab === tab.id && <View style={styles.tabIndicator} />}
-                </TouchableOpacity>
+              {PROFILE_TABS.map((tab) => (
+                <ProfileTabBtn
+                  key={tab.id}
+                  tab={tab}
+                  activeTab={activeTab}
+                  onPress={() => setActiveTab(tab.id)}
+                />
               ))}
             </View>
 
             <View style={styles.grid}>
               {gridData.map((item, i) => (
-                <TouchableOpacity key={item.id} style={styles.gridItem} activeOpacity={0.88} onPress={() => setMediaViewer({ visible: true, startIndex: i })}>
-                  <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
-                  {item.isVideo && (
-                    <View style={styles.videoOverlay} pointerEvents="none">
-                      <Ionicons name="play" size={18} color="#fff" />
-                    </View>
-                  )}
-                  <View style={styles.gridLikeRow} pointerEvents="none">
-                    <Ionicons name="heart" size={12} color="#fff" />
-                    <Text style={styles.gridLikes}>{(item.likes ?? 0) >= 1000 ? `${((item.likes ?? 0) / 1000).toFixed(1)}k` : item.likes}</Text>
-                  </View>
-                </TouchableOpacity>
+                <ProfileGridItem
+                  key={item.id}
+                  item={item}
+                  onPress={() => setMediaViewer({ visible: true, startIndex: i })}
+                />
               ))}
             </View>
           </>

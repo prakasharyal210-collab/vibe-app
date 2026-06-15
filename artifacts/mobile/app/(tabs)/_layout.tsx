@@ -231,6 +231,11 @@ function ClassicTabLayout({
 }) {
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+  // Account for Android system nav bar (back/home/recent buttons).
+  // Without this, the pill tab bar sits at bottom:10 which is INSIDE the
+  // system nav bar area, making those buttons appear as a "second row" below it.
+  const tabBarBottom = Platform.OS === "web" ? 10 : Math.max(insets.bottom, 0) + 10;
 
   // Use refs so listeners always read the latest values without stale closures
   const lockedRef = useRef(findVibeLocked);
@@ -257,7 +262,7 @@ function ClassicTabLayout({
           position: "absolute",
           left: 16,
           right: 16,
-          bottom: Platform.OS === "web" ? 10 : 10,
+          bottom: tabBarBottom,
           borderRadius: 28,
           height: Platform.OS === "web" ? 68 : 68,
           backgroundColor: isIOS ? "transparent" : "rgba(8,8,16,0.96)",

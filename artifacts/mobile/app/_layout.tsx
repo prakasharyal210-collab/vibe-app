@@ -118,6 +118,14 @@ function RootLayoutNav() {
         name="advertise"
         options={{ animation: "slide_from_right" }}
       />
+      <Stack.Screen
+        name="profile/[username]"
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="snap-camera"
+        options={{ animation: "slide_from_bottom", presentation: "fullScreenModal" }}
+      />
     </Stack>
   );
 }
