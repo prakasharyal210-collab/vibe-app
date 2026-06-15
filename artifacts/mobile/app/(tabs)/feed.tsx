@@ -429,7 +429,10 @@ export default function FeedScreen() {
 
       console.log('[loadTabData] tab:', tab, 'data.length:', data.length, 'reset:', reset);
 
-      const prev = reset ? [] : tabStatesRef.current[tab].posts;
+      // Cycling: when !reset and offset===0 we've wrapped around — clear prev so
+      // the same posts can re-appear (dedup would otherwise filter them all out).
+      const isCycleWrap = !reset && offset === 0;
+      const prev = (reset || isCycleWrap) ? [] : tabStatesRef.current[tab].posts;
       const merged = [...prev, ...data];
       const seenIds = new Set<string>();
       const deduped = merged.filter((p, i) => {
@@ -439,12 +442,20 @@ export default function FeedScreen() {
         return true;
       });
       console.log('[loadTabData] tab:', tab, 'deduped:', deduped.length, 'posts');
+
+      // Infinite cycling: when we reach the end (partial page), reset offset to 0
+      // so the next loadMore wraps back to the beginning. hasMore stays true unless
+      // there is genuinely zero content to show.
+      const atEnd = data.length < PAGE_SIZE;
+      const nextOffset = atEnd ? 0 : offset + data.length;
+      const hasMore = deduped.length > 0; // false only when DB is completely empty
+
       updateTab(tab, {
         posts: deduped,
         loading: false,
         loadingMore: false,
-        offset: offset + data.length,
-        hasMore: data.length === PAGE_SIZE,
+        offset: nextOffset,
+        hasMore,
       });
       loadedTabs.current.add(tab);
     } catch (e: any) {
@@ -810,17 +821,6 @@ export default function FeedScreen() {
                     return (
                       <View style={{ paddingVertical: 20, alignItems: "center" }}>
                         <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 13 }}>Loading more...</Text>
-                      </View>
-                    );
-                  }
-                  if (!state.hasMore && state.posts.length > 0) {
-                    return (
-                      <View style={{ paddingVertical: 20, alignItems: "center", gap: 4 }}>
-                        <Text style={{ fontSize: 20 }}>🎉</Text>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_500Medium", fontSize: 13 }}>You're all caught up!</Text>
-                        <TouchableOpacity onPress={onRefresh}>
-                          <Text style={{ color: "#7C3AED", fontFamily: "Poppins_500Medium", fontSize: 12, marginTop: 4 }}>Refresh for new posts ↑</Text>
-                        </TouchableOpacity>
                       </View>
                     );
                   }
