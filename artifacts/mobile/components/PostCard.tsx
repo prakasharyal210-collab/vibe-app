@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { Video, ResizeMode } from "expo-av";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
@@ -74,7 +75,15 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [activeImg, setActiveImg] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
+
+  // Detect video posts — check is_video flag OR file extension on the URL
+  const videoUrl = post.is_video
+    ? (post.video_url || post.image_url)
+    : (post.video_url || (post.image_url?.match(/\.(mp4|mov|webm|m4v)/i) ? post.image_url : null));
+  const isVideoPost = !!videoUrl;
 
   const { counts: rtCounts, bumped } = usePostRealtime(post.id, {
     likes_count: post.likes_count,
@@ -318,42 +327,84 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </TouchableOpacity>
       </View>
 
-      {/* Image carousel */}
+      {/* Media area — video or image carousel */}
       <View style={styles.imageContainer}>
-        <FlatList
-          data={images}
-          keyExtractor={(_, i) => String(i)}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          renderItem={({ item }) => (
-            <Image source={{ uri: item }} style={styles.image} resizeMode="cover" />
-          )}
-          scrollEnabled={images.length > 1}
-        />
-        {images.length > 1 && (
-          <View style={styles.dotsContainer}>
-            {images.map((_, i) => (
-              i === activeImg ? (
-                <LinearGradient
-                  key={i}
-                  colors={[colors.gradientStart, colors.gradientMid] as [string, string]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.dot, styles.dotActive]}
-                />
-              ) : (
-                <View key={i} style={[styles.dot, { backgroundColor: "rgba(255,255,255,0.35)" }]} />
-              )
-            ))}
-          </View>
-        )}
-        {images.length > 1 && (
-          <View style={styles.imageCount}>
-            <Text style={styles.imageCountText}>{activeImg + 1}/{images.length}</Text>
-          </View>
+        {isVideoPost ? (
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ flex: 1 }}
+            onPress={() => {
+              if (videoPlaying) {
+                videoRef.current?.pauseAsync();
+                setVideoPlaying(false);
+              } else {
+                videoRef.current?.playAsync();
+                setVideoPlaying(true);
+              }
+            }}
+          >
+            <Video
+              ref={videoRef}
+              source={{ uri: videoUrl! }}
+              style={styles.image}
+              resizeMode={ResizeMode.COVER}
+              isLooping
+              isMuted={false}
+              onPlaybackStatusUpdate={(s) => {
+                if (s.isLoaded) setVideoPlaying(s.isPlaying);
+              }}
+            />
+            {/* Play/pause overlay */}
+            {!videoPlaying && (
+              <View style={styles.videoPlayOverlay}>
+                <View style={styles.videoPlayBtn}>
+                  <Ionicons name="play" size={28} color="#fff" style={{ marginLeft: 4 }} />
+                </View>
+                <View style={styles.videoBadge}>
+                  <Ionicons name="videocam" size={11} color="#fff" />
+                  <Text style={styles.videoBadgeText}> VIDEO</Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+        ) : (
+          <>
+            <FlatList
+              data={images}
+              keyExtractor={(_, i) => String(i)}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              renderItem={({ item }) => (
+                <Image source={{ uri: item }} style={styles.image} resizeMode="cover" />
+              )}
+              scrollEnabled={images.length > 1}
+            />
+            {images.length > 1 && (
+              <View style={styles.dotsContainer}>
+                {images.map((_, i) => (
+                  i === activeImg ? (
+                    <LinearGradient
+                      key={i}
+                      colors={[colors.gradientStart, colors.gradientMid] as [string, string]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={[styles.dot, styles.dotActive]}
+                    />
+                  ) : (
+                    <View key={i} style={[styles.dot, { backgroundColor: "rgba(255,255,255,0.35)" }]} />
+                  )
+                ))}
+              </View>
+            )}
+            {images.length > 1 && (
+              <View style={styles.imageCount}>
+                <Text style={styles.imageCountText}>{activeImg + 1}/{images.length}</Text>
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -571,6 +622,24 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
   },
   imageCountText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  videoPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoPlayBtn: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderWidth: 2, borderColor: "rgba(255,255,255,0.75)",
+    alignItems: "center", justifyContent: "center",
+  },
+  videoBadge: {
+    position: "absolute", bottom: 12, right: 12,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 6,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  videoBadgeText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 10, letterSpacing: 0.8 },
   actions: {
     flexDirection: "row",
     alignItems: "center",

@@ -262,6 +262,8 @@ router.post("/create", async (req, res) => {
     ? (options.visibility as string)
     : "public";
 
+  const isVideoMime = mimeType.startsWith("video/");
+
   const payload: Record<string, unknown> = {
     user_id: userId,
     media_url: mediaUrl ?? "",
@@ -271,6 +273,7 @@ router.post("/create", async (req, res) => {
     comments_count: 0,
     views_count: 0,
     created_at: new Date().toISOString(),
+    ...(isVideoMime ? { is_video: true } : {}),
     ...(options.filterId ? { filter_id: options.filterId } : {}),
     ...(options.location ? { location: options.location } : {}),
   };

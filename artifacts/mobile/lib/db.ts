@@ -1539,6 +1539,33 @@ export async function uploadPostMedia(
     const cleanUri = uri.split('?')[0];
     const rawExt = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
     const isGif = rawExt === 'gif';
+    const isVideo = ['mp4', 'mov', 'webm', 'm4v'].includes(rawExt);
+
+    // For videos: skip image compression entirely, send raw file
+    if (isVideo) {
+      const videoExt = rawExt === 'mov' ? 'mov' : rawExt === 'webm' ? 'webm' : 'mp4';
+      const videoMime = rawExt === 'mov' ? 'video/quicktime' : rawExt === 'webm' ? 'video/webm' : 'video/mp4';
+      let videoBase64: string | undefined;
+      try {
+        videoBase64 = await withTimeout(localUriToBase64(uri), 60_000, 'video file read');
+      } catch {
+        // File read failed — post without media
+      }
+      const vRes = await withTimeout(
+        fetch(`${API_BASE}/posts/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, imageBase64: videoBase64, mimeType: videoMime, ext: videoExt, caption, options: { ...options, visibility: options?.visibility ?? 'public' } }),
+        }),
+        90_000,
+        'post create API (video)'
+      );
+      if (!vRes.ok) {
+        const errText = await vRes.text().catch(() => 'unknown');
+        throw new Error(`Post create API ${vRes.status}: ${errText}`);
+      }
+      return await vRes.json() as { id: string; mediaUrl: string };
+    }
 
     // Compress + resize photo before upload (skip for GIFs — manipulator strips animation)
     let uploadUri = uri;
