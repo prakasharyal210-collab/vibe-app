@@ -550,6 +550,9 @@ export default function ReelsScreen() {
   const [soundOn, setSoundOn] = useState(true);
   const [showSounds, setShowSounds] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  // Tracks the settled index at the START of each drag gesture so onMomentumScrollEnd
+  // can clamp to exactly ±1 regardless of how far momentum carried the offset.
+  const dragStartIndexRef = useRef(0);
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
@@ -721,13 +724,32 @@ export default function ReelsScreen() {
     }
   ).current;
 
-  // Fallback confirmation after momentum settles — snapToInterval already lands
-  // on exact boundaries so no nudge is needed here.
+  // Record the settled index when the user begins a new drag gesture.
+  // This is the reference point for the ±1 clamp in onMomentumScrollEnd.
+  const onScrollBeginDrag = useCallback((e: any) => {
+    dragStartIndexRef.current = Math.round(e.nativeEvent.contentOffset.y / SCREEN_H);
+  }, []);
+
+  // TikTok-style ±1 clamp: regardless of how fast the user swiped (and how far
+  // momentum carried the offset), we only ever advance or retreat ONE reel at a time.
   const onMomentumScrollEnd = useCallback((e: any) => {
     const offsetY = e.nativeEvent.contentOffset.y;
-    const index = Math.round(offsetY / SCREEN_H);
-    const clamped = Math.max(0, Math.min(index, displayReels.length - 1));
-    setActiveIndex(clamped);
+    const from = dragStartIndexRef.current;
+
+    let target: number;
+    if (offsetY >= (from + 0.5) * SCREEN_H) {
+      target = from + 1;   // crossed midpoint going forward
+    } else if (offsetY <= (from - 0.5) * SCREEN_H) {
+      target = from - 1;   // crossed midpoint going backward
+    } else {
+      target = from;       // didn't reach midpoint → snap back
+    }
+    target = Math.max(0, Math.min(target, displayReels.length - 1));
+
+    // Settle on the exact boundary for this reel
+    flatListRef.current?.scrollToOffset({ offset: target * SCREEN_H, animated: true });
+    dragStartIndexRef.current = target;
+    setActiveIndex(target);
   }, [displayReels.length]);
 
   const handleComplete = useCallback(() => {
@@ -779,11 +801,10 @@ export default function ReelsScreen() {
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
-        snapToInterval={SCREEN_H}
-        snapToAlignment="start"
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => ({ length: SCREEN_H, offset: SCREEN_H * index, index })}
+        onScrollBeginDrag={onScrollBeginDrag}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={REEL_VIEWABILITY_CONFIG}
         onMomentumScrollEnd={onMomentumScrollEnd}
