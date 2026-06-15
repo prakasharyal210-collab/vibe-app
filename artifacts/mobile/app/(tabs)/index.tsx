@@ -650,45 +650,76 @@ export default function ReelsScreen() {
 
   const loadFeed = useCallback(async () => {
     const uid = session?.user?.id;
+    console.log('[loadFeed] called uid:', uid?.slice(0, 8) ?? 'guest');
 
-    // ── Viral boost: fetch the 20 most recent posts + reels from ALL users ──
-    // These are interleaved into For You so new users' content goes viral.
+    // ── Timeout-safe RPC helper (10s) ────────────────────────────────────────
+    // Bare supabase.rpc() calls can hang on slow networks; this ensures they
+    // always resolve so subsequent awaits in this function are always reached.
+    const rpcRace = (call: PromiseLike<{ data: any; error: any }>, ms = 10000) =>
+      Promise.race([
+        Promise.resolve(call),
+        new Promise<{ data: null; error: { message: string } }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: { message: 'rpc timeout' } }), ms)
+        ),
+      ]);
+
+    // ── Viral boost: fetch recent posts + reels ──────────────────────────────
+    // IMPORTANT: these direct anon-key queries use profiles!user_id JOIN which
+    // hangs under Supabase RLS. We race them against a 4s deadline; if they
+    // hang, freshItems stays [] and execution continues to the RPCs below.
     let freshItems: Reel[] = [];
     try {
-      const [postsRes, reelsRes] = await Promise.allSettled([
-        supabase
-          .from("posts")
-          .select("*, profiles!user_id(username, avatar_url, is_verified)")
-          .or("visibility.eq.public,visibility.is.null")
-          .order("score", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("reels")
-          .select("*, profiles!user_id(username, avatar_url, is_verified)")
-          .order("score", { ascending: false })
-          .order("created_at", { ascending: false })
-          .limit(20),
+      const settled = await Promise.race([
+        Promise.allSettled([
+          supabase
+            .from("posts")
+            .select("*, profiles!user_id(username, avatar_url, is_verified)")
+            .or("visibility.eq.public,visibility.is.null")
+            .order("score", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(20),
+          supabase
+            .from("reels")
+            .select("*, profiles!user_id(username, avatar_url, is_verified)")
+            .order("score", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(20),
+        ]),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
       ]);
-      const freshPosts =
-        postsRes.status === "fulfilled" ? (postsRes.value.data ?? []).map(postToReel) : [];
-      const freshReels =
-        reelsRes.status === "fulfilled" ? (reelsRes.value.data ?? []).map(reelRowToReel) : [];
-      // Merge and sort by recency — zip them together alternating post/reel
-      freshItems = freshPosts
-        .flatMap((p, i) => (freshReels[i] ? [p, freshReels[i]] : [p]))
-        .concat(freshReels.slice(freshPosts.length));
+      if (settled) {
+        const [postsRes, reelsRes] = settled;
+        const freshPosts =
+          postsRes.status === "fulfilled" && postsRes.value.data
+            ? (postsRes.value.data as any[]).map(postToReel) : [];
+        const freshReels =
+          reelsRes.status === "fulfilled" && reelsRes.value.data
+            ? (reelsRes.value.data as any[]).map(reelRowToReel) : [];
+        freshItems = freshPosts
+          .flatMap((p, i) => (freshReels[i] ? [p, freshReels[i]] : [p]))
+          .concat(freshReels.slice(freshPosts.length));
+      }
+      console.log('[loadFeed] freshItems:', freshItems.length);
     } catch {}
 
-    // ── For You feed ────────────────────────────────────────────────────────
+    // ── For You reels ────────────────────────────────────────────────────────
     let fyLoaded = false;
     if (uid) {
       try {
-        // Try personalized v2 first; falls back to v1 if migration not run yet
         let fyDataV2: any[] | null = null;
-        try { const r = await supabase.rpc("get_for_you_reels_v2", { p_user_id: uid, p_limit: 20 }); fyDataV2 = r.error ? null : (r.data ?? null); } catch {}
+        try {
+          const r = await rpcRace(supabase.rpc("get_for_you_reels_v2", { p_user_id: uid, p_limit: 20 }));
+          fyDataV2 = (r.error || !r.data?.length) ? null : r.data as any[];
+          console.log('[loadFeed] fy_v2:', fyDataV2?.length ?? 'null', r.error?.message ?? 'ok');
+        } catch {}
         let fyDataV1: any[] | null = null;
-        if (!fyDataV2?.length) { try { const r = await supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 }); fyDataV1 = r.error ? null : (r.data ?? null); } catch {} }
+        if (!fyDataV2?.length) {
+          try {
+            const r = await rpcRace(supabase.rpc("get_for_you_reels", { p_user_id: uid, p_limit: 20 }));
+            fyDataV1 = (r.error || !r.data?.length) ? null : r.data as any[];
+            console.log('[loadFeed] fy_v1:', fyDataV1?.length ?? 'null', r.error?.message ?? 'ok');
+          } catch {}
+        }
         const fyData = fyDataV2?.length ? fyDataV2 : fyDataV1;
         if (fyData && fyData.length > 0) {
           fyLoaded = true;
@@ -706,24 +737,26 @@ export default function ReelsScreen() {
             isVerified: r.is_verified ?? false,
           }));
           setForYouReels(applyReelDiversity(interleaveBoost(rpcReels, freshItems)));
+          console.log('[loadFeed] forYouReels set:', rpcReels.length);
         }
       } catch {}
     }
 
-    // Fallback for guests or logged-in users with no RPC results
+    // Fallback — guests or no RPC results
     if (!fyLoaded) {
-      // freshItems already contains the most recent content — use as feed
       if (freshItems.length > 0) {
         setForYouReels(freshItems);
       }
+      console.log('[loadFeed] fy fallback freshItems:', freshItems.length);
     }
 
-    // ── Following feed (logged-in only) ─────────────────────────────────────
+    // ── Following reels ──────────────────────────────────────────────────────
     if (uid) {
       try {
-        const { data: flData } = await supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 });
-        if (flData && flData.length > 0) {
-          const followingBase: Reel[] = flData.map((r: any) => ({
+        const r = await rpcRace(supabase.rpc("get_following_reels", { p_user_id: uid, p_limit: 20 }));
+        console.log('[loadFeed] following:', r.data?.length ?? 'null', r.error?.message ?? 'ok');
+        if (r.data && (r.data as any[]).length > 0) {
+          const followingBase: Reel[] = (r.data as any[]).map((r: any) => ({
             id: r.id,
             image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
             videoUrl: r.video_url ?? undefined,

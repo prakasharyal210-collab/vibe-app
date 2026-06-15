@@ -1167,13 +1167,15 @@ function viralBoostFeed(base: Post[], fresh: Post[], everyN = 3): Post[] {
   return result;
 }
 
-/** Wrap any Supabase RPC call so it never hangs Promise.allSettled indefinitely. */
-function rpcWithTimeout<T>(
-  call: Promise<{ data: T | null; error: any }>,
-  ms = 4000
-): Promise<{ data: T | null; error: any }> {
+/** Wrap any Supabase RPC call so it never hangs Promise.allSettled indefinitely.
+ *  Accepts PromiseLike (which PostgrestFilterBuilder satisfies) and wraps it
+ *  in Promise.resolve() so Promise.race() gets a real Promise. */
+function rpcWithTimeout(
+  call: PromiseLike<{ data: any; error: any }>,
+  ms = 10000
+): Promise<{ data: any; error: any }> {
   return Promise.race([
-    call,
+    Promise.resolve(call),
     new Promise<{ data: null; error: { message: string } }>((resolve) =>
       setTimeout(() => resolve({ data: null, error: { message: 'rpc timeout' } }), ms)
     ),
