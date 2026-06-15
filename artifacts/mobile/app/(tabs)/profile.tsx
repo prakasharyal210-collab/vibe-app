@@ -12,6 +12,7 @@ import {
   FlatList,
   Image,
   Modal,
+  PanResponder,
   Platform,
   ScrollView,
   Share,
@@ -114,6 +115,139 @@ function formatCount(n: number) {
   return String(n);
 }
 
+function fmtTime(s: number) {
+  const m = Math.floor(s / 60);
+  return `${m}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+}
+
+function VideoItem({ item, isActive }: { item: GridItem; isActive: boolean }) {
+  const videoRef = useRef<Video>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [posSecs, setPosSecs] = useState(0);
+  const [durSecs, setDurSecs] = useState(0);
+  const [ended, setEnded] = useState(false);
+  const [buffering, setBuffering] = useState(true);
+  const trackWidthRef = useRef(1);
+
+  useEffect(() => {
+    if (!isActive) {
+      videoRef.current?.pauseAsync().catch(() => {});
+    }
+  }, [isActive]);
+
+  const onStatus = (status: any) => {
+    if (!status.isLoaded) return;
+    setPosSecs(status.positionMillis / 1000);
+    if (status.durationMillis) setDurSecs(status.durationMillis / 1000);
+    setIsPlaying(status.isPlaying);
+    setBuffering(status.isBuffering ?? false);
+    if (status.didJustFinish) {
+      setEnded(true);
+      setIsPlaying(false);
+    }
+  };
+
+  const togglePlay = async () => {
+    if (ended) {
+      await videoRef.current?.setPositionAsync(0);
+      setPosSecs(0);
+      setEnded(false);
+    }
+    if (isPlaying) {
+      await videoRef.current?.pauseAsync();
+    } else {
+      await videoRef.current?.playAsync();
+    }
+  };
+
+  const seekTo = (x: number) => {
+    if (durSecs === 0) return;
+    const frac = Math.max(0, Math.min(1, x / trackWidthRef.current));
+    const ms = frac * durSecs * 1000;
+    videoRef.current?.setPositionAsync(ms);
+    setPosSecs(frac * durSecs);
+    setEnded(false);
+  };
+
+  const seekPR = PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
+    onPanResponderGrant: (e) => seekTo(e.nativeEvent.locationX),
+    onPanResponderMove: (e) => seekTo(e.nativeEvent.locationX),
+  });
+
+  const progress = durSecs > 0 ? Math.min(1, posSecs / durSecs) : 0;
+  const pct = `${Math.min(99.5, progress * 100)}%` as any;
+
+  return (
+    <View style={{ width: W, alignItems: "center", justifyContent: "center" }}>
+      <Video
+        ref={videoRef}
+        source={{ uri: item.video_url ?? item.image_url }}
+        style={pvStyles.photo}
+        resizeMode={ResizeMode.CONTAIN}
+        useNativeControls={false}
+        isLooping={false}
+        onPlaybackStatusUpdate={onStatus}
+      />
+      {buffering && !isPlaying && (
+        <ActivityIndicator color="#7C3AED" size="large" style={StyleSheet.absoluteFill as any} />
+      )}
+      <View style={pvStyles.videoControls}>
+        {/* Seek bar */}
+        <View
+          style={pvStyles.seekTrack}
+          onLayout={(e) => { trackWidthRef.current = e.nativeEvent.layout.width; }}
+          {...seekPR.panHandlers}
+        >
+          <View style={pvStyles.seekBg} />
+          <View style={[pvStyles.seekFill, { width: `${progress * 100}%` as any }]} />
+          <View style={[pvStyles.seekThumb, { left: pct }]} />
+        </View>
+        {/* Time labels */}
+        <View style={pvStyles.timeRow}>
+          <Text style={pvStyles.timeText}>{fmtTime(posSecs)}</Text>
+          <Text style={pvStyles.timeText}>{fmtTime(durSecs)}</Text>
+        </View>
+        {/* Rewind / Play-Pause / Fast-Forward */}
+        <View style={pvStyles.ctrlRow}>
+          <TouchableOpacity
+            onPress={() => {
+              const ms = Math.max(0, (posSecs - 10) * 1000);
+              videoRef.current?.setPositionAsync(ms);
+              setPosSecs(ms / 1000);
+              setEnded(false);
+            }}
+            style={pvStyles.ctrlBtn}
+          >
+            <Ionicons name="play-back" size={26} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={togglePlay} style={pvStyles.playPauseBtn}>
+            <Ionicons
+              name={ended ? "reload-circle" : isPlaying ? "pause" : "play"}
+              size={36}
+              color="#fff"
+              style={(!isPlaying || ended) && !ended ? { marginLeft: 3 } : undefined}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => {
+              const ms = Math.min(durSecs * 1000, (posSecs + 10) * 1000);
+              videoRef.current?.setPositionAsync(ms);
+              setPosSecs(ms / 1000);
+            }}
+            style={pvStyles.ctrlBtn}
+          >
+            <Ionicons name="play-forward" size={26} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function PhotoViewer({
   photos,
   initialIndex,
@@ -168,16 +302,10 @@ function PhotoViewer({
           }}
           style={{ flex: 1 }}
         >
-          {photos.map((p) => (
+          {photos.map((p, i) => (
             <View key={p.id} style={pvStyles.photoWrap}>
               {(p.is_video || p.isReel) && (p.video_url || (p.is_video && p.image_url)) ? (
-                <Video
-                  source={{ uri: p.video_url ?? p.image_url }}
-                  style={pvStyles.photo}
-                  resizeMode={ResizeMode.CONTAIN}
-                  useNativeControls
-                  shouldPlay={photos[idx]?.id === p.id}
-                />
+                <VideoItem item={p} isActive={idx === i} />
               ) : (
                 <Image source={{ uri: p.image_url }} style={pvStyles.photo} resizeMode="contain" />
               )}
@@ -263,6 +391,26 @@ const pvStyles = StyleSheet.create({
   dots: { flexDirection: "row", gap: 6, alignSelf: "center" },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.3)" },
   dotActive: { backgroundColor: "#8B5CF6", width: 16 },
+  videoControls: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 14,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    gap: 6,
+  },
+  seekTrack: { height: 22, justifyContent: "center", position: "relative" },
+  seekBg: { position: "absolute", left: 0, right: 0, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)" },
+  seekFill: { position: "absolute", left: 0, height: 3, borderRadius: 2, backgroundColor: "#7C3AED" },
+  seekThumb: { position: "absolute", width: 14, height: 14, borderRadius: 7, backgroundColor: "#fff", top: "50%", marginTop: -7, marginLeft: -7 },
+  timeRow: { flexDirection: "row", justifyContent: "space-between" },
+  timeText: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "Poppins_500Medium" },
+  ctrlRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32, marginTop: 2 },
+  ctrlBtn: { padding: 6 },
+  playPauseBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(124,58,237,0.75)", alignItems: "center", justifyContent: "center" },
 });
 
 function SkeletonGrid() {
