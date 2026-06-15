@@ -1427,11 +1427,10 @@ const saStyles = StyleSheet.create({
   followText: { fontFamily: "Poppins_700Bold", fontSize: 12, color: "#fff" },
 });
 
-function GoalsDiscoveryTab({ onGoalSelect, userId }: { onGoalSelect: (goal: string) => void; userId?: string }) {
+function GoalsDiscoveryTab({ onGoalSelect }: { onGoalSelect: (goal: string) => void; userId?: string }) {
   const colors = useColors();
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 120 }}>
-      <SuggestedAccountsSection userId={userId} />
       <Text style={[gdStyles.title, { color: colors.foreground }]}>🎯 Browse by Intention</Text>
       <Text style={[gdStyles.sub, { color: colors.mutedForeground }]}>
         Find people who want the same things as you
