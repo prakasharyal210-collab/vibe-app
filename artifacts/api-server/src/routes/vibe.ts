@@ -188,6 +188,96 @@ router.post("/swipe", async (req, res) => {
   }
 });
 
+// GET /api/vibe/deck?userId=&lat=&lng=
+// Returns filtered swipe-deck profiles honoring the viewer's vibe preferences:
+//   vibe_age_min/max, vibe_max_distance_km, vibe_exclude_connections
+// Also strips distance_km from profiles whose owner set vibe_show_distance = false
+router.get("/deck", async (req, res) => {
+  const { userId, lat, lng } = req.query as { userId?: string; lat?: string; lng?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const sb = makeSupabase();
+
+  try {
+    // 1. Fetch viewer's vibe discovery preferences
+    const { data: settings } = await sb
+      .from("user_settings")
+      .select("vibe_age_min, vibe_age_max, vibe_max_distance_km, vibe_exclude_connections")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const ageMin: number    = (settings as any)?.vibe_age_min             ?? 18;
+    const ageMax: number    = (settings as any)?.vibe_age_max             ?? 60;
+    const radiusKm: number  = (settings as any)?.vibe_max_distance_km     ?? 50;
+    const excludeConn: boolean = (settings as any)?.vibe_exclude_connections ?? false;
+
+    const parsedLat = lat ? parseFloat(lat) : undefined;
+    const parsedLng = lng ? parseFloat(lng) : undefined;
+
+    // 2. Call the nearby-users RPC with the viewer's distance preference
+    const { data: rpcData, error: rpcError } = await sb.rpc("get_nearby_users", {
+      p_user_id: userId,
+      p_lat:     parsedLat,
+      p_lng:     parsedLng,
+      p_radius_km: radiusKm,
+    });
+    if (rpcError) {
+      req.log.warn({ err: rpcError.message }, "get_nearby_users RPC error in /deck");
+    }
+
+    let profiles: any[] = Array.isArray(rpcData) ? rpcData : [];
+
+    // 3. Filter by age range
+    profiles = profiles.filter((p: any) => {
+      const age = p.age ?? null;
+      if (age === null) return true;
+      return age >= ageMin && age <= ageMax;
+    });
+
+    // 4. Exclude follows / followers if requested
+    if (excludeConn && profiles.length > 0) {
+      const [followingRes, followersRes] = await Promise.all([
+        sb.from("follows").select("following_id").eq("follower_id", userId),
+        sb.from("follows").select("follower_id").eq("following_id", userId),
+      ]);
+      const connIds = new Set<string>([
+        ...((followingRes.data ?? []).map((r: any) => r.following_id as string)),
+        ...((followersRes.data ?? []).map((r: any) => r.follower_id as string)),
+      ]);
+      profiles = profiles.filter((p: any) => !connIds.has(p.id as string));
+    }
+
+    // 5. Strip distance_km from profiles whose owner hid their distance
+    if (profiles.length > 0) {
+      const ids = profiles.map((p: any) => p.id as string);
+      const { data: distSettings } = await sb
+        .from("user_settings")
+        .select("user_id, vibe_show_distance")
+        .in("user_id", ids);
+      const hideSet = new Set<string>(
+        ((distSettings ?? []) as any[])
+          .filter((r: any) => r.vibe_show_distance === false)
+          .map((r: any) => r.user_id as string),
+      );
+      profiles = profiles.map((p: any) => {
+        if (hideSet.has(p.id as string)) {
+          const { distance_km: _dropped, ...rest } = p;
+          return rest;
+        }
+        return p;
+      });
+    }
+
+    res.json({ profiles });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe-deck exception");
+    res.status(500).json({ error: "Failed to load deck" });
+  }
+});
+
 // GET /api/vibe/swiped?userId=...
 // Returns all target_ids this user has already swiped (any direction)
 // Used by the swipe deck to exclude already-seen profiles

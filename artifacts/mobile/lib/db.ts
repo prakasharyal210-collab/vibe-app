@@ -466,6 +466,12 @@ export interface UserSettings {
   activity_visibility: boolean;
   story_permission: "everyone" | "friends";
   story_reply_permission: "everyone" | "friends" | "off";
+  // ── Find Vibe discovery ─────────────────────────────────────────────────────
+  vibe_age_min: number;
+  vibe_age_max: number;
+  vibe_max_distance_km: number;
+  vibe_show_distance: boolean;
+  vibe_exclude_connections: boolean;
   // ── Push master ────────────────────────────────────────────────────────────
   notif_push_enabled: boolean;
   notif_in_app: boolean;
@@ -505,6 +511,11 @@ export const DEFAULT_SETTINGS: UserSettings = {
   activity_visibility: true,
   story_permission: "everyone",
   story_reply_permission: "everyone",
+  vibe_age_min: 18,
+  vibe_age_max: 60,
+  vibe_max_distance_km: 50,
+  vibe_show_distance: true,
+  vibe_exclude_connections: false,
   notif_push_enabled: true,
   notif_in_app: true,
   notif_likes: true,
@@ -2307,27 +2318,29 @@ export async function getNearbyUsers(
   userId: string,
   lat: number | undefined,
   lng: number | undefined,
-  radiusKm = 50,
+  _radiusKm = 50,
 ): Promise<VibeMatchProfile[]> {
   try {
-    const { data, error } = await supabase.rpc("get_nearby_users", {
-      p_user_id: userId,
-      p_lat: lat,
-      p_lng: lng,
-      p_radius_km: radiusKm,
-    });
-    if (!error && data && (data as any[]).length > 0) {
-      return (data as any[]).map((row: any) => ({
-        id: row.id,
-        name: row.display_name ?? row.username ?? "Vibe User",
-        age: row.age ?? 24,
-        image: row.avatar_url ?? `https://picsum.photos/seed/${row.id}/400/600`,
-        bio: row.bio ?? "",
-        interests: row.interests ?? [],
-        distance: row.distance_km ? `${Math.round(row.distance_km)} km away` : undefined,
-        isOnline: row.is_online ?? false,
-        gender: row.gender,
-      }));
+    const params = new URLSearchParams({ userId });
+    if (lat !== undefined) params.set("lat", String(lat));
+    if (lng !== undefined) params.set("lng", String(lng));
+    const res = await fetch(`${API_BASE}/vibe/deck?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json() as { profiles?: any[] };
+      const data: any[] = json.profiles ?? [];
+      if (data.length > 0) {
+        return data.map((row: any) => ({
+          id: row.id,
+          name: row.display_name ?? row.username ?? "Vibe User",
+          age: row.age ?? 24,
+          image: row.avatar_url ?? `https://picsum.photos/seed/${row.id}/400/600`,
+          bio: row.bio ?? "",
+          interests: row.interests ?? [],
+          distance: row.distance_km ? `${Math.round(row.distance_km)} km away` : undefined,
+          isOnline: row.is_online ?? false,
+          gender: row.gender,
+        }));
+      }
     }
   } catch {}
   return MOCK_MATCH_PROFILES.map((p, i) => ({

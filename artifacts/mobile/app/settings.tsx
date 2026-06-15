@@ -592,6 +592,85 @@ const VIBE_REQUEST_OPTIONS = [
   { label: "Nobody", value: "nobody", icon: "ban-outline" },
 ];
 
+const DISTANCE_OPTIONS = [
+  { label: "5 km",         value: "5",   icon: "locate-outline" },
+  { label: "10 km",        value: "10",  icon: "locate-outline" },
+  { label: "25 km",        value: "25",  icon: "location-outline" },
+  { label: "50 km",        value: "50",  icon: "location-outline" },
+  { label: "100 km",       value: "100", icon: "navigate-outline" },
+  { label: "Any distance", value: "999", icon: "earth-outline" },
+];
+
+// ─── AgeRangeModal ─────────────────────────────────────────────────────────────
+
+function AgeRangeModal({
+  visible, minAge, maxAge, onSave, onClose,
+}: {
+  visible: boolean; minAge: number; maxAge: number;
+  onSave: (min: number, max: number) => void; onClose: () => void;
+}) {
+  const colors = useColors();
+  const [minVal, setMinVal] = useState(String(minAge));
+  const [maxVal, setMaxVal] = useState(String(maxAge));
+  useEffect(() => {
+    if (visible) { setMinVal(String(minAge)); setMaxVal(String(maxAge)); }
+  }, [visible, minAge, maxAge]);
+
+  const handleSave = () => {
+    const mn = Math.max(18, Math.min(98, parseInt(minVal, 10) || 18));
+    const mx = Math.max(mn + 1, Math.min(99, parseInt(maxVal, 10) || 60));
+    onSave(mn, mx);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={opStyles.backdrop} activeOpacity={1} onPress={onClose} />
+      <View style={[opStyles.sheet, { backgroundColor: colors.background }]}>
+        <View style={[opStyles.handle, { backgroundColor: colors.border }]} />
+        <Text style={[opStyles.title, { color: colors.foreground }]}>Age Range Preference</Text>
+        <Text style={[armStyles.hint, { color: colors.mutedForeground }]}>
+          Show profiles aged between these values
+        </Text>
+        <View style={armStyles.row}>
+          <View style={armStyles.half}>
+            <Text style={[armStyles.label, { color: colors.mutedForeground }]}>Min age</Text>
+            <TextInput
+              value={minVal} onChangeText={setMinVal} keyboardType="numeric"
+              style={[armStyles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+            />
+          </View>
+          <Text style={[armStyles.dash, { color: colors.mutedForeground }]}>–</Text>
+          <View style={armStyles.half}>
+            <Text style={[armStyles.label, { color: colors.mutedForeground }]}>Max age</Text>
+            <TextInput
+              value={maxVal} onChangeText={setMaxVal} keyboardType="numeric"
+              style={[armStyles.input, { backgroundColor: colors.muted, color: colors.foreground, borderColor: colors.border }]}
+            />
+          </View>
+        </View>
+        <TouchableOpacity onPress={handleSave} style={[armStyles.saveBtn, { backgroundColor: "#7C3AED" }]}>
+          <Text style={armStyles.saveTxt}>Save</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClose} style={[opStyles.cancelBtn, { backgroundColor: colors.muted }]}>
+          <Text style={[opStyles.cancelText, { color: colors.foreground }]}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+}
+
+const armStyles = StyleSheet.create({
+  hint:    { fontSize: 13, fontFamily: "Poppins_400Regular", marginTop: -4, marginBottom: 20 },
+  row:     { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 },
+  half:    { flex: 1 },
+  label:   { fontSize: 12, fontFamily: "Poppins_500Medium", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
+  input:   { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 14, fontSize: 24, fontFamily: "Poppins_700Bold", borderWidth: 1, textAlign: "center" },
+  dash:    { fontSize: 26, fontFamily: "Poppins_700Bold", paddingBottom: 2 },
+  saveBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center", marginBottom: 10 },
+  saveTxt: { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
+});
+
 // ─── Module-scope sub-components (stable type reference fixes Ionicons remount) ─
 // Defining Row/Card/SecLabel inside the component function creates a NEW function
 // reference on every render → React unmounts + remounts them → Ionicons briefly
@@ -668,6 +747,12 @@ export default function SettingsScreen() {
   const [findGundrukMode, setFindGundrukMode] = useState("dating");
   const [vibeRequestPrivacy, setVibeRequestPrivacy] = useState("everyone");
   const vibeInteracted = useRef(false);
+  // Find Vibe discovery preferences
+  const [vibeAgeMin, setVibeAgeMin] = useState(18);
+  const [vibeAgeMax, setVibeAgeMax] = useState(60);
+  const [vibeMaxDistanceKm, setVibeMaxDistanceKm] = useState(50);
+  const [vibeShowDistance, setVibeShowDistance] = useState(true);
+  const [vibeExcludeConnections, setVibeExcludeConnections] = useState(false);
 
   // Picker / modal visibility
   const [showCommentPicker, setShowCommentPicker] = useState(false);
@@ -677,6 +762,8 @@ export default function SettingsScreen() {
   const [showScreenTimePicker, setShowScreenTimePicker] = useState(false);
   const [showModePicker, setShowModePicker] = useState(false);
   const [showVibePrivacyPicker, setShowVibePrivacyPicker] = useState(false);
+  const [showAgeRangePicker, setShowAgeRangePicker] = useState(false);
+  const [showDistancePicker, setShowDistancePicker] = useState(false);
   const [showSwitchAccounts, setShowSwitchAccounts] = useState(false);
   const [showBlockedAccounts, setShowBlockedAccounts] = useState(false);
   const [showRestrictedAccounts, setShowRestrictedAccounts] = useState(false);
@@ -695,6 +782,11 @@ export default function SettingsScreen() {
       setMessagePermission(s.message_permission);
       setDuetPermission(s.duet_permission);
       setLikedPrivate(s.liked_private);
+      setVibeAgeMin(s.vibe_age_min);
+      setVibeAgeMax(s.vibe_age_max);
+      setVibeMaxDistanceKm(s.vibe_max_distance_km);
+      setVibeShowDistance(s.vibe_show_distance);
+      setVibeExcludeConnections(s.vibe_exclude_connections);
     }).catch(() => {});
 
     getGundrukProfile(userId).then((p) => {
@@ -899,7 +991,41 @@ export default function SettingsScreen() {
               onPress={showInMatching ? () => setShowModePicker(true) : undefined} />
             <Row icon="flash-outline" iconBg="#F97316" label="Who can send Vibe Requests?"
               sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
-              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined}
+              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined} />
+            <Row icon="people-circle-outline" iconBg="#EC4899" label="Age Range"
+              sub={`Show ages ${vibeAgeMin} – ${vibeAgeMax}`}
+              onPress={showInMatching ? () => setShowAgeRangePicker(true) : undefined} />
+            <Row icon="location-outline" iconBg="#3B82F6" label="Distance Range"
+              sub={vibeMaxDistanceKm >= 999 ? "Any distance" : `Within ${vibeMaxDistanceKm} km`}
+              onPress={showInMatching ? () => setShowDistancePicker(true) : undefined} />
+            <Row icon="eye-off-outline" iconBg="#6366F1" label="Show my distance to others"
+              sub={vibeShowDistance ? "Your distance is visible to others" : "Distance hidden from your profile"}
+              rightEl={
+                <Switch
+                  value={vibeShowDistance}
+                  onValueChange={(v) => {
+                    setVibeShowDistance(v);
+                    persistSetting({ vibe_show_distance: v });
+                    showToast(v ? "Distance shown ✅" : "Distance hidden 🔒");
+                  }}
+                  trackColor={{ false: colors.border, true: "#6366F1" }}
+                  thumbColor="#fff"
+                />
+              } />
+            <Row icon="person-remove-outline" iconBg="#F59E0B" label="Exclude people I follow"
+              sub={vibeExcludeConnections ? "Connections excluded from your deck" : "Connections may appear in your deck"}
+              rightEl={
+                <Switch
+                  value={vibeExcludeConnections}
+                  onValueChange={(v) => {
+                    setVibeExcludeConnections(v);
+                    persistSetting({ vibe_exclude_connections: v });
+                    showToast(v ? "Connections excluded ✅" : "All users may appear ✅");
+                  }}
+                  trackColor={{ false: colors.border, true: "#F59E0B" }}
+                  thumbColor="#fff"
+                />
+              }
               isLast />
           </Card>
         </View>
@@ -987,6 +1113,27 @@ export default function SettingsScreen() {
       <OptionPicker visible={showVibePrivacyPicker} title="Who can send Vibe Requests?" options={VIBE_REQUEST_OPTIONS} selected={vibeRequestPrivacy}
         onSelect={(v) => { setVibeRequestPrivacy(v); saveGundrukProfile(userId, { vibe_request_privacy: v }); showToast(v === "nobody" ? "Vibe Requests paused ⏸" : "Privacy setting saved ✅"); }}
         onClose={() => setShowVibePrivacyPicker(false)} />
+      <AgeRangeModal
+        visible={showAgeRangePicker}
+        minAge={vibeAgeMin}
+        maxAge={vibeAgeMax}
+        onSave={(mn, mx) => {
+          setVibeAgeMin(mn);
+          setVibeAgeMax(mx);
+          persistSetting({ vibe_age_min: mn, vibe_age_max: mx });
+          showToast("Age range saved ✅");
+        }}
+        onClose={() => setShowAgeRangePicker(false)}
+      />
+      <OptionPicker visible={showDistancePicker} title="Distance Range" options={DISTANCE_OPTIONS}
+        selected={String(vibeMaxDistanceKm)}
+        onSelect={(v) => {
+          const km = parseInt(v, 10);
+          setVibeMaxDistanceKm(km);
+          persistSetting({ vibe_max_distance_km: km });
+          showToast("Distance range saved ✅");
+        }}
+        onClose={() => setShowDistancePicker(false)} />
 
       {/* ── Edit Field Modal ── */}
       {editField && (
