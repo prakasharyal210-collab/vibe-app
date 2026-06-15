@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const router = Router();
 
-function makeSupabase() {
+function makeSupabase(): SupabaseClient {
   const url =
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ??
     "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -11,10 +11,55 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// Batch-fetch profiles for a list of user_ids and merge them into each row as
+// a nested `profiles` object.  RPCs like get_for_you_feed_v2 return post rows
+// with only a `user_id` column — no joined profile data.
+async function enrichWithProfiles(
+  supabase: SupabaseClient,
+  rows: any[],
+): Promise<any[]> {
+  if (!rows.length) return rows;
+
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean))];
+  if (!userIds.length) return rows;
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, avatar_url, is_verified, full_name")
+    .in("id", userIds);
+
+  const profileMap = new Map<string, any>();
+  for (const p of profiles ?? []) {
+    profileMap.set(p.id, p);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    profiles: profileMap.get(row.user_id) ?? null,
+  }));
+}
+
+// get_friends_feed returns flat top-level username/avatar_url/is_verified plus
+// `post_id` instead of `id`.  Normalise to the standard Post shape so PostCard
+// can consume it identically to other feed sources.
+function normaliseFriendsRow(row: any): any {
+  const { post_id, username, avatar_url, is_verified, is_liked, is_saved, ...rest } = row;
+  return {
+    ...rest,
+    id: post_id ?? rest.id,
+    profiles: {
+      id: rest.user_id ?? null,
+      username: username ?? null,
+      avatar_url: avatar_url ?? null,
+      is_verified: is_verified ?? false,
+    },
+    is_liked,
+    is_saved,
+  };
+}
+
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
 // ?userId=...&limit=20&offset=0
-// Calls get_for_you_feed_v2 (falls back to get_for_you_feed) via service role
-// key so Supabase RLS never blocks and the RPC returns in <1 s from server.
 router.get("/foryou", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
@@ -27,13 +72,15 @@ router.get("/foryou", async (req, res) => {
 
   const supabase = makeSupabase();
 
-  // Try v2 first (personalised + ranked)
+  // Try v2 first (personalised + ranked). RPC returns no profile info, so we
+  // enrich with a secondary profiles batch lookup.
   const { data: v2Data, error: v2Err } = await supabase.rpc(
     "get_for_you_feed_v2",
     { p_user_id: userId, p_limit: limit, p_offset: offset },
   );
   if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
-    res.json({ data: v2Data, source: "v2" });
+    const enriched = await enrichWithProfiles(supabase, v2Data);
+    res.json({ data: enriched, source: "v2" });
     return;
   }
 
@@ -43,21 +90,28 @@ router.get("/foryou", async (req, res) => {
     { p_user_id: userId, p_limit: limit, p_offset: offset },
   );
   if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
-    res.json({ data: v1Data, source: "v1" });
+    const enriched = await enrichWithProfiles(supabase, v1Data);
+    res.json({ data: enriched, source: "v1" });
     return;
   }
 
-  // Final fallback: plain posts query (no RLS hang — service role bypasses it)
+  // Final fallback: direct posts query — service role bypasses RLS, profile
+  // join uses explicit FK hint to avoid "multiple relationships" ambiguity.
   const { data: freshData } = await supabase
     .from("posts")
-    .select("*, profiles!user_id(*)")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
     .or("visibility.eq.public,visibility.is.null")
     .order("score", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit)
     .range(offset, offset + limit - 1);
 
-  res.json({ data: freshData ?? [], source: "fresh", v2Error: v2Err?.message, v1Error: v1Err?.message });
+  res.json({
+    data: freshData ?? [],
+    source: "fresh",
+    v2Error: v2Err?.message,
+    v1Error: v1Err?.message,
+  });
 });
 
 // ─── GET /api/feed/friends ─────────────────────────────────────────────────────
@@ -81,12 +135,26 @@ router.get("/friends", async (req, res) => {
   });
 
   if (!error && Array.isArray(data) && data.length > 0) {
-    res.json({ data, source: "rpc" });
+    // Normalise flat RPC shape → nested profiles object + canonical `id` field.
+    const normalised = data.map(normaliseFriendsRow);
+    res.json({ data: normalised, source: "rpc" });
     return;
   }
 
-  // Fallback: recent posts from people the user follows
-  res.json({ data: [], source: "empty", error: error?.message });
+  // Fallback: direct posts query with explicit FK hint profile join.
+  const { data: freshData } = await supabase
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .or("visibility.eq.public,visibility.is.null")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .range(offset, offset + limit - 1);
+
+  res.json({
+    data: freshData ?? [],
+    source: "fresh",
+    error: error?.message,
+  });
 });
 
 // ─── GET /api/feed/reels ───────────────────────────────────────────────────────
@@ -102,20 +170,21 @@ router.get("/reels", async (req, res) => {
 
   const supabase = makeSupabase();
 
-  // Try personalised v2
+  // v2 RPC returns no profile info — enrich after.
   const { data: v2Data, error: v2Err } = await supabase.rpc(
     "get_for_you_reels_v2",
     { p_user_id: userId, p_limit: limit },
   );
   if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
-    res.json({ data: v2Data, source: "v2" });
+    const enriched = await enrichWithProfiles(supabase, v2Data);
+    res.json({ data: enriched, source: "v2" });
     return;
   }
 
-  // Fallback: plain reels query
+  // Fallback: direct reels query with explicit FK profile join.
   const { data: freshReels } = await supabase
     .from("reels")
-    .select("*, profiles!user_id(username, avatar_url, is_verified)")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
     .order("score", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -142,7 +211,10 @@ router.get("/following-reels", async (req, res) => {
   });
 
   if (!error && Array.isArray(data) && data.length > 0) {
-    res.json({ data, source: "rpc" });
+    // Enrich with profiles (RPC may or may not include them — be safe).
+    const needsEnrich = data.length > 0 && !data[0].username && !data[0].profiles;
+    const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
+    res.json({ data: enriched, source: "rpc" });
     return;
   }
 
