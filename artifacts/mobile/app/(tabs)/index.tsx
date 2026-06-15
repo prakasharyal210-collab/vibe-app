@@ -557,6 +557,7 @@ export default function ReelsScreen() {
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
   const [refreshing, setRefreshing] = useState(false);
+  const [screenFocused, setScreenFocused] = useState(true);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
@@ -702,7 +703,11 @@ export default function ReelsScreen() {
 
   useEffect(() => { loadFeed(); }, [loadFeed]);
 
-  useFocusEffect(useCallback(() => { loadFeed(); }, [loadFeed]));
+  useFocusEffect(useCallback(() => {
+    setScreenFocused(true);
+    loadFeed();
+    return () => setScreenFocused(false);
+  }, [loadFeed]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -824,7 +829,7 @@ export default function ReelsScreen() {
             return (
               <ReelAdCard
                 ad={item as AdItem}
-                isActive={index === activeIndex}
+                isActive={index === activeIndex && screenFocused}
                 userId={session?.user?.id}
                 onSkip={() => {
                   const next = index + 1;
@@ -839,7 +844,7 @@ export default function ReelsScreen() {
           return (
             <ReelItem
               reel={item as Reel}
-              isActive={index === activeIndex}
+              isActive={index === activeIndex && screenFocused}
               onComplete={handleComplete}
               onRequireLogin={() => setShowLoginPrompt(true)}
               isLoggedIn={isLoggedIn}
