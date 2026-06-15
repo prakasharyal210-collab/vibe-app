@@ -52,6 +52,13 @@ import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
 
+// Stable viewability config — must be defined outside the component so its
+// reference never changes (React Native throws if it changes after mount).
+const REEL_VIEWABILITY_CONFIG = {
+  itemVisiblePercentThreshold: 50,
+  minimumViewTime: 120,
+};
+
 // ─── Types ──────────────────────────────────────────────────────────────────────
 interface Reel {
   id: string;
@@ -213,6 +220,13 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         }
       }
     };
+  }, [isActive]);
+
+  // Reset paused when this reel loses focus — so it autoplays next time it's visible
+  useEffect(() => {
+    if (!isActive) {
+      setPaused(false);
+    }
   }, [isActive]);
 
   // Progress bar animation — loops visually with the video; never auto-advances
@@ -697,16 +711,22 @@ export default function ReelsScreen() {
     loadFeedAds(session?.user?.id, "reel").then(setReelAds).catch(() => setReelAds(HOUSE_REEL_ADS));
   }, [session?.user?.id]);
 
-  // Settle on nearest item after natural momentum scroll ends (Facebook-style)
+  // Primary activeIndex update: fires whenever a reel crosses 50% viewport coverage.
+  // Using a ref keeps the callback reference stable (React Native requirement).
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+        setActiveIndex(viewableItems[0].index);
+      }
+    }
+  ).current;
+
+  // Fallback confirmation after momentum settles — snapToInterval already lands
+  // on exact boundaries so no nudge is needed here.
   const onMomentumScrollEnd = useCallback((e: any) => {
     const offsetY = e.nativeEvent.contentOffset.y;
     const index = Math.round(offsetY / SCREEN_H);
     const clamped = Math.max(0, Math.min(index, displayReels.length - 1));
-    const targetOffset = clamped * SCREEN_H;
-    // Nudge to exact boundary if momentum left us slightly off
-    if (Math.abs(offsetY - targetOffset) > 2) {
-      flatListRef.current?.scrollToOffset({ offset: targetOffset, animated: true });
-    }
     setActiveIndex(clamped);
   }, [displayReels.length]);
 
@@ -759,9 +779,13 @@ export default function ReelsScreen() {
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
-        decelerationRate={0.985}
+        snapToInterval={SCREEN_H}
+        snapToAlignment="start"
+        decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => ({ length: SCREEN_H, offset: SCREEN_H * index, index })}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={REEL_VIEWABILITY_CONFIG}
         onMomentumScrollEnd={onMomentumScrollEnd}
         initialNumToRender={2}
         maxToRenderPerBatch={3}
