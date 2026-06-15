@@ -1167,32 +1167,55 @@ function viralBoostFeed(base: Post[], fresh: Post[], everyN = 3): Post[] {
   return result;
 }
 
+/** Wrap any Supabase RPC call so it never hangs Promise.allSettled indefinitely. */
+function rpcWithTimeout<T>(
+  call: Promise<{ data: T | null; error: any }>,
+  ms = 4000
+): Promise<{ data: T | null; error: any }> {
+  return Promise.race([
+    call,
+    new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'rpc timeout' } }), ms)
+    ),
+  ]);
+}
+
 async function fetchFreshPosts(limit = 20): Promise<Post[]> {
-  try {
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*, profiles!user_id(*)')
-      .or('visibility.eq.public,visibility.is.null')
-      .order('score', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (!error) {
-      console.log('[fetchFreshPosts] primary ok, rows:', data?.length ?? 0);
-      return (data as Post[]) ?? [];
+  // Wrap in a 4s timeout — the direct anon-key posts query hangs when RLS
+  // evaluates a valid JOIN (profiles!user_id). RPCs use SECURITY DEFINER and
+  // settle independently; this timeout lets Promise.allSettled() in callers
+  // resolve on the RPC results without waiting for a hung Supabase fetch.
+  const timeoutGuard = new Promise<Post[]>((resolve) =>
+    setTimeout(() => { console.log('[fetchFreshPosts] timeout — RLS hang, returning []'); resolve([]); }, 4000)
+  );
+  const query = (async (): Promise<Post[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*, profiles!user_id(*)')
+        .or('visibility.eq.public,visibility.is.null')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (!error) {
+        console.log('[fetchFreshPosts] primary ok, rows:', data?.length ?? 0);
+        return (data as Post[]) ?? [];
+      }
+      console.log('[fetchFreshPosts] primary error:', error.message, '— trying fallback');
+      const { data: fallback, error: fbErr } = await supabase
+        .from('posts')
+        .select('*, profiles!user_id(*)')
+        .order('score', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      console.log('[fetchFreshPosts] fallback:', fbErr?.message ?? 'ok', 'rows:', fallback?.length ?? 0);
+      return (fallback as Post[]) ?? [];
+    } catch (e: any) {
+      console.log('[fetchFreshPosts] threw:', e?.message);
+      return [];
     }
-    console.log('[fetchFreshPosts] primary error:', error.message, '— trying fallback');
-    const { data: fallback, error: fbErr } = await supabase
-      .from('posts')
-      .select('*, profiles!user_id(*)')
-      .order('score', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    console.log('[fetchFreshPosts] fallback:', fbErr?.message ?? 'ok', 'rows:', fallback?.length ?? 0);
-    return (fallback as Post[]) ?? [];
-  } catch (e: any) {
-    console.log('[fetchFreshPosts] threw:', e?.message);
-    return [];
-  }
+  })();
+  return Promise.race([query, timeoutGuard]);
 }
 
 export async function logWatchEvent(
@@ -1269,8 +1292,8 @@ function applyDiversity(posts: Post[], maxPerCreator = 2): Post[] {
 export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset);
   const [v2Result, v1Result, freshResult] = await Promise.allSettled([
-    supabase.rpc('get_for_you_feed_v2', { p_user_id: userId, p_limit: limit, p_offset: offset }),
-    supabase.rpc('get_for_you_feed',    { p_user_id: userId, p_limit: limit, p_offset: offset }),
+    rpcWithTimeout(supabase.rpc('get_for_you_feed_v2', { p_user_id: userId, p_limit: limit, p_offset: offset })),
+    rpcWithTimeout(supabase.rpc('get_for_you_feed',    { p_user_id: userId, p_limit: limit, p_offset: offset })),
     fetchFreshPosts(limit),
   ]);
 
@@ -1306,14 +1329,10 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
 
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   console.log('[getFriendsFeed] called userId:', userId?.slice(0, 8));
-  // Wrap RPC in a 3s timeout — get_friends_feed may not exist or may hang
-  const rpcWithTimeout = Promise.race([
-    supabase.rpc('get_friends_feed', { p_user_id: userId, p_limit: limit, p_offset: offset }),
-    new Promise<{ data: null; error: { message: string } }>((resolve) =>
-      setTimeout(() => resolve({ data: null, error: { message: 'rpc timeout' } }), 3000)
-    ),
+  const [rpcResult, fresh] = await Promise.allSettled([
+    rpcWithTimeout(supabase.rpc('get_friends_feed', { p_user_id: userId, p_limit: limit, p_offset: offset })),
+    fetchFreshPosts(limit),
   ]);
-  const [rpcResult, fresh] = await Promise.allSettled([rpcWithTimeout, fetchFreshPosts(limit)]);
   const friendsPosts = rpcResult.status === 'fulfilled' && !rpcResult.value.error && rpcResult.value.data?.length
     ? rpcResult.value.data as Post[]
     : null;
