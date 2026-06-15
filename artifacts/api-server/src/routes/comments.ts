@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../lib/sendPush";
 
 const router = Router();
 
@@ -168,6 +169,14 @@ router.post("/", async (req, res) => {
             is_read: false,
           });
         } catch {}
+        // Push notification gated by notif_comments preference
+        const { data: actor } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
+        const name = actor?.username ?? "Someone";
+        void sendPushToUser(sb, ownerId, {
+          title: "New Comment",
+          body: `@${name} commented on your post`,
+          data: { type: "comment", actorId: userId, postId },
+        }, "notif_comments");
       })();
     }
 

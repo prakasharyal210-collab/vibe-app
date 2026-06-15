@@ -23,3 +23,4 @@
 - [profiles FK ambiguity on posts table](profiles-fk-ambiguity.md) — NEVER use profiles(*) or profiles(col,...) on the posts table; always use profiles!user_id(*) — the posts table has multiple FK paths to profiles and Supabase returns null on ambiguous joins.
 - [Auth routing pattern](auth-routing.md) — all post-login/logout navigation lives in _layout.tsx RootLayoutNav; login screen must NOT call router.replace after signIn (race condition → black screen).
 - [Performance audit results](performance-audit.md) — latency measurements, engage/hashtag fixes; SQL needed for full speedup
+- [Ionicons empty-box fix](ionicons-empty-box.md) — sub-components defined INSIDE a parent function get a new type reference on every render → React remounts them → Ionicons re-inits → empty glyphs; fix: move Row/Card/SecLabel to module scope and call useColors() inside each.

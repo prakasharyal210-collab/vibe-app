@@ -87,6 +87,10 @@ function RootLayoutNav() {
         options={{ animation: "slide_from_right" }}
       />
       <Stack.Screen
+        name="notification-settings"
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
         name="theme"
         options={{ animation: "slide_from_right" }}
       />

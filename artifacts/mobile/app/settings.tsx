@@ -592,6 +592,51 @@ const VIBE_REQUEST_OPTIONS = [
   { label: "Nobody", value: "nobody", icon: "ban-outline" },
 ];
 
+// ─── Module-scope sub-components (stable type reference fixes Ionicons remount) ─
+// Defining Row/Card/SecLabel inside the component function creates a NEW function
+// reference on every render → React unmounts + remounts them → Ionicons briefly
+// loses its glyph while re-initialising. Moving them here fixes that permanently.
+
+function SecLabel({ label }: { label: string }) {
+  const colors = useColors();
+  return <Text style={[styles.secLabel, { color: colors.mutedForeground }]}>{label}</Text>;
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {children}
+    </View>
+  );
+}
+
+function Row({
+  icon, iconBg, label, sub, isLast = false, onPress, rightEl,
+}: {
+  icon: string; iconBg: string; label: string; sub?: string;
+  isLast?: boolean; onPress?: () => void; rightEl?: React.ReactNode;
+}) {
+  const colors = useColors();
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+      style={[styles.row, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+    >
+      <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+        <Ionicons name={icon as any} size={17} color="#fff" />
+      </View>
+      <View style={styles.rowText}>
+        <Text style={[styles.rowLabel, { color: colors.foreground }]}>{label}</Text>
+        {sub ? <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{sub}</Text> : null}
+      </View>
+      {rightEl ?? (onPress ? <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} /> : null)}
+    </TouchableOpacity>
+  );
+}
+
 // ─── SettingsScreen ───────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -613,15 +658,6 @@ export default function SettingsScreen() {
   const [messagePermission, setMessagePermission] = useState("everyone");
   const [duetPermission, setDuetPermission] = useState("everyone");
   const [likedPrivate, setLikedPrivate] = useState(false);
-  const [notifPushEnabled, setNotifPushEnabled] = useState(true);
-  const [notifLikes, setNotifLikes] = useState(true);
-  const [notifComments, setNotifComments] = useState(true);
-  const [notifFollows, setNotifFollows] = useState(true);
-  const [notifMessages, setNotifMessages] = useState(true);
-  const [notifLive, setNotifLive] = useState(true);
-  const [notifMentions, setNotifMentions] = useState(true);
-  const [notifVibeMatch, setNotifVibeMatch] = useState(true);
-  const [notifVibeRequest, setNotifVibeRequest] = useState(true);
   const [restrictedMode, setRestrictedMode] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
   const [language, setLanguage] = useState("en");
@@ -659,15 +695,6 @@ export default function SettingsScreen() {
       setMessagePermission(s.message_permission);
       setDuetPermission(s.duet_permission);
       setLikedPrivate(s.liked_private);
-      setNotifPushEnabled(s.notif_push_enabled);
-      setNotifLikes(s.notif_likes);
-      setNotifComments(s.notif_comments);
-      setNotifFollows(s.notif_follows);
-      setNotifMessages(s.notif_messages);
-      setNotifLive(s.notif_live);
-      setNotifMentions(s.notif_mentions);
-      setNotifVibeMatch(s.notif_vibe_match);
-      setNotifVibeRequest(s.notif_vibe_request);
     }).catch(() => {});
 
     getGundrukProfile(userId).then((p) => {
@@ -712,43 +739,6 @@ export default function SettingsScreen() {
   };
 
   const langLabel = LANGUAGE_OPTIONS.find((o) => o.value === language)?.label ?? "English";
-
-  // ── Sub-component: section label ─────────────────────────────────────────────
-  const SecLabel = ({ label }: { label: string }) => (
-    <Text style={[styles.secLabel, { color: colors.mutedForeground }]}>{label}</Text>
-  );
-
-  // ── Sub-component: grouped card rows ─────────────────────────────────────────
-  const Card = ({ children }: { children: React.ReactNode }) => (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      {children}
-    </View>
-  );
-
-  // ── Sub-component: single row inside a Card ───────────────────────────────────
-  const Row = ({
-    icon, iconBg, label, sub, isLast = false,
-    onPress, rightEl,
-  }: {
-    icon: string; iconBg: string; label: string; sub?: string;
-    isLast?: boolean; onPress?: () => void; rightEl?: React.ReactNode;
-  }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      disabled={!onPress}
-      activeOpacity={onPress ? 0.7 : 1}
-      style={[styles.row, !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
-    >
-      <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon as any} size={17} color="#fff" />
-      </View>
-      <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: colors.foreground }]}>{label}</Text>
-        {sub ? <Text style={[styles.rowSub, { color: colors.mutedForeground }]}>{sub}</Text> : null}
-      </View>
-      {rightEl ?? (onPress ? <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} /> : null)}
-    </TouchableOpacity>
-  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -864,33 +854,9 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SecLabel label="Notifications" />
           <Card>
-            <Row icon="notifications-outline" iconBg="#8B5CF6" label="Push Notifications"
-              sub={!notifPushEnabled ? "All off" : [notifLikes && "Likes", notifComments && "Comments", notifFollows && "Follows", notifMessages && "Messages", notifVibeMatch && "Vibe Matches", notifVibeRequest && "Vibe Requests"].filter(Boolean).join(" · ") || "All categories off"}
-              rightEl={
-                <Switch
-                  value={notifPushEnabled}
-                  onValueChange={(v) => { setNotifPushEnabled(v); persistSetting({ notif_push_enabled: v }); showToast(v ? "Push notifications on ✅" : "Push notifications off"); }}
-                  trackColor={{ false: "#3F3F46", true: "#7C3AED" }}
-                  thumbColor="#fff"
-                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                />
-              }
-              onPress={() => {
-                if (!notifPushEnabled) { showToast("Enable push notifications first"); return; }
-                Alert.alert(
-                  "Push Notification Categories",
-                  "Tap a category to toggle it on or off.",
-                  [
-                    { text: `${notifLikes ? "✅" : "⬜"} Likes`, onPress: () => { const v = !notifLikes; setNotifLikes(v); persistSetting({ notif_likes: v }); showToast(v ? "Likes on ✅" : "Likes off"); } },
-                    { text: `${notifComments ? "✅" : "⬜"} Comments`, onPress: () => { const v = !notifComments; setNotifComments(v); persistSetting({ notif_comments: v }); showToast(v ? "Comments on ✅" : "Comments off"); } },
-                    { text: `${notifFollows ? "✅" : "⬜"} New Followers`, onPress: () => { const v = !notifFollows; setNotifFollows(v); persistSetting({ notif_follows: v }); showToast(v ? "Followers on ✅" : "Followers off"); } },
-                    { text: `${notifMessages ? "✅" : "⬜"} Messages`, onPress: () => { const v = !notifMessages; setNotifMessages(v); persistSetting({ notif_messages: v }); showToast(v ? "Messages on ✅" : "Messages off"); } },
-                    { text: `${notifVibeMatch ? "✅" : "⬜"} Vibe Matches`, onPress: () => { const v = !notifVibeMatch; setNotifVibeMatch(v); persistSetting({ notif_vibe_match: v }); showToast(v ? "Vibe Matches on ✅" : "Vibe Matches off"); } },
-                    { text: `${notifVibeRequest ? "✅" : "⬜"} Vibe Requests`, onPress: () => { const v = !notifVibeRequest; setNotifVibeRequest(v); persistSetting({ notif_vibe_request: v }); showToast(v ? "Vibe Requests on ✅" : "Vibe Requests off"); } },
-                    { text: "Done", style: "cancel" },
-                  ]
-                );
-              }} />
+            <Row icon="notifications-outline" iconBg="#8B5CF6" label="Notification Settings"
+              sub="Push, in-app, interactions, messages & more"
+              onPress={() => router.push("/notification-settings" as any)} />
             <Row icon="mail-unread-outline" iconBg="#7C3AED" label="Email Notifications"
               sub="Digest, activity & security alerts"
               onPress={() => Alert.alert("Email Notifications", "Manage email notification preferences in your account settings on web.")}
@@ -945,29 +911,7 @@ export default function SettingsScreen() {
               onPress={showInMatching ? () => setShowModePicker(true) : undefined} />
             <Row icon="flash-outline" iconBg="#F97316" label="Who can send Vibe Requests?"
               sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
-              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined} />
-            <Row icon="heart-outline" iconBg="#EC4899" label="Vibe Match Notifications"
-              sub="Alert when you get a mutual match 💜"
-              rightEl={
-                <Switch
-                  value={notifVibeMatch && notifPushEnabled}
-                  onValueChange={(v) => { setNotifVibeMatch(v); persistSetting({ notif_vibe_match: v }); showToast(v ? "Vibe match alerts on ✅" : "Vibe match alerts off"); }}
-                  trackColor={{ false: "#3F3F46", true: "#EC4899" }}
-                  thumbColor="#fff"
-                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                />
-              } />
-            <Row icon="flash-outline" iconBg="#F59E0B" label="Vibe Request Notifications"
-              sub="Alert when someone sends you a vibe"
-              rightEl={
-                <Switch
-                  value={notifVibeRequest && notifPushEnabled}
-                  onValueChange={(v) => { setNotifVibeRequest(v); persistSetting({ notif_vibe_request: v }); showToast(v ? "Vibe request alerts on ✅" : "Vibe request alerts off"); }}
-                  trackColor={{ false: "#3F3F46", true: "#F59E0B" }}
-                  thumbColor="#fff"
-                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                />
-              }
+              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined}
               isLast />
           </Card>
         </View>

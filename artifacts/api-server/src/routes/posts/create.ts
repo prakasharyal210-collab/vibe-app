@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../../lib/sendPush";
 
 const router = Router();
 
@@ -319,6 +320,19 @@ router.post("/create", async (req, res) => {
         }))
       )
     ).catch(() => {});
+
+    // Push each tagged user (gated by their notif_tags preference)
+    void (async () => {
+      const { data: actor } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
+      const name = actor?.username ?? "Someone";
+      for (const uid of options.taggedUsers!) {
+        void sendPushToUser(sb, uid, {
+          title: "You were tagged",
+          body: `@${name} tagged you in a post`,
+          data: { type: "tag", actorId: userId, postId },
+        }, "notif_tags");
+      }
+    })();
   }
 
   // 2. Persist hashtags to join table (upserts into hashtags + post_hashtags)

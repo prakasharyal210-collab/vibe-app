@@ -461,15 +461,31 @@ export interface UserSettings {
   message_permission: "everyone" | "friends" | "matches" | "nobody";
   duet_permission: "everyone" | "friends" | "nobody";
   liked_private: boolean;
+  // ── Push master ────────────────────────────────────────────────────────────
   notif_push_enabled: boolean;
+  notif_in_app: boolean;
+  // ── Interactions ───────────────────────────────────────────────────────────
   notif_likes: boolean;
   notif_comments: boolean;
   notif_follows: boolean;
+  notif_reposts: boolean;
+  notif_tags: boolean;
+  notif_comment_likes: boolean;
+  // ── Messages ───────────────────────────────────────────────────────────────
   notif_messages: boolean;
-  notif_live: boolean;
-  notif_mentions: boolean;
+  notif_dm: boolean;
+  notif_dm_previews: boolean;
+  notif_dm_requests: boolean;
+  notif_activity_status: boolean;
+  // ── Find Vibe ──────────────────────────────────────────────────────────────
   notif_vibe_match: boolean;
   notif_vibe_request: boolean;
+  // ── Misc ───────────────────────────────────────────────────────────────────
+  notif_live: boolean;
+  notif_mentions: boolean;
+  // ── Post Suggestions ───────────────────────────────────────────────────────
+  notif_post_following: boolean;
+  notif_post_recommended: boolean;
   selected_theme?: string;
 }
 
@@ -480,14 +496,24 @@ export const DEFAULT_SETTINGS: UserSettings = {
   duet_permission: "everyone",
   liked_private: false,
   notif_push_enabled: true,
+  notif_in_app: true,
   notif_likes: true,
   notif_comments: true,
   notif_follows: true,
+  notif_reposts: true,
+  notif_tags: true,
+  notif_comment_likes: true,
   notif_messages: true,
-  notif_live: true,
-  notif_mentions: true,
+  notif_dm: true,
+  notif_dm_previews: true,
+  notif_dm_requests: true,
+  notif_activity_status: true,
   notif_vibe_match: true,
   notif_vibe_request: true,
+  notif_live: true,
+  notif_mentions: true,
+  notif_post_following: true,
+  notif_post_recommended: true,
   selected_theme: "classic",
 };
 

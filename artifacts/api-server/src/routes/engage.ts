@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { sendPushToUser } from "../lib/sendPush";
 
 const router = Router();
 
@@ -51,7 +52,7 @@ router.post("/", async (req, res) => {
 
   const sb = makeSupabase();
 
-  // Fire-and-forget like / repost notifications
+  // Fire-and-forget like / repost notifications + push
   if ((action === "like" || action === "repost") && contentId && contentType === "post") {
     void (async () => {
       try {
@@ -64,6 +65,15 @@ router.post("/", async (req, res) => {
           is_read: false,
         });
       } catch {}
+      // Push notification gated by per-category preference
+      const { data: actor } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
+      const name = actor?.username ?? "Someone";
+      const prefKey = action === "like" ? "notif_likes" : "notif_reposts";
+      void sendPushToUser(sb, creatorId, {
+        title: action === "like" ? "New Like" : "New Repost",
+        body: action === "like" ? `@${name} liked your post` : `@${name} reposted your post`,
+        data: { type: action, actorId: userId, postId: contentId },
+      }, prefKey);
     })();
   }
 
