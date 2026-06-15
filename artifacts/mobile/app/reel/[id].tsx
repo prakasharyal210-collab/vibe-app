@@ -13,6 +13,7 @@ import { Image } from "expo-image";
 import { Video, ResizeMode } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, Reel, formatCount } from "@/lib/supabase";
@@ -31,6 +32,7 @@ export default function ReelDetailScreen() {
   const [likesCount, setLikesCount] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [videoError, setVideoError] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const videoRef = useRef<Video>(null);
 
   useEffect(() => {
@@ -135,7 +137,7 @@ export default function ReelDetailScreen() {
           <Ionicons name={liked ? "heart" : "heart-outline"} size={32} color={liked ? "#EF4444" : "#fff"} />
           <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.actionBtn}>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => setShowComments(true)}>
           <Ionicons name="chatbubble-outline" size={30} color="#fff" />
           <Text style={styles.actionCount}>{formatCount(reel.comments_count ?? 0)}</Text>
         </TouchableOpacity>
@@ -184,6 +186,15 @@ export default function ReelDetailScreen() {
           />
         </View>
       )}
+
+      <CommentsSheet
+        visible={showComments}
+        onClose={() => setShowComments(false)}
+        postId={id!}
+        isLoggedIn={!!session}
+        onRequireLogin={() => setShowComments(false)}
+        contentType="reel"
+      />
     </TouchableOpacity>
   );
 }

@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
+import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { supabase, Post, formatCount, timeAgo } from "@/lib/supabase";
 import { shareContent } from "@/lib/share";
@@ -24,11 +26,13 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
+  const [showComments, setShowComments] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -129,7 +133,7 @@ export default function PostDetailScreen() {
             <Ionicons name={liked ? "heart" : "heart-outline"} size={28} color={liked ? "#EF4444" : colors.foreground} />
             <Text style={[styles.actionCount, { color: colors.foreground }]}>{formatCount(likesCount)}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => {}} style={styles.actionItem}>
+          <TouchableOpacity onPress={() => setShowComments(true)} style={styles.actionItem}>
             <Ionicons name="chatbubble-outline" size={26} color={colors.foreground} />
             <Text style={[styles.actionCount, { color: colors.foreground }]}>{formatCount(post.comments_count ?? 0)}</Text>
           </TouchableOpacity>
@@ -161,6 +165,15 @@ export default function PostDetailScreen() {
           <Text style={styles.linkText}>gundruk.app/@{username}/post/{post.id.slice(0, 8)}</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <CommentsSheet
+        visible={showComments}
+        onClose={() => setShowComments(false)}
+        postId={id!}
+        isLoggedIn={!!session}
+        onRequireLogin={() => setShowComments(false)}
+        contentType="post"
+      />
     </View>
   );
 }
