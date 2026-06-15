@@ -620,6 +620,8 @@ export default function SettingsScreen() {
   const [notifMessages, setNotifMessages] = useState(true);
   const [notifLive, setNotifLive] = useState(true);
   const [notifMentions, setNotifMentions] = useState(true);
+  const [notifVibeMatch, setNotifVibeMatch] = useState(true);
+  const [notifVibeRequest, setNotifVibeRequest] = useState(true);
   const [restrictedMode, setRestrictedMode] = useState(false);
   const [cacheCleared, setCacheCleared] = useState(false);
   const [language, setLanguage] = useState("en");
@@ -664,6 +666,8 @@ export default function SettingsScreen() {
       setNotifMessages(s.notif_messages);
       setNotifLive(s.notif_live);
       setNotifMentions(s.notif_mentions);
+      setNotifVibeMatch(s.notif_vibe_match);
+      setNotifVibeRequest(s.notif_vibe_request);
     }).catch(() => {});
 
     getGundrukProfile(userId).then((p) => {
@@ -861,7 +865,7 @@ export default function SettingsScreen() {
           <SecLabel label="Notifications" />
           <Card>
             <Row icon="notifications-outline" iconBg="#8B5CF6" label="Push Notifications"
-              sub={!notifPushEnabled ? "All off" : [notifLikes && "Likes", notifComments && "Comments", notifFollows && "Follows", notifMessages && "Messages"].filter(Boolean).join(" · ") || "All categories off"}
+              sub={!notifPushEnabled ? "All off" : [notifLikes && "Likes", notifComments && "Comments", notifFollows && "Follows", notifMessages && "Messages", notifVibeMatch && "Vibe Matches", notifVibeRequest && "Vibe Requests"].filter(Boolean).join(" · ") || "All categories off"}
               rightEl={
                 <Switch
                   value={notifPushEnabled}
@@ -875,12 +879,14 @@ export default function SettingsScreen() {
                 if (!notifPushEnabled) { showToast("Enable push notifications first"); return; }
                 Alert.alert(
                   "Push Notification Categories",
-                  "Choose which events send a push.",
+                  "Tap a category to toggle it on or off.",
                   [
                     { text: `${notifLikes ? "✅" : "⬜"} Likes`, onPress: () => { const v = !notifLikes; setNotifLikes(v); persistSetting({ notif_likes: v }); showToast(v ? "Likes on ✅" : "Likes off"); } },
                     { text: `${notifComments ? "✅" : "⬜"} Comments`, onPress: () => { const v = !notifComments; setNotifComments(v); persistSetting({ notif_comments: v }); showToast(v ? "Comments on ✅" : "Comments off"); } },
                     { text: `${notifFollows ? "✅" : "⬜"} New Followers`, onPress: () => { const v = !notifFollows; setNotifFollows(v); persistSetting({ notif_follows: v }); showToast(v ? "Followers on ✅" : "Followers off"); } },
                     { text: `${notifMessages ? "✅" : "⬜"} Messages`, onPress: () => { const v = !notifMessages; setNotifMessages(v); persistSetting({ notif_messages: v }); showToast(v ? "Messages on ✅" : "Messages off"); } },
+                    { text: `${notifVibeMatch ? "✅" : "⬜"} Vibe Matches`, onPress: () => { const v = !notifVibeMatch; setNotifVibeMatch(v); persistSetting({ notif_vibe_match: v }); showToast(v ? "Vibe Matches on ✅" : "Vibe Matches off"); } },
+                    { text: `${notifVibeRequest ? "✅" : "⬜"} Vibe Requests`, onPress: () => { const v = !notifVibeRequest; setNotifVibeRequest(v); persistSetting({ notif_vibe_request: v }); showToast(v ? "Vibe Requests on ✅" : "Vibe Requests off"); } },
                     { text: "Done", style: "cancel" },
                   ]
                 );
@@ -939,7 +945,29 @@ export default function SettingsScreen() {
               onPress={showInMatching ? () => setShowModePicker(true) : undefined} />
             <Row icon="flash-outline" iconBg="#F97316" label="Who can send Vibe Requests?"
               sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
-              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined}
+              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined} />
+            <Row icon="heart-outline" iconBg="#EC4899" label="Vibe Match Notifications"
+              sub="Alert when you get a mutual match 💜"
+              rightEl={
+                <Switch
+                  value={notifVibeMatch && notifPushEnabled}
+                  onValueChange={(v) => { setNotifVibeMatch(v); persistSetting({ notif_vibe_match: v }); showToast(v ? "Vibe match alerts on ✅" : "Vibe match alerts off"); }}
+                  trackColor={{ false: "#3F3F46", true: "#EC4899" }}
+                  thumbColor="#fff"
+                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                />
+              } />
+            <Row icon="flash-outline" iconBg="#F59E0B" label="Vibe Request Notifications"
+              sub="Alert when someone sends you a vibe"
+              rightEl={
+                <Switch
+                  value={notifVibeRequest && notifPushEnabled}
+                  onValueChange={(v) => { setNotifVibeRequest(v); persistSetting({ notif_vibe_request: v }); showToast(v ? "Vibe request alerts on ✅" : "Vibe request alerts off"); }}
+                  trackColor={{ false: "#3F3F46", true: "#F59E0B" }}
+                  thumbColor="#fff"
+                  style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                />
+              }
               isLast />
           </Card>
         </View>

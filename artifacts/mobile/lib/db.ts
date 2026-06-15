@@ -468,6 +468,8 @@ export interface UserSettings {
   notif_messages: boolean;
   notif_live: boolean;
   notif_mentions: boolean;
+  notif_vibe_match: boolean;
+  notif_vibe_request: boolean;
   selected_theme?: string;
 }
 
@@ -484,6 +486,8 @@ export const DEFAULT_SETTINGS: UserSettings = {
   notif_messages: true,
   notif_live: true,
   notif_mentions: true,
+  notif_vibe_match: true,
+  notif_vibe_request: true,
   selected_theme: "classic",
 };
 
