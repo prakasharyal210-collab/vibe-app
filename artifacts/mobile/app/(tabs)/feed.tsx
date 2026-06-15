@@ -387,6 +387,8 @@ export default function FeedScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const pillsAnim = useRef(new Animated.Value(1)).current;
   const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
+  // Per-tab drag-start index for ±1 clamping (same pattern as Reels feed)
+  const dragStartIndexRefs = useRef<number[]>([0, 0]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
   const [headerHeight, setHeaderHeight] = useState(120);
@@ -772,10 +774,26 @@ export default function FeedScreen() {
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
                 renderItem={renderTabPost(tab.id, snapH)}
-                snapToInterval={snapH}
                 decelerationRate="fast"
-                snapToAlignment="start"
                 getItemLayout={(_data, index) => ({ length: snapH, offset: snapH * index, index })}
+                onScrollBeginDrag={(e) => {
+                  dragStartIndexRefs.current[tabIndex] = Math.round(e.nativeEvent.contentOffset.y / snapH);
+                }}
+                onMomentumScrollEnd={(e) => {
+                  const offsetY = e.nativeEvent.contentOffset.y;
+                  const from = dragStartIndexRefs.current[tabIndex];
+                  let target: number;
+                  if (offsetY >= (from + 0.5) * snapH) {
+                    target = from + 1;
+                  } else if (offsetY <= (from - 0.5) * snapH) {
+                    target = from - 1;
+                  } else {
+                    target = from;
+                  }
+                  target = Math.max(0, target);
+                  flatListRefs.current[tabIndex]?.scrollToOffset({ offset: target * snapH, animated: true });
+                  dragStartIndexRefs.current[tabIndex] = target;
+                }}
                 scrollEventThrottle={16}
                 onScroll={(e) => {
                   if (activeTabIndex !== tabIndex) return;
