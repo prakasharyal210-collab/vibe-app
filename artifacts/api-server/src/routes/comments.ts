@@ -180,28 +180,36 @@ router.post("/", async (req, res) => {
 
 // ─── POST /api/comments/like ──────────────────────────────────────────────────
 // Toggle a comment like. Returns { liked: boolean, likes_count: number }
+// contentType "reel" uses reel_comment_likes + reel_comments tables.
 router.post("/like", async (req, res) => {
-  const { userId, commentId } = req.body as { userId?: string; commentId?: string };
+  const { userId, commentId, contentType } = req.body as {
+    userId?: string;
+    commentId?: string;
+    contentType?: "post" | "reel";
+  };
   if (!userId || !commentId) {
     res.status(400).json({ error: "userId and commentId required" });
     return;
   }
   const sb = makeSupabase();
+  const isReel = contentType === "reel";
+  const likesTable = isReel ? "reel_comment_likes" : "comment_likes";
+  const commentsTable = isReel ? "reel_comments" : "comments";
   try {
     const { data: existing } = await sb
-      .from("comment_likes")
+      .from(likesTable)
       .select("id")
       .eq("user_id", userId)
       .eq("comment_id", commentId)
       .maybeSingle();
 
     if (existing) {
-      await sb.from("comment_likes").delete().eq("user_id", userId).eq("comment_id", commentId);
-      const { data: c } = await sb.from("comments").select("likes_count").eq("id", commentId).maybeSingle();
+      await sb.from(likesTable).delete().eq("user_id", userId).eq("comment_id", commentId);
+      const { data: c } = await sb.from(commentsTable).select("likes_count").eq("id", commentId).maybeSingle();
       res.json({ liked: false, likes_count: c?.likes_count ?? 0 });
     } else {
-      await sb.from("comment_likes").insert({ user_id: userId, comment_id: commentId });
-      const { data: c } = await sb.from("comments").select("likes_count").eq("id", commentId).maybeSingle();
+      await sb.from(likesTable).insert({ user_id: userId, comment_id: commentId });
+      const { data: c } = await sb.from(commentsTable).select("likes_count").eq("id", commentId).maybeSingle();
       res.json({ liked: true, likes_count: c?.likes_count ?? 0 });
     }
   } catch (err: any) {
@@ -211,9 +219,14 @@ router.post("/like", async (req, res) => {
 });
 
 // ─── GET /api/comments/liked ──────────────────────────────────────────────────
-// Returns set of comment IDs the user has liked
+// Returns set of comment IDs the user has liked.
+// contentType "reel" queries reel_comment_likes; default is comment_likes.
 router.get("/liked", async (req, res) => {
-  const { userId, commentIds } = req.query as { userId?: string; commentIds?: string };
+  const { userId, commentIds, contentType } = req.query as {
+    userId?: string;
+    commentIds?: string;
+    contentType?: string;
+  };
   if (!userId || !commentIds) {
     res.json({ likedIds: [] });
     return;
@@ -221,9 +234,10 @@ router.get("/liked", async (req, res) => {
   const ids = commentIds.split(",").filter(Boolean);
   if (ids.length === 0) { res.json({ likedIds: [] }); return; }
   const sb = makeSupabase();
+  const table = contentType === "reel" ? "reel_comment_likes" : "comment_likes";
   try {
     const { data } = await sb
-      .from("comment_likes")
+      .from(table)
       .select("comment_id")
       .eq("user_id", userId)
       .in("comment_id", ids);

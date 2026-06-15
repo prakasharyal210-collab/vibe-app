@@ -47,9 +47,10 @@ interface CommentItemProps {
   initialLiked: boolean;
   isReply?: boolean;
   onReply: () => void;
+  contentType?: "post" | "reel";
 }
 
-function CommentItem({ commentId, username, text, time, likes, userId, initialLiked, isReply, onReply }: CommentItemProps) {
+function CommentItem({ commentId, username, text, time, likes, userId, initialLiked, isReply, onReply, contentType = "post" }: CommentItemProps) {
   const colors = useColors();
   const { session } = useAuth();
   const myId = session?.user?.id;
@@ -70,7 +71,7 @@ function CommentItem({ commentId, username, text, time, likes, userId, initialLi
       const res = await fetch(`${API_BASE}/comments/like`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: myId, commentId }),
+        body: JSON.stringify({ userId: myId, commentId, contentType }),
       });
       if (res.ok) {
         const json = await res.json();
@@ -192,7 +193,7 @@ export function CommentsSheet({
       if (userId && data.length > 0) {
         const ids = data.map((c) => c.id).join(",");
         try {
-          const res = await fetch(`${API_BASE}/comments/liked?userId=${encodeURIComponent(userId)}&commentIds=${ids}`);
+          const res = await fetch(`${API_BASE}/comments/liked?userId=${encodeURIComponent(userId)}&commentIds=${ids}&contentType=${contentType}`);
           if (res.ok) {
             const json = await res.json();
             setLikedIds(new Set<string>(json.likedIds ?? []));
@@ -331,6 +332,7 @@ export function CommentsSheet({
                 initialLiked={likedIds.has(item.id)}
                 isReply={!!item.parent_comment_id}
                 onReply={() => handleReply(item.id, item.profiles?.username ?? "user")}
+                contentType={contentType}
               />
             )}
             showsVerticalScrollIndicator={false}

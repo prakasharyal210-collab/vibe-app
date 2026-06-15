@@ -45,7 +45,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
-import { checkFavourited, checkLiked, checkReposted, toggleFavourite, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
+import { checkLiked, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads";
 
@@ -162,7 +162,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(reel.likes);
-  const [saved, setSaved] = useState(false);
   const [following, setFollowing] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -177,7 +176,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   // animations
   const progress = useSharedValue(0);
   const heartScale = useSharedValue(0);
-  const saveScale = useSharedValue(1);
   const pauseOpacity = useSharedValue(0);
   const marqueeX = useSharedValue(0);
 
@@ -190,7 +188,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   useEffect(() => {
     if (!userId) return;
     checkLiked(reel.id, userId).then(setLiked).catch(() => {});
-    checkFavourited(reel.id, userId).then(setSaved).catch(() => {});
   }, [reel.id, userId]);
 
   // Watch time tracking — log when the reel stops being active
@@ -250,7 +247,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     transform: [{ scale: heartScale.value }],
     opacity: heartScale.value > 0 ? 1 : 0,
   }));
-  const saveStyle = useAnimatedStyle(() => ({ transform: [{ scale: saveScale.value }] }));
   const pauseStyle = useAnimatedStyle(() => ({ opacity: pauseOpacity.value }));
 
   const doLike = useCallback(() => {
@@ -296,15 +292,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (userId) toggleLike(reel.id, userId, nowLiked);
   }, [liked, isLoggedIn, userId, reel.id]);
-
-  const handleSave = useCallback(() => {
-    if (!isLoggedIn) { onRequireLogin(); return; }
-    const nowSaved = !saved;
-    setSaved(nowSaved);
-    saveScale.value = withSequence(withSpring(1.3, { damping: 6 }), withSpring(1));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (userId) toggleFavourite(reel.id, userId, nowSaved);
-  }, [saved, isLoggedIn, userId, reel.id]);
 
   const handleFollow = useCallback(() => {
     if (!isLoggedIn) { onRequireLogin(); return; }
@@ -404,29 +391,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
         {/* Share */}
         <TouchableOpacity style={S.actionBtn} onPress={() => setShowShare(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="paper-plane-outline" size={28} color="#fff" />
+          <Ionicons name="arrow-redo-outline" size={28} color="#fff" />
           <Text style={S.actionCount}>{fmt(reel.shares)}</Text>
-        </TouchableOpacity>
-
-        {/* Save */}
-        <TouchableOpacity style={S.actionBtn} onPress={handleSave} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Animated.View style={saveStyle}>
-            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={28} color={saved ? "#7C3AED" : "#fff"} />
-          </Animated.View>
-        </TouchableOpacity>
-
-        {/* Super like ⭐ */}
-        <TouchableOpacity
-          style={S.actionBtn}
-          onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="star-outline" size={28} color="#EAB308" />
-        </TouchableOpacity>
-
-        {/* More ··· */}
-        <TouchableOpacity style={S.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} onPress={() => setShowMoreMenu(true)}>
-          <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
         </TouchableOpacity>
 
         {/* Spinning music disc */}
