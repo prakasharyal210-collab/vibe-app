@@ -181,8 +181,11 @@ function SwipeableRow({
 
   const panResponder = useRef(
     PanResponder.create({
+      // Stricter ratio (0.5 vs 0.9): horizontal movement must be 2× the vertical
+      // movement before we claim the gesture — prevents diagonal FlatList scrolls
+      // from accidentally triggering the swipe action.
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 6 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.9,
+        Math.abs(gs.dx) > 8 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.5,
       onPanResponderGrant: () => { translateX.stopAnimation(); },
       onPanResponderMove: (_, gs) => {
         const x = Math.max(Math.min(gs.dx, 0), OPEN_X - 20);
@@ -194,6 +197,11 @@ function SwipeableRow({
         } else {
           Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
         }
+      },
+      // If another responder (e.g. FlatList scroll) steals the gesture mid-swipe,
+      // always snap the row back to closed so it never stays stuck partially open.
+      onPanResponderTerminate: () => {
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
       },
     })
   ).current;
@@ -1225,6 +1233,19 @@ export default function InboxScreen() {
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [snapViewer, setSnapViewer] = useState<{ uri: string; messageId: string; msgText: string } | null>(null);
 
+  // De-duplicate snap conversations — the API can occasionally return the same
+  // message_id twice (once as sender, once as receiver). Duplicate keys in the
+  // FlatList cause two rows to render at the same position, creating the
+  // appearance of an "overlapping duplicate" row with a stuck swipe action.
+  const dedupedSnapConvos = useMemo(() => {
+    const seen = new Set<string>();
+    return snapConvos.filter((c) => {
+      if (seen.has(c.message_id)) return false;
+      seen.add(c.message_id);
+      return true;
+    });
+  }, [snapConvos]);
+
   const userId = session?.user?.id;
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
@@ -1378,7 +1399,7 @@ export default function InboxScreen() {
             <ChatsTab
               myId={userId ?? ""}
               conversations={conversations}
-              snapConvos={snapConvos}
+              snapConvos={dedupedSnapConvos}
               refreshing={refreshing}
               onRefresh={onRefresh}
               usersWithStories={usersWithStories}
@@ -1392,7 +1413,7 @@ export default function InboxScreen() {
           <View key="snaps" style={{ flex: 1 }}>
             <SnapsTab
               userId={userId ?? ""}
-              snapConvos={snapConvos}
+              snapConvos={dedupedSnapConvos}
               usersWithStories={usersWithStories}
               refreshing={refreshing}
               onRefresh={onRefresh}
