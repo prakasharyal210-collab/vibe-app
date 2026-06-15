@@ -824,20 +824,8 @@ export default function SettingsScreen() {
           <SecLabel label="Privacy & Security" />
           <Card>
             <Row icon="shield-outline" iconBg="#0EA5E9" label="Privacy Settings"
-              sub={privateAccount ? "Private account" : "Public account"}
-              onPress={() => {
-                const next = !privateAccount;
-                Alert.alert(
-                  next ? "Switch to Private?" : "Switch to Public?",
-                  next
-                    ? "Only approved followers can see your posts."
-                    : "Anyone can see your content.",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: next ? "Make Private" : "Make Public", onPress: () => { setPrivateAccount(next); persistSetting({ private_account: next }); showToast(next ? "Account is now private 🔒" : "Account is now public 🌍"); } },
-                  ]
-                );
-              }} />
+              sub={privateAccount ? "Private account · manage visibility & interactions" : "Public account · manage visibility & interactions"}
+              onPress={() => router.push("/privacy-settings" as any)} />
             <Row icon="ban-outline" iconBg="#EF4444" label="Blocked Users"
               sub="Manage blocked accounts"
               onPress={() => setShowBlockedAccounts(true)} />

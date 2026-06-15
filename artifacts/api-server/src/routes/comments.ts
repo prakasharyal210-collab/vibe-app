@@ -102,6 +102,56 @@ router.post("/", async (req, res) => {
         res.status(403).json({ error: "Cannot comment on this content" });
         return;
       }
+
+      // Comment permission gate — honour owner's privacy setting
+      const { data: ownerSettings } = await sb
+        .from("user_settings")
+        .select("comment_permission")
+        .eq("user_id", ownerId)
+        .maybeSingle();
+      const perm: string = (ownerSettings as any)?.comment_permission ?? "everyone";
+
+      if (perm === "nobody") {
+        res.status(403).json({ error: "Comments are disabled on this content" });
+        return;
+      }
+      if (perm === "followers") {
+        // Commenter must follow the content owner
+        const { data: followRow } = await sb
+          .from("follows")
+          .select("id")
+          .eq("follower_id", userId)
+          .eq("following_id", ownerId)
+          .maybeSingle();
+        if (!followRow) {
+          res.status(403).json({ error: "Only followers can comment on this content" });
+          return;
+        }
+      }
+      if (perm === "following") {
+        // Content owner must follow the commenter
+        const { data: followRow } = await sb
+          .from("follows")
+          .select("id")
+          .eq("follower_id", ownerId)
+          .eq("following_id", userId)
+          .maybeSingle();
+        if (!followRow) {
+          res.status(403).json({ error: "Only people they follow can comment on this content" });
+          return;
+        }
+      }
+      if (perm === "friends") {
+        // Legacy "friends" value — require mutual follow
+        const [f1, f2] = await Promise.all([
+          sb.from("follows").select("id").eq("follower_id", userId).eq("following_id", ownerId).maybeSingle(),
+          sb.from("follows").select("id").eq("follower_id", ownerId).eq("following_id", userId).maybeSingle(),
+        ]);
+        if (!f1.data || !f2.data) {
+          res.status(403).json({ error: "Only mutual followers can comment on this content" });
+          return;
+        }
+      }
     }
 
     const trimmed = text.trim();

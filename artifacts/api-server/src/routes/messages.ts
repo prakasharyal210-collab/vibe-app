@@ -76,6 +76,43 @@ router.post("/", async (req, res) => {
     return;
   }
 
+  // DM permission gate — honour receiver's privacy setting
+  const { data: receiverSettings } = await sb
+    .from("user_settings")
+    .select("message_permission")
+    .eq("user_id", receiverId)
+    .maybeSingle();
+  const msgPerm: string = (receiverSettings as any)?.message_permission ?? "everyone";
+
+  if (msgPerm === "nobody") {
+    res.status(403).json({ error: "This user has disabled direct messages" });
+    return;
+  }
+  if (msgPerm === "followers") {
+    // Sender must follow the receiver
+    const { data: followRow } = await sb
+      .from("follows")
+      .select("id")
+      .eq("follower_id", senderId)
+      .eq("following_id", receiverId)
+      .maybeSingle();
+    if (!followRow) {
+      res.status(403).json({ error: "This user only accepts messages from their followers" });
+      return;
+    }
+  }
+  if (msgPerm === "friends") {
+    // Legacy mutual follow check
+    const [f1, f2] = await Promise.all([
+      sb.from("follows").select("id").eq("follower_id", senderId).eq("following_id", receiverId).maybeSingle(),
+      sb.from("follows").select("id").eq("follower_id", receiverId).eq("following_id", senderId).maybeSingle(),
+    ]);
+    if (!f1.data || !f2.data) {
+      res.status(403).json({ error: "This user only accepts messages from mutual followers" });
+      return;
+    }
+  }
+
   // DB column is "content", not "text".
   // Auto-detect snap messages so Snaps tab can filter by message_type='snap'.
   const isSnap = text.startsWith("__SNAP__:");

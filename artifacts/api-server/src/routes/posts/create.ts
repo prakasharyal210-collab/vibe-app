@@ -296,36 +296,60 @@ router.post("/create", async (req, res) => {
 
   // ── Fire-and-forget side-effects ─────────────────────────────────────────────
 
-  // 1. Tag users + send a "tag" notification to each tagged user
+  // 1. Tag users — filtered by each tagged user's mention_permission setting
   if (options.taggedUsers?.length) {
-    void Promise.resolve(
-      sb.from("post_tags").insert(
-        options.taggedUsers.map((uid) => ({
-          post_id: postId,
-          tagged_user_id: uid,
-          tagged_by: userId,
-        }))
-      )
-    ).catch(() => {});
-
-    void Promise.resolve(
-      sb.from("notifications").insert(
-        options.taggedUsers.map((uid) => ({
-          recipient_id: uid,
-          sender_id: userId,
-          type: "tag",
-          message: "tagged you in a post",
-          post_id: postId,
-          is_read: false,
-        }))
-      )
-    ).catch(() => {});
-
-    // Push each tagged user (gated by their notif_tags preference)
     void (async () => {
+      // Batch-fetch mention_permission for all tagged users
+      const { data: settingsRows } = await sb
+        .from("user_settings")
+        .select("user_id, mention_permission")
+        .in("user_id", options.taggedUsers!);
+      const permMap = new Map<string, string>(
+        (settingsRows ?? []).map((r: any) => [r.user_id as string, r.mention_permission as string])
+      );
+
+      // For "followers" permission: tagger must follow the tagged user (be one of their followers)
+      const followersOnlyUids = options.taggedUsers!.filter(
+        (uid) => (permMap.get(uid) ?? "everyone") === "followers"
+      );
+      const followerAllowSet = new Set<string>();
+      if (followersOnlyUids.length > 0) {
+        const { data: followRows } = await sb
+          .from("follows")
+          .select("following_id")
+          .eq("follower_id", userId)
+          .in("following_id", followersOnlyUids);
+        for (const r of followRows ?? []) followerAllowSet.add((r as any).following_id as string);
+      }
+
+      // Only tag users whose permission allows it
+      const allowedUids = options.taggedUsers!.filter((uid) => {
+        const perm = permMap.get(uid) ?? "everyone";
+        if (perm === "nobody") return false;
+        if (perm === "followers") return followerAllowSet.has(uid);
+        return true;
+      });
+
+      if (allowedUids.length === 0) return;
+
+      try {
+        await sb.from("post_tags").insert(
+          allowedUids.map((uid) => ({ post_id: postId, tagged_user_id: uid, tagged_by: userId }))
+        );
+      } catch {}
+
+      try {
+        await sb.from("notifications").insert(
+          allowedUids.map((uid) => ({
+            recipient_id: uid, sender_id: userId, type: "tag",
+            message: "tagged you in a post", post_id: postId, is_read: false,
+          }))
+        );
+      } catch {}
+
       const { data: actor } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
-      const name = actor?.username ?? "Someone";
-      for (const uid of options.taggedUsers!) {
+      const name = (actor as any)?.username ?? "Someone";
+      for (const uid of allowedUids) {
         void sendPushToUser(sb, uid, {
           title: "You were tagged",
           body: `@${name} tagged you in a post`,

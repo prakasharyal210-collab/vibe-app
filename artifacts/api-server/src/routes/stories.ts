@@ -160,17 +160,35 @@ router.get("/", async (req, res) => {
   }
 
   // Apply audience + mute filters
-  const stories = (storiesData ?? []).filter((s: any) => {
-    // Always show own stories
+  let stories = (storiesData ?? []).filter((s: any) => {
     if (s.user_id === userId) return true;
-    // Exclude muted users
     if (mutedSet.has(s.user_id)) return false;
-    // Exclude "only_me" stories from others
     if (s.audience === "only_me") return false;
-    // Exclude close-friends stories unless viewer is in author's close-friends list
     if (s.audience === "close_friends" && !cfAuthorIds.has(s.user_id)) return false;
     return true;
   });
+
+  // Enforce story_permission: authors with "friends" setting are only visible
+  // to users who follow them (ensures correctness even for profile-view callers).
+  const nonSelfAuthorIds = [...new Set(
+    stories.map((s: any) => s.user_id as string).filter((id) => id !== userId)
+  )];
+  if (nonSelfAuthorIds.length > 0) {
+    const { data: permRows } = await supabase
+      .from("user_settings")
+      .select("user_id, story_permission")
+      .in("user_id", nonSelfAuthorIds);
+    const storyPermMap = new Map<string, string>(
+      (permRows ?? []).map((r: any) => [r.user_id as string, r.story_permission as string])
+    );
+    const followingSet = new Set(followingIds);
+    stories = stories.filter((s: any) => {
+      if (s.user_id === userId) return true;
+      const perm = storyPermMap.get(s.user_id) ?? "everyone";
+      if (perm === "friends") return followingSet.has(s.user_id);
+      return true;
+    });
+  }
 
   res.json({ stories });
 });

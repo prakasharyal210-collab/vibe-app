@@ -457,10 +457,15 @@ export async function fetchUnreadCount(userId: string): Promise<number> {
 
 export interface UserSettings {
   private_account: boolean;
-  comment_permission: "everyone" | "friends" | "nobody";
-  message_permission: "everyone" | "friends" | "matches" | "nobody";
+  post_view_permission: "everyone" | "followers";
+  comment_permission: "everyone" | "followers" | "following" | "friends" | "nobody";
+  mention_permission: "everyone" | "followers" | "nobody";
+  message_permission: "everyone" | "followers" | "friends" | "matches" | "nobody";
   duet_permission: "everyone" | "friends" | "nobody";
   liked_private: boolean;
+  activity_visibility: boolean;
+  story_permission: "everyone" | "friends";
+  story_reply_permission: "everyone" | "friends" | "off";
   // ── Push master ────────────────────────────────────────────────────────────
   notif_push_enabled: boolean;
   notif_in_app: boolean;
@@ -491,10 +496,15 @@ export interface UserSettings {
 
 export const DEFAULT_SETTINGS: UserSettings = {
   private_account: false,
+  post_view_permission: "everyone",
   comment_permission: "everyone",
+  mention_permission: "everyone",
   message_permission: "everyone",
   duet_permission: "everyone",
   liked_private: false,
+  activity_visibility: true,
+  story_permission: "everyone",
+  story_reply_permission: "everyone",
   notif_push_enabled: true,
   notif_in_app: true,
   notif_likes: true,

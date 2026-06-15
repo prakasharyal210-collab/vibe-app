@@ -91,6 +91,10 @@ function RootLayoutNav() {
         options={{ animation: "slide_from_right" }}
       />
       <Stack.Screen
+        name="privacy-settings"
+        options={{ animation: "slide_from_right" }}
+      />
+      <Stack.Screen
         name="theme"
         options={{ animation: "slide_from_right" }}
       />
