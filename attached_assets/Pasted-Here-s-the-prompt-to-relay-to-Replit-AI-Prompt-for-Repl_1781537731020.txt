@@ -1,0 +1,23 @@
+Here's the prompt to relay to Replit AI:
+
+Prompt for Replit AI:
+Two bugs on the "view another user's profile" screen (the screen that shows when tapping a user from search/friends list — username "prakasharyal210" with a Follow button visible).
+Bug 1 — Icon glyphs rendering as empty boxes (□)
+Same root cause we already fixed elsewhere this session: any icon component (e.g. SecLabel/Row/stat-icon components) defined INSIDE the screen's render function gets a new identity on every render, causing Ionicons to lose their glyphs after remount.
+On this Friend/User Profile screen, the following icons are showing as empty tofu boxes:
+
+The icon next to the top-right area (likely a link/share/options icon)
+The stat icons next to the Posts/Followers/Following counts (the "0  0" row)
+Two icons at the far right of that same stats row
+Two icons at the bottom-right edge of the screen
+
+Please find the component file that renders this "other user's profile" screen (likely something like UserProfileScreen, ViewProfileScreen, or FriendProfileScreen — NOT the current user's own profile screen, which I believe was already fixed). Check for any icon-rendering helper components (stat item, action button, header icon, etc.) defined inside the screen component function, and move them to MODULE SCOPE, calling useColors() internally — same pattern as the SecLabel/Card/Row fix applied earlier.
+Bug 2 — Duplicate/overlapping bottom bar
+Below the main bottom tab bar (Reels/Feed/+/Locked/Profile), there's a second row of controls rendering underneath it — looks like a camera/capture bar (a square icon, a circle "record" button, and a triangle/play icon). This appears to be a camera or story-capture component that isn't unmounting when navigating to this Friend Profile screen, so it's rendering stacked behind the tab bar.
+Please:
+
+Search for any camera/capture/story-recording component that might be persisted in the navigation stack or rendered globally (e.g. in a root layout, tab layout, or a modal that isn't properly closing).
+Check if navigating to a Friend Profile screen is happening via a modal/stack push that leaves the previous camera screen mounted underneath.
+Fix so that camera/capture UI fully unmounts (or is hidden) when this profile screen is active.
+
+After making changes, please report back: which file(s) you edited for each bug, and what the root cause turned out to be for bug 2 (was it a lingering camera modal, a tab bar duplication, or something else)?

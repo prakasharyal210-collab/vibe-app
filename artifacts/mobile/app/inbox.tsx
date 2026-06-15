@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1284,21 +1284,22 @@ export default function InboxScreen() {
     setRefreshing(false);
   }, [loadAll, loadStories]);
 
-  // ── Snap camera ────────────────────────────────────────────────────────────
-  const openSnapCamera = useCallback(async (preSearch = "") => {
-    try {
-      if (Platform.OS !== "web") {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status === "granted") {
-          const result = await ImagePicker.launchCameraAsync({ mediaTypes: "images", quality: 0.8 });
-          if (!result.canceled) { setSnapPreviewSearch(preSearch); setSnapPreviewUri(result.assets[0].uri); }
-          return;
-        }
-      }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", quality: 0.8 });
-      if (!result.canceled) { setSnapPreviewSearch(preSearch); setSnapPreviewUri(result.assets[0].uri); }
-    } catch { Alert.alert("Error", "Could not open camera or photo library."); }
+  // ── Snap camera — navigate to dedicated Snapchat-style screen ──────────────
+  const openSnapCamera = useCallback((preSearch = "") => {
+    const dest = preSearch
+      ? `/snap-camera?toUsername=${encodeURIComponent(preSearch)}`
+      : "/snap-camera";
+    router.push(dest as any);
   }, []);
+
+  // Refresh snap convos whenever inbox regains focus (e.g. after snap-camera closes)
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        fetchSnapConversations(userId).then(setSnapConvos).catch(() => {});
+      }
+    }, [userId])
+  );
 
   const handleSendTo = useCallback(async (friend: { id: string; username?: string }) => {
     if (!snapPreviewUri || !userId) return;
