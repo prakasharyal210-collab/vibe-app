@@ -309,6 +309,33 @@ export async function toggleLike(
   }
 }
 
+// ─── Reel Likes — routed through API server (service-role key bypasses RLS) ──
+// Direct supabase client calls on reel_likes hang under anon-key RLS.
+
+const REELS_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/reels";
+
+export async function checkReelLiked(reelId: string, userId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${REELS_API}/liked?userId=${encodeURIComponent(userId)}&reelId=${encodeURIComponent(reelId)}`);
+    if (!res.ok) return false;
+    const json = await res.json() as { liked: boolean };
+    return json.liked ?? false;
+  } catch {
+    return false;
+  }
+}
+
+// Returns { liked: boolean, likes: number } — the server-side toggled state.
+export async function toggleReelLike(reelId: string, userId: string): Promise<{ liked: boolean; likes: number }> {
+  const res = await fetch(`${REELS_API}/like`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, reelId }),
+  });
+  if (!res.ok) throw new Error("toggleReelLike failed");
+  return res.json() as Promise<{ liked: boolean; likes: number }>;
+}
+
 // ─── Reposts ──────────────────────────────────────────────────────────────────
 
 export async function checkReposted(postId: string, userId: string): Promise<boolean> {

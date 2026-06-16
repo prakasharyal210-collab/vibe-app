@@ -45,7 +45,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
-import { checkLiked, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
+import { checkReelLiked, toggleReelLike, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads";
 
@@ -191,10 +191,10 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const pausedAtRef = useRef(0);
   const watchStartRef = useRef<number | null>(null);
 
-  // Supabase checks
+  // Load real liked state from API server on mount (service-role key, no RLS hang)
   useEffect(() => {
     if (!userId) return;
-    checkLiked(reel.id, userId).then(setLiked).catch(() => {});
+    checkReelLiked(reel.id, userId).then(setLiked).catch(() => {});
   }, [reel.id, userId]);
 
   // Watch time tracking — log when the reel stops being active
@@ -264,16 +264,23 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const pauseStyle = useAnimatedStyle(() => ({ opacity: pauseOpacity.value }));
 
   const doLike = useCallback(() => {
+    // Double-tap always likes (never unlikes) — like Instagram.
+    // If already liked, still play the heart animation but don't re-send the request.
     if (!isLoggedIn) { onRequireLogin(); return; }
-    setLiked(true);
-    setLikes((l) => l + 1);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     heartScale.value = withSequence(
       withTiming(1.5, { duration: 150 }),
       withTiming(0, { duration: 600 })
     );
-    if (userId) toggleLike(reel.id, userId, true);
-  }, [isLoggedIn, userId, reel.id]);
+    if (liked) return; // already liked — animate heart but don't double-count
+    setLiked(true);
+    setLikes((l) => l + 1);
+    if (userId) {
+      toggleReelLike(reel.id, userId)
+        .then((result) => { setLiked(result.liked); setLikes(result.likes); })
+        .catch(() => { setLiked(false); setLikes((l) => l - 1); });
+    }
+  }, [isLoggedIn, userId, reel.id, liked]);
 
   const handlePress = useCallback(() => {
     const now = Date.now();
@@ -300,11 +307,21 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
   const handleLike = useCallback(() => {
     if (!isLoggedIn) { onRequireLogin(); return; }
-    const nowLiked = !liked;
-    setLiked(nowLiked);
-    setLikes((l) => nowLiked ? l + 1 : l - 1);
+    // Optimistic toggle
+    const optimisticLiked = !liked;
+    setLiked(optimisticLiked);
+    setLikes((l) => optimisticLiked ? l + 1 : l - 1);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (userId) toggleLike(reel.id, userId, nowLiked);
+    if (userId) {
+      // API server confirms the real state and returns the actual DB count
+      toggleReelLike(reel.id, userId)
+        .then((result) => { setLiked(result.liked); setLikes(result.likes); })
+        .catch(() => {
+          // Revert on failure
+          setLiked(liked);
+          setLikes((l) => optimisticLiked ? l - 1 : l + 1);
+        });
+    }
   }, [liked, isLoggedIn, userId, reel.id]);
 
   const handleFollow = useCallback(() => {
