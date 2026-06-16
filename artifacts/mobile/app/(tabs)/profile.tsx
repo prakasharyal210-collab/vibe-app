@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RelationshipStatusBadge } from "@/components/RelationshipStatusBadge";
+import { ZodiacSignBadge } from "@/components/ZodiacSignBadge";
 import { LinearGradient } from "expo-linear-gradient";
 import { Video, ResizeMode } from "expo-av";
 import * as VideoThumbnails from "expo-video-thumbnails";
@@ -749,6 +750,9 @@ export default function ProfileScreen() {
             {profile.bio ? <Text style={[styles.bio, { color: colors.mutedForeground }]}>{profile.bio}</Text> : null}
             {(profile as any).relationship_status ? (
               <RelationshipStatusBadge status={(profile as any).relationship_status} />
+            ) : null}
+            {(profile as any).zodiac_sign ? (
+              <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
             ) : null}
             <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `gundruk.app/${displayUsername}`)}>
               <Ionicons name="link-outline" size={13} color="#8B5CF6" />

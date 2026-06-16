@@ -1,0 +1,29 @@
+Add a Zodiac Sign field to user profiles, similar to the existing Relationship Status feature.
+1. Database migration
+sqlALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS zodiac_sign TEXT CHECK (
+  zodiac_sign IN (
+    'Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo',
+    'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'
+  )
+) DEFAULT NULL;
+2. Edit Profile screen
+Add a "Zodiac Sign" field below "Relationship Status" in edit-profile.tsx, following the exact same pattern as the Relationship Status picker (tap → bottom sheet with list of 12 options, each showing emoji symbol + name, plus a "🚫 Prefer not to say" clear option at the bottom).
+Use these symbol mappings:
+SignSymbolAries♈Taurus♉Gemini♊Cancer♋Leo♌Virgo♍Libra♎Scorpio♏Sagittarius♐Capricorn♑Aquarius♒Pisces♓
+3. Display on profile
+Show the zodiac sign as a small pill (same style as the Relationship Status pill) under the bio/username area, on both own profile and other users' profile screens — displaying just the symbol + name (e.g. "♒ Aquarius"). Use a consistent neutral color (e.g. deep blue/indigo background with light blue text) since it's not tied to a status category like relationship status. If null, show nothing.
+4. API server
+Ensure zodiac_sign is included in:
+
+GET /api/users/profile/:username (add to PROFILE_COLS_FULL, with the existing fallback-to-base-columns safety net already in place for missing columns)
+PATCH /api/users/profile/:userId (allow updating this field)
+
+After implementing please report:
+
+Migration SQL to run
+Files edited
+Confirm the pill displays correctly and falls back gracefully if migration hasn't run yet (reusing the existing 42703 fallback pattern)
+
+
+On the second part — "profile should look unique" — that's the big multi-feature redesign we already built (parallax cover, rotating avatar ring, vibe compatibility ring, floating action bar, sliding tabs, pinned post). Is there something specific about how it currently looks that's not unique enough, or were you referring to adding zodiac/relationship status as part of making it unique? Let me know if you want more visual changes beyond what's already shipped.

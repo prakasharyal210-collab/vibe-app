@@ -22,6 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { callAI } from "@/lib/ai";
 
 import { ALL_STATUSES, getStatusConfig } from "@/components/RelationshipStatusBadge";
+import { ALL_ZODIAC_SIGNS, getZodiacSymbol } from "@/components/ZodiacSignBadge";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 const LOAD_TIMEOUT_MS = 8000;
@@ -47,6 +48,8 @@ export default function EditProfileScreen() {
   const [showPronouns, setShowPronouns] = useState(false);
   const [relationshipStatus, setRelationshipStatus] = useState("");
   const [showRelStatus, setShowRelStatus] = useState(false);
+  const [zodiacSign, setZodiacSign] = useState("");
+  const [showZodiac, setShowZodiac] = useState(false);
   const [writingBio, setWritingBio] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
@@ -78,6 +81,7 @@ export default function EditProfileScreen() {
       setLocation(profile.location ?? "");
       setPronouns(profile.pronouns ?? "");
       setRelationshipStatus(profile.relationship_status ?? "");
+      setZodiacSign(profile.zodiac_sign ?? "");
     } catch (e: any) {
       clearTimeout(timer);
       const msg = e?.name === "AbortError"
@@ -148,6 +152,7 @@ export default function EditProfileScreen() {
           location: location.trim() || null,
           pronouns: pronouns || null,
           relationship_status: relationshipStatus || null,
+          zodiac_sign: zodiacSign || null,
           avatar_url: savedAvatarUrl ?? null,
         }),
       });
@@ -338,6 +343,51 @@ export default function EditProfileScreen() {
                     <Text style={[styles.dropdownText, { color: colors.mutedForeground }]}>Prefer not to say</Text>
                   </View>
                   {!relationshipStatus && <Ionicons name="checkmark" size={16} color="#7C3AED" />}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Zodiac Sign</Text>
+            <TouchableOpacity
+              style={[styles.select, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              onPress={() => setShowZodiac((v) => !v)}
+            >
+              {zodiacSign ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ fontSize: 14 }}>{getZodiacSymbol(zodiacSign)}</Text>
+                  <Text style={[styles.selectText, { color: colors.foreground }]}>{zodiacSign}</Text>
+                </View>
+              ) : (
+                <Text style={[styles.selectText, { color: colors.mutedForeground }]}>Select sign (optional)</Text>
+              )}
+              <Ionicons name={showZodiac ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            {showZodiac && (
+              <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {ALL_ZODIAC_SIGNS.map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.dropdownRow, { borderBottomColor: colors.border }]}
+                    onPress={() => { setZodiacSign(s); setShowZodiac(false); }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                      <Text style={{ fontSize: 16 }}>{getZodiacSymbol(s)}</Text>
+                      <Text style={[styles.dropdownText, { color: colors.foreground }]}>{s}</Text>
+                    </View>
+                    {zodiacSign === s && <Ionicons name="checkmark" size={16} color="#7C3AED" />}
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={[styles.dropdownRow, { borderBottomColor: "transparent" }]}
+                  onPress={() => { setZodiacSign(""); setShowZodiac(false); }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <Text style={{ fontSize: 16 }}>🚫</Text>
+                    <Text style={[styles.dropdownText, { color: colors.mutedForeground }]}>Prefer not to say</Text>
+                  </View>
+                  {!zodiacSign && <Ionicons name="checkmark" size={16} color="#7C3AED" />}
                 </TouchableOpacity>
               </View>
             )}

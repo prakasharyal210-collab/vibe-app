@@ -109,7 +109,7 @@ router.get("/profile/:username", async (req, res) => {
   // display_name). If those migrations have not been run yet, PostgREST returns a 42703 "column does
   // not exist" error. We fall back to PROFILE_COLS_BASE so the route never returns 500 for a profile
   // that actually exists — the mobile app would otherwise show "User not found".
-  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status";
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign";
   const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private";
 
   try {
@@ -216,7 +216,7 @@ router.get("/profile/by-id/:userId", async (req, res) => {
   try {
     const { data, error } = await sb
       .from("profiles")
-      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status")
+      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status, zodiac_sign")
       .eq("id", userId)
       .maybeSingle();
 
@@ -251,7 +251,7 @@ router.patch("/profile/:userId", async (req, res) => {
   const {
     relationship_status,
     bio, full_name, display_name, website, location, pronouns, vibe_status,
-    username, avatar_url,
+    username, avatar_url, zodiac_sign,
   } = req.body as Record<string, string | null | undefined>;
 
   if (
@@ -274,6 +274,7 @@ router.patch("/profile/:userId", async (req, res) => {
   if (vibe_status !== undefined) updates.vibe_status = vibe_status;
   if (username !== undefined) updates.username = username;
   if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+  if (zodiac_sign !== undefined) updates.zodiac_sign = zodiac_sign;
 
   if (Object.keys(updates).length === 0) { res.json({ ok: true }); return; }
 
