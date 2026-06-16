@@ -49,15 +49,25 @@ ALTER TABLE vibe_rooms         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vibe_room_members  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vibe_room_messages ENABLE ROW LEVEL SECURITY;
 
--- Authenticated users can read rooms and messages (needed for realtime too)
-CREATE POLICY IF NOT EXISTS "vibe_rooms_read"
-  ON vibe_rooms FOR SELECT TO authenticated USING (true);
+-- Authenticated users can read rooms and messages (needed for realtime too).
+-- Wrapped in DO blocks so re-running the migration doesn't error on duplicate policy names.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'vibe_rooms_read' AND tablename = 'vibe_rooms') THEN
+    CREATE POLICY "vibe_rooms_read" ON vibe_rooms FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "vibe_room_messages_read"
-  ON vibe_room_messages FOR SELECT TO authenticated USING (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'vibe_room_messages_read' AND tablename = 'vibe_room_messages') THEN
+    CREATE POLICY "vibe_room_messages_read" ON vibe_room_messages FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
 
-CREATE POLICY IF NOT EXISTS "vibe_room_members_read"
-  ON vibe_room_members FOR SELECT TO authenticated USING (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'vibe_room_members_read' AND tablename = 'vibe_room_members') THEN
+    CREATE POLICY "vibe_room_members_read" ON vibe_room_members FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
 
 -- All writes go through the API server (service role key bypasses RLS).
 -- No additional INSERT/UPDATE/DELETE policies needed for anon/authenticated roles.
