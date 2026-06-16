@@ -14,6 +14,13 @@ CREATE TABLE IF NOT EXISTS vibe_rooms (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- If the table already existed from a previous partial run, add any missing columns.
+ALTER TABLE vibe_rooms ADD COLUMN IF NOT EXISTS category    TEXT;
+ALTER TABLE vibe_rooms ADD COLUMN IF NOT EXISTS emoji       TEXT;
+ALTER TABLE vibe_rooms ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE vibe_rooms ADD COLUMN IF NOT EXISTS is_live     BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE vibe_rooms ADD COLUMN IF NOT EXISTS created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
 CREATE TABLE IF NOT EXISTS vibe_room_members (
   id        UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
