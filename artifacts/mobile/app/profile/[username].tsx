@@ -41,12 +41,12 @@ import {
   PublicProfile,
   reportContent,
   restrictUser,
-  sendVibeRequest,
 } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+const BLOCKED_RS = ["Married", "Engaged", "Widowed"];
 
 async function muteUser(muterId: string, mutedId: string): Promise<void> {
   await fetch(`${API_BASE}/users/social/mute`, {
@@ -509,7 +509,9 @@ export default function UserProfileScreen() {
   const [followersCount, setFollowersCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [amBlocked, setAmBlocked] = useState(false);
-  const [vibeSent, setVibeSent] = useState(false);
+  const [vibeReqStatus, setVibeReqStatus] = useState<"none" | "pending" | "accepted" | "declined">("none");
+  const [vibeReqId, setVibeReqId] = useState<string | null>(null);
+  const [vibeReqLoading, setVibeReqLoading] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfileGridItem[]>([]);
@@ -602,19 +604,46 @@ export default function UserProfileScreen() {
 
   const fullName = profile?.display_name ?? (profile as any)?.display_name ?? u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 
-  const handleVibe = async () => {
-    if (!myId || !profile?.id || vibeSent) return;
-    setVibeSent(true);
-    const result = await sendVibeRequest(myId, profile.id);
-    if (result === "matched") {
-      Alert.alert("🎉 It's a Match!", `You and ${fullName} both vibed each other!`, [
-        { text: "Send Message 💬", onPress: handleMessage },
-        { text: "Later", style: "cancel" },
-      ]);
-    } else {
-      Alert.alert("💜 Sent!", `Your message was sent to ${fullName}. If they respond, it's a match!`);
+  useEffect(() => {
+    if (!myId || !profile?.id || myId === profile.id) return;
+    if (BLOCKED_RS.includes((profile as any).relationship_status ?? "")) return;
+    fetch(`${API_BASE}/vibe-requests/status?senderId=${myId}&receiverId=${profile.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.status && data.status !== "none") {
+          setVibeReqStatus(data.status as "pending" | "accepted" | "declined");
+          if (data.requestId) setVibeReqId(data.requestId);
+        }
+      })
+      .catch(() => {});
+  }, [myId, profile?.id]);
+
+  const handleVibeRequest = async () => {
+    if (!myId || !profile?.id || vibeReqLoading) return;
+    if (vibeReqStatus === "pending" || vibeReqStatus === "accepted") return;
+    setVibeReqLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/vibe-requests/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderId: myId, receiverId: profile.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setVibeReqStatus("pending");
+        if (data.requestId) setVibeReqId(data.requestId);
+        Alert.alert("✨ Vibe Sent!", `Your vibe request was sent to ${fullName}.`);
+      } else if (res.status === 409) {
+        setVibeReqStatus(data.status ?? "pending");
+        if (data.requestId) setVibeReqId(data.requestId);
+      } else if (res.status === 403) {
+        Alert.alert("Not available", "This user is not accepting vibe requests.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not send vibe request. Please try again.");
+    } finally {
+      setVibeReqLoading(false);
     }
-    setTimeout(() => setVibeSent(false), 10000);
   };
 
   const gridData = posts.map((p) => ({
@@ -835,14 +864,29 @@ export default function UserProfileScreen() {
           <Text style={styles.floatMsgText}>{openingChat ? "Opening…" : "Message"}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={handleVibe}
-          disabled={vibeSent}
-          style={[styles.floatVibe, vibeSent && styles.floatVibeSent]}
-          activeOpacity={0.85}
-        >
-          <Text style={{ fontSize: 18 }}>{vibeSent ? "✅" : "💜"}</Text>
-        </TouchableOpacity>
+        {!BLOCKED_RS.includes((profile as any)?.relationship_status ?? "") && (
+          vibeReqStatus === "accepted" ? (
+            <View style={[styles.floatVibe, styles.floatVibeAccepted]}>
+              <Text style={{ fontSize: 15 }}>💜</Text>
+              <Text style={[styles.vibeReqText, { color: "#A78BFA" }]}>Vibing</Text>
+            </View>
+          ) : vibeReqStatus === "pending" ? (
+            <View style={[styles.floatVibe, styles.floatVibePending]}>
+              <Text style={{ fontSize: 15 }}>⏳</Text>
+              <Text style={[styles.vibeReqText, { color: "#9CA3AF" }]}>Pending</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={handleVibeRequest}
+              disabled={vibeReqLoading}
+              style={[styles.floatVibe, { opacity: vibeReqLoading ? 0.6 : 1 }]}
+              activeOpacity={0.85}
+            >
+              <Text style={{ fontSize: 15 }}>✨</Text>
+              <Text style={styles.vibeReqText}>Vibe</Text>
+            </TouchableOpacity>
+          )
+        )}
       </View>
 
       <ThreeDotsModal
@@ -1000,6 +1044,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(124,58,237,0.4)",
   },
   floatVibeSent: { backgroundColor: "rgba(124,58,237,0.35)", borderColor: "#7C3AED" },
+  floatVibePending: { backgroundColor: "rgba(107,114,128,0.15)", borderColor: "rgba(107,114,128,0.38)" },
+  floatVibeAccepted: { backgroundColor: "rgba(124,58,237,0.45)", borderColor: "#7C3AED" },
+  vibeReqText: {
+    fontSize: 11,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#E2D8FF",
+  },
 
   // Private
   privateWrap: { alignItems: "center", gap: 12, paddingVertical: 60, paddingHorizontal: 32 },

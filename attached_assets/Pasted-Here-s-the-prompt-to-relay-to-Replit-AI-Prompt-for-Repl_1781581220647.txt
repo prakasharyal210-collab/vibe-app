@@ -1,0 +1,75 @@
+Here's the prompt to relay to Replit AI:
+
+Prompt for Replit AI:
+Add a Vibe Request feature that lets users send a vibe request directly from another user's profile page.
+1. Database migration
+Create a vibe_requests table:
+sqlCREATE TABLE vibe_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  sender_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  receiver_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
+  status TEXT CHECK (status IN ('pending', 'accepted', 'declined')) DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(sender_id, receiver_id)
+);
+
+-- Index for fast lookup
+CREATE INDEX idx_vibe_requests_receiver ON vibe_requests(receiver_id, status);
+CREATE INDEX idx_vibe_requests_sender ON vibe_requests(sender_id);
+
+2. API server routes
+Add these routes to artifacts/api-server:
+POST /api/vibe-requests/send
+typescript// Body: { senderId, receiverId }
+// 1. Check receiver's relationship_status — if 'Married', 'Engaged', or 'Widowed', return 403
+// 2. Check if a request already exists (pending/accepted) — return 409 if so
+// 3. Insert into vibe_requests with status 'pending'
+// 4. Insert a notification for the receiver:
+//    { user_id: receiverId, type: 'vibe_request', actor_id: senderId, 
+//      message: '@username wants to vibe with you ✨', reference_id: newRequestId }
+// 5. Return { success: true, requestId }
+POST /api/vibe-requests/respond
+typescript// Body: { requestId, userId, action: 'accept' | 'decline' }
+// 1. Verify userId === receiver_id on the request
+// 2. Update vibe_requests set status = action === 'accept' ? 'accepted' : 'declined'
+// 3. If accepted: notify the sender
+//    { user_id: senderId, type: 'vibe_accepted', actor_id: receiverId,
+//      message: '@username accepted your vibe request 💜' }
+// 4. Return { success: true }
+GET /api/vibe-requests/status?senderId=X&receiverId=Y
+typescript// Returns current request status between two users
+// { status: 'none' | 'pending' | 'accepted' | 'declined', requestId? }
+GET /api/vibe-requests/inbox?userId=X
+typescript// Returns all pending vibe requests received by userId
+// Join with profiles to get sender avatar, username, relationship_status
+
+3. Vibe Request button on other user's profile
+In the floating bottom bar (next to Follow and Message buttons):
+
+Hide the button entirely if the profile owner's relationship_status is 'Married', 'Engaged', or 'Widowed'
+Show a ✨ Vibe button (gradient background: orange→purple, matching the Follow button style) for all other statuses (Single, In a Relationship, It's Complicated, Open Relationship, Divorced, or null/not set)
+On mount, call GET /api/vibe-requests/status to check existing state and show the correct button state:
+
+StateButton appearancenone✨ Vibe — orange→purple gradientpending⏳ Pending — gray/outlined, disabledaccepted💜 Vibing — purple filled, disableddeclined✨ Vibe — same as none (can re-request)
+
+On tap (when state is none or declined): call POST /api/vibe-requests/send, show a brief success toast "Vibe request sent! ✨", update button to ⏳ Pending
+
+
+4. Notification handling
+In the existing notifications screen, add support for two new notification types:
+
+vibe_request — shows "@username wants to vibe with you ✨" with two action buttons inline: Accept (purple) and Decline (gray). Tapping either calls POST /api/vibe-requests/respond and updates the notification row to show the result ("You accepted / declined")
+vibe_accepted — shows "@username accepted your vibe request 💜" — tapping navigates to their profile
+
+
+5. Vibe Requests inbox (optional but recommended)
+On the notifications screen or a dedicated tab, add a "Vibe Requests" section at the top (only visible if there are pending requests) showing sender avatar + username + relationship status pill + Accept/Decline buttons.
+
+After implementing please report:
+
+Migration SQL to run on Supabase (vibe_requests table)
+Which files were created/edited
+Confirm the button correctly hides for Married/Engaged/Widowed profiles
+Confirm notifications are created on send and on accept
+Any parts that couldn't be fully implemented

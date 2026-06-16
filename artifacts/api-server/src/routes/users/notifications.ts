@@ -67,6 +67,7 @@ router.get("/:userId", async (req, res) => {
         read: n.is_read ?? false,
         post_image: n.thumbnail_url ?? null,
         post_id: n.post_id ?? null,
+        reference_id: n.reference_id ?? null,
       };
     });
     res.json({ notifications });

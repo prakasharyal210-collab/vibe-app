@@ -92,7 +92,7 @@ export interface Conversation {
 
 export interface Notification {
   id: string;
-  type: "like" | "comment" | "follow" | "vibe" | "mention" | "tag" | "repost" | "save";
+  type: "like" | "comment" | "follow" | "vibe" | "mention" | "tag" | "repost" | "save" | "vibe_request" | "vibe_accepted";
   username: string;
   avatar_url?: string | null;
   text: string;
@@ -100,6 +100,7 @@ export interface Notification {
   read: boolean;
   post_image?: string;
   post_id?: string | null;
+  reference_id?: string | null;
 }
 
 export interface Hashtag {
