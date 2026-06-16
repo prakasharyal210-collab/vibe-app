@@ -2,6 +2,12 @@
 -- Run this in the Supabase SQL dashboard (not local Drizzle DB).
 -- Room IDs are TEXT slugs ("r1"…"r8") to match the hardcoded frontend array.
 
+-- ─── Drop any partial tables from previous failed runs ───────────────────────
+-- CASCADE removes dependent FKs automatically so order doesn't matter.
+DROP TABLE IF EXISTS vibe_room_messages CASCADE;
+DROP TABLE IF EXISTS vibe_room_members  CASCADE;
+DROP TABLE IF EXISTS vibe_rooms         CASCADE;
+
 -- ─── Tables ──────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS vibe_rooms (
