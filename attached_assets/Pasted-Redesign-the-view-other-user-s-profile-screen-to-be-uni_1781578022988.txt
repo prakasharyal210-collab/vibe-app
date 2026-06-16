@@ -1,0 +1,41 @@
+Redesign the "view other user's profile" screen to be unique and visually distinctive. Apply ALL of the following enhancements:
+1. Parallax Cover Photo
+
+Wrap the cover photo in an Animated.ScrollView-driven parallax — as the user scrolls down, the cover photo translates upward at ~50% scroll speed (translateY = scrollY * -0.5). Use Animated.event with useNativeDriver: true for smooth 60fps performance.
+2. Animated Avatar Border (Rotating Gradient)
+
+Wrap the profile avatar in a rotating gradient ring using Reanimated 2. The ring continuously rotates (orange → purple → pink → orange) using useSharedValue + useAnimatedStyle with a withRepeat(withTiming(...)) loop. Since React Native doesn't support gradient borders natively, implement this as a rotating gradient View behind the avatar with the avatar on top (slightly smaller, with a gap).
+3. Vibe Score Compatibility Ring
+
+Below/around the avatar, show a circular progress ring (SVG-based using react-native-svg) displaying the vibe compatibility percentage between the viewing user and the profile owner. Fetch this from the API server (/api/vibe/compatibility?userId=X&targetId=Y) — calculate it server-side based on shared interests, mutual follows, and vibe_matches table. Show as "87% Vibe" in orange/purple text inside or below the ring. If no data exists yet, show a default "—% Vibe" state.
+4. Mood/Vibe Status
+
+Add a small animated status pill directly under the username — shows an emoji + short text (e.g. "🎵 In my music era"). This is user-set — add a vibe_status column (emoji text + label text) to the profiles table via migration. On the viewer's screen it just displays; on the user's own profile they can tap to edit it. Animate the emoji with a gentle bounce loop using Reanimated.
+5. Floating Follow/Message/❤️ Buttons
+
+The Follow, Message, and ❤️ buttons should float at the bottom of the screen in a persistent pill bar — they stay visible as the user scrolls through the post grid. Use position: absolute, bottom: 0 inside the screen container (above the tab bar). The Follow button uses the orange→purple gradient. When already following, it switches to an outlined "Following" style.
+6. Content Tabs with Icons + Sliding Indicator
+
+Replace plain text tabs (Posts/Reels/Tagged) with icon+label tabs:
+
+📸 Posts → grid-outline icon
+🎬 Reels → play-circle-outline icon
+🏷️ Tagged → pricetag-outline icon
+
+Add a smooth animated sliding underline indicator that moves between tabs using Animated.Value + interpolate. Active tab uses orange/purple gradient text color, inactive tabs are dimmed.
+7. Pinned Post Spotlight
+
+If the profile owner has pinned a post (is_pinned: true on the posts table — add this column if it doesn't exist), show it as a large featured card ABOVE the grid with a "📌 Pinned" badge in the top-left corner. The card should be full-width, taller than grid items (about 200px height), with the post image/video as background and caption overlaid at the bottom with a gradient scrim.
+
+API server additions needed:
+
+GET /api/vibe/compatibility?userId=X&targetId=Y — returns { score: 0-100, factors: [...] }
+Add vibe_status column to profiles table (migration)
+Add is_pinned column to posts table (migration)
+
+After implementing please report:
+
+Which files were created/edited
+Which migrations need to be run
+Any features that couldn't be fully implemented and why
+Confirm the screen loads without crashes in Expo Go preview

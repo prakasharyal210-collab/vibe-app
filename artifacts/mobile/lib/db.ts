@@ -2262,6 +2262,7 @@ export async function toggleFollowUser(myId: string, otherId: string): Promise<b
 export interface PublicProfile {
   id: string;
   username: string;
+  display_name?: string;
   bio?: string;
   avatar_url?: string;
   cover_url?: string;
@@ -2272,6 +2273,7 @@ export interface PublicProfile {
   followers_count?: number;
   following_count?: number;
   posts_count?: number;
+  vibe_status?: string;
 }
 
 export async function lookupProfileByUsername(username: string, viewerId?: string): Promise<PublicProfile | null> {

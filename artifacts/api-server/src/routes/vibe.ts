@@ -299,4 +299,58 @@ router.get("/swiped", async (req, res) => {
   }
 });
 
+// GET /api/vibe/compatibility?userId=X&targetId=Y
+// Returns { score: 0-100, factors: string[] }
+router.get("/compatibility", async (req, res) => {
+  const { userId, targetId } = req.query as { userId?: string; targetId?: string };
+  if (!userId || !targetId) {
+    res.status(400).json({ error: "userId and targetId required" });
+    return;
+  }
+  if (userId === targetId) {
+    res.json({ score: 100, factors: ["same user"] });
+    return;
+  }
+
+  const sb = makeSupabase();
+  try {
+    const [followsRes, profilesRes, matchRes] = await Promise.all([
+      sb.from("follows").select("follower_id, following_id")
+        .or(`and(follower_id.eq.${userId},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${userId})`),
+      sb.from("profiles").select("id, interests").in("id", [userId, targetId]),
+      sb.from("vibe_matches").select("id")
+        .or(`and(sender_id.eq.${userId},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${userId})`)
+        .maybeSingle(),
+    ]);
+
+    const follows: any[] = followsRes.data ?? [];
+    const profiles: any[] = profilesRes.data ?? [];
+    const matched = !!matchRes.data;
+
+    const iFollowThem = follows.some((f) => f.follower_id === userId && f.following_id === targetId);
+    const theyFollowMe = follows.some((f) => f.follower_id === targetId && f.following_id === userId);
+
+    const myP = profiles.find((p) => p.id === userId);
+    const theirP = profiles.find((p) => p.id === targetId);
+    const myInterests: string[] = Array.isArray(myP?.interests) ? myP.interests : [];
+    const theirInterests: string[] = Array.isArray(theirP?.interests) ? theirP.interests : [];
+    const shared = myInterests.filter((i) => theirInterests.includes(i));
+    const maxLen = Math.max(myInterests.length, theirInterests.length, 1);
+    const interestScore = Math.round((shared.length / maxLen) * 40);
+
+    let score = 10; // base
+    const factors: string[] = [];
+    if (iFollowThem && theyFollowMe) { score += 40; factors.push("mutual follows"); }
+    else if (iFollowThem || theyFollowMe) { score += 10; factors.push("follows"); }
+    score += interestScore;
+    if (shared.length > 0) factors.push(`${shared.length} shared interest${shared.length > 1 ? "s" : ""}`);
+    if (matched) { score += 20; factors.push("vibe match"); }
+
+    res.json({ score: Math.min(100, score), factors });
+  } catch (e: any) {
+    req.log.error({ err: e?.message }, "compatibility error");
+    res.json({ score: null, factors: [] });
+  }
+});
+
 export default router;
