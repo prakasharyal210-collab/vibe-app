@@ -392,7 +392,9 @@ export default function FeedScreen() {
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
   const isScrollingPager = useRef(false);
   const [headerHeight, setHeaderHeight] = useState(120);
-  const snapH = H - headerHeight - (Platform.OS === "web" ? 84 : insets.bottom + 50);
+  // Tab bar: 68px height + 10px bottom offset = 78px from screen bottom.
+  // Add 10px breathing room → reserve 88px so no post content slides under the tab bar.
+  const snapH = H - headerHeight - (Platform.OS === "web" ? 84 : insets.bottom + 88);
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
 
@@ -579,7 +581,7 @@ export default function FeedScreen() {
   }, [activeTab, loadTabData]);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
+  const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 88;
 
   // Animated indicator — spans half-width, centered under each tab
   const indicatorLeft = scrollX.interpolate({
@@ -844,7 +846,7 @@ export default function FeedScreen() {
                   }
                   return null;
                 }}
-                contentContainerStyle={{ paddingBottom: 0, paddingTop: headerHeight }}
+                contentContainerStyle={{ paddingBottom: bottomInset, paddingTop: headerHeight }}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing && activeTab === tab.id}

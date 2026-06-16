@@ -538,7 +538,8 @@ export default function ProfileScreen() {
   const [creatingHighlight, setCreatingHighlight] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 50;
+  // Tab bar: 68px height + 10px bottom offset = 78px from screen bottom. Add 10px buffer → 88px.
+  const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 88;
   const mainTabSwipe = useMainTabSwipe("profile");
 
   const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";

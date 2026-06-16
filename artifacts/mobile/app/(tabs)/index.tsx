@@ -314,7 +314,9 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   }, [isLoggedIn]);
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 84 : insets.bottom + 56;
+  // Tab bar top edge = insets.bottom + 78. Buttons/text overlays must sit above it.
+  // bottomPad drives: rightActions, bottomInfo, soundToggle (all at bottom: bottomPad + 8 = insets.bottom + 92).
+  const bottomPad = Platform.OS === "web" ? 84 : insets.bottom + 84;
 
   return (
     <Pressable
