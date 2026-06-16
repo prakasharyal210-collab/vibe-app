@@ -2184,10 +2184,13 @@ function FindVibeContent() {
         return true;
       };
 
-      const rawNearby: VibeMatchProfile[] = (nearby.length > 0
+      // nearby comes from /api/vibe/deck (real DB users with show_in_matching=true).
+      // allVibe comes from get_vibe_matches directly via supabase client (scored profiles).
+      // Merge both; nearby takes priority. Profiles without a distance still show up.
+      const nearbyOrFallback: VibeMatchProfile[] = nearby.length > 0
         ? nearby.map((u) => ({ ...u, distance: u.distance ?? `${Math.floor(Math.random() * 15) + 1} km` }))
-        : allVibe.filter((c) => c.distance !== undefined)
-      ).filter(keepCard);
+        : allVibe;
+      const rawNearby: VibeMatchProfile[] = nearbyOrFallback.filter(keepCard);
       const sortedNearby = [...rawNearby].sort((a, b) => {
         const da = parseFloat((a.distance ?? "999 km").replace(/[^0-9.]/g, ""));
         const db = parseFloat((b.distance ?? "999 km").replace(/[^0-9.]/g, ""));
@@ -2221,7 +2224,7 @@ function FindVibeContent() {
       let all = await getVibeMatches(userId, filters);
       if (f.onlineOnly) all = all.filter((c) => c.isOnline);
       if (f.verifiedOnly) all = all.filter((c) => c.isVerified);
-      setNearbyCards(all.filter((c) => c.distance !== undefined));
+      setNearbyCards(all);
       setSameVibeCards(all.filter((c) => c.vibe !== undefined || c.vibeScore !== undefined));
     } catch {
     } finally {

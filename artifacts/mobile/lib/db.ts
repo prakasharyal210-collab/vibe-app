@@ -2385,25 +2385,24 @@ export async function getNearbyUsers(
     if (res.ok) {
       const json = await res.json() as { profiles?: any[] };
       const data: any[] = json.profiles ?? [];
-      if (data.length > 0) {
-        return data.map((row: any) => ({
-          id: row.id,
-          name: row.display_name ?? row.username ?? "Vibe User",
-          age: row.age ?? 24,
-          image: row.avatar_url ?? `https://picsum.photos/seed/${row.id}/400/600`,
-          bio: row.bio ?? "",
-          interests: row.interests ?? [],
-          distance: row.distance_km ? `${Math.round(row.distance_km)} km away` : undefined,
-          isOnline: row.is_online ?? false,
-          gender: row.gender,
-        }));
-      }
+      return data.map((row: any) => ({
+        id: row.id ?? row.user_id,
+        name: row.display_name ?? row.username ?? "Vibe User",
+        age: row.age ?? 24,
+        image: row.avatar_url ?? `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
+        bio: row.bio ?? "",
+        interests: row.interests ?? [],
+        distance: row.distance_km ? `${Math.round(row.distance_km as number)} km away` : undefined,
+        isOnline: row.is_online ?? false,
+        isVerified: row.is_verified ?? false,
+        gender: row.gender,
+        goal: row.looking_for,
+        vibeScore: row.vibe_score ?? row.compatibility_score,
+        matchInterests: row.shared_interests ?? [],
+      }));
     }
   } catch {}
-  return MOCK_MATCH_PROFILES.map((p, i) => ({
-    ...p,
-    distance: `${(i + 1) * 2 + Math.floor(Math.random() * 3)} km away`,
-  }));
+  return [];
 }
 
 // ─── Vibe Rooms — all writes/reads go through the API server (service-role key)

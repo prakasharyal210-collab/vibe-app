@@ -209,35 +209,40 @@ router.get("/deck", async (req, res) => {
       .eq("user_id", userId)
       .maybeSingle();
 
-    const ageMin: number    = (settings as any)?.vibe_age_min             ?? 18;
-    const ageMax: number    = (settings as any)?.vibe_age_max             ?? 60;
-    const radiusKm: number  = (settings as any)?.vibe_max_distance_km     ?? 50;
+    const ageMin: number       = (settings as any)?.vibe_age_min             ?? 18;
+    const ageMax: number       = (settings as any)?.vibe_age_max             ?? 60;
+    const radiusKm: number     = (settings as any)?.vibe_max_distance_km     ?? 100;
     const excludeConn: boolean = (settings as any)?.vibe_exclude_connections ?? false;
 
-    const parsedLat = lat ? parseFloat(lat) : undefined;
-    const parsedLng = lng ? parseFloat(lng) : undefined;
+    req.log.info({ userId, ageMin, ageMax, radiusKm, excludeConn, lat, lng }, "vibe-deck: viewer prefs");
 
-    // 2. Call the nearby-users RPC with the viewer's distance preference
-    const { data: rpcData, error: rpcError } = await sb.rpc("get_nearby_users", {
-      p_user_id: userId,
-      p_lat:     parsedLat,
-      p_lng:     parsedLng,
-      p_radius_km: radiusKm,
+    // 2. Call get_vibe_matches (the RPC that actually exists in Supabase).
+    //    get_nearby_users does not exist — using get_vibe_matches which has SECURITY DEFINER
+    //    and is granted to authenticated + anon, so it bypasses RLS correctly.
+    const { data: rpcData, error: rpcError } = await sb.rpc("get_vibe_matches", {
+      p_user_id:         userId,
+      p_interested_in:   [],     // no gender filter — show everyone
+      p_looking_for:     null,   // no goal filter — show everyone
+      p_age_min:         ageMin,
+      p_age_max:         ageMax,
+      p_max_distance_km: radiusKm,
     });
+
     if (rpcError) {
-      req.log.warn({ err: rpcError.message }, "get_nearby_users RPC error in /deck");
+      req.log.error({ err: rpcError.message }, "vibe-deck: get_vibe_matches RPC error");
     }
 
-    let profiles: any[] = Array.isArray(rpcData) ? rpcData : [];
+    req.log.info({ rpcRows: Array.isArray(rpcData) ? rpcData.length : 0, rpcError: rpcError?.message ?? null }, "vibe-deck: RPC result");
 
-    // 3. Filter by age range
-    profiles = profiles.filter((p: any) => {
-      const age = p.age ?? null;
-      if (age === null) return true;
-      return age >= ageMin && age <= ageMax;
-    });
+    // get_vibe_matches returns `user_id` as the PK column — normalise to `id`
+    let profiles: any[] = (Array.isArray(rpcData) ? rpcData : []).map((row: any) => ({
+      ...row,
+      id: row.user_id ?? row.id,
+    }));
 
-    // 4. Exclude follows / followers if requested
+    req.log.info({ afterRpc: profiles.length }, "vibe-deck: candidates after RPC");
+
+    // 3. Exclude follows / followers if requested (RPC already excludes swiped/matched users)
     if (excludeConn && profiles.length > 0) {
       const [followingRes, followersRes] = await Promise.all([
         sb.from("follows").select("following_id").eq("follower_id", userId),
@@ -247,10 +252,12 @@ router.get("/deck", async (req, res) => {
         ...((followingRes.data ?? []).map((r: any) => r.following_id as string)),
         ...((followersRes.data ?? []).map((r: any) => r.follower_id as string)),
       ]);
+      const beforeConn = profiles.length;
       profiles = profiles.filter((p: any) => !connIds.has(p.id as string));
+      req.log.info({ beforeConn, afterConn: profiles.length }, "vibe-deck: after exclude-connections filter");
     }
 
-    // 5. Strip distance_km from profiles whose owner hid their distance
+    // 4. Strip distance_km from profiles whose owner hid their distance
     if (profiles.length > 0) {
       const ids = profiles.map((p: any) => p.id as string);
       const { data: distSettings } = await sb
@@ -271,6 +278,7 @@ router.get("/deck", async (req, res) => {
       });
     }
 
+    req.log.info({ finalCount: profiles.length }, "vibe-deck: returning profiles");
     res.json({ profiles });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "vibe-deck exception");
