@@ -1915,12 +1915,12 @@ export async function getVibeMatches(
       p_age_max: filters?.ageMax ?? 99,
       p_max_distance_km: filters?.maxDistanceKm ?? 100,
     });
-    if (error || !data || (data as any[]).length === 0) return MOCK_MATCH_PROFILES;
+    if (error || !data) return [];
     return (data as any[]).map((p: any) => ({
       id: p.user_id ?? p.id,
       name: p.display_name ?? p.username ?? 'Vibe User',
       age: p.age ?? 25,
-      image: p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`,
+      image: p.avatar_url ?? `https://picsum.photos/seed/${p.user_id ?? p.id}/400/600`,
       bio: p.bio ?? '',
       interests: p.interests ?? [],
       distance: p.distance_km ? `${(p.distance_km as number).toFixed(1)} km` : undefined,
@@ -1933,7 +1933,7 @@ export async function getVibeMatches(
       isVerified: p.is_verified ?? false,
     }));
   } catch {
-    return MOCK_MATCH_PROFILES;
+    return [];
   }
 }
 
