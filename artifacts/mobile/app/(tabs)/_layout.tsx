@@ -179,7 +179,7 @@ function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
   if (locked) {
     return (
       <View style={tabIconStyles.wrap}>
-        <Text style={{ fontSize: 19, lineHeight: 24, color: INACTIVE }}>🔒</Text>
+        <Text style={tabIconStyles.icon}>🔒</Text>
         <Text style={[tabIconStyles.label, { color: INACTIVE }]} numberOfLines={1}>Locked</Text>
       </View>
     );
@@ -187,7 +187,7 @@ function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
   const icon = TAB_EMOJI[iconName] ?? "•";
   return (
     <View style={tabIconStyles.wrap}>
-      <Text style={{ fontSize: 22, lineHeight: 26, color, textAlign: "center" }}>{icon}</Text>
+      <Text style={[tabIconStyles.icon, { color }]}>{icon}</Text>
       <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>{label}</Text>
       {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
@@ -195,9 +195,15 @@ function TabIcon({ iconName, label, focused, color, locked }: TabIconProps) {
 }
 
 const tabIconStyles = StyleSheet.create({
-  wrap: { alignItems: "center", justifyContent: "center", gap: 2, paddingTop: 2 },
-  label: { fontSize: 9, fontFamily: "Poppins_500Medium" },
-  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 1 },
+  // Symmetric vertical padding so the icon+label unit sits dead-centre in the tab bar.
+  // gap: 3 gives equal breathing room between icon and label on all tabs.
+  wrap: { alignItems: "center", justifyContent: "center", gap: 3, paddingVertical: 4 },
+  // Unified icon sizing: 20px for all four tab icons (emoji).
+  icon: { fontSize: 20, lineHeight: 22, textAlign: "center", includeFontPadding: false },
+  // All four labels use the same size and font.
+  label: { fontSize: 10, fontFamily: "Poppins_500Medium", includeFontPadding: false },
+  // Active dot sits 2px below the label, centred under it.
+  dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
 });
 
 // ── CreateIcon ────────────────────────────────────────────────────────────────
@@ -258,6 +264,16 @@ function ClassicTabLayout({
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: INACTIVE,
         tabBarShowLabel: false,
+        // Give every tab item equal flex so all 5 slots are evenly distributed
+        // regardless of icon size. Remove default vertical padding so our TabIcon
+        // controls its own spacing consistently.
+        tabBarItemStyle: {
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          paddingTop: 0,
+          paddingBottom: 0,
+        },
         tabBarStyle: {
           position: "absolute",
           left: 16,
