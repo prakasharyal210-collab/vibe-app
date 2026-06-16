@@ -105,33 +105,51 @@ router.get("/profile/:username", async (req, res) => {
 
   req.log.info({ username }, "profile lookup");
 
-  const PROFILE_COLS = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status";
+  // PROFILE_COLS_FULL includes columns added by optional migrations (vibe_status, relationship_status,
+  // display_name). If those migrations have not been run yet, PostgREST returns a 42703 "column does
+  // not exist" error. We fall back to PROFILE_COLS_BASE so the route never returns 500 for a profile
+  // that actually exists — the mobile app would otherwise show "User not found".
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status";
+  const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private";
 
   try {
+    let selectCols = PROFILE_COLS_FULL;
+
     // Try exact match first, then fall back to case-insensitive match.
     // ilike without wildcards is equivalent to LOWER(col) = LOWER(val).
-    let { data: profile, error } = await sb
-      .from("profiles")
-      .select(PROFILE_COLS)
-      .eq("username", username)
-      .maybeSingle();
+    // Use `any` so we can reassign after the migration-fallback block without TS complaining.
+    let profile: any = null;
+    let queryError: any = null;
 
-    if (error) {
-      req.log.warn({ error: error.message }, "profile lookup error");
-      res.status(500).json({ error: error.message });
+    { const r = await sb.from("profiles").select(selectCols).eq("username", username).maybeSingle();
+      profile = r.data; queryError = r.error; }
+
+    // If a column is missing (migration not yet run) downgrade to the safe base column set and retry.
+    if (queryError && (queryError.code === "42703" || String(queryError.message).includes("column"))) {
+      selectCols = PROFILE_COLS_BASE;
+      req.log.warn({ error: queryError.message }, "profile lookup: optional column missing, retrying with base cols");
+      const r2 = await sb.from("profiles").select(selectCols).eq("username", username).maybeSingle();
+      if (r2.error) {
+        req.log.warn({ error: r2.error.message }, "profile lookup error (base fallback)");
+        res.status(500).json({ error: r2.error.message });
+        return;
+      }
+      profile = r2.data;
+      queryError = null;
+    }
+
+    if (queryError) {
+      req.log.warn({ error: queryError.message }, "profile lookup error");
+      res.status(500).json({ error: queryError.message });
       return;
     }
 
     // If exact match found nothing, try case-insensitive (handles "Haceriz" → "haceriz")
     if (!profile) {
-      const { data: ilikeProfile, error: ilikeError } = await sb
-        .from("profiles")
-        .select(PROFILE_COLS)
-        .ilike("username", username)
-        .maybeSingle();
-      if (!ilikeError && ilikeProfile) {
-        profile = ilikeProfile;
-        req.log.info({ username, matched: ilikeProfile.username }, "profile lookup: case-insensitive fallback matched");
+      const r3 = await sb.from("profiles").select(selectCols).ilike("username", username).maybeSingle();
+      if (!r3.error && r3.data) {
+        profile = r3.data as any;
+        req.log.info({ username, matched: (r3.data as any).username }, "profile lookup: case-insensitive fallback matched");
       }
     }
 
