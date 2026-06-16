@@ -2177,9 +2177,11 @@ function FindVibeContent() {
         // location unavailable — continue without it
       }
 
-      const [nearby, allVibe, swipedIds] = await Promise.all([
+      // NOTE: getVibeMatches calls supabase.rpc() with the anon key which hangs
+      // forever under RLS (documented bug). Keep it OUT of this Promise.all or the
+      // whole deck load stalls indefinitely. Fire it non-blocking below instead.
+      const [nearby, swipedIds] = await Promise.all([
         getNearbyUsers(uid, lat, lng).catch(() => [] as VibeMatchProfile[]),
-        getVibeMatches(uid, filters).catch(() => [] as VibeMatchProfile[]),
         getSwipedIds(uid).catch(() => new Set<string>()),
       ]);
 
@@ -2191,20 +2193,27 @@ function FindVibeContent() {
         return true;
       };
 
-      // nearby comes from /api/vibe/deck (real DB users with show_in_matching=true).
-      // allVibe comes from get_vibe_matches directly via supabase client (scored profiles).
-      // Merge both; nearby takes priority. Profiles without a distance still show up.
-      const nearbyOrFallback: VibeMatchProfile[] = nearby.length > 0
-        ? nearby.map((u) => ({ ...u, distance: u.distance ?? `${Math.floor(Math.random() * 15) + 1} km` }))
-        : allVibe;
-      const rawNearby: VibeMatchProfile[] = nearbyOrFallback.filter(keepCard);
+      // nearby comes from /api/vibe/deck (API server, service-role key — bypasses RLS).
+      // Profiles without a distance still show up.
+      const nearbyMapped: VibeMatchProfile[] = nearby.map((u) => ({
+        ...u,
+        distance: u.distance ?? `${Math.floor(Math.random() * 15) + 1} km`,
+      }));
+      const rawNearby: VibeMatchProfile[] = nearbyMapped.filter(keepCard);
       const sortedNearby = [...rawNearby].sort((a, b) => {
         const da = parseFloat((a.distance ?? "999 km").replace(/[^0-9.]/g, ""));
         const db = parseFloat((b.distance ?? "999 km").replace(/[^0-9.]/g, ""));
         return (isNaN(da) ? 999 : da) - (isNaN(db) ? 999 : db);
       });
       setNearbyCards(sortedNearby);
-      setSameVibeCards(allVibe.filter((c) => (c.vibe !== undefined || c.vibeScore !== undefined) && keepCard(c)));
+
+      // Load sameVibe cards non-blocking — getVibeMatches uses a direct anon-key RPC
+      // that can hang forever under RLS, so never await it in the critical path.
+      getVibeMatches(uid, filters)
+        .then((allVibe) => {
+          setSameVibeCards(allVibe.filter((c) => (c.vibe !== undefined || c.vibeScore !== undefined) && keepCard(c)));
+        })
+        .catch(() => {});
     } catch {
     } finally {
       setCardsLoading(false);
