@@ -21,6 +21,8 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { callAI } from "@/lib/ai";
 
+import { ALL_STATUSES, getStatusConfig } from "@/components/RelationshipStatusBadge";
+
 const PRONOUNS = ["he/him", "she/her", "they/them", "he/they", "she/they", "any/all", "prefer not to say"];
 
 export default function EditProfileScreen() {
@@ -39,6 +41,8 @@ export default function EditProfileScreen() {
   const [location, setLocation] = useState("");
   const [pronouns, setPronouns] = useState("");
   const [showPronouns, setShowPronouns] = useState(false);
+  const [relationshipStatus, setRelationshipStatus] = useState("");
+  const [showRelStatus, setShowRelStatus] = useState(false);
   const [writingBio, setWritingBio] = useState(false);
 
   useEffect(() => {
@@ -53,6 +57,7 @@ export default function EditProfileScreen() {
           setWebsite((data as any).website ?? "");
           setLocation((data as any).location ?? "");
           setPronouns((data as any).pronouns ?? "");
+          setRelationshipStatus((data as any).relationship_status ?? "");
         }
       })
       .finally(() => setLoading(false));
@@ -113,6 +118,7 @@ export default function EditProfileScreen() {
         website: website.trim() || null,
         location: location.trim() || null,
         pronouns: pronouns || null,
+        relationship_status: relationshipStatus || null,
         avatar_url: savedAvatarUrl ?? null,
       }).eq("id", session.user.id);
       if (error) throw error;
@@ -233,6 +239,54 @@ export default function EditProfileScreen() {
                     {pronouns === p && <Ionicons name="checkmark" size={16} color="#7C3AED" />}
                   </TouchableOpacity>
                 ))}
+              </View>
+            )}
+          </View>
+
+          <View style={styles.fieldWrap}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Relationship Status</Text>
+            <TouchableOpacity
+              style={[styles.select, { backgroundColor: colors.muted, borderColor: colors.border }]}
+              onPress={() => setShowRelStatus((v) => !v)}
+            >
+              {relationshipStatus ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={{ fontSize: 14 }}>{getStatusConfig(relationshipStatus)?.emoji}</Text>
+                  <Text style={[styles.selectText, { color: colors.foreground }]}>{relationshipStatus}</Text>
+                </View>
+              ) : (
+                <Text style={[styles.selectText, { color: colors.mutedForeground }]}>Select status (optional)</Text>
+              )}
+              <Ionicons name={showRelStatus ? "chevron-up" : "chevron-down"} size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            {showRelStatus && (
+              <View style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {ALL_STATUSES.map((s) => {
+                  const cfg = getStatusConfig(s);
+                  return (
+                    <TouchableOpacity
+                      key={s}
+                      style={[styles.dropdownRow, { borderBottomColor: colors.border }]}
+                      onPress={() => { setRelationshipStatus(s); setShowRelStatus(false); }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                        <Text style={{ fontSize: 16 }}>{cfg?.emoji}</Text>
+                        <Text style={[styles.dropdownText, { color: colors.foreground }]}>{s}</Text>
+                      </View>
+                      {relationshipStatus === s && <Ionicons name="checkmark" size={16} color="#7C3AED" />}
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={[styles.dropdownRow, { borderBottomColor: "transparent" }]}
+                  onPress={() => { setRelationshipStatus(""); setShowRelStatus(false); }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <Text style={{ fontSize: 16 }}>🚫</Text>
+                    <Text style={[styles.dropdownText, { color: colors.mutedForeground }]}>Prefer not to say</Text>
+                  </View>
+                  {!relationshipStatus && <Ionicons name="checkmark" size={16} color="#7C3AED" />}
+                </TouchableOpacity>
               </View>
             )}
           </View>

@@ -105,12 +105,14 @@ router.get("/profile/:username", async (req, res) => {
 
   req.log.info({ username }, "profile lookup");
 
+  const PROFILE_COLS = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status";
+
   try {
     // Try exact match first, then fall back to case-insensitive match.
     // ilike without wildcards is equivalent to LOWER(col) = LOWER(val).
     let { data: profile, error } = await sb
       .from("profiles")
-      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private")
+      .select(PROFILE_COLS)
       .eq("username", username)
       .maybeSingle();
 
@@ -124,7 +126,7 @@ router.get("/profile/:username", async (req, res) => {
     if (!profile) {
       const { data: ilikeProfile, error: ilikeError } = await sb
         .from("profiles")
-        .select("id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private")
+        .select(PROFILE_COLS)
         .ilike("username", username)
         .maybeSingle();
       if (!ilikeError && ilikeProfile) {
@@ -176,6 +178,54 @@ router.get("/profile/:username", async (req, res) => {
   } catch (err: any) {
     req.log.error({ err: err?.message }, "profile lookup exception");
     res.status(500).json({ error: "Profile lookup failed" });
+  }
+});
+
+// PATCH /api/users/profile/:userId
+// Updates mutable profile fields (uses service-role key to bypass RLS)
+const VALID_STATUSES = [
+  "Single", "In a Relationship", "Married", "Engaged",
+  "It's Complicated", "Open Relationship", "Divorced", "Widowed",
+];
+
+router.patch("/profile/:userId", async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+
+  const {
+    relationship_status,
+    bio, full_name, display_name, website, location, pronouns, vibe_status,
+  } = req.body as Record<string, string | null | undefined>;
+
+  if (
+    relationship_status !== undefined &&
+    relationship_status !== null &&
+    !VALID_STATUSES.includes(relationship_status)
+  ) {
+    res.status(400).json({ error: "invalid relationship_status" });
+    return;
+  }
+
+  const updates: Record<string, string | null> = {};
+  if (relationship_status !== undefined) updates.relationship_status = relationship_status;
+  if (bio !== undefined) updates.bio = bio;
+  if (full_name !== undefined) updates.full_name = full_name;
+  if (display_name !== undefined) updates.display_name = display_name;
+  if (website !== undefined) updates.website = website;
+  if (location !== undefined) updates.location = location;
+  if (pronouns !== undefined) updates.pronouns = pronouns;
+  if (vibe_status !== undefined) updates.vibe_status = vibe_status;
+
+  if (Object.keys(updates).length === 0) { res.json({ ok: true }); return; }
+
+  const sb = makeSupabase();
+  try {
+    const { error } = await sb.from("profiles").update(updates).eq("id", userId);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ ok: true });
+  } catch (e: any) {
+    req.log.error({ err: e?.message }, "profile patch error");
+    res.status(500).json({ error: "Profile update failed" });
   }
 });
 

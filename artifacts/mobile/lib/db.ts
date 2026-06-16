@@ -2274,6 +2274,7 @@ export interface PublicProfile {
   following_count?: number;
   posts_count?: number;
   vibe_status?: string;
+  relationship_status?: string;
 }
 
 export async function lookupProfileByUsername(username: string, viewerId?: string): Promise<PublicProfile | null> {

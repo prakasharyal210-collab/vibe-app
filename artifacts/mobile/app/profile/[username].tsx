@@ -26,6 +26,7 @@ import RAnimated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FullScreenMediaViewer, MediaItem } from "@/components/FullScreenMediaViewer";
+import { RelationshipStatusBadge } from "@/components/RelationshipStatusBadge";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -725,6 +726,9 @@ export default function UserProfileScreen() {
 
             {/* 4 ── Vibe status pill */}
             {profile?.vibe_status ? <VibeStatusPill vibeStatus={profile.vibe_status} /> : null}
+            {profile?.relationship_status ? (
+              <RelationshipStatusBadge status={profile.relationship_status} />
+            ) : null}
 
             {profile?.location ? (
               <View style={styles.locationRow}>
