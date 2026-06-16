@@ -1,0 +1,25 @@
+Classic bug — the like button isn't toggling, it's just incrementing every tap. Each tap adds a like instead of switching between liked/unliked. A user should only ever add or remove ONE like. Here's the prompt:
+
+Prompt for Replit AI:
+On the Reels screen, the like button (heart) is broken — it increments the like count on every tap instead of toggling. Tapping repeatedly keeps increasing likes (2, 3, 4...), so a single user can rack up unlimited likes on one reel.
+Expected behavior: a like should toggle — first tap likes (+1, heart fills red), second tap unlikes (−1, heart goes empty). One user can only ever contribute one like to a reel.
+Please check the Reels like handler:
+
+Is it tracking whether the current user already liked this reel? It needs to check the user's existing like state (from a reel_likes table or equivalent) and toggle based on that — not blindly insert/increment.
+The like action should:
+
+If not yet liked → INSERT a like row (user_id + reel_id), increment count
+If already liked → DELETE the like row, decrement count
+Use the reel_likes table with a UNIQUE constraint on (user_id, reel_id) so duplicate likes are impossible at the DB level
+
+
+Persistence check — is the like call going through artifacts/api-server (service-role key), or directly to Supabase (.from('reel_likes').insert())? If direct, route it through the API server. The count should reflect the real DB count, not just a local state increment.
+On load, the heart should show the correct filled/empty state based on whether the current user has already liked that reel.
+Add a UNIQUE constraint migration if reel_likes doesn't already have one on (user_id, reel_id) — this prevents the duplicate-like problem at the database level even if the UI logic fails.
+
+Please report back:
+
+Whether the like was incrementing without toggle-state tracking
+The fix applied (toggle logic + API routing)
+Any migration needed for the unique constraint
+Confirm tapping like multiple times now toggles between +1 and −1 only
