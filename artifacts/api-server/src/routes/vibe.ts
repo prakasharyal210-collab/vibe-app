@@ -374,19 +374,26 @@ router.post("/reset-deck", async (req, res) => {
 
   const sb = makeSupabase();
   try {
-    const { error, count } = await sb
-      .from("vibe_swipes")
-      .delete({ count: "exact" })
-      .eq("user_id", userId);
+    // Delete swipe rows AND match rows in parallel.
+    // The get_vibe_matches RPC's `excluded` CTE checks BOTH vibe_swipes AND vibe_matches,
+    // so clearing only vibe_swipes is not enough — matched users stay excluded.
+    const [swipesRes, matchesSenderRes, matchesReceiverRes] = await Promise.all([
+      sb.from("vibe_swipes").delete({ count: "exact" }).eq("user_id", userId),
+      sb.from("vibe_matches").delete({ count: "exact" }).eq("sender_id", userId),
+      sb.from("vibe_matches").delete({ count: "exact" }).eq("receiver_id", userId),
+    ]);
 
-    if (error) {
-      req.log.error({ err: error.message, userId }, "vibe reset-deck: delete error");
+    const firstError = swipesRes.error ?? matchesSenderRes.error ?? matchesReceiverRes.error;
+    if (firstError) {
+      req.log.error({ err: firstError.message, userId }, "vibe reset-deck: delete error");
       res.status(500).json({ error: "Failed to reset deck" });
       return;
     }
 
-    req.log.info({ userId, deletedRows: count ?? 0 }, "vibe reset-deck: swipe history cleared");
-    res.json({ ok: true, deletedRows: count ?? 0 });
+    const deletedSwipes   = swipesRes.count   ?? 0;
+    const deletedMatches  = (matchesSenderRes.count ?? 0) + (matchesReceiverRes.count ?? 0);
+    req.log.info({ userId, deletedSwipes, deletedMatches }, "vibe reset-deck: history cleared");
+    res.json({ ok: true, deletedRows: deletedSwipes + deletedMatches, deletedSwipes, deletedMatches });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "vibe reset-deck exception");
     res.status(500).json({ error: "Failed to reset deck" });

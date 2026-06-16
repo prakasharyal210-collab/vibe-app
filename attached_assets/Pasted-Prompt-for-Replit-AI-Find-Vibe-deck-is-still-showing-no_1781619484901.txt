@@ -1,0 +1,17 @@
+Prompt for Replit AI:
+Find Vibe deck is still showing nothing after the "Start Over" fix. The two test accounts still don't appear in each other's decks.
+Test accounts:
+
+haceriz — id 37bd3f4a-fd0e-454c-aaa7-de32c70d7d04
+prakasharyal210 — id 87ea3c20-5a78-4891-9cea-4e2722fcbe6e
+
+Both have show_in_matching = true, "Exclude people I follow" OFF, age range 18–60, distance 50km, looking-for = Dating. Both ages are NULL in the DB (RPC should allow NULL ages).
+Please debug end-to-end and report findings at each step:
+
+Run the get_vibe_matches RPC directly for haceriz (id 37bd3f4a-fd0e-454c-aaa7-de32c70d7d04) in a query and tell me how many rows it returns and whether prakasharyal210 is included. Paste the RPC's full definition (SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'get_vibe_matches';) so we can see every WHERE clause.
+Check the swipes table — does the "Start Over" reset actually delete the user's swipe rows? Query the swipes table for both test account IDs. If swipe rows still exist after tapping Start Over, then resetVibeDeck / POST /api/vibe/reset-deck isn't working — check whether it's hitting the right table and using the service-role key (not a hanging direct client call).
+Trace the deck endpoint (/api/vibe/deck) with the debug logging you added earlier — log candidate count before filters and after each filter step (show_in_matching, age, distance, looking-for/goal, exclude-connections, already-swiped). Tell me the exact count at each stage for haceriz, so we can see which filter empties the deck.
+Specifically check the distance filter — get_vibe_matches is score-based and the earlier report said it returns distance_km = NULL for everyone. If either the RPC's internal distance filter OR the client-side filter excludes NULL-distance profiles, that empties the deck. Confirm NULL distance is allowed through both the RPC and any client-side filtering in find.tsx.
+Check the looking-for / goal filter — both accounts are "Dating." Confirm the RPC isn't filtering by a goal/mode field that's NULL or mismatched in the DB even though the UI shows "Dating."
+
+Please report: the RPC's full WHERE clause, how many candidates exist at each filter stage, whether swipes were actually cleared, and the root cause of the empty deck. Then fix it and confirm both test accounts appear in each other's decks.
