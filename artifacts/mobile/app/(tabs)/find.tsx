@@ -54,6 +54,7 @@ import {
   getVibeMatches,
   getVibePreferences,
   getSwipedIds,
+  resetVibeDeck,
   fetchSuggestedAccounts,
   RELATIONSHIP_GOALS,
   saveGundrukProfile,
@@ -993,7 +994,7 @@ const ibStyles = StyleSheet.create({
   skipText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
 
-function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[] }) {
+function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, onReset }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[]; onReset?: () => Promise<void> }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
@@ -1153,7 +1154,13 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals }: 
         <Text style={styles.emptyEmoji}>🎉</Text>
         <Text style={[styles.emptyTitle, { color: colors.foreground }]}>You've seen everyone!</Text>
         <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>Check back later for new vibers nearby</Text>
-        <TouchableOpacity onPress={() => setCurrentIndex(0)} style={[styles.reloadBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+        <TouchableOpacity
+          onPress={async () => {
+            setCurrentIndex(0);
+            if (onReset) await onReset();
+          }}
+          style={[styles.reloadBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+        >
           <Ionicons name="refresh" size={18} color="#7C3AED" />
           <Text style={[styles.reloadText, { color: colors.foreground }]}>Start Over</Text>
         </TouchableOpacity>
@@ -2399,7 +2406,17 @@ function FindVibeContent() {
       >
         {/* Page 0 — Near */}
         <View key="0" style={{ flex: 1 }}>
-          <SwipeCardDeck cards={nearbyCards} onRequireLogin={() => setShowLoginPrompt(true)} userId={session?.user?.id} isAnonymous={isAnonymous} myGoals={myGoals} />
+          <SwipeCardDeck
+            cards={nearbyCards}
+            onRequireLogin={() => setShowLoginPrompt(true)}
+            userId={session?.user?.id}
+            isAnonymous={isAnonymous}
+            myGoals={myGoals}
+            onReset={userId ? async () => {
+              await resetVibeDeck(userId);
+              await loadCards(userId, vibePrefs);
+            } : undefined}
+          />
         </View>
 
         {/* Page 1 — Goals Discovery */}

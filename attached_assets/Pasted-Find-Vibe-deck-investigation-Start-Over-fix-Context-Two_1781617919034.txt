@@ -1,0 +1,23 @@
+Find Vibe deck investigation + "Start Over" fix.
+Context: Two test accounts (haceriz id 37bd3f4a-fd0e-454c-aaa7-de32c70d7d04, and prakasharyal210 id 87ea3c20-5a78-4891-9cea-4e2722fcbe6e) should appear in each other's deck. Both have show_in_matching = true, "Exclude people I follow" is OFF, age range 18–60, both "looking for" = Dating. But the deck shows "You've seen everyone!" (empty) — because the accounts have already been swiped on in previous testing, so the RPC correctly excludes them.
+Two things to fix:
+1. "Start Over" button doesn't reset the deck
+
+On the empty-deck state ("You've seen everyone!"), there's a "Start Over" button. Tapping it should reset the user's swipe history so previously-swiped profiles reappear in the deck. Please check:
+
+What does "Start Over" currently do — does it only reset local state, or does it actually clear swipe history in the database?
+It needs to delete (or mark inactive) the current user's swipe rows in the swipes table (likely vibe_swipes / swipes / vibe_deck_swipes — confirm the actual table name) through the API server (service-role key, NOT a direct Supabase client call which hangs under RLS).
+Add an endpoint like POST /api/vibe/reset-deck that deletes the current user's swipe history, then have "Start Over" call it and reload the deck.
+
+2. Investigate why the deck empties so easily + add debug visibility
+
+In the get_vibe_matches RPC, confirm the already-swiped exclusion logic is correct (it should exclude profiles the user has already swiped, not exclude everyone).
+Add step-by-step debug logging in the /api/vibe/deck endpoint: log candidate count before filters, then after each filter (show_in_matching, age, distance, looking-for/goal, exclude-connections, already-swiped). This way we can see exactly which filter empties the deck for any given user.
+Confirm the deck endpoint routes through the API server (service-role), not direct Supabase calls.
+
+Please report back:
+
+What table stores swipes, and what "Start Over" was actually doing before
+The new reset endpoint and confirmation it clears swipe history server-side
+Whether the deck endpoint had any other over-restrictive filter
+Confirm: after tapping "Start Over", previously-swiped accounts reappear in the deck

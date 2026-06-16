@@ -2515,6 +2515,21 @@ export async function vibeSwipe(
  * Returns all target IDs the user has already swiped on (any direction).
  * Used to exclude seen profiles from the swipe deck.
  */
+export async function resetVibeDeck(userId: string): Promise<{ ok: boolean; deletedRows: number }> {
+  try {
+    const res = await fetch(`${API_BASE}/vibe/reset-deck`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (!res.ok) return { ok: false, deletedRows: 0 };
+    const json = await res.json() as { ok?: boolean; deletedRows?: number };
+    return { ok: json.ok ?? false, deletedRows: json.deletedRows ?? 0 };
+  } catch {
+    return { ok: false, deletedRows: 0 };
+  }
+}
+
 export async function getSwipedIds(userId: string): Promise<Set<string>> {
   try {
     const res = await fetch(`${API_BASE}/vibe/swiped?userId=${encodeURIComponent(userId)}`);

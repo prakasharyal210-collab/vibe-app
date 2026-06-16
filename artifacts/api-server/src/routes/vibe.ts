@@ -361,4 +361,36 @@ router.get("/compatibility", async (req, res) => {
   }
 });
 
+// POST /api/vibe/reset-deck
+// Body: { userId }
+// Deletes all vibe_swipes rows for this user so previously-seen profiles reappear.
+// Must go through the API server (service-role key) — direct anon-key calls hang under RLS.
+router.post("/reset-deck", async (req, res) => {
+  const { userId } = req.body as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const sb = makeSupabase();
+  try {
+    const { error, count } = await sb
+      .from("vibe_swipes")
+      .delete({ count: "exact" })
+      .eq("user_id", userId);
+
+    if (error) {
+      req.log.error({ err: error.message, userId }, "vibe reset-deck: delete error");
+      res.status(500).json({ error: "Failed to reset deck" });
+      return;
+    }
+
+    req.log.info({ userId, deletedRows: count ?? 0 }, "vibe reset-deck: swipe history cleared");
+    res.json({ ok: true, deletedRows: count ?? 0 });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe reset-deck exception");
+    res.status(500).json({ error: "Failed to reset deck" });
+  }
+});
+
 export default router;
