@@ -206,6 +206,44 @@ const VALID_STATUSES = [
   "It's Complicated", "Open Relationship", "Divorced", "Widowed",
 ];
 
+// GET /api/users/profile/by-id/:userId — load own profile for edit-profile screen
+// (avoids direct Supabase client calls which hang under RLS + anon key)
+router.get("/profile/by-id/:userId", async (req, res) => {
+  const { userId } = req.params;
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("profiles")
+      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      // Optional columns may not exist yet — fall back to base set
+      if (error.code === "42703" || String(error.message).includes("column")) {
+        const { data: base, error: baseErr } = await sb
+          .from("profiles")
+          .select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private")
+          .eq("id", userId)
+          .maybeSingle();
+        if (baseErr) { res.status(500).json({ error: baseErr.message }); return; }
+        if (!base) { res.status(404).json({ error: "not found" }); return; }
+        res.json({ profile: base });
+        return;
+      }
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    if (!data) { res.status(404).json({ error: "not found" }); return; }
+    res.json({ profile: data });
+  } catch (e: any) {
+    req.log.error({ err: e?.message }, "profile by-id error");
+    res.status(500).json({ error: "Profile load failed" });
+  }
+});
+
 router.patch("/profile/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
@@ -213,6 +251,7 @@ router.patch("/profile/:userId", async (req, res) => {
   const {
     relationship_status,
     bio, full_name, display_name, website, location, pronouns, vibe_status,
+    username, avatar_url,
   } = req.body as Record<string, string | null | undefined>;
 
   if (
@@ -233,6 +272,8 @@ router.patch("/profile/:userId", async (req, res) => {
   if (location !== undefined) updates.location = location;
   if (pronouns !== undefined) updates.pronouns = pronouns;
   if (vibe_status !== undefined) updates.vibe_status = vibe_status;
+  if (username !== undefined) updates.username = username;
+  if (avatar_url !== undefined) updates.avatar_url = avatar_url;
 
   if (Object.keys(updates).length === 0) { res.json({ ok: true }); return; }
 

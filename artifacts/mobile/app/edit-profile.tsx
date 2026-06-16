@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,9 @@ import { callAI } from "@/lib/ai";
 
 import { ALL_STATUSES, getStatusConfig } from "@/components/RelationshipStatusBadge";
 
+const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+const LOAD_TIMEOUT_MS = 8000;
+
 const PRONOUNS = ["he/him", "she/her", "they/them", "he/they", "she/they", "any/all", "prefer not to say"];
 
 export default function EditProfileScreen() {
@@ -32,6 +35,7 @@ export default function EditProfileScreen() {
   const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [fullName, setFullName] = useState("");
@@ -44,31 +48,52 @@ export default function EditProfileScreen() {
   const [relationshipStatus, setRelationshipStatus] = useState("");
   const [showRelStatus, setShowRelStatus] = useState(false);
   const [writingBio, setWritingBio] = useState(false);
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadProfile = useCallback(async () => {
     if (!session?.user?.id) { setLoading(false); return; }
-    supabase.from("profiles").select("*").eq("id", session.user.id).single()
-      .then(({ data }) => {
-        if (data) {
-          setAvatarUrl((data as any).avatar_url ?? null);
-          setFullName((data as any).full_name ?? "");
-          setUsername((data as any).username ?? "");
-          setBio((data as any).bio ?? "");
-          setWebsite((data as any).website ?? "");
-          setLocation((data as any).location ?? "");
-          setPronouns((data as any).pronouns ?? "");
-          setRelationshipStatus((data as any).relationship_status ?? "");
-        }
-      })
-      .finally(() => setLoading(false));
+    setLoading(true);
+    setLoadError(null);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), LOAD_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(`${API_BASE}/users/profile/by-id/${encodeURIComponent(session.user.id)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error ?? `HTTP ${res.status}`);
+      }
+
+      const { profile } = await res.json() as { profile: Record<string, any> };
+      setAvatarUrl(profile.avatar_url ?? null);
+      setFullName(profile.full_name ?? "");
+      setUsername(profile.username ?? "");
+      setBio(profile.bio ?? "");
+      setWebsite(profile.website ?? "");
+      setLocation(profile.location ?? "");
+      setPronouns(profile.pronouns ?? "");
+      setRelationshipStatus(profile.relationship_status ?? "");
+    } catch (e: any) {
+      clearTimeout(timer);
+      const msg = e?.name === "AbortError"
+        ? "Request timed out. Please check your connection."
+        : (e?.message ?? "Could not load profile.");
+      setLoadError(msg);
+    } finally {
+      setLoading(false);
+    }
   }, [session?.user?.id]);
 
-  // Tracks whether the user picked a new local image that needs uploading
-  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
   const pickAvatar = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.85,
@@ -93,7 +118,6 @@ export default function EditProfileScreen() {
     if (error) throw error;
 
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    // Bust cache so the new image loads immediately
     return `${data.publicUrl}?t=${Date.now()}`;
   };
 
@@ -104,27 +128,38 @@ export default function EditProfileScreen() {
     try {
       let savedAvatarUrl = avatarUrl;
 
-      // Upload new avatar to Supabase Storage if user picked a new image
+      // Upload new avatar to Supabase Storage if user picked a new image.
+      // Storage uses its own auth and does not hang under RLS.
       if (localAvatarUri) {
         savedAvatarUrl = await uploadAvatar(session.user.id, localAvatarUri);
         setAvatarUrl(savedAvatarUrl);
         setLocalAvatarUri(null);
       }
 
-      const { error } = await supabase.from("profiles").update({
-        full_name: fullName.trim() || null,
-        username: username.trim().toLowerCase().replace(/[^a-z0-9_.]/g, ""),
-        bio: bio.trim() || null,
-        website: website.trim() || null,
-        location: location.trim() || null,
-        pronouns: pronouns || null,
-        relationship_status: relationshipStatus || null,
-        avatar_url: savedAvatarUrl ?? null,
-      }).eq("id", session.user.id);
-      if (error) throw error;
+      // Save all profile fields via the API server (service role key bypasses RLS).
+      const res = await fetch(`${API_BASE}/users/profile/${encodeURIComponent(session.user.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: fullName.trim() || null,
+          username: username.trim().toLowerCase().replace(/[^a-z0-9_.]/g, ""),
+          bio: bio.trim() || null,
+          website: website.trim() || null,
+          location: location.trim() || null,
+          pronouns: pronouns || null,
+          relationship_status: relationshipStatus || null,
+          avatar_url: savedAvatarUrl ?? null,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error ?? `HTTP ${res.status}`);
+      }
+
       Alert.alert("Saved!", "Your profile has been updated.", [{ text: "Done", onPress: () => router.back() }]);
-    } catch {
-      Alert.alert("Error", "Could not save profile. Please try again.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Could not save profile. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -134,6 +169,23 @@ export default function EditProfileScreen() {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <ActivityIndicator color="#7C3AED" size="large" />
+        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading profile…</Text>
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background, paddingHorizontal: 32 }]}>
+        <Ionicons name="cloud-offline-outline" size={48} color={colors.mutedForeground} style={{ marginBottom: 16 }} />
+        <Text style={[styles.errorTitle, { color: colors.foreground }]}>Couldn't load profile</Text>
+        <Text style={[styles.errorMsg, { color: colors.mutedForeground }]}>{loadError}</Text>
+        <TouchableOpacity onPress={loadProfile} style={styles.retryBtn}>
+          <Text style={styles.retryText}>Try again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={[styles.retryBtn, { backgroundColor: "transparent", borderWidth: 1, borderColor: colors.border, marginTop: 10 }]}>
+          <Text style={[styles.retryText, { color: colors.foreground }]}>Go back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -321,6 +373,11 @@ function Field({
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { marginTop: 12, fontSize: 13, fontFamily: "Poppins_400Regular" },
+  errorTitle: { fontSize: 17, fontFamily: "Poppins_700Bold", marginBottom: 8, textAlign: "center" },
+  errorMsg: { fontSize: 13, fontFamily: "Poppins_400Regular", textAlign: "center", marginBottom: 24, lineHeight: 20 },
+  retryBtn: { backgroundColor: "#7C3AED", paddingHorizontal: 28, paddingVertical: 12, borderRadius: 12, alignItems: "center", minWidth: 160 },
+  retryText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14 },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 0.5 },
   headerBtn: { width: 40, height: 36, alignItems: "flex-start", justifyContent: "center" },
   headerTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },
