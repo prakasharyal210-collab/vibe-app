@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -21,7 +22,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { joinVibeRoom, getRoomMessages, sendRoomMessage, VibeRoomMessage } from "@/lib/db";
+import {
+  checkRoomJoined,
+  joinVibeRoom,
+  getRoomMessages,
+  sendRoomMessage,
+  VibeRoomMessage,
+} from "@/lib/db";
 
 const { width: W, height: H } = Dimensions.get("window");
 
@@ -45,6 +52,8 @@ interface RoomMessage {
   avatar: string;
 }
 
+// Hardcoded room list — IDs match vibe_rooms table slugs ("r1"…"r8").
+// Member counts here are the fallback shown before real DB count loads.
 const VIBE_ROOMS: VibeRoom[] = [
   {
     id: "r1", emoji: "🎵", name: "Music Lovers", category: "Music",
@@ -96,14 +105,6 @@ const VIBE_ROOMS: VibeRoom[] = [
   },
 ];
 
-const MOCK_ROOM_MESSAGES: RoomMessage[] = [
-  { id: "m1", userId: "u1", username: "luna_sky", text: "Anyone else obsessed with Olivia Rodrigo's new album? 🎵", time: "2m", avatar: "seed/luna" },
-  { id: "m2", userId: "u2", username: "marcus_vibe", text: "Just dropped a new beat if anyone wants to listen 🎧", time: "4m", avatar: "seed/marcus" },
-  { id: "m3", userId: "u3", username: "kai_adventures", text: "This room is giving main character energy ✨", time: "6m", avatar: "seed/kai" },
-  { id: "m4", userId: "u4", username: "zoe.creates", text: "Indie alternative all day every day 🎸", time: "8m", avatar: "seed/zoe" },
-  { id: "m5", userId: "u5", username: "sofia_near", text: "Who's going to Coachella next year? 🌵", time: "12m", avatar: "seed/sofia" },
-];
-
 function formatMsgTime(iso: string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
   if (secs < 60) return "now";
@@ -112,34 +113,50 @@ function formatMsgTime(iso: string): string {
   return `${Math.floor(secs / 86400)}d`;
 }
 
+function mapApiMessage(r: VibeRoomMessage): RoomMessage {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    username: r.profiles?.display_name ?? r.profiles?.username ?? "Vibe User",
+    text: r.text,
+    time: formatMsgTime(r.created_at),
+    avatar: `seed/${r.user_id.slice(0, 8)}`,
+  };
+}
+
 function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string; onClose: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState<RoomMessage[]>(MOCK_ROOM_MESSAGES);
-  const [text, setText] = useState("");
-  const [joined, setJoined] = useState(false);
+
+  // joined: undefined = loading, false = not joined, true = joined
+  const [joined, setJoined] = useState<boolean | undefined>(undefined);
   const [memberCount, setMemberCount] = useState(room.members);
+  const [messages, setMessages] = useState<RoomMessage[]>([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
   const listRef = useRef<FlatList>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const topPad = Platform.OS === "web" ? 16 : insets.top + 8;
   const botPad = Platform.OS === "web" ? 16 : insets.bottom;
 
+  // ── On open: check whether the user has already joined this room ────────────
   useEffect(() => {
-    if (!joined || !userId) return;
+    if (!userId) {
+      setJoined(false);
+      return;
+    }
+    checkRoomJoined(userId, room.id)
+      .then((alreadyJoined) => setJoined(alreadyJoined))
+      .catch(() => setJoined(false));
+  }, [userId, room.id]);
+
+  // ── Once joined, load messages and subscribe to realtime inserts ────────────
+  useEffect(() => {
+    if (!joined) return;
 
     getRoomMessages(room.id).then((rows) => {
-      if (rows.length > 0) {
-        const mapped: RoomMessage[] = rows.map((r) => ({
-          id: r.id,
-          userId: r.user_id,
-          username: r.profiles?.display_name ?? r.profiles?.username ?? "Vibe User",
-          text: r.text,
-          time: formatMsgTime(r.created_at),
-          avatar: `seed/${r.user_id.slice(0, 8)}`,
-        }));
-        setMessages(mapped);
-      }
+      if (rows.length > 0) setMessages(rows.map(mapApiMessage));
     }).catch(() => {});
 
     const suffix = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -147,21 +164,17 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
     try {
       channel = supabase
         .channel(`room:${room.id}:${suffix}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "vibe_room_messages", filter: `room_id=eq.${room.id}` }, (payload) => {
-          try {
-            const row = payload.new as any;
-            const msg: RoomMessage = {
-              id: row.id ?? Date.now().toString(),
-              userId: row.user_id,
-              username: row.username ?? "Vibe User",
-              text: row.text,
-              time: "now",
-              avatar: `seed/${(row.user_id ?? "").slice(0, 8)}`,
-            };
-            setMessages((prev) => [...prev, msg]);
-            setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-          } catch { /* never crash on realtime payload */ }
-        })
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "vibe_room_messages", filter: `room_id=eq.${room.id}` },
+          (payload) => {
+            try {
+              const row = payload.new as VibeRoomMessage;
+              setMessages((prev) => [...prev, mapApiMessage(row)]);
+              setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+            } catch { /* never crash on realtime payload */ }
+          },
+        )
         .subscribe();
     } catch { /* channel collision — safe to ignore */ }
     channelRef.current = channel;
@@ -170,43 +183,55 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
       if (channel) supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [joined, room.id, userId]);
+  }, [joined, room.id]);
 
-  const handleJoin = () => {
-    setJoined(true);
-    setMemberCount((c) => c + 1);
+  const handleJoin = async () => {
+    if (!userId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (userId) {
-      void joinVibeRoom(userId, room.id);
+    setJoined(true); // optimistic
+    try {
+      const result = await joinVibeRoom(userId, room.id);
+      // Use real DB count once available (fallback to +1 if count is 0)
+      setMemberCount(result.memberCount > 0 ? result.memberCount : memberCount + 1);
+    } catch {
+      // join failed — revert optimistic update so user can retry
+      setJoined(false);
     }
   };
 
-  const sendMessage = () => {
-    if (!text.trim()) return;
+  const sendMessage = async () => {
+    if (!text.trim() || !userId || sending) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newMsg: RoomMessage = {
-      id: Date.now().toString(),
-      userId: userId ?? "me",
+    const draft = text.trim();
+    const optimistic: RoomMessage = {
+      id: `opt_${Date.now()}`,
+      userId,
       username: "you",
-      text: text.trim(),
+      text: draft,
       time: "now",
-      avatar: "seed/me",
+      avatar: `seed/${userId.slice(0, 8)}`,
     };
-    setMessages((m) => [...m, newMsg]);
+    setMessages((m) => [...m, optimistic]);
     setText("");
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-    if (userId) {
-      void sendRoomMessage(userId, room.id, text.trim());
+    setSending(true);
+    try {
+      await sendRoomMessage(userId, room.id, draft);
+    } catch {
+      // if send fails, remove the optimistic message so user knows to retry
+      setMessages((m) => m.filter((msg) => msg.id !== optimistic.id));
+      setText(draft);
+    } finally {
+      setSending(false);
     }
   };
+
+  const isLoading = joined === undefined;
 
   return (
     <Modal visible animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={[roomStyles.container, { backgroundColor: colors.background }]}>
-        <LinearGradient
-          colors={["#1A0A2E", "#0A0A1A"]}
-          style={roomStyles.headerGrad}
-        >
+        <LinearGradient colors={["#1A0A2E", "#0A0A1A"]} style={roomStyles.headerGrad}>
           <View style={[roomStyles.header, { paddingTop: topPad }]}>
             <TouchableOpacity onPress={onClose} style={roomStyles.backBtn}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -226,7 +251,12 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
             </TouchableOpacity>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={roomStyles.memberScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={roomStyles.memberScroll}
+            contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+          >
             {room.memberPhotos.map((seed, i) => (
               <TouchableOpacity key={i} onPress={() => router.push(`/profile/${seed.split("/")[1]}` as any)}>
                 <Image source={{ uri: `https://picsum.photos/${seed}/60/60` }} style={roomStyles.memberAvatar} />
@@ -239,30 +269,43 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
 
           <Text style={roomStyles.roomDesc}>{room.description}</Text>
 
-          <TouchableOpacity
-            onPress={joined ? undefined : handleJoin}
-            style={[roomStyles.joinBtn, joined && roomStyles.joinBtnJoined]}
-            activeOpacity={joined ? 1 : 0.85}
-          >
-            {joined ? (
+          {isLoading ? (
+            <View style={roomStyles.joinBtn}>
               <View style={roomStyles.joinGrad}>
-                <Text style={[roomStyles.joinText, { color: "#A78BFA" }]}>✓ Joined</Text>
+                <ActivityIndicator color="#A78BFA" size="small" />
               </View>
-            ) : (
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={roomStyles.joinGrad}>
-                <Text style={roomStyles.joinText}>Join Room</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={joined ? undefined : handleJoin}
+              style={[roomStyles.joinBtn, joined && roomStyles.joinBtnJoined]}
+              activeOpacity={joined ? 1 : 0.85}
+            >
+              {joined ? (
+                <View style={roomStyles.joinGrad}>
+                  <Text style={[roomStyles.joinText, { color: "#A78BFA" }]}>✓ Joined</Text>
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={["#7C3AED", "#EA580C"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={roomStyles.joinGrad}
+                >
+                  <Text style={roomStyles.joinText}>Join Room</Text>
+                </LinearGradient>
+              )}
+            </TouchableOpacity>
+          )}
         </LinearGradient>
 
-        {!joined ? (
+        {!joined && !isLoading ? (
           <View style={roomStyles.preJoinHint}>
             <Text style={[roomStyles.preJoinText, { color: colors.mutedForeground }]}>
               Join the room to read messages and chat with members 💬
             </Text>
           </View>
-        ) : (
+        ) : joined ? (
           <FlatList
             ref={listRef}
             data={messages}
@@ -278,9 +321,7 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
                     <Image source={{ uri: `https://picsum.photos/${item.avatar}/60/60` }} style={roomStyles.msgAvatar} />
                   )}
                   <View style={[roomStyles.msgBubble, { backgroundColor: isOwn ? "rgba(124,58,237,0.3)" : colors.card }]}>
-                    {!isOwn && (
-                      <Text style={roomStyles.msgUser}>{item.username}</Text>
-                    )}
+                    {!isOwn && <Text style={roomStyles.msgUser}>{item.username}</Text>}
                     <Text style={[roomStyles.msgText, { color: colors.foreground }]}>{item.text}</Text>
                     <Text style={[roomStyles.msgTime, { color: colors.mutedForeground }]}>{item.time}</Text>
                   </View>
@@ -288,6 +329,11 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
               );
             }}
           />
+        ) : (
+          // still loading joined state
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator color="#7C3AED" />
+          </View>
         )}
 
         {joined && (
@@ -302,9 +348,11 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
                 onSubmitEditing={sendMessage}
                 returnKeyType="send"
               />
-              <TouchableOpacity onPress={sendMessage} style={roomStyles.sendBtn}>
+              <TouchableOpacity onPress={sendMessage} style={roomStyles.sendBtn} disabled={sending}>
                 <LinearGradient colors={["#7C3AED", "#EA580C"]} style={roomStyles.sendGrad}>
-                  <Ionicons name="send" size={16} color="#fff" />
+                  {sending
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Ionicons name="send" size={16} color="#fff" />}
                 </LinearGradient>
               </TouchableOpacity>
             </View>

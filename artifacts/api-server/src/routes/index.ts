@@ -22,6 +22,7 @@ import storageRouter from "./storage";
 import feedRouter from "./feed";
 import vibeRouter from "./vibe";
 import vibeRequestsRouter from "./vibe-requests";
+import vibeRoomsRouter from "./vibe-rooms";
 
 const router: IRouter = Router();
 
@@ -48,5 +49,6 @@ router.use("/storage", storageRouter);
 router.use("/feed", feedRouter);
 router.use("/vibe", vibeRouter);
 router.use("/vibe-requests", vibeRequestsRouter);
+router.use("/vibe-rooms", vibeRoomsRouter);
 
 export default router;

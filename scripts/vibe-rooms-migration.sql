@@ -1,0 +1,70 @@
+-- Vibe Rooms migration
+-- Run this in the Supabase SQL dashboard (not local Drizzle DB).
+-- Room IDs are TEXT slugs ("r1"…"r8") to match the hardcoded frontend array.
+
+-- ─── Tables ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS vibe_rooms (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  category    TEXT,
+  emoji       TEXT,
+  description TEXT,
+  is_live     BOOLEAN NOT NULL DEFAULT false,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS vibe_room_members (
+  id        UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id   UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  room_id   TEXT NOT NULL REFERENCES vibe_rooms(id) ON DELETE CASCADE,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, room_id)
+);
+
+CREATE TABLE IF NOT EXISTS vibe_room_messages (
+  id         UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
+  room_id    TEXT NOT NULL REFERENCES vibe_rooms(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  text       TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ─── Seed the 8 rooms ────────────────────────────────────────────────────────
+
+INSERT INTO vibe_rooms (id, name, category, emoji, description, is_live) VALUES
+  ('r1', 'Music Lovers',   'Music',    '🎵', 'Share your music taste, discover new artists, and vibe to the rhythm',          true),
+  ('r2', 'Gamers Hub',     'Gaming',   '🎮', 'All genres welcome. Find your gaming crew and squads',                           true),
+  ('r3', 'Travel Buddies', 'Travel',   '✈️', 'Plan trips, share destinations, find travel companions worldwide',               true),
+  ('r4', 'Foodies',        'Food',     '🍕', 'Recipes, restaurants, food culture — eat your way through the world',            false),
+  ('r5', 'Fitness Tribe',  'Fitness',  '💪', 'Workouts, nutrition, motivation — crush goals together',                         true),
+  ('r6', 'Bookworms',      'Books',    '📚', 'Book clubs, recommendations, literary discussions',                               false),
+  ('r7', 'Artists Corner', 'Art',      '🎨', 'Share your creations, get feedback, collab with other creators',                 false),
+  ('r8', 'Entrepreneurs',  'Business', '💼', 'Founders, freelancers, side-hustlers — build and grow together',                 false)
+ON CONFLICT (id) DO NOTHING;
+
+-- ─── RLS ─────────────────────────────────────────────────────────────────────
+
+ALTER TABLE vibe_rooms         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibe_room_members  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibe_room_messages ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated users can read rooms and messages (needed for realtime too)
+CREATE POLICY IF NOT EXISTS "vibe_rooms_read"
+  ON vibe_rooms FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY IF NOT EXISTS "vibe_room_messages_read"
+  ON vibe_room_messages FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY IF NOT EXISTS "vibe_room_members_read"
+  ON vibe_room_members FOR SELECT TO authenticated USING (true);
+
+-- All writes go through the API server (service role key bypasses RLS).
+-- No additional INSERT/UPDATE/DELETE policies needed for anon/authenticated roles.
+
+-- ─── Indexes ─────────────────────────────────────────────────────────────────
+
+CREATE INDEX IF NOT EXISTS vibe_room_members_user_id  ON vibe_room_members(user_id);
+CREATE INDEX IF NOT EXISTS vibe_room_members_room_id  ON vibe_room_members(room_id);
+CREATE INDEX IF NOT EXISTS vibe_room_messages_room_id ON vibe_room_messages(room_id);
+CREATE INDEX IF NOT EXISTS vibe_room_messages_created ON vibe_room_messages(room_id, created_at);

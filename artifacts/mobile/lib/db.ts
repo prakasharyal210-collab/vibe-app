@@ -2379,13 +2379,30 @@ export async function getNearbyUsers(
   }));
 }
 
-export async function joinVibeRoom(userId: string, roomId: string): Promise<void> {
+// ─── Vibe Rooms — all writes/reads go through the API server (service-role key)
+// Direct Supabase client calls hang indefinitely under RLS with the anon key.
+
+const ROOMS_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/vibe-rooms";
+
+export async function checkRoomJoined(userId: string, roomId: string): Promise<boolean> {
   try {
-    void supabase.from("vibe_room_members").upsert(
-      { user_id: userId, room_id: roomId, joined_at: new Date().toISOString() },
-      { onConflict: "user_id,room_id" }
-    );
-  } catch {}
+    const res = await fetch(`${ROOMS_API}/joined?userId=${encodeURIComponent(userId)}&roomId=${encodeURIComponent(roomId)}`);
+    if (!res.ok) return false;
+    const json = await res.json() as { joined: boolean };
+    return json.joined ?? false;
+  } catch {
+    return false;
+  }
+}
+
+export async function joinVibeRoom(userId: string, roomId: string): Promise<{ memberCount: number }> {
+  const res = await fetch(`${ROOMS_API}/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, roomId }),
+  });
+  if (!res.ok) throw new Error("Failed to join room");
+  return res.json() as Promise<{ memberCount: number }>;
 }
 
 export interface VibeRoomMessage {
@@ -2399,23 +2416,22 @@ export interface VibeRoomMessage {
 
 export async function getRoomMessages(roomId: string): Promise<VibeRoomMessage[]> {
   try {
-    const { data, error } = await supabase
-      .from("vibe_room_messages")
-      .select("id, room_id, user_id, text, created_at, profiles!user_id(display_name, username, avatar_url)")
-      .eq("room_id", roomId)
-      .order("created_at", { ascending: true })
-      .limit(100);
-    if (error || !data) return [];
-    return data as VibeRoomMessage[];
+    const res = await fetch(`${ROOMS_API}/${encodeURIComponent(roomId)}/messages`);
+    if (!res.ok) return [];
+    const json = await res.json() as { messages: VibeRoomMessage[] };
+    return json.messages ?? [];
   } catch {
     return [];
   }
 }
 
 export async function sendRoomMessage(userId: string, roomId: string, text: string): Promise<void> {
-  try {
-    void supabase.from("vibe_room_messages").insert({ user_id: userId, room_id: roomId, text, created_at: new Date().toISOString() });
-  } catch {}
+  const res = await fetch(`${ROOMS_API}/${encodeURIComponent(roomId)}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, text }),
+  });
+  if (!res.ok) throw new Error("Failed to send message");
 }
 
 // ─── Snap Conversations ───────────────────────────────────────────────────────
