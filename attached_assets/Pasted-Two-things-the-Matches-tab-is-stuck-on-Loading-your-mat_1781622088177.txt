@@ -1,0 +1,28 @@
+Two things — the Matches tab is stuck on "Loading your matches…" (infinite spinner, the recurring hang pattern), and you want match conversations to live inside the Matches tab, not the main messenger. Good news first: the mutual match itself worked (both got matched). Here's the prompt:
+
+Prompt for Replit AI:
+Two issues with Find Vibe matches. The mutual match flow now works (two accounts matched successfully), but:
+Bug 1 — Matches tab stuck on "Loading your matches…" forever
+
+The Matches tab (under Find Vibe) shows an infinite "Loading your matches…" spinner and never displays the matched users. This looks like the direct-Supabase-client-hang pattern under RLS.
+Please check how the Matches tab loads matches:
+
+Is it calling Supabase directly (.from('vibe_matches').select(...) / supabase.rpc()) with the anon key? If so, it hangs forever under RLS — route it through artifacts/api-server (service-role key) via an endpoint like GET /api/vibe/matches?userId=X.
+The endpoint should return all vibe_matches rows where the user is either sender_id or receiver_id, joined with the matched user's profile (username, avatar, etc.) so the tab can render the list.
+Add a timeout + error state so it never spins forever.
+
+Bug 2 — Match conversations should live in the Matches tab, not the main messenger
+
+Currently, after matching, the message/chat with a match goes to the main profile messenger/inbox. We want match conversations to live inside the Matches tab instead — when you tap a match in the Matches tab, it opens the chat with that matched person there (a dedicated match-chat flow), keeping vibe-match conversations separate from regular DMs.
+Please:
+
+Make each match in the Matches tab tappable → opens a chat screen with that matched user
+Keep this chat flow within the Find Vibe / Matches context, not mixed into the main inbox/messenger
+Confirm whether match messages should use a separate table/thread from regular DMs, or the same messages table but filtered/surfaced in the Matches tab — recommend the cleaner approach and implement it (routing all sends/loads through the API server, not direct Supabase calls).
+
+Please report back:
+
+Whether the Matches tab load was a direct Supabase call (Bug 1 root cause)
+The new matches endpoint
+How you structured match conversations vs regular DMs (Bug 2)
+Confirm the Matches tab now loads the matched users and tapping one opens a chat

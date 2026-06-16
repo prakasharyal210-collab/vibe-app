@@ -11,6 +11,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   RefreshControl,
@@ -47,6 +48,7 @@ import {
   getDailySwipeCount,
   getGoalInfo,
   getGundrukProfile,
+  fetchMessages,
   getMyVibeMatches,
   getOrCreateConversation,
   getNearbyUsers,
@@ -54,7 +56,9 @@ import {
   getVibeMatches,
   getVibePreferences,
   getSwipedIds,
+  markMessagesRead,
   resetVibeDeck,
+  sendMessageToUser,
   fetchSuggestedAccounts,
   RELATIONSHIP_GOALS,
   saveGundrukProfile,
@@ -1684,14 +1688,129 @@ function vibeLevel(score: number = 0): { label: string; color: string } {
   return { label: "⭐ Starter", color: "#6B7280" };
 }
 
+// ── Inline match chat — rendered inside the Matches tab so conversations stay
+// within Find Vibe and never bleed into the main messenger inbox.
+// Defined at module scope (not inside MatchesTab) to avoid Ionicons remount issues.
+function MatchChatView({ myId, match, onBack }: { myId: string; match: VibeMatchProfile; onBack: () => void }) {
+  const colors = useColors();
+  const [messages, setMessages] = useState<any[]>([]);
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const listRef = useRef<FlatList<any>>(null);
+
+  const load = async () => {
+    try {
+      setLoadError(false);
+      const msgs = await fetchMessages(myId, match.id);
+      setMessages(msgs);
+      await markMessagesRead(myId, match.id).catch(() => {});
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 80);
+    } catch {
+      setLoadError(true);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    const poll = setInterval(load, 5000);
+    return () => clearInterval(poll);
+  }, [myId, match.id]);
+
+  const send = async () => {
+    const t = text.trim();
+    if (!t || sending) return;
+    setSending(true);
+    setText("");
+    try {
+      await sendMessageToUser(myId, match.id, t);
+      await load();
+    } catch {
+      setText(t);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={88}>
+      {/* Header */}
+      <View style={[matchChatStyles.header, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={onBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={{ marginRight: 10 }}>
+          <Ionicons name="chevron-back" size={24} color={colors.foreground} />
+        </TouchableOpacity>
+        <Image source={{ uri: match.image }} style={matchChatStyles.headerAvatar} />
+        <View style={{ flex: 1 }}>
+          <Text style={[matchChatStyles.headerName, { color: colors.foreground }]} numberOfLines={1}>{match.name}</Text>
+          <Text style={[matchChatStyles.headerSub, { color: colors.mutedForeground }]}>💜 Vibe Match</Text>
+        </View>
+      </View>
+
+      {loadError && (
+        <View style={{ alignItems: "center", padding: 16 }}>
+          <Text style={{ color: colors.mutedForeground, fontSize: 13 }}>Couldn't load messages.</Text>
+          <TouchableOpacity onPress={load}><Text style={{ color: "#A78BFA", fontSize: 13 }}>Retry</Text></TouchableOpacity>
+        </View>
+      )}
+
+      <FlatList
+        ref={listRef}
+        data={messages}
+        keyExtractor={(item) => item.id ?? item.created_at}
+        contentContainerStyle={{ padding: 14, gap: 8, flexGrow: 1 }}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        ListEmptyComponent={
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 60, gap: 8 }}>
+            <Text style={{ fontSize: 36 }}>💜</Text>
+            <Text style={[matchChatStyles.emptyText, { color: colors.mutedForeground }]}>You matched! Say hello 👋</Text>
+          </View>
+        }
+        renderItem={({ item }) => {
+          const isMe = item.sender_id === myId;
+          return (
+            <View style={[matchChatStyles.bubble, isMe ? matchChatStyles.bubbleMe : matchChatStyles.bubbleThem,
+              !isMe && { backgroundColor: colors.muted }]}>
+              <Text style={[matchChatStyles.bubbleText, { color: isMe ? "#fff" : colors.foreground }]}>{item.text ?? item.content}</Text>
+              <Text style={[matchChatStyles.bubbleTime, { color: isMe ? "rgba(255,255,255,0.6)" : colors.mutedForeground }]}>
+                {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+              </Text>
+            </View>
+          );
+        }}
+      />
+
+      {/* Input bar */}
+      <View style={[matchChatStyles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Send a message…"
+          placeholderTextColor={colors.mutedForeground}
+          style={[matchChatStyles.input, { backgroundColor: colors.muted, color: colors.foreground }]}
+          multiline
+          returnKeyType="send"
+          onSubmitEditing={send}
+          blurOnSubmit
+        />
+        <TouchableOpacity onPress={send} disabled={!text.trim() || sending} activeOpacity={0.8}
+          style={[matchChatStyles.sendBtn, { opacity: text.trim() && !sending ? 1 : 0.4 }]}>
+          <Ionicons name="send" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
 function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear?: () => void }) {
   const colors = useColors();
   const [matches, setMatches] = useState<VibeMatchProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<VibeCard | null>(null);
+  const [chatMatch, setChatMatch] = useState<VibeMatchProfile | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [onlineOnly, setOnlineOnly] = useState(false);
-  const [openingChat, setOpeningChat] = useState<string | null>(null);
+  const [openingChat] = useState<string | null>(null);
   const [newMatchToast, setNewMatchToast] = useState<VibeMatchProfile | null>(null);
   const toastY = useSharedValue(-110);
   const toastYStyle = useAnimatedStyle(() => ({ transform: [{ translateY: toastY.value }] }));
@@ -1703,7 +1822,17 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
   const heartStyle3 = useAnimatedStyle(() => ({ transform: [{ translateY: heartY3.value }] }));
 
   const loadMatches = () => {
-    getMyVibeMatches(userId).then(setMatches).catch(() => {}).finally(() => setLoading(false));
+    setLoadTimedOut(false);
+    // 10-second hard timeout — getMyVibeMatches now routes through the API server
+    // so it shouldn't hang, but guard against network issues.
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setLoadTimedOut(true);
+    }, 10_000);
+    getMyVibeMatches(userId)
+      .then(setMatches)
+      .catch(() => {})
+      .finally(() => { clearTimeout(timer); setLoading(false); });
   };
 
   useEffect(() => { loadMatches(); }, [userId]);
@@ -1761,10 +1890,8 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
     );
   };
 
-  const openChat = async (m: VibeMatchProfile) => {
-    setOpeningChat(m.id);
-    router.push({ pathname: "/chat/[userId]", params: { userId: m.id, username: m.name, avatar_url: m.image, isVibeMatch: "true" } });
-    setOpeningChat(null);
+  const openChat = (m: VibeMatchProfile) => {
+    setChatMatch(m);
   };
 
   const filtered = matches.filter((m) => {
@@ -1773,11 +1900,29 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
     return true;
   });
 
+  // Show inline chat when a match is tapped
+  if (chatMatch) {
+    return <MatchChatView myId={userId} match={chatMatch} onBack={() => setChatMatch(null)} />;
+  }
+
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
-        <Text style={{ fontSize: 40 }}>💜</Text>
+        <ActivityIndicator color="#7C3AED" size="small" />
         <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>Loading your matches…</Text>
+      </View>
+    );
+  }
+
+  if (loadTimedOut) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <Text style={{ fontSize: 36 }}>⚠️</Text>
+        <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>Couldn't load matches</Text>
+        <TouchableOpacity onPress={loadMatches} activeOpacity={0.8}
+          style={{ backgroundColor: "#7C3AED", paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20 }}>
+          <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -2075,6 +2220,22 @@ const matchTabStyles = StyleSheet.create({
   toastTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
   toastName: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_400Regular", fontSize: 12 },
   toastCta: { color: "#EC4899", fontFamily: "Poppins_700Bold", fontSize: 13 },
+});
+
+const matchChatStyles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 0.5, gap: 10 },
+  headerAvatar: { width: 38, height: 38, borderRadius: 19 },
+  headerName: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  headerSub: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: -1 },
+  bubble: { maxWidth: "78%", paddingHorizontal: 13, paddingVertical: 8, borderRadius: 18, gap: 2 },
+  bubbleMe: { alignSelf: "flex-end", backgroundColor: "#7C3AED", borderBottomRightRadius: 4 },
+  bubbleThem: { alignSelf: "flex-start", borderBottomLeftRadius: 4 },
+  bubbleText: { fontFamily: "Poppins_400Regular", fontSize: 14, lineHeight: 20 },
+  bubbleTime: { fontFamily: "Poppins_400Regular", fontSize: 10, alignSelf: "flex-end" },
+  emptyText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
+  inputRow: { flexDirection: "row", alignItems: "flex-end", gap: 10, padding: 10, borderTopWidth: 0.5 },
+  input: { flex: 1, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, fontFamily: "Poppins_400Regular", fontSize: 14, maxHeight: 100 },
+  sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
 });
 
 function FindVibeContent() {

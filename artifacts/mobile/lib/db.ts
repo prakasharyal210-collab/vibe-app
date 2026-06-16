@@ -1978,51 +1978,32 @@ function mapRpcMatch(row: any): VibeMatchProfile {
 }
 
 export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile[]> {
-  // Try the RPC first — it returns richer data (shared interests, unread counts, etc.)
+  // Routes through the API server (service-role key) to bypass RLS.
+  // Direct supabase.rpc() / .from() calls with the anon key hang forever under RLS.
   try {
-    const { data: rpcData, error: rpcErr } = await supabase.rpc('get_my_vibe_matches', {
-      p_user_id: userId,
-      p_limit: 50,
-    });
-    if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
-      return (rpcData as any[]).map(mapRpcMatch);
-    }
-  } catch {}
-
-  // Fallback: direct query
-  try {
-    const { data, error } = await supabase
-      .from('vibe_matches')
-      .select(`matched_user_id, matched_at, profiles!vibe_matches_matched_user_id_fkey(id, display_name, username, avatar_url, bio, age, gender, interests, is_online, vibe_score, looking_for)`)
-      .eq('user_id', userId)
-      .eq('status', 'matched')
-      .order('matched_at', { ascending: false })
-      .limit(50);
-
-    if (error || !data || (data as any[]).length === 0) return MOCK_MY_MATCHES;
-
-    return (data as any[]).map((row: any) => {
-      const p = row.profiles ?? {};
-      return {
-        id: row.matched_user_id,
-        name: p.display_name ?? p.username ?? 'Vibe User',
-        username: p.username,
-        age: p.age ?? 25,
-        image: p.avatar_url ?? `https://picsum.photos/seed/${row.matched_user_id}/400/400`,
-        bio: p.bio ?? '',
-        interests: Array.isArray(p.interests) ? p.interests : [],
-        gender: p.gender,
-        isOnline: p.is_online ?? false,
-        vibeScore: p.vibe_score ?? 0,
-        goal: p.looking_for,
-        matchedAt: matchTimeStr(row.matched_at),
-        sharedInterests: [],
-        sameGoal: false,
-        unreadCount: 0,
-      };
-    });
+    const res = await fetch(`${API_BASE}/vibe/matches?userId=${encodeURIComponent(userId)}`);
+    if (!res.ok) return [];
+    const json = await res.json() as { matches?: any[] };
+    return (json.matches ?? []).map((m: any) => ({
+      id: m.id,
+      name: m.name ?? m.username ?? 'Vibe User',
+      username: m.username,
+      age: m.age ?? undefined,
+      image: m.avatarUrl ?? `https://picsum.photos/seed/${m.id}/400/400`,
+      bio: m.bio ?? '',
+      interests: Array.isArray(m.interests) ? m.interests : [],
+      gender: m.gender ?? undefined,
+      isOnline: false,
+      isVerified: m.isVerified ?? false,
+      vibeScore: m.compatibilityScore ?? 0,
+      goal: m.goal ?? undefined,
+      matchedAt: matchTimeStr(m.matchedAt),
+      sharedInterests: [],
+      sameGoal: false,
+      unreadCount: 0,
+    }));
   } catch {
-    return MOCK_MY_MATCHES;
+    return [];
   }
 }
 

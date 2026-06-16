@@ -361,6 +361,85 @@ router.get("/compatibility", async (req, res) => {
   }
 });
 
+// GET /api/vibe/matches?userId=X
+// Returns all mutual vibe matches for a user with matched profile details.
+// Must go through the API server (service-role key) — direct anon-key calls hang under RLS.
+router.get("/matches", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    // Fetch all rows where user is sender OR receiver
+    const [senderRes, receiverRes] = await Promise.all([
+      sb
+        .from("vibe_matches")
+        .select("id, sender_id, receiver_id, matched_at, compatibility_score")
+        .eq("sender_id", userId),
+      sb
+        .from("vibe_matches")
+        .select("id, sender_id, receiver_id, matched_at, compatibility_score")
+        .eq("receiver_id", userId),
+    ]);
+
+    const rows: any[] = [
+      ...(senderRes.data ?? []),
+      ...(receiverRes.data ?? []),
+    ];
+
+    if (rows.length === 0) {
+      res.json({ matches: [] });
+      return;
+    }
+
+    // Collect the OTHER user's ID for each match
+    const otherIds = rows.map((r) =>
+      r.sender_id === userId ? r.receiver_id : r.sender_id
+    );
+
+    const { data: profiles, error: profErr } = await sb
+      .from("profiles")
+      .select("id, username, full_name, avatar_url, bio, age, gender, interests, is_verified, relationship_goal")
+      .in("id", otherIds);
+
+    if (profErr) {
+      req.log.error({ err: profErr.message }, "vibe-matches: profile fetch error");
+      res.status(500).json({ error: "Failed to fetch profiles" });
+      return;
+    }
+
+    const profileMap = new Map<string, any>();
+    for (const p of profiles ?? []) profileMap.set(p.id, p);
+
+    const matches = rows.map((r) => {
+      const otherId = r.sender_id === userId ? r.receiver_id : r.sender_id;
+      const p = profileMap.get(otherId) ?? {};
+      return {
+        id: otherId,
+        matchRowId: r.id,
+        matchedAt: r.matched_at,
+        compatibilityScore: r.compatibility_score ?? 0,
+        username: p.username ?? "vibe_user",
+        name: p.full_name ?? p.username ?? "Vibe User",
+        avatarUrl: p.avatar_url ?? null,
+        bio: p.bio ?? "",
+        age: p.age ?? null,
+        gender: p.gender ?? null,
+        interests: p.interests ?? [],
+        isVerified: p.is_verified ?? false,
+        goal: p.relationship_goal ?? null,
+      };
+    });
+
+    res.json({ matches });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe-matches exception");
+    res.status(500).json({ error: "Failed to fetch matches" });
+  }
+});
+
 // POST /api/vibe/reset-deck
 // Body: { userId }
 // Deletes all vibe_swipes rows for this user so previously-seen profiles reappear.
