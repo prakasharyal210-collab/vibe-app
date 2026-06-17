@@ -650,7 +650,7 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
                 <GoalPill goal={card.goal} size="md" />
               </View>
             )}
-            <Text style={profileStyles.bio}>{card.bio}</Text>
+            <Text style={profileStyles.bio}>{card.vibe_bio ?? card.bio}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {card.interests.map((int) => (

@@ -1,0 +1,58 @@
+Here's the prompt. This is a big one, so I've structured it clearly for Replit AI:
+
+Prompt for Replit AI:
+Build a dedicated Find Vibe Settings hub — a separate full-screen page that holds ALL Find Vibe preferences, separate from the main app Settings. Think Tinder/Hinge-style dating preferences. Three parts:
+PART 1 — Dedicated Find Vibe Settings page
+Create a new full-screen "Find Vibe Settings" screen, opened from a single entry point (e.g. a "Find Vibe Settings" row in the main Settings, or the settings/filter icon on the Find Vibe tab). Move ALL existing Find Vibe options out of the main Settings screen into this new hub:
+
+Show me in Find Vibe (toggle)
+What am I looking for?
+Who can send Vibe Requests?
+Age Range
+Distance Range
+Show my distance to others (toggle)
+Exclude people I follow (toggle)
+I'm open to meeting people looking for… (the goal multi-select we just built)
+
+Then ADD these new Tinder/Hinge-style preference rows (each opens a select sheet; store each as a column on profiles or a dedicated vibe_preferences table — your call, recommend the cleaner approach):
+
+Minimum number of photos (slider)
+Has a bio (toggle)
+Interests (multi-select)
+Open to… (multi-select)
+Languages (multi-select)
+Zodiac (select)
+Education (select)
+Family Plans (select)
+Communication Style (select)
+Love Style (select)
+Pets (select)
+Drinking (select)
+Smoking (select)
+Cannabis (select)
+Workout (select)
+Social Media (select)
+
+For each new field, define sensible option lists (e.g. Drinking: Never / Sometimes / Often / Prefer not to say). All saves route through artifacts/api-server (PATCH /api/users/profile/:userId, service-role key — NOT direct Supabase calls, those hang under RLS).
+PART 2 — Find-Vibe-only bio
+Add a separate bio field (vibe_bio) that displays ONLY on the Find Vibe match card / swipe deck — NOT on the user's main profile/ID. The main profile bio stays untouched and separate. Add an edit field for vibe_bio in the Find Vibe Settings hub, and make the swipe deck card render vibe_bio (fall back to main bio only if you decide that's desirable — recommend keeping them fully separate).
+Migration:
+sqlALTER TABLE profiles ADD COLUMN IF NOT EXISTS vibe_bio TEXT DEFAULT NULL;
+PART 3 — Photo transfer from main profile to Find Vibe
+Add a setting in the hub that lets users easily select photos from their main profile to use on their Find Vibe match card (separate set of photos, so the match card can differ from the main profile grid).
+
+Add a vibe_photos field to store the selected photo URLs (e.g. TEXT[] array, or a vibe_photos table)
+UI: a screen showing the user's existing main-profile photos with checkboxes/select, plus the option to add new ones from gallery → selected photos become the Find Vibe card photos
+Since these reference existing storage URLs from the main profile, transferring is just copying the URL references (no re-upload needed) — confirm this works, or re-upload if the storage paths require it
+All saves through the API server
+
+Migration:
+sqlALTER TABLE profiles ADD COLUMN IF NOT EXISTS vibe_photos TEXT[] DEFAULT NULL;
+Please report back:
+
+All migration SQL to run
+Files created/edited
+How you structured the new preference fields (columns vs separate table)
+Confirm vibe_bio shows only on the match card, never the main profile
+Confirm photo transfer works (URL reference copy vs re-upload)
+Confirm everything saves through the API server, not direct Supabase calls

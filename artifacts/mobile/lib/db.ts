@@ -667,29 +667,76 @@ export interface GundrukProfile {
   show_in_matching: boolean;
   find_gundruk_mode: string;
   vibe_request_privacy: string;
-  vibe_goal_filter: string[] | null; // NULL = open to all goals (default)
+  vibe_goal_filter: string[] | null;          // NULL = open to all goals (default)
+  vibe_bio: string | null;                    // shown only on match card, separate from main bio
+  vibe_photos: string[] | null;               // URL refs from existing storage
+  vibe_filter_min_photos: number;             // deck filter: only show candidates with ≥ N photos
+  vibe_filter_requires_bio: boolean;          // deck filter: exclude candidates with no bio
+  vibe_zodiac: string | null;
+  vibe_education: string | null;
+  vibe_family_plans: string | null;
+  vibe_communication: string | null;
+  vibe_love_style: string | null;
+  vibe_pets: string | null;
+  vibe_drinking: string | null;
+  vibe_smoking: string | null;
+  vibe_cannabis: string | null;
+  vibe_workout: string | null;
+  vibe_social_media: string | null;
+  vibe_open_to: string[] | null;
+  vibe_languages: string[] | null;
 }
 
 export async function getGundrukProfile(userId: string): Promise<GundrukProfile> {
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("show_in_matching, find_gundruk_mode, vibe_request_privacy, vibe_goal_filter")
+      .select([
+        "show_in_matching","find_gundruk_mode","vibe_request_privacy","vibe_goal_filter",
+        "vibe_bio","vibe_photos","vibe_filter_min_photos","vibe_filter_requires_bio",
+        "vibe_zodiac","vibe_education","vibe_family_plans","vibe_communication",
+        "vibe_love_style","vibe_pets","vibe_drinking","vibe_smoking","vibe_cannabis",
+        "vibe_workout","vibe_social_media","vibe_open_to","vibe_languages",
+      ].join(","))
       .eq("id", userId)
       .maybeSingle();
     if (!error && data) {
-      const raw = data as any;
+      const r = data as any;
+      const arr = (v: any) => Array.isArray(v) && v.length > 0 ? v : null;
       return {
-        show_in_matching: raw.show_in_matching ?? false,
-        find_gundruk_mode: raw.find_gundruk_mode ?? "dating",
-        vibe_request_privacy: raw.vibe_request_privacy ?? "everyone",
-        vibe_goal_filter: Array.isArray(raw.vibe_goal_filter) && raw.vibe_goal_filter.length > 0
-          ? raw.vibe_goal_filter
-          : null,
+        show_in_matching:          r.show_in_matching          ?? false,
+        find_gundruk_mode:         r.find_gundruk_mode         ?? "dating",
+        vibe_request_privacy:      r.vibe_request_privacy      ?? "everyone",
+        vibe_goal_filter:          arr(r.vibe_goal_filter),
+        vibe_bio:                  r.vibe_bio                  ?? null,
+        vibe_photos:               arr(r.vibe_photos),
+        vibe_filter_min_photos:    r.vibe_filter_min_photos    ?? 0,
+        vibe_filter_requires_bio:  r.vibe_filter_requires_bio  ?? false,
+        vibe_zodiac:               r.vibe_zodiac               ?? null,
+        vibe_education:            r.vibe_education            ?? null,
+        vibe_family_plans:         r.vibe_family_plans         ?? null,
+        vibe_communication:        r.vibe_communication        ?? null,
+        vibe_love_style:           r.vibe_love_style           ?? null,
+        vibe_pets:                 r.vibe_pets                 ?? null,
+        vibe_drinking:             r.vibe_drinking             ?? null,
+        vibe_smoking:              r.vibe_smoking              ?? null,
+        vibe_cannabis:             r.vibe_cannabis             ?? null,
+        vibe_workout:              r.vibe_workout              ?? null,
+        vibe_social_media:         r.vibe_social_media         ?? null,
+        vibe_open_to:              arr(r.vibe_open_to),
+        vibe_languages:            arr(r.vibe_languages),
       };
     }
   } catch {}
-  return { show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone", vibe_goal_filter: null };
+  return {
+    show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone",
+    vibe_goal_filter: null, vibe_bio: null, vibe_photos: null,
+    vibe_filter_min_photos: 0, vibe_filter_requires_bio: false,
+    vibe_zodiac: null, vibe_education: null, vibe_family_plans: null,
+    vibe_communication: null, vibe_love_style: null, vibe_pets: null,
+    vibe_drinking: null, vibe_smoking: null, vibe_cannabis: null,
+    vibe_workout: null, vibe_social_media: null, vibe_open_to: null, vibe_languages: null,
+  };
 }
 
 export async function saveGundrukProfile(userId: string, patch: Partial<GundrukProfile>): Promise<void> {
@@ -1929,8 +1976,10 @@ export interface VibeMatchProfile {
   id: string;
   name: string;
   age: number;
-  image: string;
-  bio: string;
+  image: string;       // primary card image (first vibe_photo or avatar)
+  bio: string;         // main profile bio (never shown on match card directly)
+  vibe_bio?: string;   // Find Vibe-only bio shown on the match card; separate from main bio
+  vibe_photos?: string[] | null; // Find Vibe card photos (URL refs from storage)
   interests: string[];
   distance?: string;
   vibe?: string;
@@ -2422,21 +2471,28 @@ export async function getNearbyUsers(
     if (res.ok) {
       const json = await res.json() as { profiles?: any[] };
       const data: any[] = json.profiles ?? [];
-      return data.map((row: any) => ({
-        id: row.id ?? row.user_id,
-        name: row.display_name ?? row.username ?? "Vibe User",
-        age: row.age ?? 24,
-        image: row.avatar_url ?? `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
-        bio: row.bio ?? "",
-        interests: row.interests ?? [],
-        distance: row.distance_km ? `${Math.round(row.distance_km as number)} km away` : undefined,
-        isOnline: row.is_online ?? false,
-        isVerified: row.is_verified ?? false,
-        gender: row.gender,
-        goal: row.looking_for,
-        vibeScore: row.vibe_score ?? row.compatibility_score,
-        matchInterests: row.shared_interests ?? [],
-      }));
+      return data.map((row: any) => {
+        const vibePhotos: string[] | null =
+          Array.isArray(row.vibe_photos) && row.vibe_photos.length > 0 ? row.vibe_photos : null;
+        return {
+          id: row.id ?? row.user_id,
+          name: row.display_name ?? row.username ?? "Vibe User",
+          age: row.age ?? 24,
+          // Use first vibe_photo as primary card image if available, fall back to avatar
+          image: (vibePhotos?.[0]) ?? row.avatar_url ?? `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
+          bio: row.bio ?? "",
+          vibe_bio: row.vibe_bio ?? null,
+          vibe_photos: vibePhotos,
+          interests: row.interests ?? [],
+          distance: row.distance_km ? `${Math.round(row.distance_km as number)} km away` : undefined,
+          isOnline: row.is_online ?? false,
+          isVerified: row.is_verified ?? false,
+          gender: row.gender,
+          goal: row.looking_for,
+          vibeScore: row.vibe_score ?? row.compatibility_score,
+          matchInterests: row.shared_interests ?? [],
+        };
+      });
     }
   } catch {}
   return [];

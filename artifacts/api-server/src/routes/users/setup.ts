@@ -100,6 +100,24 @@ router.patch("/profile", async (req, res) => {
     "avatar_url",
     "website",
     "location",
+    // Find Vibe Settings hub — new fields
+    "vibe_bio",
+    "vibe_photos",
+    "vibe_filter_min_photos",
+    "vibe_filter_requires_bio",
+    "vibe_zodiac",
+    "vibe_education",
+    "vibe_family_plans",
+    "vibe_communication",
+    "vibe_love_style",
+    "vibe_pets",
+    "vibe_drinking",
+    "vibe_smoking",
+    "vibe_cannabis",
+    "vibe_workout",
+    "vibe_social_media",
+    "vibe_open_to",
+    "vibe_languages",
   ]);
   const safe = Object.fromEntries(
     Object.entries(patch).filter(([k]) => ALLOWED_PROFILE_KEYS.has(k))
@@ -176,6 +194,45 @@ router.post("/push-token", async (req, res) => {
   } catch (err: any) {
     req.log.error({ err: err?.message }, "push-token save error");
     res.status(500).json({ error: "Failed to save token" });
+  }
+});
+
+// GET /api/users/photos?userId=...
+// Returns the list of media URLs from the user's posts plus their avatar.
+// Used by the Find Vibe Settings photo picker so users can select which
+// existing photos to show on their match card (no re-upload needed).
+router.get("/photos", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const [postsRes, profileRes] = await Promise.all([
+      sb
+        .from("posts")
+        .select("media_url")
+        .eq("user_id", userId)
+        .not("media_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      sb.from("profiles").select("avatar_url").eq("id", userId).maybeSingle(),
+    ]);
+
+    const photos: string[] = [];
+    const avatar = (profileRes.data as any)?.avatar_url as string | undefined;
+    if (avatar) photos.push(avatar);
+
+    for (const row of (postsRes.data ?? []) as any[]) {
+      const url = row.media_url as string | null;
+      if (url && !photos.includes(url)) photos.push(url);
+    }
+
+    res.json({ photos });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "users/photos: query error");
+    res.status(500).json({ error: "Failed to fetch photos" });
   }
 });
 

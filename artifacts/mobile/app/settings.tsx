@@ -28,10 +28,7 @@ import {
   RestrictedUser,
   fetchUserSettings,
   getBlockedUsers,
-  getGundrukProfile,
   getRestrictedUsers,
-  RELATIONSHIP_GOALS,
-  saveGundrukProfile,
   saveUserSettings,
   unblockUser,
   unrestrictUser,
@@ -580,29 +577,9 @@ const SCREEN_TIME_OPTIONS = [
   { label: "3 hours", value: "3h" },
 ];
 
-const FIND_GUNDRUK_MODE_OPTIONS = [
-  { label: "❤️  Dating", value: "dating", icon: "heart-outline" },
-  { label: "👫  Friends", value: "friends", icon: "people-outline" },
-  { label: "🤝  Networking", value: "networking", icon: "briefcase-outline" },
-  { label: "👀  Just Browsing", value: "browsing", icon: "eye-outline" },
-];
-
-const VIBE_REQUEST_OPTIONS = [
-  { label: "Everyone", value: "everyone", icon: "earth-outline" },
-  { label: "People I follow", value: "following", icon: "people-outline" },
-  { label: "Nobody", value: "nobody", icon: "ban-outline" },
-];
-
-const DISTANCE_OPTIONS = [
-  { label: "5 km",         value: "5",   icon: "locate-outline" },
-  { label: "10 km",        value: "10",  icon: "locate-outline" },
-  { label: "25 km",        value: "25",  icon: "location-outline" },
-  { label: "50 km",        value: "50",  icon: "location-outline" },
-  { label: "100 km",       value: "100", icon: "navigate-outline" },
-  { label: "Any distance", value: "999", icon: "earth-outline" },
-];
-
 // ─── AgeRangeModal ─────────────────────────────────────────────────────────────
+// Note: AgeRangeModal is kept here in case it is needed in the future, but
+// Find Vibe settings (age range, distance, etc.) now live in find-vibe-settings.tsx.
 
 function AgeRangeModal({
   visible, minAge, maxAge, onSave, onClose,
@@ -677,135 +654,6 @@ const armStyles = StyleSheet.create({
 // reference on every render → React unmounts + remounts them → Ionicons briefly
 // loses its glyph while re-initialising. Moving them here fixes that permanently.
 
-// ─── GoalFilterSheet ──────────────────────────────────────────────────────────
-// Multi-select sheet: lets the user pick which relationship_goal values they
-// want to see in their deck.  NULL / all-selected = "open to all" (default).
-
-function GoalFilterSheet({
-  visible,
-  selected,
-  onSave,
-  onClose,
-}: {
-  visible: boolean;
-  selected: string[] | null;           // null = all goals (default)
-  onSave: (goals: string[] | null) => void;
-  onClose: () => void;
-}) {
-  const colors = useColors();
-  const ALL_VALUES = RELATIONSHIP_GOALS.map((g) => g.value);
-
-  // null or empty array = "open to all" → open the sheet with every goal checked
-  const toLocal = (sel: string[] | null): string[] =>
-    sel && sel.length > 0 ? [...sel] : [...ALL_VALUES];
-
-  const [local, setLocal] = React.useState<string[]>(() => toLocal(selected));
-
-  React.useEffect(() => {
-    if (visible) setLocal(toLocal(selected));
-  }, [visible]);
-
-  const toggle = (value: string) => {
-    setLocal((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
-    );
-  };
-
-  const allSelected = local.length === ALL_VALUES.length;
-
-  const handleSave = () => {
-    // treat "all selected" as NULL (open to everyone) so no filtering happens
-    onSave(local.length === 0 || local.length === ALL_VALUES.length ? null : local);
-    onClose();
-  };
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={gfsStyles.overlay}>
-        <View style={[gfsStyles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={[gfsStyles.header, { borderBottomColor: colors.border }]}>
-            <Text style={[gfsStyles.title, { color: colors.foreground }]}>
-              I'm open to meeting people looking for…
-            </Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={22} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={[gfsStyles.selectAll, { borderBottomColor: colors.border }]}
-            onPress={() => setLocal(allSelected ? [] : [...ALL_VALUES])}
-          >
-            <Text style={[gfsStyles.selectAllText, { color: "#EC4899" }]}>
-              {allSelected ? "Deselect all" : "Select all (default)"}
-            </Text>
-          </TouchableOpacity>
-
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-            {RELATIONSHIP_GOALS.map((g, idx) => {
-              const checked = local.includes(g.value);
-              return (
-                <TouchableOpacity
-                  key={g.value}
-                  style={[
-                    gfsStyles.row,
-                    { borderBottomColor: colors.border },
-                    idx === RELATIONSHIP_GOALS.length - 1 && { borderBottomWidth: 0 },
-                  ]}
-                  onPress={() => toggle(g.value)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[gfsStyles.dot, { backgroundColor: g.color }]}>
-                    <Text style={gfsStyles.emoji}>{g.emoji}</Text>
-                  </View>
-                  <Text style={[gfsStyles.label, { color: colors.foreground }]}>{g.label}</Text>
-                  <View style={[
-                    gfsStyles.checkbox,
-                    { borderColor: checked ? "#EC4899" : colors.border, backgroundColor: checked ? "#EC4899" : "transparent" },
-                  ]}>
-                    {checked && <Ionicons name="checkmark" size={12} color="#fff" />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-
-          <View style={[gfsStyles.footer, { borderTopColor: colors.border }]}>
-            {local.length === 0 && (
-              <Text style={[gfsStyles.warning, { color: "#F59E0B" }]}>
-                ⚠️ No goals selected — deck may be empty
-              </Text>
-            )}
-            <TouchableOpacity
-              style={[gfsStyles.saveBtn, { opacity: local.length === 0 ? 0.5 : 1 }]}
-              onPress={handleSave}
-            >
-              <Text style={gfsStyles.saveBtnText}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const gfsStyles = StyleSheet.create({
-  overlay:     { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-  sheet:       { borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, maxHeight: "82%", minHeight: 400 },
-  header:      { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 18, borderBottomWidth: StyleSheet.hairlineWidth },
-  title:       { fontSize: 15, fontWeight: "700", flex: 1, marginRight: 12 },
-  selectAll:   { paddingHorizontal: 18, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  selectAllText: { fontSize: 13, fontWeight: "600" },
-  row:         { flexDirection: "row", alignItems: "center", paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  dot:         { width: 34, height: 34, borderRadius: 17, justifyContent: "center", alignItems: "center", marginRight: 12 },
-  emoji:       { fontSize: 16 },
-  label:       { flex: 1, fontSize: 15 },
-  checkbox:    { width: 22, height: 22, borderRadius: 11, borderWidth: 2, justifyContent: "center", alignItems: "center" },
-  footer:      { padding: 18, borderTopWidth: StyleSheet.hairlineWidth, gap: 10 },
-  warning:     { fontSize: 12, textAlign: "center" },
-  saveBtn:     { backgroundColor: "#EC4899", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
-  saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
-});
 
 function SecLabel({ label }: { label: string }) {
   const colors = useColors();
@@ -873,31 +721,12 @@ export default function SettingsScreen() {
   const [language, setLanguage] = useState("en");
   const [screenTime, setScreenTime] = useState("none");
 
-  // Find Vibe settings
-  const [showInMatching, setShowInMatching] = useState(true);
-  const [findGundrukMode, setFindGundrukMode] = useState("dating");
-  const [vibeRequestPrivacy, setVibeRequestPrivacy] = useState("everyone");
-  const vibeInteracted = useRef(false);
-  // Find Vibe discovery preferences
-  const [vibeAgeMin, setVibeAgeMin] = useState(18);
-  const [vibeAgeMax, setVibeAgeMax] = useState(60);
-  const [vibeMaxDistanceKm, setVibeMaxDistanceKm] = useState(50);
-  const [vibeShowDistance, setVibeShowDistance] = useState(true);
-  const [vibeExcludeConnections, setVibeExcludeConnections] = useState(false);
-  // NULL = open to all goals (default); non-empty array = active filter
-  const [vibeGoalFilter, setVibeGoalFilter] = useState<string[] | null>(null);
-
   // Picker / modal visibility
   const [showCommentPicker, setShowCommentPicker] = useState(false);
   const [showMessagePicker, setShowMessagePicker] = useState(false);
   const [showDuetPicker, setShowDuetPicker] = useState(false);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [showScreenTimePicker, setShowScreenTimePicker] = useState(false);
-  const [showModePicker, setShowModePicker] = useState(false);
-  const [showVibePrivacyPicker, setShowVibePrivacyPicker] = useState(false);
-  const [showAgeRangePicker, setShowAgeRangePicker] = useState(false);
-  const [showDistancePicker, setShowDistancePicker] = useState(false);
-  const [showGoalFilterSheet, setShowGoalFilterSheet] = useState(false);
   const [showSwitchAccounts, setShowSwitchAccounts] = useState(false);
   const [showBlockedAccounts, setShowBlockedAccounts] = useState(false);
   const [showRestrictedAccounts, setShowRestrictedAccounts] = useState(false);
@@ -916,20 +745,6 @@ export default function SettingsScreen() {
       setMessagePermission(s.message_permission);
       setDuetPermission(s.duet_permission);
       setLikedPrivate(s.liked_private);
-      setVibeAgeMin(s.vibe_age_min);
-      setVibeAgeMax(s.vibe_age_max);
-      setVibeMaxDistanceKm(s.vibe_max_distance_km);
-      setVibeShowDistance(s.vibe_show_distance);
-      setVibeExcludeConnections(s.vibe_exclude_connections);
-    }).catch(() => {});
-
-    getGundrukProfile(userId).then((p) => {
-      if (!vibeInteracted.current) {
-        setShowInMatching(p.show_in_matching);
-        setFindGundrukMode(p.find_gundruk_mode);
-        setVibeRequestPrivacy(p.vibe_request_privacy);
-      }
-      setVibeGoalFilter(p.vibe_goal_filter);
     }).catch(() => {});
 
     if (session?.access_token && session?.refresh_token) {
@@ -1104,75 +919,12 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <SecLabel label="Find Vibe" />
           <Card>
-            <Row icon="heart-circle-outline" iconBg="#EC4899" label="Show me in Find Vibe"
-              sub={showInMatching ? "Visible in matching & nearby" : "Hidden from all discovery"}
-              rightEl={
-                <Switch
-                  value={showInMatching}
-                  onValueChange={(v) => {
-                    vibeInteracted.current = true;
-                    setShowInMatching(v);
-                    AsyncStorage.setItem(`find_vibe_locked_${userId}`, v ? "false" : "true").catch(() => {});
-                    saveGundrukProfile(userId, { show_in_matching: v });
-                    DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
-                    showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
-                  }}
-                  trackColor={{ false: colors.border, true: "#EC4899" }}
-                  thumbColor="#fff"
-                />
-              } />
-            <Row icon="compass-outline" iconBg="#7C3AED" label="What am I looking for?"
-              sub={FIND_GUNDRUK_MODE_OPTIONS.find((o) => o.value === findGundrukMode)?.label ?? "❤️  Dating"}
-              onPress={showInMatching ? () => setShowModePicker(true) : undefined} />
-            <Row icon="flash-outline" iconBg="#F97316" label="Who can send Vibe Requests?"
-              sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
-              onPress={showInMatching ? () => setShowVibePrivacyPicker(true) : undefined} />
-            <Row icon="people-circle-outline" iconBg="#EC4899" label="Age Range"
-              sub={`Show ages ${vibeAgeMin} – ${vibeAgeMax}`}
-              onPress={showInMatching ? () => setShowAgeRangePicker(true) : undefined} />
-            <Row icon="location-outline" iconBg="#3B82F6" label="Distance Range"
-              sub={vibeMaxDistanceKm >= 999 ? "Any distance" : `Within ${vibeMaxDistanceKm} km`}
-              onPress={showInMatching ? () => setShowDistancePicker(true) : undefined} />
-            <Row icon="eye-off-outline" iconBg="#6366F1" label="Show my distance to others"
-              sub={vibeShowDistance ? "Your distance is visible to others" : "Distance hidden from your profile"}
-              rightEl={
-                <Switch
-                  value={vibeShowDistance}
-                  onValueChange={(v) => {
-                    setVibeShowDistance(v);
-                    persistSetting({ vibe_show_distance: v });
-                    showToast(v ? "Distance shown ✅" : "Distance hidden 🔒");
-                  }}
-                  trackColor={{ false: colors.border, true: "#6366F1" }}
-                  thumbColor="#fff"
-                />
-              } />
-            <Row icon="person-remove-outline" iconBg="#F59E0B" label="Exclude people I follow"
-              sub={vibeExcludeConnections ? "Connections excluded from your deck" : "Connections may appear in your deck"}
-              rightEl={
-                <Switch
-                  value={vibeExcludeConnections}
-                  onValueChange={(v) => {
-                    setVibeExcludeConnections(v);
-                    persistSetting({ vibe_exclude_connections: v });
-                    showToast(v ? "Connections excluded ✅" : "All users may appear ✅");
-                  }}
-                  trackColor={{ false: colors.border, true: "#F59E0B" }}
-                  thumbColor="#fff"
-                />
-              } />
             <Row
-              icon="filter-outline"
-              iconBg="#8B5CF6"
-              label="I'm open to meeting people looking for…"
-              sub={(() => {
-                if (!vibeGoalFilter || vibeGoalFilter.length === 0) return "All goals (default)";
-                const labels = vibeGoalFilter
-                  .map((v) => RELATIONSHIP_GOALS.find((g) => g.value === v)?.shortLabel ?? v);
-                if (labels.length <= 2) return labels.join(", ");
-                return `${labels.slice(0, 2).join(", ")} +${labels.length - 2} more`;
-              })()}
-              onPress={showInMatching ? () => setShowGoalFilterSheet(true) : undefined}
+              icon="heart-circle-outline"
+              iconBg="#EC4899"
+              label="Find Vibe Settings"
+              sub="Discovery, filters, vibe profile & more"
+              onPress={() => router.push("/find-vibe-settings" as any)}
               isLast />
           </Card>
         </View>
@@ -1254,42 +1006,6 @@ export default function SettingsScreen() {
       <OptionPicker visible={showScreenTimePicker} title="Daily Screen Time Limit" options={SCREEN_TIME_OPTIONS} selected={screenTime}
         onSelect={(v) => { setScreenTime(v); showToast("Screen time limit set ✅"); }}
         onClose={() => setShowScreenTimePicker(false)} />
-      <OptionPicker visible={showModePicker} title="What are you looking for?" options={FIND_GUNDRUK_MODE_OPTIONS} selected={findGundrukMode}
-        onSelect={(v) => { vibeInteracted.current = true; setFindGundrukMode(v); saveGundrukProfile(userId, { find_gundruk_mode: v }); showToast("Preference saved ✅"); }}
-        onClose={() => setShowModePicker(false)} />
-      <OptionPicker visible={showVibePrivacyPicker} title="Who can send Vibe Requests?" options={VIBE_REQUEST_OPTIONS} selected={vibeRequestPrivacy}
-        onSelect={(v) => { setVibeRequestPrivacy(v); saveGundrukProfile(userId, { vibe_request_privacy: v }); showToast(v === "nobody" ? "Vibe Requests paused ⏸" : "Privacy setting saved ✅"); }}
-        onClose={() => setShowVibePrivacyPicker(false)} />
-      <AgeRangeModal
-        visible={showAgeRangePicker}
-        minAge={vibeAgeMin}
-        maxAge={vibeAgeMax}
-        onSave={(mn, mx) => {
-          setVibeAgeMin(mn);
-          setVibeAgeMax(mx);
-          persistSetting({ vibe_age_min: mn, vibe_age_max: mx });
-          showToast("Age range saved ✅");
-        }}
-        onClose={() => setShowAgeRangePicker(false)}
-      />
-      <OptionPicker visible={showDistancePicker} title="Distance Range" options={DISTANCE_OPTIONS}
-        selected={String(vibeMaxDistanceKm)}
-        onSelect={(v) => {
-          const km = parseInt(v, 10);
-          setVibeMaxDistanceKm(km);
-          persistSetting({ vibe_max_distance_km: km });
-          showToast("Distance range saved ✅");
-        }}
-        onClose={() => setShowDistancePicker(false)} />
-      <GoalFilterSheet
-        visible={showGoalFilterSheet}
-        selected={vibeGoalFilter}
-        onSave={(goals) => {
-          setVibeGoalFilter(goals);
-          saveGundrukProfile(userId, { vibe_goal_filter: goals });
-          showToast(goals ? `Filtered to ${goals.length} goal${goals.length === 1 ? "" : "s"} ✅` : "Open to all goals ✅");
-        }}
-        onClose={() => setShowGoalFilterSheet(false)} />
 
       {/* ── Edit Field Modal ── */}
       {editField && (

@@ -211,7 +211,7 @@ router.get("/deck", async (req, res) => {
         .maybeSingle(),
       sb
         .from("profiles")
-        .select("vibe_goal_filter")
+        .select("vibe_goal_filter, vibe_filter_min_photos, vibe_filter_requires_bio")
         .eq("id", userId)
         .maybeSingle(),
     ]);
@@ -226,8 +226,10 @@ router.get("/deck", async (req, res) => {
     const rawGoalFilter = (profileRes.data as any)?.vibe_goal_filter;
     const goalFilter: string[] | null =
       Array.isArray(rawGoalFilter) && rawGoalFilter.length > 0 ? rawGoalFilter : null;
+    const vibeFilterMinPhotos: number   = (profileRes.data as any)?.vibe_filter_min_photos   ?? 0;
+    const vibeFilterRequireBio: boolean = (profileRes.data as any)?.vibe_filter_requires_bio ?? false;
 
-    req.log.info({ userId, ageMin, ageMax, radiusKm, excludeConn, goalFilter, lat, lng }, "vibe-deck: viewer prefs");
+    req.log.info({ userId, ageMin, ageMax, radiusKm, excludeConn, goalFilter, vibeFilterMinPhotos, vibeFilterRequireBio, lat, lng }, "vibe-deck: viewer prefs");
 
     // 2. Call get_vibe_matches (the RPC that actually exists in Supabase).
     //    get_nearby_users does not exist — using get_vibe_matches which has SECURITY DEFINER
@@ -285,25 +287,53 @@ router.get("/deck", async (req, res) => {
       req.log.info({ goalFilter: null, candidates: profiles.length }, "vibe-deck: goal filter inactive (show all)");
     }
 
-    // 5. Strip distance_km from profiles whose owner hid their distance
+    // 5. Enrich candidates with vibe_bio + vibe_photos and strip distance from
+    //    profiles whose owner opted out — both queries run in parallel.
     if (profiles.length > 0) {
       const ids = profiles.map((p: any) => p.id as string);
-      const { data: distSettings } = await sb
-        .from("user_settings")
-        .select("user_id, vibe_show_distance")
-        .in("user_id", ids);
+      const [distRes, richRes] = await Promise.all([
+        sb.from("user_settings").select("user_id, vibe_show_distance").in("user_id", ids),
+        sb.from("profiles").select("id, vibe_bio, vibe_photos").in("id", ids),
+      ]);
+
       const hideSet = new Set<string>(
-        ((distSettings ?? []) as any[])
+        ((distRes.data ?? []) as any[])
           .filter((r: any) => r.vibe_show_distance === false)
           .map((r: any) => r.user_id as string),
       );
+      const richMap = new Map<string, any>(
+        ((richRes.data ?? []) as any[]).map((r: any) => [r.id as string, r]),
+      );
+
       profiles = profiles.map((p: any) => {
-        if (hideSet.has(p.id as string)) {
-          const { distance_km: _dropped, ...rest } = p;
+        const rich = richMap.get(p.id as string);
+        const enriched = rich
+          ? { ...p, vibe_bio: rich.vibe_bio ?? null, vibe_photos: rich.vibe_photos ?? null }
+          : p;
+        if (hideSet.has((enriched as any).id as string)) {
+          const { distance_km: _dropped, ...rest } = enriched as any;
           return rest;
         }
-        return p;
+        return enriched;
       });
+
+      // 6. Apply viewer's deck quality filters (bio required + min vibe photos)
+      if (vibeFilterRequireBio || vibeFilterMinPhotos > 0) {
+        const before6 = profiles.length;
+        if (vibeFilterRequireBio) {
+          profiles = profiles.filter((p: any) => {
+            const bio: string = ((p.vibe_bio ?? p.bio ?? "") as string);
+            return bio.trim().length > 0;
+          });
+        }
+        if (vibeFilterMinPhotos > 0) {
+          profiles = profiles.filter((p: any) => {
+            const photos: any[] = Array.isArray(p.vibe_photos) ? p.vibe_photos as any[] : [];
+            return photos.length >= vibeFilterMinPhotos;
+          });
+        }
+        req.log.info({ before6, after6: profiles.length, vibeFilterRequireBio, vibeFilterMinPhotos }, "vibe-deck: after quality filters");
+      }
     }
 
     req.log.info({ finalCount: profiles.length }, "vibe-deck: returning profiles");
