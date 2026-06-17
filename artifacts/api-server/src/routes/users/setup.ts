@@ -197,10 +197,11 @@ router.post("/push-token", async (req, res) => {
   }
 });
 
-// GET /api/users/profile/:userId
+// GET /api/users/vibe-profile/:userId
 // Returns the Find Vibe profile fields for a user using the service-role key
 // (bypasses RLS so the mobile client always gets the real saved values).
-router.get("/profile/:userId", async (req, res) => {
+// NOTE: cannot use /profile/:userId — search.ts owns that path (looks up by username).
+router.get("/vibe-profile/:userId", async (req, res) => {
   const { userId } = req.params as { userId: string };
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -227,7 +228,7 @@ router.get("/profile/:userId", async (req, res) => {
 });
 
 // GET /api/users/settings/:userId
-// Returns the user_settings row using the service-role key (bypasses RLS).
+// Returns the full user_settings row using the service-role key (bypasses RLS).
 router.get("/settings/:userId", async (req, res) => {
   const { userId } = req.params as { userId: string };
   if (!userId) {
@@ -237,7 +238,7 @@ router.get("/settings/:userId", async (req, res) => {
   const sb = makeSupabase();
   const { data, error } = await sb
     .from("user_settings")
-    .select("vibe_age_min,vibe_age_max,vibe_max_distance_km,vibe_show_distance,vibe_exclude_connections")
+    .select("*")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) {

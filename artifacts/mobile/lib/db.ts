@@ -698,8 +698,8 @@ const GUNDRUK_PROFILE_DEFAULTS: GundrukProfile = {
 export async function getGundrukProfile(userId: string): Promise<GundrukProfile> {
   try {
     const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
-    const res = await fetch(`${apiUrl}/api/users/profile/${userId}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await fetch(`${apiUrl}/api/users/vibe-profile/${userId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} from vibe-profile`);
     const json = await res.json() as { profile: any };
     const r = json.profile;
     if (!r) return GUNDRUK_PROFILE_DEFAULTS;
