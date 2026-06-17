@@ -667,13 +667,14 @@ export interface GundrukProfile {
   show_in_matching: boolean;
   find_gundruk_mode: string;
   vibe_request_privacy: string;
+  vibe_goal_filter: string[] | null; // NULL = open to all goals (default)
 }
 
 export async function getGundrukProfile(userId: string): Promise<GundrukProfile> {
   try {
     const { data, error } = await supabase
       .from("profiles")
-      .select("show_in_matching, find_gundruk_mode, vibe_request_privacy")
+      .select("show_in_matching, find_gundruk_mode, vibe_request_privacy, vibe_goal_filter")
       .eq("id", userId)
       .maybeSingle();
     if (!error && data) {
@@ -682,11 +683,13 @@ export async function getGundrukProfile(userId: string): Promise<GundrukProfile>
         show_in_matching: raw.show_in_matching ?? false,
         find_gundruk_mode: raw.find_gundruk_mode ?? "dating",
         vibe_request_privacy: raw.vibe_request_privacy ?? "everyone",
+        vibe_goal_filter: Array.isArray(raw.vibe_goal_filter) && raw.vibe_goal_filter.length > 0
+          ? raw.vibe_goal_filter
+          : null,
       };
     }
   } catch {}
-  // Default: locked until user consciously sets up Find Vibe
-  return { show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone" };
+  return { show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone", vibe_goal_filter: null };
 }
 
 export async function saveGundrukProfile(userId: string, patch: Partial<GundrukProfile>): Promise<void> {

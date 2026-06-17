@@ -202,19 +202,32 @@ router.get("/deck", async (req, res) => {
   const sb = makeSupabase();
 
   try {
-    // 1. Fetch viewer's vibe discovery preferences
-    const { data: settings } = await sb
-      .from("user_settings")
-      .select("vibe_age_min, vibe_age_max, vibe_max_distance_km, vibe_exclude_connections")
-      .eq("user_id", userId)
-      .maybeSingle();
+    // 1. Fetch viewer's vibe prefs + goal filter in parallel
+    const [settingsRes, profileRes] = await Promise.all([
+      sb
+        .from("user_settings")
+        .select("vibe_age_min, vibe_age_max, vibe_max_distance_km, vibe_exclude_connections")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      sb
+        .from("profiles")
+        .select("vibe_goal_filter")
+        .eq("id", userId)
+        .maybeSingle(),
+    ]);
 
-    const ageMin: number       = (settings as any)?.vibe_age_min             ?? 18;
-    const ageMax: number       = (settings as any)?.vibe_age_max             ?? 60;
-    const radiusKm: number     = (settings as any)?.vibe_max_distance_km     ?? 100;
-    const excludeConn: boolean = (settings as any)?.vibe_exclude_connections ?? false;
+    const settings = settingsRes.data as any;
+    const ageMin: number       = settings?.vibe_age_min             ?? 18;
+    const ageMax: number       = settings?.vibe_age_max             ?? 60;
+    const radiusKm: number     = settings?.vibe_max_distance_km     ?? 100;
+    const excludeConn: boolean = settings?.vibe_exclude_connections ?? false;
 
-    req.log.info({ userId, ageMin, ageMax, radiusKm, excludeConn, lat, lng }, "vibe-deck: viewer prefs");
+    // NULL or empty array = "open to all goals" (safe default — never over-restricts)
+    const rawGoalFilter = (profileRes.data as any)?.vibe_goal_filter;
+    const goalFilter: string[] | null =
+      Array.isArray(rawGoalFilter) && rawGoalFilter.length > 0 ? rawGoalFilter : null;
+
+    req.log.info({ userId, ageMin, ageMax, radiusKm, excludeConn, goalFilter, lat, lng }, "vibe-deck: viewer prefs");
 
     // 2. Call get_vibe_matches (the RPC that actually exists in Supabase).
     //    get_nearby_users does not exist — using get_vibe_matches which has SECURITY DEFINER
@@ -222,7 +235,7 @@ router.get("/deck", async (req, res) => {
     const { data: rpcData, error: rpcError } = await sb.rpc("get_vibe_matches", {
       p_user_id:         userId,
       p_interested_in:   [],     // no gender filter — show everyone
-      p_looking_for:     null,   // no goal filter — show everyone
+      p_looking_for:     null,   // no goal pre-filter at RPC level — we apply it below for logging
       p_age_min:         ageMin,
       p_age_max:         ageMax,
       p_max_distance_km: radiusKm,
@@ -257,7 +270,22 @@ router.get("/deck", async (req, res) => {
       req.log.info({ beforeConn, afterConn: profiles.length }, "vibe-deck: after exclude-connections filter");
     }
 
-    // 4. Strip distance_km from profiles whose owner hid their distance
+    // 4. Goal filter: only active when vibe_goal_filter is a non-empty array.
+    //    When active, candidates with a NULL relationship_goal are excluded —
+    //    they haven't declared an intention so they can't match the filter.
+    //    When inactive (NULL/empty), all candidates pass through regardless of goal.
+    if (goalFilter && goalFilter.length > 0) {
+      const beforeGoal = profiles.length;
+      profiles = profiles.filter((p: any) => {
+        const cGoal: string | null = p.relationship_goal ?? p.looking_for ?? null;
+        return cGoal !== null && goalFilter.includes(cGoal);
+      });
+      req.log.info({ beforeGoal, afterGoal: profiles.length, goalFilter }, "vibe-deck: after goal filter");
+    } else {
+      req.log.info({ goalFilter: null, candidates: profiles.length }, "vibe-deck: goal filter inactive (show all)");
+    }
+
+    // 5. Strip distance_km from profiles whose owner hid their distance
     if (profiles.length > 0) {
       const ids = profiles.map((p: any) => p.id as string);
       const { data: distSettings } = await sb

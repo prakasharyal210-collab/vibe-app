@@ -94,6 +94,7 @@ router.patch("/profile", async (req, res) => {
     "show_in_matching",
     "find_gundruk_mode",
     "vibe_request_privacy",
+    "vibe_goal_filter",
     "display_name",
     "bio",
     "avatar_url",
