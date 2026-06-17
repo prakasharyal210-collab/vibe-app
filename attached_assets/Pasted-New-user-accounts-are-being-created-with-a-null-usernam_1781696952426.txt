@@ -1,0 +1,16 @@
+New user accounts are being created with a null username in the profiles table. Confirmed in the database — a newly signed-up account has username = null (and also age = null, show_in_matching = false). Example row: id 81422457-3e4b-44bf-9204-a55f9254e400 has username = null.
+This breaks multiple things: the profile can't be looked up by username, it won't render properly in feeds/matching, and Find Vibe filtering may exclude it.
+Please investigate the signup / account creation flow:
+
+How is the profiles row created on signup? Trace the registration flow — when a user signs up (email/password), where does the profiles row get inserted, and is the username field included in that insert?
+Is username collected during signup? Check the signup screen — does it ask the user for a username? If yes, is that value actually being passed through to the profile insert, or is it getting lost/not saved? If signup doesn't collect a username at all, that's the root cause — the profile row is created with no username.
+Is the profile row created via a Supabase trigger or in app code? If there's a DB trigger (handle_new_user / on_auth_user_created) that auto-creates the profiles row from auth.users, check whether it sets a username (e.g. from email prefix or metadata). If the trigger inserts a row with only id, the username stays null.
+Is the insert a direct Supabase call that's hanging? If signup writes the profile via a direct anon-key supabase.from('profiles').insert(...), it could be partially failing/hanging under RLS, leaving an incomplete row. Confirm whether profile creation routes through the API server (service-role key).
+
+Please report back:
+
+Where the profiles row gets created on signup
+Why username ends up null (not collected, not passed through, trigger doesn't set it, or insert failing)
+The fix — ensure every new account gets a valid username at signup (either collected from the user, or auto-generated from email/a default, with uniqueness enforced)
+
+Also recommend: should there be a NOT NULL constraint or a fallback (e.g. auto-generate user_<id prefix>) so a null username can never happen again?

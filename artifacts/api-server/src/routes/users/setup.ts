@@ -28,12 +28,14 @@ router.post("/setup", async (req, res) => {
   }
   const sb = makeSupabase();
 
-  // Run all upserts in parallel — each is idempotent (only inserts if missing)
+  // Step 1: Run all upserts in parallel — each is idempotent (only inserts if missing).
+  // ignoreDuplicates: true prevents overwriting user-editable data (bio, avatar, etc.) on
+  // every re-login. The profiles upsert handles the case where NO row exists yet.
   const results = await Promise.allSettled([
     sb
       .from("profiles")
       .upsert(
-        { id: userId, username, email, show_in_matching: true },
+        { id: userId, username, show_in_matching: true },
         { onConflict: "id", ignoreDuplicates: true }
       ),
     sb
@@ -59,6 +61,20 @@ router.post("/setup", async (req, res) => {
 
   if (errors.length) {
     req.log.warn({ errors }, "some setup upserts failed (non-fatal)");
+  }
+
+  // Step 2: If a Supabase trigger (on_auth_user_created) already created the profiles row
+  // with just `id` and no username, the upsert above did nothing (ignoreDuplicates).
+  // Fix it: update the row only where username is still null — safe to call on every login
+  // because the WHERE clause is a no-op once username is set.
+  const { error: fixErr } = await sb
+    .from("profiles")
+    .update({ username, show_in_matching: true })
+    .eq("id", userId)
+    .is("username", null);
+
+  if (fixErr) {
+    req.log.warn({ err: fixErr.message }, "profile username fix-up failed (non-fatal)");
   }
 
   res.json({ ok: true });
