@@ -219,7 +219,7 @@ router.get("/deck", async (req, res) => {
     const settings = settingsRes.data as any;
     const ageMin: number       = settings?.vibe_age_min             ?? 18;
     const ageMax: number       = settings?.vibe_age_max             ?? 60;
-    const radiusKm: number     = settings?.vibe_max_distance_km     ?? 100;
+    const radiusKm: number     = settings?.vibe_max_distance_km     ?? 999;
     const excludeConn: boolean = settings?.vibe_exclude_connections ?? false;
 
     // NULL or empty array = "open to all goals" (safe default — never over-restricts)
@@ -240,7 +240,7 @@ router.get("/deck", async (req, res) => {
       p_looking_for:     null,   // no goal pre-filter at RPC level — we apply it below for logging
       p_age_min:         ageMin,
       p_age_max:         ageMax,
-      p_max_distance_km: radiusKm,
+      p_max_distance_km: radiusKm >= 999 ? null : radiusKm,
     });
 
     if (rpcError) {

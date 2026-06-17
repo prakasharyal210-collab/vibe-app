@@ -540,7 +540,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   story_reply_permission: "everyone",
   vibe_age_min: 18,
   vibe_age_max: 60,
-  vibe_max_distance_km: 50,
+  vibe_max_distance_km: 999,
   vibe_show_distance: true,
   vibe_exclude_connections: false,
   notif_push_enabled: true,

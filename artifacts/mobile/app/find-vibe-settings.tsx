@@ -652,7 +652,7 @@ export default function FindVibeSettings() {
   const vibeInteracted = useRef(false);
   const [vibeAgeMin,           setVibeAgeMin]           = useState(18);
   const [vibeAgeMax,           setVibeAgeMax]           = useState(60);
-  const [vibeMaxDistanceKm,    setVibeMaxDistanceKm]    = useState(50);
+  const [vibeMaxDistanceKm,    setVibeMaxDistanceKm]    = useState(999);
   const [vibeShowDistance,     setVibeShowDistance]     = useState(true);
   const [vibeExcludeConns,     setVibeExcludeConns]     = useState(false);
   const [vibeGoalFilter,       setVibeGoalFilter]       = useState<string[] | null>(null);
