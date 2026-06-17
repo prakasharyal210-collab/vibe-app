@@ -500,8 +500,11 @@ router.get("/matches", async (req, res) => {
 });
 
 // GET /api/vibe/by-intention?goal=X&userId=Y&limit=N
-// Returns profiles whose relationship_goal matches the requested goal,
-// with show_in_matching = true, excluding the current user.
+// Returns profiles matching a specific goal category, with show_in_matching = true.
+// Three OR conditions so "All" users (relationship_goals IS NULL) appear in every tab:
+//   1. relationship_goals array contains the goal
+//   2. legacy relationship_goal scalar equals the goal
+//   3. relationship_goals IS NULL (user chose "All" / open to every intention)
 // Service-role key only — direct anon-key calls hang under RLS.
 router.get("/by-intention", async (req, res) => {
   const { goal, userId, limit: limitStr } = req.query as {
@@ -520,7 +523,7 @@ router.get("/by-intention", async (req, res) => {
     .select(
       "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, vibe_type, show_in_matching, last_active"
     )
-    .or(`relationship_goals.cs.{${goal}},relationship_goal.eq.${goal}`)
+    .or(`relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`)
     .eq("show_in_matching", true)
     .neq("id", userId)
     .order("last_active", { ascending: false, nullsFirst: false })
