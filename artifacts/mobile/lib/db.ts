@@ -646,13 +646,19 @@ export async function saveUserSettings(
   patch: Partial<UserSettings>,
 ): Promise<void> {
   try {
-    await supabase
-      .from("user_settings")
-      .upsert(
-        { user_id: userId, ...patch, updated_at: new Date().toISOString() },
-        { onConflict: "user_id" },
-      );
-  } catch {}
+    const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+    const res = await fetch(`${apiUrl}/api/users/settings`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, ...patch }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn("[saveUserSettings] api error", err);
+    }
+  } catch (e) {
+    console.warn("[saveUserSettings] fetch failed", e);
+  }
 }
 
 // ─── Gundruk Privacy & Preference Settings ─────────────────────────────────────
@@ -685,8 +691,19 @@ export async function getGundrukProfile(userId: string): Promise<GundrukProfile>
 
 export async function saveGundrukProfile(userId: string, patch: Partial<GundrukProfile>): Promise<void> {
   try {
-    await supabase.from("profiles").update(patch as any).eq("id", userId);
-  } catch {}
+    const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+    const res = await fetch(`${apiUrl}/api/users/profile`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, ...patch }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.warn("[saveGundrukProfile] api error", err);
+    }
+  } catch (e) {
+    console.warn("[saveGundrukProfile] fetch failed", e);
+  }
 }
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
