@@ -440,6 +440,58 @@ router.get("/matches", async (req, res) => {
   }
 });
 
+// GET /api/vibe/by-intention?goal=X&userId=Y&limit=N
+// Returns profiles whose relationship_goal matches the requested goal,
+// with show_in_matching = true, excluding the current user.
+// Service-role key only — direct anon-key calls hang under RLS.
+router.get("/by-intention", async (req, res) => {
+  const { goal, userId, limit: limitStr } = req.query as {
+    goal?: string;
+    userId?: string;
+    limit?: string;
+  };
+  if (!goal)   { res.status(400).json({ error: "goal required" });   return; }
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+
+  const limit = Math.min(parseInt(limitStr ?? "50", 10) || 50, 100);
+  const sb = makeSupabase();
+
+  const { data, error } = await sb
+    .from("profiles")
+    .select(
+      "id, username, display_name, avatar_url, bio, age, gender, relationship_goal, interests, vibe_type, show_in_matching, last_active"
+    )
+    .eq("relationship_goal", goal)
+    .eq("show_in_matching", true)
+    .neq("id", userId)
+    .order("last_active", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) {
+    req.log.error({ err: error.message }, "by-intention query error");
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  const users = (data ?? []).map((p: any) => ({
+    id: p.id,
+    username: p.username ?? null,
+    name: p.display_name ?? p.username ?? "Vibe User",
+    age: p.age ?? null,
+    image: p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`,
+    bio: p.bio ?? "",
+    gender: p.gender ?? null,
+    goal: p.relationship_goal ?? null,
+    interests: p.interests ?? [],
+    vibe: p.vibe_type ?? null,
+    isOnline: p.last_active
+      ? Date.now() - new Date(p.last_active).getTime() < 5 * 60 * 1000
+      : false,
+  }));
+
+  res.json({ users });
+});
+
 // POST /api/vibe/reset-deck
 // Body: { userId }
 // Deletes all vibe_swipes rows for this user so previously-seen profiles reappear.

@@ -54,6 +54,7 @@ import {
   getNearbyUsers,
   getUserGoals,
   getVibeMatches,
+  getUsersByIntention,
   getVibePreferences,
   getSwipedIds,
   markMessagesRead,
@@ -1534,7 +1535,9 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
     setLoading(true);
     setUsers([]);
     setSentVibes(new Set());
-    getVibeMatches(userId, { lookingFor: goalValue })
+    // getUsersByIntention goes through the API server (service-role key) with a built-in
+    // 10 s abort — never hangs. getVibeMatches uses supabase.rpc with anon key → hangs forever.
+    getUsersByIntention(userId, goalValue)
       .then((matches) => setUsers(matches))
       .catch(() => setUsers([]))
       .finally(() => setLoading(false));

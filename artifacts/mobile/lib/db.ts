@@ -1733,22 +1733,58 @@ export async function uploadReelMedia(
 
 // ─── Relationship Goals ───────────────────────────────────────────────────────
 
+// NOTE: count values are placeholder copy — they are NOT live DB counts.
+// Before launch, either drive these from a real COUNT(*) per goal or remove the
+// count pill entirely. Showing "3K people" then finding 0 results looks broken.
 export const RELATIONSHIP_GOALS = [
-  { value: "long_term",        label: "Long-term partner",  shortLabel: "Long-term",     emoji: "🌹", count: "3K",   color: "#EC4899" },
-  { value: "serious",          label: "Serious commitment", shortLabel: "Serious",       emoji: "💍", count: "2K",   color: "#EF4444" },
-  { value: "friendship_first", label: "Friendship first",   shortLabel: "Friends first", emoji: "💜", count: "3.5K", color: "#7C3AED" },
-  { value: "friendship",       label: "New friends",        shortLabel: "Friends",       emoji: "🤝", count: "5K",   color: "#8B5CF6" },
-  { value: "activity",         label: "Activity partner",   shortLabel: "Activity",      emoji: "🏃", count: "2.5K", color: "#10B981" },
-  { value: "travel",           label: "Travel buddy",       shortLabel: "Travel",        emoji: "✈️", count: "1.5K", color: "#3B82F6" },
-  { value: "gaming",           label: "Gaming buddy",       shortLabel: "Gaming",        emoji: "🎮", count: "1.2K", color: "#A855F7" },
-  { value: "language",         label: "Language partner",   shortLabel: "Language",      emoji: "🗣️", count: "800",  color: "#06B6D4" },
-  { value: "networking",       label: "Networking",         shortLabel: "Networking",    emoji: "💼", count: "2K",   color: "#64748B" },
-  { value: "short_term",       label: "Short-term fun",     shortLabel: "Short-term",    emoji: "🍭", count: "1K",   color: "#F59E0B" },
-  { value: "tonight",          label: "Free tonight",       shortLabel: "Tonight",       emoji: "🌙", count: "1K",   color: "#F97316" },
-  { value: "figuring",         label: "Still figuring out", shortLabel: "Figuring out",  emoji: "🤔", count: "4K",   color: "#9CA3AF" },
+  { value: "long_term",        label: "Long-term partner",  shortLabel: "Long-term",     emoji: "🌹", count: "—", color: "#EC4899" },
+  { value: "serious",          label: "Serious commitment", shortLabel: "Serious",       emoji: "💍", count: "—", color: "#EF4444" },
+  { value: "friendship_first", label: "Friendship first",   shortLabel: "Friends first", emoji: "💜", count: "—", color: "#7C3AED" },
+  { value: "friendship",       label: "New friends",        shortLabel: "Friends",       emoji: "🤝", count: "—", color: "#8B5CF6" },
+  { value: "activity",         label: "Activity partner",   shortLabel: "Activity",      emoji: "🏃", count: "—", color: "#10B981" },
+  { value: "travel",           label: "Travel buddy",       shortLabel: "Travel",        emoji: "✈️", count: "—", color: "#3B82F6" },
+  { value: "gaming",           label: "Gaming buddy",       shortLabel: "Gaming",        emoji: "🎮", count: "—", color: "#A855F7" },
+  { value: "language",         label: "Language partner",   shortLabel: "Language",      emoji: "🗣️", count: "—", color: "#06B6D4" },
+  { value: "networking",       label: "Networking",         shortLabel: "Networking",    emoji: "💼", count: "—", color: "#64748B" },
+  { value: "short_term",       label: "Short-term fun",     shortLabel: "Short-term",    emoji: "🍭", count: "—", color: "#F59E0B" },
+  { value: "tonight",          label: "Free tonight",       shortLabel: "Tonight",       emoji: "🌙", count: "—", color: "#F97316" },
+  { value: "figuring",         label: "Still figuring out", shortLabel: "Figuring out",  emoji: "🤔", count: "—", color: "#9CA3AF" },
 ] as const;
 
 export type RelGoalValue = typeof RELATIONSHIP_GOALS[number]["value"];
+
+// GET /api/vibe/by-intention — service-role key, never hangs under RLS
+export async function getUsersByIntention(
+  userId: string,
+  goal: string,
+): Promise<VibeMatchProfile[]> {
+  try {
+    const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+    const url = `${apiUrl}/api/vibe/by-intention?goal=${encodeURIComponent(goal)}&userId=${encodeURIComponent(userId)}`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return ((json.users ?? []) as any[]).map((p: any) => ({
+      id: p.id,
+      name: p.name ?? p.display_name ?? p.username ?? "Vibe User",
+      age: p.age ?? 25,
+      image: p.image ?? p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`,
+      bio: p.bio ?? "",
+      interests: p.interests ?? [],
+      gender: p.gender ?? undefined,
+      goal: p.goal ?? undefined,
+      vibe: p.vibe ?? undefined,
+      isOnline: p.isOnline ?? false,
+      vibeScore: 0,
+      matchInterests: [],
+    }));
+  } catch {
+    return [];
+  }
+}
 
 export function getGoalInfo(value?: string | null): { emoji: string; shortLabel: string; label: string; color: string } | null {
   if (!value || value === "all") return null;
