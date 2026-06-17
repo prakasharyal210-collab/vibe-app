@@ -1,0 +1,20 @@
+Two issues on the new Find Vibe Settings screen:
+Bug 1 (critical) — Settings don't persist
+
+When the user changes Find Vibe settings (Vibe Bio, Vibe Photos, toggles, age/distance, preferences), then navigates away (to Profile/Home) and comes back to Find Vibe Settings, all the changes are gone — everything resets to default. This means the settings are only held in local component state and are NOT being saved to / loaded from the database.
+Please investigate:
+
+When a setting is changed on this screen, does it actually save to the DB? Trace the save path — is it a direct Supabase call (supabase.from('profiles').update(...) anon key) that hangs under RLS, or does it not fire at all? Route ALL saves through artifacts/api-server (PATCH /api/users/profile/:userId, service-role key).
+When the screen mounts, does it load the saved values from the DB (via GET /api/users/profile/...) and populate the controls? If it's not loading on mount, that's why everything looks reset even if some values did save. Make sure every field (vibe_bio, vibe_photos, all toggles, age/distance, all preference fields) loads its current saved value on mount.
+Confirm every Find Vibe settings field both saves to and loads from the DB through the API server. Test: change a setting → leave → return → the change is still there.
+
+Bug 2 — Add a Save button at the top
+
+Add a "Save" button at the top of the Find Vibe Settings screen (top-right of the header, like the Edit Profile screen's Save button). Tapping it persists all current settings to the DB through the API server in one go, with a confirmation toast ("Settings saved ✓").
+Decide and implement one consistent model: either (a) each setting auto-saves immediately when changed, OR (b) changes are held and saved together when the user taps Save. Given the persistence bug, I'd recommend the top Save button (option b) so the user has clear control and a clear confirmation that it saved — but make sure that whichever model you pick, the values reliably survive leaving and returning to the screen.
+Please report back:
+
+Why settings weren't persisting (not saving, hanging, or not loading on mount)
+Confirm save + load both route through the API server
+Confirm settings survive navigating away and back
+The new Save button behavior

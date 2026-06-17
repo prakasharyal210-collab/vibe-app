@@ -197,6 +197,57 @@ router.post("/push-token", async (req, res) => {
   }
 });
 
+// GET /api/users/profile/:userId
+// Returns the Find Vibe profile fields for a user using the service-role key
+// (bypasses RLS so the mobile client always gets the real saved values).
+router.get("/profile/:userId", async (req, res) => {
+  const { userId } = req.params as { userId: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  const { data, error } = await sb
+    .from("profiles")
+    .select([
+      "show_in_matching","find_gundruk_mode","vibe_request_privacy","vibe_goal_filter",
+      "vibe_bio","vibe_photos","vibe_filter_min_photos","vibe_filter_requires_bio",
+      "vibe_zodiac","vibe_education","vibe_family_plans","vibe_communication",
+      "vibe_love_style","vibe_pets","vibe_drinking","vibe_smoking","vibe_cannabis",
+      "vibe_workout","vibe_social_media","vibe_open_to","vibe_languages",
+    ].join(","))
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) {
+    req.log.error({ err: error.message }, "get profile error");
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  res.json({ profile: data ?? null });
+});
+
+// GET /api/users/settings/:userId
+// Returns the user_settings row using the service-role key (bypasses RLS).
+router.get("/settings/:userId", async (req, res) => {
+  const { userId } = req.params as { userId: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  const { data, error } = await sb
+    .from("user_settings")
+    .select("vibe_age_min,vibe_age_max,vibe_max_distance_km,vibe_show_distance,vibe_exclude_connections")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    req.log.error({ err: error.message }, "get settings error");
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  res.json({ settings: data ?? null });
+});
+
 // GET /api/users/photos?userId=...
 // Returns the list of media URLs from the user's posts plus their avatar.
 // Used by the Find Vibe Settings photo picker so users can select which

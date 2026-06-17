@@ -696,6 +696,58 @@ export default function FindVibeSettings() {
     onSelect: (v: string) => void;
   } | null>(null);
 
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = useCallback(async () => {
+    if (!userId || saving) return;
+    setSaving(true);
+    try {
+      await Promise.all([
+        saveGundrukProfile(userId, {
+          show_in_matching:         showInMatching,
+          find_gundruk_mode:        findGundrukMode,
+          vibe_request_privacy:     vibeRequestPrivacy,
+          vibe_goal_filter:         vibeGoalFilter,
+          vibe_bio:                 vibeBio || null,
+          vibe_photos:              vibePhotos,
+          vibe_filter_min_photos:   filterMinPhotos,
+          vibe_filter_requires_bio: filterRequiresBio,
+          vibe_zodiac:              vibeZodiac,
+          vibe_education:           vibeEducation,
+          vibe_family_plans:        vibeFamilyPlans,
+          vibe_communication:       vibeCommunication,
+          vibe_love_style:          vibeLoveStyle,
+          vibe_pets:                vibePets,
+          vibe_drinking:            vibeDrinking,
+          vibe_smoking:             vibeSmoking,
+          vibe_cannabis:            vibeCannabis,
+          vibe_workout:             vibeWorkout,
+          vibe_social_media:        vibeSocialMedia,
+          vibe_open_to:             vibeOpenTo,
+          vibe_languages:           vibeLanguages,
+        }),
+        saveUserSettings(userId, {
+          vibe_age_min:              vibeAgeMin,
+          vibe_age_max:              vibeAgeMax,
+          vibe_max_distance_km:      vibeMaxDistanceKm,
+          vibe_show_distance:        vibeShowDistance,
+          vibe_exclude_connections:  vibeExcludeConns,
+        }),
+      ]);
+      showToast("Settings saved ✓");
+    } catch {
+      showToast("Save failed — try again");
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    userId, saving, showInMatching, findGundrukMode, vibeRequestPrivacy, vibeGoalFilter,
+    vibeBio, vibePhotos, filterMinPhotos, filterRequiresBio, vibeZodiac, vibeEducation,
+    vibeFamilyPlans, vibeCommunication, vibeLoveStyle, vibePets, vibeDrinking, vibeSmoking,
+    vibeCannabis, vibeWorkout, vibeSocialMedia, vibeOpenTo, vibeLanguages,
+    vibeAgeMin, vibeAgeMax, vibeMaxDistanceKm, vibeShowDistance, vibeExcludeConns,
+  ]);
+
   // Load settings
   useEffect(() => {
     if (!userId) return;
@@ -769,7 +821,15 @@ export default function FindVibeSettings() {
           <Ionicons name="chevron-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[fvsStyles.headerTitle, { color: colors.foreground }]}>Find Vibe Settings</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity
+          onPress={handleSave}
+          disabled={saving}
+          style={[fvsStyles.saveHeaderBtn, saving && { opacity: 0.5 }]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          {saving
+            ? <ActivityIndicator size="small" color="#EC4899" />
+            : <Text style={fvsStyles.saveHeaderTxt}>Save</Text>}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -820,9 +880,7 @@ export default function FindVibeSettings() {
                     vibeInteracted.current = true;
                     setShowInMatching(v);
                     AsyncStorage.setItem(`find_vibe_locked_${userId}`, v ? "false" : "true").catch(() => {});
-                    saveProfile({ show_in_matching: v });
                     DeviceEventEmitter.emit("findVibeLockChanged", { locked: !v });
-                    showToast(v ? "You're visible in Find Vibe ✅" : "Hidden from Find Vibe 🔒");
                   }}
                   trackColor={{ false: colors.border, true: "#EC4899" }}
                   thumbColor="#fff"
@@ -852,8 +910,6 @@ export default function FindVibeSettings() {
                 <Switch value={vibeShowDistance}
                   onValueChange={(v) => {
                     setVibeShowDistance(v);
-                    persistSetting({ vibe_show_distance: v });
-                    showToast(v ? "Distance shown ✅" : "Distance hidden 🔒");
                   }}
                   trackColor={{ false: colors.border, true: "#6366F1" }}
                   thumbColor="#fff" />
@@ -865,8 +921,6 @@ export default function FindVibeSettings() {
                 <Switch value={vibeExcludeConns}
                   onValueChange={(v) => {
                     setVibeExcludeConns(v);
-                    persistSetting({ vibe_exclude_connections: v });
-                    showToast(v ? "Connections excluded ✅" : "All users may appear ✅");
                   }}
                   trackColor={{ false: colors.border, true: "#F59E0B" }}
                   thumbColor="#fff" />
@@ -883,8 +937,6 @@ export default function FindVibeSettings() {
                   <TouchableOpacity style={fvsStyles.stepperBtn} onPress={() => {
                     const v = Math.max(0, filterMinPhotos - 1);
                     setFilterMinPhotos(v);
-                    saveProfile({ vibe_filter_min_photos: v });
-                    showToast(v === 0 ? "No minimum ✅" : `Min ${v} photo${v === 1 ? "" : "s"} ✅`);
                   }}>
                     <Text style={fvsStyles.stepperTxt}>–</Text>
                   </TouchableOpacity>
@@ -892,8 +944,6 @@ export default function FindVibeSettings() {
                   <TouchableOpacity style={fvsStyles.stepperBtn} onPress={() => {
                     const v = Math.min(6, filterMinPhotos + 1);
                     setFilterMinPhotos(v);
-                    saveProfile({ vibe_filter_min_photos: v });
-                    showToast(`Min ${v} photo${v === 1 ? "" : "s"} ✅`);
                   }}>
                     <Text style={fvsStyles.stepperTxt}>+</Text>
                   </TouchableOpacity>
@@ -907,8 +957,6 @@ export default function FindVibeSettings() {
                 <Switch value={filterRequiresBio}
                   onValueChange={(v) => {
                     setFilterRequiresBio(v);
-                    saveProfile({ vibe_filter_requires_bio: v });
-                    showToast(v ? "Bio required ✅" : "Showing all profiles ✅");
                   }}
                   trackColor={{ false: colors.border, true: "#059669" }}
                   thumbColor="#fff" />
@@ -933,38 +981,38 @@ export default function FindVibeSettings() {
               onPress={() => setShowLanguagesSheet(true)} />
             <Row icon="planet-outline"        iconBg="#6366F1" label="Zodiac Sign"
               sub={labelFor(ZODIAC_OPTIONS, vibeZodiac)}
-              onPress={() => setActivePicker({ title: "Zodiac Sign", options: ZODIAC_OPTIONS, selected: vibeZodiac ?? "", onSelect: (v) => { setVibeZodiac(v); saveProfile({ vibe_zodiac: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Zodiac Sign", options: ZODIAC_OPTIONS, selected: vibeZodiac ?? "", onSelect: (v) => setVibeZodiac(v) })} />
             <Row icon="school-outline"        iconBg="#0284C7" label="Education"
               sub={labelFor(EDUCATION_OPTIONS, vibeEducation)}
-              onPress={() => setActivePicker({ title: "Education", options: EDUCATION_OPTIONS, selected: vibeEducation ?? "", onSelect: (v) => { setVibeEducation(v); saveProfile({ vibe_education: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Education", options: EDUCATION_OPTIONS, selected: vibeEducation ?? "", onSelect: (v) => setVibeEducation(v) })} />
             <Row icon="heart-outline"         iconBg="#EC4899" label="Family Plans"
               sub={labelFor(FAMILY_PLANS_OPTIONS, vibeFamilyPlans)}
-              onPress={() => setActivePicker({ title: "Family Plans", options: FAMILY_PLANS_OPTIONS, selected: vibeFamilyPlans ?? "", onSelect: (v) => { setVibeFamilyPlans(v); saveProfile({ vibe_family_plans: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Family Plans", options: FAMILY_PLANS_OPTIONS, selected: vibeFamilyPlans ?? "", onSelect: (v) => setVibeFamilyPlans(v) })} />
             <Row icon="chatbubbles-outline"   iconBg="#0891B2" label="Communication Style"
               sub={labelFor(COMMUNICATION_OPTIONS, vibeCommunication)}
-              onPress={() => setActivePicker({ title: "Communication Style", options: COMMUNICATION_OPTIONS, selected: vibeCommunication ?? "", onSelect: (v) => { setVibeCommunication(v); saveProfile({ vibe_communication: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Communication Style", options: COMMUNICATION_OPTIONS, selected: vibeCommunication ?? "", onSelect: (v) => setVibeCommunication(v) })} />
             <Row icon="ribbon-outline"        iconBg="#D97706" label="Love Language"
               sub={labelFor(LOVE_STYLE_OPTIONS, vibeLoveStyle)}
-              onPress={() => setActivePicker({ title: "Love Language", options: LOVE_STYLE_OPTIONS, selected: vibeLoveStyle ?? "", onSelect: (v) => { setVibeLoveStyle(v); saveProfile({ vibe_love_style: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Love Language", options: LOVE_STYLE_OPTIONS, selected: vibeLoveStyle ?? "", onSelect: (v) => setVibeLoveStyle(v) })} />
             <Row icon="paw-outline"           iconBg="#78716C" label="Pets"
               sub={labelFor(PETS_OPTIONS, vibePets)}
-              onPress={() => setActivePicker({ title: "Pets", options: PETS_OPTIONS, selected: vibePets ?? "", onSelect: (v) => { setVibePets(v); saveProfile({ vibe_pets: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Pets", options: PETS_OPTIONS, selected: vibePets ?? "", onSelect: (v) => setVibePets(v) })} />
             <Row icon="wine-outline"          iconBg="#7F1D1D" label="Drinking"
               sub={labelFor(DRINKING_OPTIONS, vibeDrinking)}
-              onPress={() => setActivePicker({ title: "Drinking", options: DRINKING_OPTIONS, selected: vibeDrinking ?? "", onSelect: (v) => { setVibeDrinking(v); saveProfile({ vibe_drinking: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Drinking", options: DRINKING_OPTIONS, selected: vibeDrinking ?? "", onSelect: (v) => setVibeDrinking(v) })} />
             <Row icon="flame-outline"         iconBg="#6B7280" label="Smoking"
               sub={labelFor(SMOKING_OPTIONS, vibeSmoking)}
-              onPress={() => setActivePicker({ title: "Smoking", options: SMOKING_OPTIONS, selected: vibeSmoking ?? "", onSelect: (v) => { setVibeSmoking(v); saveProfile({ vibe_smoking: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Smoking", options: SMOKING_OPTIONS, selected: vibeSmoking ?? "", onSelect: (v) => setVibeSmoking(v) })} />
             <Row icon="leaf-outline"          iconBg="#166534" label="Cannabis"
               sub={labelFor(CANNABIS_OPTIONS, vibeCannabis)}
-              onPress={() => setActivePicker({ title: "Cannabis", options: CANNABIS_OPTIONS, selected: vibeCannabis ?? "", onSelect: (v) => { setVibeCannabis(v); saveProfile({ vibe_cannabis: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Cannabis", options: CANNABIS_OPTIONS, selected: vibeCannabis ?? "", onSelect: (v) => setVibeCannabis(v) })} />
             <Row icon="barbell-outline"       iconBg="#EA580C" label="Workout"
               sub={labelFor(WORKOUT_OPTIONS, vibeWorkout)}
-              onPress={() => setActivePicker({ title: "Workout", options: WORKOUT_OPTIONS, selected: vibeWorkout ?? "", onSelect: (v) => { setVibeWorkout(v); saveProfile({ vibe_workout: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Workout", options: WORKOUT_OPTIONS, selected: vibeWorkout ?? "", onSelect: (v) => setVibeWorkout(v) })} />
             <Row icon="phone-portrait-outline" iconBg="#0369A1" label="Social Media"
               sub={labelFor(SOCIAL_MEDIA_OPTIONS, vibeSocialMedia)}
               isLast
-              onPress={() => setActivePicker({ title: "Social Media", options: SOCIAL_MEDIA_OPTIONS, selected: vibeSocialMedia ?? "", onSelect: (v) => { setVibeSocialMedia(v); saveProfile({ vibe_social_media: v }); showToast("Saved ✅"); } })} />
+              onPress={() => setActivePicker({ title: "Social Media", options: SOCIAL_MEDIA_OPTIONS, selected: vibeSocialMedia ?? "", onSelect: (v) => setVibeSocialMedia(v) })} />
           </Card>
         </View>
 
@@ -983,35 +1031,35 @@ export default function FindVibeSettings() {
 
       <OptionPicker visible={showModePicker} title="What are you looking for?"
         options={FIND_GUNDRUK_MODE_OPTIONS} selected={findGundrukMode}
-        onSelect={(v) => { setFindGundrukMode(v); saveProfile({ find_gundruk_mode: v }); showToast("Saved ✅"); }}
+        onSelect={(v) => { setFindGundrukMode(v); }}
         onClose={() => setShowModePicker(false)} />
 
       <OptionPicker visible={showPrivacyPicker} title="Who can send Vibe Requests?"
         options={VIBE_REQUEST_OPTIONS} selected={vibeRequestPrivacy}
-        onSelect={(v) => { setVibeRequestPrivacy(v); saveProfile({ vibe_request_privacy: v }); showToast(v === "nobody" ? "Vibe Requests paused ⏸" : "Saved ✅"); }}
+        onSelect={(v) => { setVibeRequestPrivacy(v); }}
         onClose={() => setShowPrivacyPicker(false)} />
 
       <AgeRangeModal visible={showAgeRangePicker} minAge={vibeAgeMin} maxAge={vibeAgeMax}
-        onSave={(mn, mx) => { setVibeAgeMin(mn); setVibeAgeMax(mx); persistSetting({ vibe_age_min: mn, vibe_age_max: mx }); showToast("Age range saved ✅"); }}
+        onSave={(mn, mx) => { setVibeAgeMin(mn); setVibeAgeMax(mx); }}
         onClose={() => setShowAgeRangePicker(false)} />
 
       <OptionPicker visible={showDistancePicker} title="Distance Range"
         options={DISTANCE_OPTIONS} selected={String(vibeMaxDistanceKm)}
-        onSelect={(v) => { const km = parseInt(v, 10); setVibeMaxDistanceKm(km); persistSetting({ vibe_max_distance_km: km }); showToast("Distance saved ✅"); }}
+        onSelect={(v) => { const km = parseInt(v, 10); setVibeMaxDistanceKm(km); }}
         onClose={() => setShowDistancePicker(false)} />
 
       <GoalFilterSheet visible={showGoalFilterSheet} selected={vibeGoalFilter}
-        onSave={(goals) => { setVibeGoalFilter(goals); saveProfile({ vibe_goal_filter: goals }); showToast(goals ? `${goals.length} goal${goals.length === 1 ? "" : "s"} selected ✅` : "Open to all goals ✅"); }}
+        onSave={(goals) => { setVibeGoalFilter(goals); }}
         onClose={() => setShowGoalFilterSheet(false)} />
 
       <MultiSelectSheet visible={showOpenToSheet} title="Open to…"
         options={OPEN_TO_OPTIONS} selected={vibeOpenTo}
-        onSave={(v) => { setVibeOpenTo(v); saveProfile({ vibe_open_to: v }); showToast("Saved ✅"); }}
+        onSave={(v) => { setVibeOpenTo(v); }}
         onClose={() => setShowOpenToSheet(false)} />
 
       <MultiSelectSheet visible={showLanguagesSheet} title="Languages"
         options={LANGUAGES_OPTIONS} selected={vibeLanguages}
-        onSave={(v) => { setVibeLanguages(v); saveProfile({ vibe_languages: v }); showToast("Saved ✅"); }}
+        onSave={(v) => { setVibeLanguages(v); }}
         onClose={() => setShowLanguagesSheet(false)} />
 
       {activePicker && (
@@ -1023,7 +1071,7 @@ export default function FindVibeSettings() {
 
       {userId ? (
         <PhotoPickerModal visible={showPhotoPicker} userId={userId} selected={vibePhotos}
-          onSave={(photos) => { setVibePhotos(photos); saveProfile({ vibe_photos: photos }); showToast(photos ? `${photos.length} photo${photos.length === 1 ? "" : "s"} saved ✅` : "Photos cleared ✅"); }}
+          onSave={(photos) => { setVibePhotos(photos); }}
           onClose={() => setShowPhotoPicker(false)} />
       ) : null}
 
@@ -1050,9 +1098,7 @@ export default function FindVibeSettings() {
             onPress={() => {
               const trimmed = bioText.trim();
               setVibeBio(trimmed);
-              saveProfile({ vibe_bio: trimmed || null });
               setEditingBio(false);
-              showToast("Vibe bio saved ✅");
             }}>
             <Text style={bioStyles.saveTxt}>Save Bio</Text>
           </TouchableOpacity>
@@ -1095,6 +1141,8 @@ const fvsStyles = StyleSheet.create({
   stepperBtn:  { width: 28, height: 28, borderRadius: 14, backgroundColor: "rgba(139,92,246,0.2)", justifyContent: "center", alignItems: "center" },
   stepperTxt:  { color: "#8B5CF6", fontSize: 18, fontFamily: "Poppins_700Bold", lineHeight: 22 },
   stepperVal:  { fontSize: 15, fontFamily: "Poppins_700Bold", minWidth: 20, textAlign: "center" },
-  toast:       { position: "absolute", bottom: 100, alignSelf: "center", backgroundColor: "rgba(20,20,20,0.9)", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
-  toastText:   { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  toast:          { position: "absolute", bottom: 100, alignSelf: "center", backgroundColor: "rgba(20,20,20,0.9)", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 },
+  toastText:      { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  saveHeaderBtn:  { minWidth: 36, height: 32, justifyContent: "center", alignItems: "center", paddingHorizontal: 4 },
+  saveHeaderTxt:  { color: "#EC4899", fontFamily: "Poppins_700Bold", fontSize: 15 },
 });

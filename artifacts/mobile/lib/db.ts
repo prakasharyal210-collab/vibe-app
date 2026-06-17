@@ -567,20 +567,18 @@ export const DEFAULT_SETTINGS: UserSettings = {
 
 export async function fetchUserSettings(userId: string): Promise<UserSettings> {
   try {
-    const { data, error } = await supabase
-      .from("user_settings")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!error && data) {
-      const raw = data as any;
-      const duet = raw.duet_permission;
-      return {
-        ...DEFAULT_SETTINGS,
-        ...raw,
-        duet_permission: typeof duet === "boolean" ? (duet ? "everyone" : "nobody") : (duet ?? "everyone"),
-      } as UserSettings;
-    }
+    const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+    const res = await fetch(`${apiUrl}/api/users/settings/${userId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json() as { settings: any };
+    const raw = json.settings;
+    if (!raw) return DEFAULT_SETTINGS;
+    const duet = raw.duet_permission;
+    return {
+      ...DEFAULT_SETTINGS,
+      ...raw,
+      duet_permission: typeof duet === "boolean" ? (duet ? "everyone" : "nobody") : (duet ?? "everyone"),
+    } as UserSettings;
   } catch {}
   return DEFAULT_SETTINGS;
 }
@@ -687,56 +685,50 @@ export interface GundrukProfile {
   vibe_languages: string[] | null;
 }
 
+const GUNDRUK_PROFILE_DEFAULTS: GundrukProfile = {
+  show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone",
+  vibe_goal_filter: null, vibe_bio: null, vibe_photos: null,
+  vibe_filter_min_photos: 0, vibe_filter_requires_bio: false,
+  vibe_zodiac: null, vibe_education: null, vibe_family_plans: null,
+  vibe_communication: null, vibe_love_style: null, vibe_pets: null,
+  vibe_drinking: null, vibe_smoking: null, vibe_cannabis: null,
+  vibe_workout: null, vibe_social_media: null, vibe_open_to: null, vibe_languages: null,
+};
+
 export async function getGundrukProfile(userId: string): Promise<GundrukProfile> {
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select([
-        "show_in_matching","find_gundruk_mode","vibe_request_privacy","vibe_goal_filter",
-        "vibe_bio","vibe_photos","vibe_filter_min_photos","vibe_filter_requires_bio",
-        "vibe_zodiac","vibe_education","vibe_family_plans","vibe_communication",
-        "vibe_love_style","vibe_pets","vibe_drinking","vibe_smoking","vibe_cannabis",
-        "vibe_workout","vibe_social_media","vibe_open_to","vibe_languages",
-      ].join(","))
-      .eq("id", userId)
-      .maybeSingle();
-    if (!error && data) {
-      const r = data as any;
-      const arr = (v: any) => Array.isArray(v) && v.length > 0 ? v : null;
-      return {
-        show_in_matching:          r.show_in_matching          ?? false,
-        find_gundruk_mode:         r.find_gundruk_mode         ?? "dating",
-        vibe_request_privacy:      r.vibe_request_privacy      ?? "everyone",
-        vibe_goal_filter:          arr(r.vibe_goal_filter),
-        vibe_bio:                  r.vibe_bio                  ?? null,
-        vibe_photos:               arr(r.vibe_photos),
-        vibe_filter_min_photos:    r.vibe_filter_min_photos    ?? 0,
-        vibe_filter_requires_bio:  r.vibe_filter_requires_bio  ?? false,
-        vibe_zodiac:               r.vibe_zodiac               ?? null,
-        vibe_education:            r.vibe_education            ?? null,
-        vibe_family_plans:         r.vibe_family_plans         ?? null,
-        vibe_communication:        r.vibe_communication        ?? null,
-        vibe_love_style:           r.vibe_love_style           ?? null,
-        vibe_pets:                 r.vibe_pets                 ?? null,
-        vibe_drinking:             r.vibe_drinking             ?? null,
-        vibe_smoking:              r.vibe_smoking              ?? null,
-        vibe_cannabis:             r.vibe_cannabis             ?? null,
-        vibe_workout:              r.vibe_workout              ?? null,
-        vibe_social_media:         r.vibe_social_media         ?? null,
-        vibe_open_to:              arr(r.vibe_open_to),
-        vibe_languages:            arr(r.vibe_languages),
-      };
-    }
+    const apiUrl = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+    const res = await fetch(`${apiUrl}/api/users/profile/${userId}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json() as { profile: any };
+    const r = json.profile;
+    if (!r) return GUNDRUK_PROFILE_DEFAULTS;
+    const arr = (v: any) => Array.isArray(v) && v.length > 0 ? v : null;
+    return {
+      show_in_matching:          r.show_in_matching          ?? false,
+      find_gundruk_mode:         r.find_gundruk_mode         ?? "dating",
+      vibe_request_privacy:      r.vibe_request_privacy      ?? "everyone",
+      vibe_goal_filter:          arr(r.vibe_goal_filter),
+      vibe_bio:                  r.vibe_bio                  ?? null,
+      vibe_photos:               arr(r.vibe_photos),
+      vibe_filter_min_photos:    r.vibe_filter_min_photos    ?? 0,
+      vibe_filter_requires_bio:  r.vibe_filter_requires_bio  ?? false,
+      vibe_zodiac:               r.vibe_zodiac               ?? null,
+      vibe_education:            r.vibe_education            ?? null,
+      vibe_family_plans:         r.vibe_family_plans         ?? null,
+      vibe_communication:        r.vibe_communication        ?? null,
+      vibe_love_style:           r.vibe_love_style           ?? null,
+      vibe_pets:                 r.vibe_pets                 ?? null,
+      vibe_drinking:             r.vibe_drinking             ?? null,
+      vibe_smoking:              r.vibe_smoking              ?? null,
+      vibe_cannabis:             r.vibe_cannabis             ?? null,
+      vibe_workout:              r.vibe_workout              ?? null,
+      vibe_social_media:         r.vibe_social_media         ?? null,
+      vibe_open_to:              arr(r.vibe_open_to),
+      vibe_languages:            arr(r.vibe_languages),
+    };
   } catch {}
-  return {
-    show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone",
-    vibe_goal_filter: null, vibe_bio: null, vibe_photos: null,
-    vibe_filter_min_photos: 0, vibe_filter_requires_bio: false,
-    vibe_zodiac: null, vibe_education: null, vibe_family_plans: null,
-    vibe_communication: null, vibe_love_style: null, vibe_pets: null,
-    vibe_drinking: null, vibe_smoking: null, vibe_cannabis: null,
-    vibe_workout: null, vibe_social_media: null, vibe_open_to: null, vibe_languages: null,
-  };
+  return GUNDRUK_PROFILE_DEFAULTS;
 }
 
 export async function saveGundrukProfile(userId: string, patch: Partial<GundrukProfile>): Promise<void> {
