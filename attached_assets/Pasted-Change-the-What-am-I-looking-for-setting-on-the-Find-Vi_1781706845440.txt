@@ -1,0 +1,20 @@
+Change the "What am I looking for?" setting on the Find Vibe Settings screen (currently shows "❤️ Dating", stored as relationship_goal) into a multi-select with an "All" option — using the same full 12-goal list as the other goal sheets.
+Requirements:
+
+Use all 12 goals from RELATIONSHIP_GOALS in db.ts (Long-term partner, Serious commitment, Friendship first, New friends, Activity partner, Travel buddy, Gaming buddy, Language partner, etc.) — the exact same list and value strings used in the "Browse by Intention" tab and the "I'm open to meeting people looking for…" filter, so everything stays in sync.
+Multi-select — user can pick one or more intentions, plus an "All" option at the top that selects everything.
+Storage — since relationship_goal is currently a single TEXT column but we now need multiple values, change it to an array. Add a migration:
+
+sqlALTER TABLE profiles ADD COLUMN IF NOT EXISTS relationship_goals TEXT[] DEFAULT NULL;
+Use a NEW column relationship_goals (plural, array) rather than overwriting the existing relationship_goal (singular) — then migrate existing single values into the array and update all read paths. OR, if simpler, keep relationship_goal but store a comma-or-array — recommend the cleaner approach and tell me which you chose.
+
+Update Browse by Intention — the category screens currently filter on the single relationship_goal. Update them to check if the selected category is IN the user's relationship_goals array, so a user who selected multiple intentions (or "All") correctly appears under each matching category.
+Same scrollable sheet UI as the goal-filter sheet you just fixed (bounded maxHeight scroll, Select all / Deselect all, Save pinned at bottom) so all 12 options are reachable.
+Saves through the API server (service-role), and loads through the non-colliding /api/users/vibe-profile/:userId route (the one that fixed the persistence bug) — make sure relationship_goals is in the allowed keys and in the select.
+
+Please report back:
+
+Migration SQL to run
+Whether you used a new relationship_goals array column or reused the old one
+Files edited (settings UI, Browse by Intention filter, API allowed-keys + select)
+Confirm "All" selects everything, multi-select persists, and a multi-intention user shows under each matching Browse by Intention category

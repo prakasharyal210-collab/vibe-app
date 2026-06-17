@@ -683,6 +683,7 @@ export interface GundrukProfile {
   vibe_social_media: string | null;
   vibe_open_to: string[] | null;
   vibe_languages: string[] | null;
+  relationship_goals: string[] | null;         // multi-intent "what I'm looking for" — NULL = All
 }
 
 const GUNDRUK_PROFILE_DEFAULTS: GundrukProfile = {
@@ -693,6 +694,7 @@ const GUNDRUK_PROFILE_DEFAULTS: GundrukProfile = {
   vibe_communication: null, vibe_love_style: null, vibe_pets: null,
   vibe_drinking: null, vibe_smoking: null, vibe_cannabis: null,
   vibe_workout: null, vibe_social_media: null, vibe_open_to: null, vibe_languages: null,
+  relationship_goals: null,
 };
 
 export async function getGundrukProfile(userId: string): Promise<GundrukProfile> {
@@ -726,6 +728,7 @@ export async function getGundrukProfile(userId: string): Promise<GundrukProfile>
       vibe_social_media:         r.vibe_social_media         ?? null,
       vibe_open_to:              arr(r.vibe_open_to),
       vibe_languages:            arr(r.vibe_languages),
+      relationship_goals:        arr(r.relationship_goals),
     };
   } catch {}
   return GUNDRUK_PROFILE_DEFAULTS;

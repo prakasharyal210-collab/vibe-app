@@ -677,6 +677,7 @@ export default function FindVibeSettings() {
   const [vibeSocialMedia,   setVibeSocialMedia]   = useState<string | null>(null);
   const [vibeOpenTo,        setVibeOpenTo]        = useState<string[] | null>(null);
   const [vibeLanguages,     setVibeLanguages]     = useState<string[] | null>(null);
+  const [vibeMyGoals,       setVibeMyGoals]       = useState<string[] | null>(null);
 
   // Modal visibility
   const [showModePicker,       setShowModePicker]       = useState(false);
@@ -684,6 +685,7 @@ export default function FindVibeSettings() {
   const [showAgeRangePicker,   setShowAgeRangePicker]   = useState(false);
   const [showDistancePicker,   setShowDistancePicker]   = useState(false);
   const [showGoalFilterSheet,  setShowGoalFilterSheet]  = useState(false);
+  const [showMyGoalSheet,      setShowMyGoalSheet]      = useState(false);
   const [showOpenToSheet,      setShowOpenToSheet]      = useState(false);
   const [showLanguagesSheet,   setShowLanguagesSheet]   = useState(false);
   const [showPhotoPicker,      setShowPhotoPicker]      = useState(false);
@@ -727,6 +729,7 @@ export default function FindVibeSettings() {
           vibe_social_media:        vibeSocialMedia,
           vibe_open_to:             vibeOpenTo,
           vibe_languages:           vibeLanguages,
+          relationship_goals:       vibeMyGoals,
         }),
         saveUserSettings(userId, {
           vibe_age_min:              vibeAgeMin,
@@ -746,7 +749,7 @@ export default function FindVibeSettings() {
     userId, saving, showInMatching, findGundrukMode, vibeRequestPrivacy, vibeGoalFilter,
     vibeBio, vibePhotos, filterMinPhotos, filterRequiresBio, vibeZodiac, vibeEducation,
     vibeFamilyPlans, vibeCommunication, vibeLoveStyle, vibePets, vibeDrinking, vibeSmoking,
-    vibeCannabis, vibeWorkout, vibeSocialMedia, vibeOpenTo, vibeLanguages,
+    vibeCannabis, vibeWorkout, vibeSocialMedia, vibeOpenTo, vibeLanguages, vibeMyGoals,
     vibeAgeMin, vibeAgeMax, vibeMaxDistanceKm, vibeShowDistance, vibeExcludeConns,
   ]);
 
@@ -783,6 +786,7 @@ export default function FindVibeSettings() {
       setVibeSocialMedia(p.vibe_social_media);
       setVibeOpenTo(p.vibe_open_to);
       setVibeLanguages(p.vibe_languages);
+      setVibeMyGoals(p.relationship_goals);
     }).catch(() => {});
   }, [userId]);
 
@@ -809,6 +813,12 @@ export default function FindVibeSettings() {
   const goalFilterLabel = () => {
     if (!vibeGoalFilter || vibeGoalFilter.length === 0) return "All goals (default)";
     const ls = vibeGoalFilter.map((v) => RELATIONSHIP_GOALS.find((g) => g.value === v)?.shortLabel ?? v);
+    if (ls.length <= 2) return ls.join(", ");
+    return `${ls.slice(0, 2).join(", ")} +${ls.length - 2} more`;
+  };
+  const myGoalLabel = () => {
+    if (!vibeMyGoals || vibeMyGoals.length === 0 || vibeMyGoals.length === RELATIONSHIP_GOALS.length) return "All intentions (default)";
+    const ls = vibeMyGoals.map((v) => RELATIONSHIP_GOALS.find((g) => g.value === v)?.shortLabel ?? v);
     if (ls.length <= 2) return ls.join(", ");
     return `${ls.slice(0, 2).join(", ")} +${ls.length - 2} more`;
   };
@@ -891,8 +901,8 @@ export default function FindVibeSettings() {
             />
             <Row icon="compass-outline" iconBg="#7C3AED"
               label="What am I looking for?"
-              sub={FIND_GUNDRUK_MODE_OPTIONS.find((o) => o.value === findGundrukMode)?.label ?? "❤️  Dating"}
-              onPress={() => setShowModePicker(true)} />
+              sub={myGoalLabel()}
+              onPress={() => setShowMyGoalSheet(true)} />
             <Row icon="flash-outline" iconBg="#F97316"
               label="Who can send Vibe Requests?"
               sub={VIBE_REQUEST_OPTIONS.find((o) => o.value === vibeRequestPrivacy)?.label ?? "Everyone"}
@@ -1031,10 +1041,9 @@ export default function FindVibeSettings() {
           MODALS
       ══════════════════════════════════════ */}
 
-      <OptionPicker visible={showModePicker} title="What are you looking for?"
-        options={FIND_GUNDRUK_MODE_OPTIONS} selected={findGundrukMode}
-        onSelect={(v) => { setFindGundrukMode(v); }}
-        onClose={() => setShowModePicker(false)} />
+      <GoalFilterSheet visible={showMyGoalSheet} selected={vibeMyGoals}
+        onSave={(goals) => { setVibeMyGoals(goals); }}
+        onClose={() => setShowMyGoalSheet(false)} />
 
       <OptionPicker visible={showPrivacyPicker} title="Who can send Vibe Requests?"
         options={VIBE_REQUEST_OPTIONS} selected={vibeRequestPrivacy}

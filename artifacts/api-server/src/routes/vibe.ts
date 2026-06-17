@@ -272,28 +272,13 @@ router.get("/deck", async (req, res) => {
       req.log.info({ beforeConn, afterConn: profiles.length }, "vibe-deck: after exclude-connections filter");
     }
 
-    // 4. Goal filter: only active when vibe_goal_filter is a non-empty array.
-    //    When active, candidates with a NULL relationship_goal are excluded —
-    //    they haven't declared an intention so they can't match the filter.
-    //    When inactive (NULL/empty), all candidates pass through regardless of goal.
-    if (goalFilter && goalFilter.length > 0) {
-      const beforeGoal = profiles.length;
-      profiles = profiles.filter((p: any) => {
-        const cGoal: string | null = p.relationship_goal ?? p.looking_for ?? null;
-        return cGoal !== null && goalFilter.includes(cGoal);
-      });
-      req.log.info({ beforeGoal, afterGoal: profiles.length, goalFilter }, "vibe-deck: after goal filter");
-    } else {
-      req.log.info({ goalFilter: null, candidates: profiles.length }, "vibe-deck: goal filter inactive (show all)");
-    }
-
-    // 5. Enrich candidates with vibe_bio + vibe_photos and strip distance from
-    //    profiles whose owner opted out — both queries run in parallel.
+    // 4+5. Enrich candidates then apply goal filter.
+    //       relationship_goals (array) is fetched here so the goal filter can check it.
     if (profiles.length > 0) {
       const ids = profiles.map((p: any) => p.id as string);
       const [distRes, richRes] = await Promise.all([
         sb.from("user_settings").select("user_id, vibe_show_distance").in("user_id", ids),
-        sb.from("profiles").select("id, vibe_bio, vibe_photos").in("id", ids),
+        sb.from("profiles").select("id, vibe_bio, vibe_photos, relationship_goals").in("id", ids),
       ]);
 
       const hideSet = new Set<string>(
@@ -308,7 +293,7 @@ router.get("/deck", async (req, res) => {
       profiles = profiles.map((p: any) => {
         const rich = richMap.get(p.id as string);
         const enriched = rich
-          ? { ...p, vibe_bio: rich.vibe_bio ?? null, vibe_photos: rich.vibe_photos ?? null }
+          ? { ...p, vibe_bio: rich.vibe_bio ?? null, vibe_photos: rich.vibe_photos ?? null, relationship_goals: rich.relationship_goals ?? null }
           : p;
         if (hideSet.has((enriched as any).id as string)) {
           const { distance_km: _dropped, ...rest } = enriched as any;
@@ -316,6 +301,22 @@ router.get("/deck", async (req, res) => {
         }
         return enriched;
       });
+
+      // 5b. Goal filter — runs after enrichment so relationship_goals is available.
+      //     Checks relationship_goals array first; falls back to legacy relationship_goal scalar.
+      if (goalFilter && goalFilter.length > 0) {
+        const beforeGoal = profiles.length;
+        profiles = profiles.filter((p: any) => {
+          const cGoals: string[] =
+            Array.isArray(p.relationship_goals) && (p.relationship_goals as string[]).length > 0
+              ? (p.relationship_goals as string[])
+              : (p.relationship_goal != null ? [p.relationship_goal as string] : []);
+          return cGoals.some((g) => goalFilter.includes(g));
+        });
+        req.log.info({ beforeGoal, afterGoal: profiles.length, goalFilter }, "vibe-deck: after goal filter");
+      } else {
+        req.log.info({ goalFilter: null, candidates: profiles.length }, "vibe-deck: goal filter inactive (show all)");
+      }
 
       // 6. Apply viewer's deck quality filters (bio required + min vibe photos)
       if (vibeFilterRequireBio || vibeFilterMinPhotos > 0) {
@@ -517,9 +518,9 @@ router.get("/by-intention", async (req, res) => {
   const { data, error } = await sb
     .from("profiles")
     .select(
-      "id, username, display_name, avatar_url, bio, age, gender, relationship_goal, interests, vibe_type, show_in_matching, last_active"
+      "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, vibe_type, show_in_matching, last_active"
     )
-    .eq("relationship_goal", goal)
+    .or(`relationship_goals.cs.{${goal}},relationship_goal.eq.${goal}`)
     .eq("show_in_matching", true)
     .neq("id", userId)
     .order("last_active", { ascending: false, nullsFirst: false })
