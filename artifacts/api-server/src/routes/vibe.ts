@@ -518,20 +518,48 @@ router.get("/by-intention", async (req, res) => {
   const limit = Math.min(parseInt(limitStr ?? "50", 10) || 50, 100);
   const sb = makeSupabase();
 
-  const { data, error } = await sb
-    .from("profiles")
-    .select(
-      "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, vibe_type, show_in_matching, last_active"
-    )
-    .or(`relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`)
-    .eq("show_in_matching", true)
-    .neq("id", userId)
-    .order("last_active", { ascending: false, nullsFirst: false })
-    .limit(limit);
+  // Primary query: checks relationship_goals array (new column) OR legacy scalar OR null (= "All").
+  // If relationship_goals column doesn't exist yet (migration not run), fall back to legacy-only query.
+  let data: any[] | null = null;
+  let queryError: any = null;
 
-  if (error) {
-    req.log.error({ err: error.message }, "by-intention query error");
-    res.status(500).json({ error: error.message });
+  { const r = await sb
+      .from("profiles")
+      .select(
+        "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, vibe_type, show_in_matching, last_active"
+      )
+      .or(`relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`)
+      .eq("show_in_matching", true)
+      .neq("id", userId)
+      .order("last_active", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    data = r.data; queryError = r.error; }
+
+  // Fallback: relationship_goals column missing (migration not yet run) → use legacy scalar only
+  if (queryError && (queryError.code === "42703" || String(queryError.message).includes("column"))) {
+    req.log.warn({ goal }, "by-intention: relationship_goals column missing, using legacy fallback");
+    const r2 = await sb
+      .from("profiles")
+      .select(
+        "id, username, avatar_url, bio, age, gender, relationship_goal, interests, vibe_type, show_in_matching, last_active"
+      )
+      .eq("relationship_goal", goal)
+      .eq("show_in_matching", true)
+      .neq("id", userId)
+      .order("last_active", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    if (r2.error) {
+      req.log.error({ err: r2.error.message }, "by-intention fallback query error");
+      res.status(500).json({ error: r2.error.message });
+      return;
+    }
+    data = r2.data;
+    queryError = null;
+  }
+
+  if (queryError) {
+    req.log.error({ err: queryError.message }, "by-intention query error");
+    res.status(500).json({ error: queryError.message });
     return;
   }
 
