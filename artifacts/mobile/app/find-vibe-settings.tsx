@@ -374,6 +374,8 @@ const armStyles = StyleSheet.create({
 
 // ── GoalFilterSheet ───────────────────────────────────────────────────────────
 
+const SCREEN_H = Dimensions.get("window").height;
+
 function GoalFilterSheet({
   visible, selected, onSave, onClose,
 }: {
@@ -411,7 +413,7 @@ function GoalFilterSheet({
               {allSelected ? "Deselect all" : "Select all (default)"}
             </Text>
           </TouchableOpacity>
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={{ maxHeight: SCREEN_H * 0.52 }} showsVerticalScrollIndicator={true}>
             {RELATIONSHIP_GOALS.map((g, idx) => {
               const checked = local.includes(g.value);
               return (
