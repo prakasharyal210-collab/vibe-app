@@ -694,10 +694,15 @@ function GoalFilterSheet({
 }) {
   const colors = useColors();
   const ALL_VALUES = RELATIONSHIP_GOALS.map((g) => g.value);
-  const [local, setLocal] = React.useState<string[]>(selected ?? ALL_VALUES);
+
+  // null or empty array = "open to all" → open the sheet with every goal checked
+  const toLocal = (sel: string[] | null): string[] =>
+    sel && sel.length > 0 ? [...sel] : [...ALL_VALUES];
+
+  const [local, setLocal] = React.useState<string[]>(() => toLocal(selected));
 
   React.useEffect(() => {
-    if (visible) setLocal(selected ?? ALL_VALUES);
+    if (visible) setLocal(toLocal(selected));
   }, [visible]);
 
   const toggle = (value: string) => {
