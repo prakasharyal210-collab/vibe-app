@@ -2461,6 +2461,9 @@ function FindVibeContent() {
       style={[styles.container, { backgroundColor: colors.background }]}
       scrollEnabled={false}
       refreshControl={
+        // Disable pull-to-refresh on tabs with their own inner scroll (matches).
+        // The gesture on a scrollEnabled=false outer view fires over inner scrollable content.
+        activeTab === "matches" ? undefined :
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}

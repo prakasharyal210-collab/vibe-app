@@ -457,8 +457,18 @@ router.get("/matches", async (req, res) => {
       return;
     }
 
-    // Collect the OTHER user's ID for each match
-    const otherIds = rows.map((r) =>
+    // Deduplicate by otherId — vibe_matches stores BOTH directions (A→B and B→A),
+    // so both senderRes and receiverRes contain a row for the same match.
+    // Keep only the first occurrence of each other-user to avoid duplicates.
+    const seenOthers = new Set<string>();
+    const dedupedRows = rows.filter((r) => {
+      const otherId = r.sender_id === userId ? r.receiver_id : r.sender_id;
+      if (seenOthers.has(otherId)) return false;
+      seenOthers.add(otherId);
+      return true;
+    });
+
+    const otherIds = dedupedRows.map((r) =>
       r.sender_id === userId ? r.receiver_id : r.sender_id
     );
 
@@ -476,7 +486,7 @@ router.get("/matches", async (req, res) => {
     const profileMap = new Map<string, any>();
     for (const p of profiles ?? []) profileMap.set(p.id, p);
 
-    const matches = rows.map((r) => {
+    const matches = dedupedRows.map((r) => {
       const otherId = r.sender_id === userId ? r.receiver_id : r.sender_id;
       const p = profileMap.get(otherId) ?? {};
       return {
