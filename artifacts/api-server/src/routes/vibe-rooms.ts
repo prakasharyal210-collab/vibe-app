@@ -11,6 +11,54 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// ─── GET /api/vibe-rooms/status?userId=&roomIds=r1,r2,... ────────────────────
+// Batch endpoint: returns joined state + real member count for multiple rooms.
+// Must be registered BEFORE /:roomId routes so "status" isn't treated as a roomId.
+router.get("/status", async (req, res) => {
+  const { userId, roomIds } = req.query as { userId?: string; roomIds?: string };
+  if (!roomIds) {
+    res.status(400).json({ error: "roomIds required" });
+    return;
+  }
+  const ids = roomIds.split(",").map((s) => s.trim()).filter(Boolean);
+  const sb = makeSupabase();
+
+  // Fetch member counts for all rooms in one query
+  const { data: countRows, error: countErr } = await sb
+    .from("vibe_room_members")
+    .select("room_id")
+    .in("room_id", ids);
+
+  if (countErr) {
+    res.status(500).json({ error: countErr.message });
+    return;
+  }
+
+  // Build count map
+  const countMap: Record<string, number> = {};
+  for (const row of countRows ?? []) {
+    countMap[row.room_id] = (countMap[row.room_id] ?? 0) + 1;
+  }
+
+  // Fetch which rooms this user has joined (skip if no userId)
+  const joinedSet = new Set<string>();
+  if (userId) {
+    const { data: joinedRows } = await sb
+      .from("vibe_room_members")
+      .select("room_id")
+      .eq("user_id", userId)
+      .in("room_id", ids);
+    for (const row of joinedRows ?? []) joinedSet.add(row.room_id);
+  }
+
+  const rooms: Record<string, { joined: boolean; memberCount: number }> = {};
+  for (const id of ids) {
+    rooms[id] = { joined: joinedSet.has(id), memberCount: countMap[id] ?? 0 };
+  }
+
+  res.json({ rooms });
+});
+
 // ─── GET /api/vibe-rooms/joined?userId=&roomId= ───────────────────────────────
 // Returns { joined: boolean }
 router.get("/joined", async (req, res) => {

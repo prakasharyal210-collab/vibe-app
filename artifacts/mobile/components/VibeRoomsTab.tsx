@@ -23,24 +23,28 @@ import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
-  checkRoomJoined,
   joinVibeRoom,
   getRoomMessages,
   sendRoomMessage,
   VibeRoomMessage,
 } from "@/lib/db";
 
-const { width: W, height: H } = Dimensions.get("window");
+const { width: W } = Dimensions.get("window");
+const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? "";
 
 interface VibeRoom {
   id: string;
   emoji: string;
   name: string;
   category: string;
-  members: number;
   isLive: boolean;
   memberPhotos: string[];
   description: string;
+}
+
+interface RoomStatus {
+  joined: boolean;
+  memberCount: number;
 }
 
 interface RoomMessage {
@@ -52,54 +56,52 @@ interface RoomMessage {
   avatar: string;
 }
 
-// Hardcoded room list — IDs match vibe_rooms table slugs ("r1"…"r8").
-// Member counts here are the fallback shown before real DB count loads.
 const VIBE_ROOMS: VibeRoom[] = [
   {
     id: "r1", emoji: "🎵", name: "Music Lovers", category: "Music",
-    members: 847, isLive: true,
+    isLive: true,
     memberPhotos: ["seed/rm1", "seed/rm2", "seed/rm3", "seed/rm4", "seed/rm5", "seed/rm6"],
     description: "Share your music taste, discover new artists, and vibe to the rhythm",
   },
   {
     id: "r2", emoji: "🎮", name: "Gamers Hub", category: "Gaming",
-    members: 632, isLive: true,
+    isLive: true,
     memberPhotos: ["seed/rg1", "seed/rg2", "seed/rg3", "seed/rg4", "seed/rg5", "seed/rg6"],
     description: "All genres welcome. Find your gaming crew and squads",
   },
   {
     id: "r3", emoji: "✈️", name: "Travel Buddies", category: "Travel",
-    members: 1204, isLive: true,
+    isLive: true,
     memberPhotos: ["seed/rt1", "seed/rt2", "seed/rt3", "seed/rt4", "seed/rt5", "seed/rt6"],
     description: "Plan trips, share destinations, find travel companions worldwide",
   },
   {
     id: "r4", emoji: "🍕", name: "Foodies", category: "Food",
-    members: 521, isLive: false,
+    isLive: false,
     memberPhotos: ["seed/rf1", "seed/rf2", "seed/rf3", "seed/rf4", "seed/rf5", "seed/rf6"],
     description: "Recipes, restaurants, food culture — eat your way through the world",
   },
   {
     id: "r5", emoji: "💪", name: "Fitness Tribe", category: "Fitness",
-    members: 389, isLive: true,
+    isLive: true,
     memberPhotos: ["seed/rfi1", "seed/rfi2", "seed/rfi3", "seed/rfi4", "seed/rfi5", "seed/rfi6"],
     description: "Workouts, nutrition, motivation — crush goals together",
   },
   {
     id: "r6", emoji: "📚", name: "Bookworms", category: "Books",
-    members: 276, isLive: false,
+    isLive: false,
     memberPhotos: ["seed/rb1", "seed/rb2", "seed/rb3", "seed/rb4", "seed/rb5", "seed/rb6"],
     description: "Book clubs, recommendations, literary discussions",
   },
   {
     id: "r7", emoji: "🎨", name: "Artists Corner", category: "Art",
-    members: 445, isLive: false,
+    isLive: false,
     memberPhotos: ["seed/ra1", "seed/ra2", "seed/ra3", "seed/ra4", "seed/ra5", "seed/ra6"],
     description: "Share your creations, get feedback, collab with other creators",
   },
   {
     id: "r8", emoji: "💼", name: "Entrepreneurs", category: "Business",
-    members: 312, isLive: false,
+    isLive: false,
     memberPhotos: ["seed/re1", "seed/re2", "seed/re3", "seed/re4", "seed/re5", "seed/re6"],
     description: "Founders, freelancers, side-hustlers — build and grow together",
   },
@@ -124,13 +126,27 @@ function mapApiMessage(r: VibeRoomMessage): RoomMessage {
   };
 }
 
-function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string; onClose: () => void }) {
+function formatCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+// ── RoomModal ─────────────────────────────────────────────────────────────────
+function RoomModal({
+  room, userId, initialJoined, initialMemberCount, onClose, onJoined,
+}: {
+  room: VibeRoom;
+  userId?: string;
+  initialJoined: boolean;
+  initialMemberCount: number;
+  onClose: () => void;
+  onJoined: (roomId: string, newCount: number) => void;
+}) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
-  // joined: undefined = loading, false = not joined, true = joined
-  const [joined, setJoined] = useState<boolean | undefined>(undefined);
-  const [memberCount, setMemberCount] = useState(room.members);
+  const [joined, setJoined] = useState(initialJoined);
+  const [memberCount, setMemberCount] = useState(initialMemberCount);
   const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -140,18 +156,6 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
   const topPad = Platform.OS === "web" ? 16 : insets.top + 8;
   const botPad = Platform.OS === "web" ? 16 : insets.bottom;
 
-  // ── On open: check whether the user has already joined this room ────────────
-  useEffect(() => {
-    if (!userId) {
-      setJoined(false);
-      return;
-    }
-    checkRoomJoined(userId, room.id)
-      .then((alreadyJoined) => setJoined(alreadyJoined))
-      .catch(() => setJoined(false));
-  }, [userId, room.id]);
-
-  // ── Once joined, load messages and subscribe to realtime inserts ────────────
   useEffect(() => {
     if (!joined) return;
 
@@ -172,11 +176,11 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
               const row = payload.new as VibeRoomMessage;
               setMessages((prev) => [...prev, mapApiMessage(row)]);
               setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
-            } catch { /* never crash on realtime payload */ }
+            } catch { }
           },
         )
         .subscribe();
-    } catch { /* channel collision — safe to ignore */ }
+    } catch { }
     channelRef.current = channel;
 
     return () => {
@@ -188,13 +192,13 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
   const handleJoin = async () => {
     if (!userId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setJoined(true); // optimistic
+    setJoined(true);
     try {
       const result = await joinVibeRoom(userId, room.id);
-      // Use real DB count once available (fallback to +1 if count is 0)
-      setMemberCount(result.memberCount > 0 ? result.memberCount : memberCount + 1);
+      const newCount = result.memberCount > 0 ? result.memberCount : memberCount + 1;
+      setMemberCount(newCount);
+      onJoined(room.id, newCount);
     } catch {
-      // join failed — revert optimistic update so user can retry
       setJoined(false);
     }
   };
@@ -218,7 +222,6 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
     try {
       await sendRoomMessage(userId, room.id, draft);
     } catch {
-      // if send fails, remove the optimistic message so user knows to retry
       setMessages((m) => m.filter((msg) => msg.id !== optimistic.id));
       setText(draft);
     } finally {
@@ -226,7 +229,9 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
     }
   };
 
-  const isLoading = joined === undefined;
+  const memberLabel = memberCount > 0
+    ? `${formatCount(memberCount)} member${memberCount !== 1 ? "s" : ""}`
+    : "Be the first!";
 
   return (
     <Modal visible animationType="slide" transparent={false} onRequestClose={onClose}>
@@ -242,7 +247,7 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
                 <Text style={roomStyles.roomName}>{room.name}</Text>
                 <View style={roomStyles.liveRow}>
                   {room.isLive && <View style={roomStyles.liveDot} />}
-                  <Text style={roomStyles.memberCount}>{memberCount.toLocaleString()} members</Text>
+                  <Text style={roomStyles.memberCount}>{memberLabel}</Text>
                 </View>
               </View>
             </View>
@@ -262,50 +267,39 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
                 <Image source={{ uri: `https://picsum.photos/${seed}/60/60` }} style={roomStyles.memberAvatar} />
               </TouchableOpacity>
             ))}
-            <View style={[roomStyles.memberAvatar, { backgroundColor: "rgba(124,58,237,0.3)", alignItems: "center", justifyContent: "center" }]}>
-              <Text style={{ color: "#A78BFA", fontSize: 12, fontFamily: "Poppins_600SemiBold" }}>+{memberCount - 6}</Text>
-            </View>
           </ScrollView>
 
           <Text style={roomStyles.roomDesc}>{room.description}</Text>
 
-          {isLoading ? (
-            <View style={roomStyles.joinBtn}>
+          <TouchableOpacity
+            onPress={joined ? undefined : handleJoin}
+            style={[roomStyles.joinBtn, joined && roomStyles.joinBtnJoined]}
+            activeOpacity={joined ? 1 : 0.85}
+          >
+            {joined ? (
               <View style={roomStyles.joinGrad}>
-                <ActivityIndicator color="#A78BFA" size="small" />
+                <Text style={[roomStyles.joinText, { color: "#A78BFA" }]}>✓ Joined</Text>
               </View>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={joined ? undefined : handleJoin}
-              style={[roomStyles.joinBtn, joined && roomStyles.joinBtnJoined]}
-              activeOpacity={joined ? 1 : 0.85}
-            >
-              {joined ? (
-                <View style={roomStyles.joinGrad}>
-                  <Text style={[roomStyles.joinText, { color: "#A78BFA" }]}>✓ Joined</Text>
-                </View>
-              ) : (
-                <LinearGradient
-                  colors={["#7C3AED", "#EA580C"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={roomStyles.joinGrad}
-                >
-                  <Text style={roomStyles.joinText}>Join Room</Text>
-                </LinearGradient>
-              )}
-            </TouchableOpacity>
-          )}
+            ) : (
+              <LinearGradient
+                colors={["#7C3AED", "#EA580C"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={roomStyles.joinGrad}
+              >
+                <Text style={roomStyles.joinText}>Join Room</Text>
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
         </LinearGradient>
 
-        {!joined && !isLoading ? (
+        {!joined ? (
           <View style={roomStyles.preJoinHint}>
             <Text style={[roomStyles.preJoinText, { color: colors.mutedForeground }]}>
               Join the room to read messages and chat with members 💬
             </Text>
           </View>
-        ) : joined ? (
+        ) : (
           <FlatList
             ref={listRef}
             data={messages}
@@ -329,11 +323,6 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
               );
             }}
           />
-        ) : (
-          // still loading joined state
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-            <ActivityIndicator color="#7C3AED" />
-          </View>
         )}
 
         {joined && (
@@ -363,9 +352,22 @@ function RoomModal({ room, userId, onClose }: { room: VibeRoom; userId?: string;
   );
 }
 
-function RoomCard({ room, userId }: { room: VibeRoom; userId?: string }) {
+// ── RoomCard ──────────────────────────────────────────────────────────────────
+function RoomCard({
+  room, userId, joined, memberCount, onJoined,
+}: {
+  room: VibeRoom;
+  userId?: string;
+  joined: boolean;
+  memberCount: number;
+  onJoined: (roomId: string, newCount: number) => void;
+}) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
+
+  const memberLabel = memberCount > 0
+    ? `${formatCount(memberCount)} member${memberCount !== 1 ? "s" : ""}`
+    : null;
 
   return (
     <>
@@ -376,50 +378,117 @@ function RoomCard({ room, userId }: { room: VibeRoom; userId?: string }) {
       >
         <View style={roomCardStyles.topRow}>
           <Text style={roomCardStyles.emoji}>{room.emoji}</Text>
-          {room.isLive && (
-            <View style={roomCardStyles.liveBadge}>
-              <View style={roomCardStyles.liveDot} />
-              <Text style={roomCardStyles.liveText}>LIVE</Text>
-            </View>
-          )}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            {room.isLive && (
+              <View style={roomCardStyles.liveBadge}>
+                <View style={roomCardStyles.liveDot} />
+                <Text style={roomCardStyles.liveText}>LIVE</Text>
+              </View>
+            )}
+            {joined && (
+              <View style={roomCardStyles.joinedBadge}>
+                <Text style={roomCardStyles.joinedText}>✓ Joined</Text>
+              </View>
+            )}
+          </View>
         </View>
+
         <Text style={[roomCardStyles.name, { color: colors.foreground }]}>{room.name}</Text>
         <Text style={[roomCardStyles.desc, { color: colors.mutedForeground }]} numberOfLines={2}>{room.description}</Text>
+
         <View style={roomCardStyles.memberRow}>
           {room.memberPhotos.slice(0, 4).map((seed, i) => (
             <View key={i} style={[roomCardStyles.memberAvatar, { marginLeft: i > 0 ? -10 : 0, zIndex: 4 - i }]}>
               <Image source={{ uri: `https://picsum.photos/${seed}/60/60` }} style={{ width: "100%", height: "100%", borderRadius: 16 }} />
             </View>
           ))}
-          <Text style={[roomCardStyles.memberCount, { color: colors.mutedForeground }]}>
-            {room.members >= 1000 ? `${(room.members / 1000).toFixed(1)}k` : room.members} members
-          </Text>
+          {memberLabel ? (
+            <Text style={[roomCardStyles.memberCount, { color: colors.mutedForeground }]}>{memberLabel}</Text>
+          ) : null}
         </View>
-        <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={roomCardStyles.joinBtn}>
-          <Text style={roomCardStyles.joinText}>Join Room →</Text>
-        </LinearGradient>
+
+        {joined ? (
+          <View style={[roomCardStyles.joinBtn, { backgroundColor: "rgba(124,58,237,0.12)", borderWidth: 1.5, borderColor: "#7C3AED" }]}>
+            <Text style={[roomCardStyles.joinText, { color: "#A78BFA" }]}>✓ Joined — Open Room</Text>
+          </View>
+        ) : (
+          <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={roomCardStyles.joinBtn}>
+            <Text style={roomCardStyles.joinText}>Join Room →</Text>
+          </LinearGradient>
+        )}
       </TouchableOpacity>
 
-      {open && <RoomModal room={room} userId={userId} onClose={() => setOpen(false)} />}
+      {open && (
+        <RoomModal
+          room={room}
+          userId={userId}
+          initialJoined={joined}
+          initialMemberCount={memberCount}
+          onClose={() => setOpen(false)}
+          onJoined={onJoined}
+        />
+      )}
     </>
   );
 }
 
+// ── VibeRoomsTab ──────────────────────────────────────────────────────────────
 export function VibeRoomsTab() {
   const colors = useColors();
   const { session } = useAuth();
   const userId = session?.user?.id;
 
+  const [roomStatus, setRoomStatus] = useState<Record<string, RoomStatus>>({});
+  const [statusLoaded, setStatusLoaded] = useState(false);
+
+  useEffect(() => {
+    const roomIds = VIBE_ROOMS.map((r) => r.id).join(",");
+    const qs = userId ? `roomIds=${roomIds}&userId=${userId}` : `roomIds=${roomIds}`;
+    fetch(`${API_BASE}/api/vibe-rooms/status?${qs}`)
+      .then((r) => r.json())
+      .then((data: { rooms: Record<string, RoomStatus> }) => {
+        setRoomStatus(data.rooms ?? {});
+      })
+      .catch(() => {})
+      .finally(() => setStatusLoaded(true));
+  }, [userId]);
+
+  const handleJoined = (roomId: string, newCount: number) => {
+    setRoomStatus((prev) => ({
+      ...prev,
+      [roomId]: { joined: true, memberCount: newCount },
+    }));
+  };
+
   return (
-    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 14 }}>
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 120, gap: 14 }}
+    >
       <View style={roomsTabStyles.header}>
         <Text style={[roomsTabStyles.title, { color: colors.foreground }]}>🏠 Vibe Rooms</Text>
         <Text style={[roomsTabStyles.sub, { color: colors.mutedForeground }]}>Meet people who share your interests</Text>
       </View>
 
-      {VIBE_ROOMS.map((room) => (
-        <RoomCard key={room.id} room={room} userId={userId} />
-      ))}
+      {!statusLoaded && (
+        <View style={{ alignItems: "center", paddingVertical: 20 }}>
+          <ActivityIndicator color="#7C3AED" />
+        </View>
+      )}
+
+      {VIBE_ROOMS.map((room) => {
+        const status = roomStatus[room.id] ?? { joined: false, memberCount: 0 };
+        return (
+          <RoomCard
+            key={room.id}
+            room={room}
+            userId={userId}
+            joined={status.joined}
+            memberCount={status.memberCount}
+            onJoined={handleJoined}
+          />
+        );
+      })}
     </ScrollView>
   );
 }
@@ -465,6 +534,8 @@ const roomCardStyles = StyleSheet.create({
   liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(34,197,94,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" },
   liveText: { color: "#22C55E", fontFamily: "Poppins_700Bold", fontSize: 11, letterSpacing: 0.5 },
+  joinedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(124,58,237,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  joinedText: { color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 11 },
   name: { fontFamily: "Poppins_700Bold", fontSize: 17 },
   desc: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 18 },
   memberRow: { flexDirection: "row", alignItems: "center", gap: 4 },

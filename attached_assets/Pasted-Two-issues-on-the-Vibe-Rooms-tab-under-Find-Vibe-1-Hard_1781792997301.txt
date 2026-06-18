@@ -1,0 +1,19 @@
+Two issues on the Vibe Rooms tab (under Find Vibe):
+1. Hard to scroll up/down (gesture conflict — likely from the new swipe-tab PanResponder)
+
+After adding the TabContent PanResponder for left/right tab swiping, the Rooms list (and possibly Matches and other inner tabs) is now hard to scroll vertically — the swipe detector is interfering with vertical scroll.
+The horizontal-dominance check (dx > dy × 1.8) should prevent this, but it's still catching vertical drags. Please:
+
+Tighten the swipe detector so it ONLY claims clearly horizontal gestures and never interferes with vertical scrolling — consider raising the horizontal-dominance ratio, requiring a larger horizontal threshold before claiming, and making sure the inner ScrollView/FlatList gets first claim on vertical drags.
+Verify the Rooms list, Matches list, and Browse by Intention all scroll smoothly up/down without the tab-swipe stealing the gesture.
+
+2. Joined rooms don't update + fake member counts
+
+I joined all the rooms, but every room still shows "Join Room" instead of "Joined," and the member counts are still the hardcoded fake numbers (847, 632, etc.).
+
+Check whether the join actually persists to vibe_room_members (through the API server) and whether the Rooms list checks each room's joined-state on load to show "Joined" vs "Join Room" correctly. Earlier work added checkRoomJoined and a join endpoint — confirm the Rooms LIST (not just the modal) reflects joined state for each room.
+The member counts (847, 632) are hardcoded placeholders. Replace with real COUNT(*) from vibe_room_members per room, OR remove the count until real. Showing "847 members" when it's actually 1 is misleading.
+
+Report which files were edited, confirm scrolling is smooth in all inner tabs, and confirm joined rooms show "Joined" with real member counts.
+
+The scroll problem is the more urgent one since it makes the whole Find Vibe section frustrating to use — and it's a regression from the swipe-tab feature just added. Worth flagging: every time swipe-between-tabs gets touched, it risks breaking vertical scroll in the lists. If the gesture conflict keeps recurring, it may be worth reconsidering whether swipe-between-inner-tabs is worth the trouble vs. just tapping the pills. Test after and tell me if scrolling is fixed.

@@ -2264,13 +2264,17 @@ function TabContent({
   const onSwipeRef = useRef(onSwipe);
   onSwipeRef.current = onSwipe;
 
+  // Threshold: dx must be large AND clearly dominate dy (4:1 ratio) so that
+  // inner vertical ScrollViews/FlatLists always claim their gestures first.
+  // Child responders have priority in React Native's bubble-up system —
+  // we only get the gesture when no inner view claims it (empty swipe areas).
   const pan = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 14 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.8,
+        Math.abs(gs.dx) > 40 && Math.abs(gs.dx) > Math.abs(gs.dy) * 4,
       onPanResponderRelease: (_, gs) => {
-        if (gs.dx < -50) onSwipeRef.current("left");
-        else if (gs.dx > 50) onSwipeRef.current("right");
+        if (gs.dx < -60) onSwipeRef.current("left");
+        else if (gs.dx > 60) onSwipeRef.current("right");
       },
     })
   ).current;
