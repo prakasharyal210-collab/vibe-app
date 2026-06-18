@@ -238,12 +238,9 @@ function ClassicTabLayout({
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
-  // Account for Android system nav bar (back/home/recent buttons).
-  // Without this, the pill tab bar sits at bottom:10 which is INSIDE the
-  // system nav bar area, making those buttons appear as a "second row" below it.
-  // Add 16px above the system nav bar (back/home/recent) — matches TikTok-style clearance.
-  // Math.max ensures a minimum gap even on devices that report insets.bottom = 0.
-  const tabBarBottom = Platform.OS === "web" ? 10 : Math.max(insets.bottom, 8) + 16;
+  // TikTok-style: bar sits flush at bottom: 0, extends under the system nav bar.
+  // Height = visible icon area (58px) + safe-area bottom inset so icons never overlap nav buttons.
+  const tabBarHeight = 58 + insets.bottom;
 
   // Use refs so listeners always read the latest values without stale closures
   const lockedRef = useRef(findVibeLocked);
@@ -269,33 +266,32 @@ function ClassicTabLayout({
         // Give every tab item equal flex so all 5 slots are evenly distributed
         // regardless of icon size. Remove default vertical padding so our TabIcon
         // controls its own spacing consistently.
+        // Each item sits in the top 58px (icon area) only; paddingBottom pushes
+        // content up so it never overlaps the Android system nav buttons.
         tabBarItemStyle: {
           flex: 1,
-          justifyContent: "center",
+          justifyContent: "flex-start",
           alignItems: "center",
-          paddingTop: 0,
+          paddingTop: 8,
           paddingBottom: 0,
+          height: 58,
         },
+        // TikTok-style: flush to bottom, full-width, no pill rounding, no gap.
         tabBarStyle: {
           position: "absolute",
-          left: 16,
-          right: 16,
-          bottom: tabBarBottom,
-          borderRadius: 28,
-          height: Platform.OS === "web" ? 68 : 68,
-          backgroundColor: isIOS ? "transparent" : "rgba(8,8,16,0.96)",
-          borderTopWidth: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          borderRadius: 0,
+          height: tabBarHeight,
+          backgroundColor: isIOS ? "transparent" : "rgba(8,8,16,0.97)",
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: "rgba(255,255,255,0.10)",
           elevation: 0,
           overflow: "hidden",
-          borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.08)",
-          shadowColor: theme.primary,
-          shadowOpacity: 0.18,
-          shadowRadius: 28,
-          shadowOffset: { width: 0, height: 8 },
         },
         tabBarBackground: () =>
-          isIOS ? <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} /> : null,
+          isIOS ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} /> : null,
       }}
     >
       <Tabs.Screen
