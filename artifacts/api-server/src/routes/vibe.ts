@@ -536,7 +536,7 @@ router.get("/by-intention", async (req, res) => {
   { const r = await sb
       .from("profiles")
       .select(
-        "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, vibe_type, show_in_matching, last_active"
+        "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, show_in_matching, last_active"
       )
       .or(orFilter)
       .eq("show_in_matching", true)
@@ -556,7 +556,7 @@ router.get("/by-intention", async (req, res) => {
     const r2 = await sb
       .from("profiles")
       .select(
-        "id, username, avatar_url, bio, age, gender, relationship_goal, interests, vibe_type, show_in_matching, last_active"
+        "id, username, avatar_url, bio, age, gender, relationship_goal, interests, show_in_matching, last_active"
       )
       .eq("relationship_goal", goal)
       .eq("show_in_matching", true)
