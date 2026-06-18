@@ -13,6 +13,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   RefreshControl,
   ScrollView,
@@ -22,7 +23,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import SwipeablePager, { SwipeablePagerRef } from "@/components/SwipeablePager";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
@@ -2242,6 +2242,54 @@ const matchChatStyles = StyleSheet.create({
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
 });
 
+// ── TabContent ─────────────────────────────────────────────────────────────
+// Renders the correct tab page based on `activeTab` state (passed down from
+// the parent). A PanResponder on this View detects horizontal swipes and calls
+// onSwipe("left"|"right") so the parent can advance/retreat the tab.
+// No imperative refs needed — everything is driven by the activeTab prop.
+type TabId = "nearby" | "goals" | "matches" | "rooms" | "astrology" | "daily";
+function TabContent({
+  activeTab, onSwipe,
+  nearContent, goalsContent, matchesContent, roomsContent, astrologyContent, dailyContent,
+}: {
+  activeTab: TabId;
+  onSwipe: (dir: "left" | "right") => void;
+  nearContent: React.ReactNode;
+  goalsContent: React.ReactNode;
+  matchesContent: React.ReactNode;
+  roomsContent: React.ReactNode;
+  astrologyContent: React.ReactNode;
+  dailyContent: React.ReactNode;
+}) {
+  const onSwipeRef = useRef(onSwipe);
+  onSwipeRef.current = onSwipe;
+
+  const pan = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gs) =>
+        Math.abs(gs.dx) > 14 && Math.abs(gs.dx) > Math.abs(gs.dy) * 1.8,
+      onPanResponderRelease: (_, gs) => {
+        if (gs.dx < -50) onSwipeRef.current("left");
+        else if (gs.dx > 50) onSwipeRef.current("right");
+      },
+    })
+  ).current;
+
+  const content =
+    activeTab === "nearby"    ? nearContent :
+    activeTab === "goals"     ? goalsContent :
+    activeTab === "matches"   ? matchesContent :
+    activeTab === "rooms"     ? roomsContent :
+    activeTab === "astrology" ? astrologyContent :
+    dailyContent;
+
+  return (
+    <View style={{ flex: 1 }} {...pan.panHandlers}>
+      {content}
+    </View>
+  );
+}
+
 function FindVibeContent() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -2252,7 +2300,6 @@ function FindVibeContent() {
   const mainTabSwipe = useMainTabSwipe("find");
   const [activeTab, setActiveTab] = useState<"nearby" | "astrology" | "daily" | "rooms" | "goals" | "matches">("nearby");
   const [myGoals, setMyGoals] = useState<string[]>([]);
-  const pagerRef = useRef<SwipeablePagerRef>(null);
   const tabScrollRef = useRef<ScrollView>(null);
   const tabBtnLayouts = useRef<{ x: number; width: number }[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -2524,7 +2571,6 @@ function FindVibeContent() {
             <TouchableOpacity
               key={tab.id}
               onPress={() => {
-                pagerRef.current?.setPage(i);
                 setActiveTab(tab.id);
                 const layout = tabBtnLayouts.current[i];
                 if (layout) {
@@ -2566,23 +2612,21 @@ function FindVibeContent() {
         })}
       </ScrollView>
 
-      {/* ── PagerView for swipeable tabs ── */}
-      <SwipeablePager
-        ref={pagerRef}
-        style={{ flex: 1 }}
-        initialPage={0}
-        onPageScroll={(e: { nativeEvent: { position: number; offset: number } }) => {}}
-        onPageSelected={(e: { nativeEvent: { position: number } }) => {
-          const page = e.nativeEvent.position;
-          setActiveTab(TABS[page].id);
-          const layout = tabBtnLayouts.current[page];
+      {/* ── Tab content — controlled by activeTab state ── */}
+      <TabContent
+        activeTab={activeTab}
+        onSwipe={(dir) => {
+          const idx = TABS.findIndex((t) => t.id === activeTab);
+          const next = dir === "left" ? idx + 1 : idx - 1;
+          if (next < 0 || next >= TABS.length) return;
+          const tab = TABS[next];
+          setActiveTab(tab.id);
+          const layout = tabBtnLayouts.current[next];
           if (layout) {
             tabScrollRef.current?.scrollTo({ x: Math.max(0, layout.x - 24), animated: true });
           }
         }}
-      >
-        {/* Page 0 — Near */}
-        <View key="0" style={{ flex: 1 }}>
+        nearContent={
           <SwipeCardDeck
             cards={nearbyCards}
             onRequireLogin={() => setShowLoginPrompt(true)}
@@ -2594,35 +2638,17 @@ function FindVibeContent() {
               await loadCards(userId, vibePrefs);
             } : undefined}
           />
-        </View>
-
-        {/* Page 1 — Goals Discovery */}
-        <View key="1" style={{ flex: 1 }}>
-          <GoalsDiscoveryTab onGoalSelect={handleGoalTap} userId={userId} />
-        </View>
-
-        {/* Page 2 — Matches */}
-        <View key="2" style={{ flex: 1 }}>
-          {userId ? (
-            <MatchesTab
-              userId={userId}
-              onSwitchToNear={() => { pagerRef.current?.setPage(0); setActiveTab("nearby"); }}
-            />
-          ) : <View />}
-        </View>
-
-        {/* Page 3 — Rooms */}
-        <View key="3" style={{ flex: 1 }}>
-          <VibeRoomsTab />
-        </View>
-
-        {/* Page 4 — Jyotisha */}
-        <View key="4" style={{ flex: 1 }}>
-          <JyotishaTab userId={userId} />
-        </View>
-
-        {/* Page 5 — Daily */}
-        <View key="5" style={{ flex: 1 }}>
+        }
+        goalsContent={<GoalsDiscoveryTab onGoalSelect={handleGoalTap} userId={userId} />}
+        matchesContent={userId ? (
+          <MatchesTab
+            userId={userId}
+            onSwitchToNear={() => setActiveTab("nearby")}
+          />
+        ) : <View />}
+        roomsContent={<VibeRoomsTab />}
+        astrologyContent={<JyotishaTab userId={userId} />}
+        dailyContent={
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
             <DailyVibeSection
               onViewProfile={(card) => setDailyProfileCard(card)}
@@ -2650,8 +2676,8 @@ function FindVibeContent() {
               ))}
             </View>
           </ScrollView>
-        </View>
-      </SwipeablePager>
+        }
+      />
 
       {dailyProfileCard && (
         <ProfileModal
