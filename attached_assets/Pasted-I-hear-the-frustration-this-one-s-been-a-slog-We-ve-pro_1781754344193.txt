@@ -1,0 +1,26 @@
+I hear the frustration — this one's been a slog. We've proven the data and query logic are both correct (your SQL returned all 4 accounts), so the bug is definitely in the endpoint. But rather than another round of Replit guessing, let me check one thing that would explain everything, including why "0 people" shows even though the manual query works.
+There's a strong possibility the by-intention endpoint excludes the current user (you), and since all 4 accounts are yours — when you view from one account, it excludes that account, and the other 3... should still show. Unless there's also a distance/location filter, or the endpoint is hitting an error.
+Let me just have Replit dump the raw endpoint output. This prompt forces it to show the actual error/data instead of theorizing:
+
+Prompt for Replit AI:
+The by-intention tabs STILL show "0 people" for every category. I've confirmed in Supabase that:
+
+The relationship_goals column exists
+All 4 test accounts have relationship_goals = ["long_term","serious","friendship","new_friends"] and show_in_matching = true
+Running the goal-match query manually in Supabase returns all 4 accounts correctly
+
+So the data and the SQL logic are 100% correct. The bug is in the /api/vibe/by-intention endpoint. Do this exactly:
+
+Add a console.log immediately after the Supabase call in the by-intention endpoint that prints BOTH JSON.stringify(data) and JSON.stringify(error).
+Add a console.log of the exact filter/query string being built (the .or(...) value, plus every other .eq, .filter, .neq, distance filter, exclude-self filter, etc. applied to the query).
+Call the "Long-term partner" tab from the app, then paste me the EXACT server log output: the full query, the data, and the error.
+
+Specifically check and report:
+
+Does the endpoint exclude the current viewing user (.neq('id', currentUserId))?
+Does it apply ANY distance/location filter? (All test accounts have null location — a distance filter would exclude everyone.)
+Does it require any field that's null on these accounts (age, location, etc.)?
+Is error non-null? (e.g. a column in .select() that doesn't exist, causing the whole query to fail and return empty.)
+Did the code take the "primary 3-branch" path or the "legacy fallback" path? Log which one ran.
+
+Do NOT suggest running the migration — the column already exists. Paste the raw data, error, and query string from an actual live call.

@@ -523,20 +523,35 @@ router.get("/by-intention", async (req, res) => {
   let data: any[] | null = null;
   let queryError: any = null;
 
+  const orFilter = `relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`;
+  console.log("[by-intention] ── PRIMARY QUERY ──");
+  console.log("[by-intention] goal:", goal);
+  console.log("[by-intention] userId (excluded):", userId);
+  console.log("[by-intention] limit:", limit);
+  console.log("[by-intention] .or filter:", orFilter);
+  console.log("[by-intention] .eq show_in_matching = true");
+  console.log("[by-intention] .neq id !=", userId);
+  console.log("[by-intention] NO distance/location filter applied");
+
   { const r = await sb
       .from("profiles")
       .select(
         "id, username, avatar_url, bio, age, gender, relationship_goal, relationship_goals, interests, vibe_type, show_in_matching, last_active"
       )
-      .or(`relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`)
+      .or(orFilter)
       .eq("show_in_matching", true)
       .neq("id", userId)
       .order("last_active", { ascending: false, nullsFirst: false })
       .limit(limit);
-    data = r.data; queryError = r.error; }
+    data = r.data; queryError = r.error;
+    console.log("[by-intention] PRIMARY path taken");
+    console.log("[by-intention] error:", JSON.stringify(r.error));
+    console.log("[by-intention] data:", JSON.stringify(r.data));
+  }
 
   // Fallback: relationship_goals column missing (migration not yet run) → use legacy scalar only
   if (queryError && (queryError.code === "42703" || String(queryError.message).includes("column"))) {
+    console.log("[by-intention] ── FALLBACK PATH (column missing) ──");
     req.log.warn({ goal }, "by-intention: relationship_goals column missing, using legacy fallback");
     const r2 = await sb
       .from("profiles")
@@ -548,6 +563,8 @@ router.get("/by-intention", async (req, res) => {
       .neq("id", userId)
       .order("last_active", { ascending: false, nullsFirst: false })
       .limit(limit);
+    console.log("[by-intention] FALLBACK error:", JSON.stringify(r2.error));
+    console.log("[by-intention] FALLBACK data:", JSON.stringify(r2.data));
     if (r2.error) {
       req.log.error({ err: r2.error.message }, "by-intention fallback query error");
       res.status(500).json({ error: r2.error.message });
