@@ -431,17 +431,21 @@ router.get("/matches", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    // Fetch all rows where user is sender OR receiver
+    // Fetch all rows where user is sender OR receiver.
+    // vibe_matches uses created_at (not matched_at) — matched_at / compatibility_score don't exist.
     const [senderRes, receiverRes] = await Promise.all([
       sb
         .from("vibe_matches")
-        .select("id, sender_id, receiver_id, matched_at, compatibility_score")
+        .select("id, sender_id, receiver_id, created_at, status")
         .eq("sender_id", userId),
       sb
         .from("vibe_matches")
-        .select("id, sender_id, receiver_id, matched_at, compatibility_score")
+        .select("id, sender_id, receiver_id, created_at, status")
         .eq("receiver_id", userId),
     ]);
+
+    if (senderRes.error) req.log.error({ err: senderRes.error.message }, "vibe-matches: sender query error");
+    if (receiverRes.error) req.log.error({ err: receiverRes.error.message }, "vibe-matches: receiver query error");
 
     const rows: any[] = [
       ...(senderRes.data ?? []),
@@ -478,8 +482,8 @@ router.get("/matches", async (req, res) => {
       return {
         id: otherId,
         matchRowId: r.id,
-        matchedAt: r.matched_at,
-        compatibilityScore: r.compatibility_score ?? 0,
+        matchedAt: r.created_at ?? null,
+        compatibilityScore: 0,
         username: p.username ?? "vibe_user",
         name: p.full_name ?? p.username ?? "Vibe User",
         avatarUrl: p.avatar_url ?? null,
