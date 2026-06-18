@@ -241,7 +241,9 @@ function ClassicTabLayout({
   // Account for Android system nav bar (back/home/recent buttons).
   // Without this, the pill tab bar sits at bottom:10 which is INSIDE the
   // system nav bar area, making those buttons appear as a "second row" below it.
-  const tabBarBottom = Platform.OS === "web" ? 10 : Math.max(insets.bottom, 0) + 10;
+  // Add 16px above the system nav bar (back/home/recent) — matches TikTok-style clearance.
+  // Math.max ensures a minimum gap even on devices that report insets.bottom = 0.
+  const tabBarBottom = Platform.OS === "web" ? 10 : Math.max(insets.bottom, 8) + 16;
 
   // Use refs so listeners always read the latest values without stale closures
   const lockedRef = useRef(findVibeLocked);

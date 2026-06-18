@@ -1696,6 +1696,7 @@ function vibeLevel(score: number = 0): { label: string; color: string } {
 // Defined at module scope (not inside MatchesTab) to avoid Ionicons remount issues.
 function MatchChatView({ myId, match, onBack }: { myId: string; match: VibeMatchProfile; onBack: () => void }) {
   const colors = useColors();
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const [messages, setMessages] = useState<any[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -1782,8 +1783,8 @@ function MatchChatView({ myId, match, onBack }: { myId: string; match: VibeMatch
         }}
       />
 
-      {/* Input bar */}
-      <View style={[matchChatStyles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      {/* Input bar — paddingBottom lifts it above the Android system nav bar */}
+      <View style={[matchChatStyles.inputRow, { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: Math.max(bottomInset, 8) + 6 }]}>
         <TextInput
           value={text}
           onChangeText={setText}
