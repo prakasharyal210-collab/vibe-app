@@ -133,7 +133,7 @@ router.get("/:roomId/messages", async (req, res) => {
   // profiles!user_id works because vibe_room_messages.user_id → profiles(id) FK
   const { data, error } = await sb
     .from("vibe_room_messages")
-    .select("id, room_id, user_id, text, created_at, profiles!user_id(display_name, username, avatar_url)")
+    .select("id, room_id, user_id, text, created_at, profiles!user_id(username, avatar_url)")
     .eq("room_id", roomId)
     .order("created_at", { ascending: true })
     .limit(100);
