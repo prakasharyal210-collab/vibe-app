@@ -472,10 +472,11 @@ export default function FeedScreen() {
     loadTabData("foryou", true);
   }, [userId]);
 
-  // Reload active tab whenever the user navigates back to this screen
+  // Do NOT reload data on focus — that resets scroll position mid-read.
+  // Data loads on mount (useEffect above) and on pull-to-refresh only.
   useFocusEffect(useCallback(() => {
-    loadTabData(activeTab, true);
-  }, [activeTab, loadTabData]));
+    // intentionally empty — keep screenFocused behaviour here if needed later
+  }, []));
 
   useEffect(() => {
     loadFeedAds(userId || undefined, "feed_post").then(setFeedAds).catch(() => setFeedAds(HOUSE_ADS));
@@ -776,25 +777,15 @@ export default function FeedScreen() {
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
                 renderItem={renderTabPost(tab.id, snapH)}
+                snapToInterval={snapH}
+                snapToAlignment="start"
                 decelerationRate="fast"
+                disableIntervalMomentum
                 getItemLayout={(_data, index) => ({ length: snapH, offset: snapH * index, index })}
-                onScrollBeginDrag={(e) => {
-                  dragStartIndexRefs.current[tabIndex] = Math.round(e.nativeEvent.contentOffset.y / snapH);
-                }}
                 onMomentumScrollEnd={(e) => {
-                  const offsetY = e.nativeEvent.contentOffset.y;
-                  const from = dragStartIndexRefs.current[tabIndex];
-                  let target: number;
-                  if (offsetY >= (from + 0.5) * snapH) {
-                    target = from + 1;
-                  } else if (offsetY <= (from - 0.5) * snapH) {
-                    target = from - 1;
-                  } else {
-                    target = from;
-                  }
-                  target = Math.max(0, target);
-                  flatListRefs.current[tabIndex]?.scrollToOffset({ offset: target * snapH, animated: true });
-                  dragStartIndexRefs.current[tabIndex] = target;
+                  // Native snapToInterval handles the actual snapping — just sync the index.
+                  const idx = Math.round(e.nativeEvent.contentOffset.y / snapH);
+                  dragStartIndexRefs.current[tabIndex] = Math.max(0, idx);
                 }}
                 scrollEventThrottle={16}
                 onScroll={(e) => {
@@ -861,6 +852,7 @@ export default function FeedScreen() {
                 onEndReachedThreshold={0.4}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
               />
             </View>
           );
