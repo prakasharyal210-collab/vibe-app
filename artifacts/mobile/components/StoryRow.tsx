@@ -516,7 +516,9 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
         visible={createOpen}
         onClose={() => setCreateOpen(false)}
         onPost={() => {
-          setCreateOpen(false);
+          // Refresh the stories bar in the background immediately after a
+          // successful post — the modal stays open to show the posted-viewer.
+          // The modal is dismissed by its own onClose chain.
           onStoryCreated?.();
         }}
         userId={userId}

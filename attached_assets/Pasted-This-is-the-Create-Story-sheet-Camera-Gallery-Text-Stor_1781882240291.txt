@@ -1,0 +1,20 @@
+This is the Create Story sheet (Camera / Gallery / Text Story / Quick Clip options), tapped from the "Your Story" ring in the Stories bar. So when you tap your story ring, instead of viewing your posted story, it opens the create a new story sheet. That tells me: either the story didn't actually persist, OR the "Your Story" ring always opens the create sheet instead of viewing an existing story.
+Behind this sheet I can also see "0 online" and the Stories bar only shows "Your Story" — no posted story content. Combined with your earlier "it's not visible on my profile," this points to the story not persisting (or not being read back).
+Here's the prompt:
+
+Prompt for Replit AI:
+Story posting/viewing isn't working correctly. When the user taps "Your Story" in the Stories bar, it opens the "Create Story" sheet (Camera/Gallery/Text Story/Quick Clip) instead of VIEWING their already-posted story. Posted stories also don't appear on the profile.
+Two things to investigate:
+1. Does posting a story actually persist?
+
+When a story is created (via Camera/Gallery/Text/Quick Clip), does the write go through artifacts/api-server (service-role key), or a direct anon-key supabase.from('stories').insert(...) that hangs/fails under RLS? If direct, route through the API server.
+Confirm a row is actually inserted into the stories table with the correct user_id, media URL, and created_at/expires_at.
+Add if (error) console.error('[story-create]', error) so failures surface.
+
+2. "Your Story" ring behavior — view vs create:
+
+Currently tapping "Your Story" always opens the Create Story sheet. It should: if the user HAS an active (non-expired) story → tap opens the STORY VIEWER showing their story; if they have NO active story → tap opens the Create sheet (or show a "+" to add).
+Check the query that loads the user's active stories for the ring: is it a direct anon-key call that hangs under RLS (route through API server), and does its SELECT reference only columns that exist in stories (we've repeatedly hit bad-column 42703 errors and media_url→image_url field mismatches today — verify the media field mapping for the story viewer too)?
+Check the 24h expiry filter isn't wrongly excluding a just-posted story (timezone/timestamp comparison bug).
+
+Please report: whether story creation persists to the DB, whether the read query has a hang/bad-column/expiry issue, and confirm that after posting, the "Your Story" ring shows the story and tapping it opens the viewer (not the create sheet).

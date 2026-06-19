@@ -652,9 +652,10 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
     };
     const audienceValue = audienceLabel[audience] ?? "Everyone";
 
-    // Create the story
+    // Create the story — capture result so we can detect failures
+    let storyId: string | null = null;
     if (pending.storyType === "text") {
-      await createStory({
+      storyId = await createStory({
         userId,
         storyType: "text",
         textContent: pending.textContent,
@@ -662,7 +663,20 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
         audience: audienceValue,
       }).catch(() => null);
     } else {
-      await uploadStoryMedia(userId, pending.mediaUri!, pending.caption, pending.storyType, audienceValue).catch(() => null);
+      storyId = await uploadStoryMedia(
+        userId,
+        pending.mediaUri!,
+        pending.caption,
+        pending.storyType,
+        audienceValue,
+      ).catch(() => null);
+    }
+
+    if (!storyId) {
+      // Creation failed — go back to share options and surface the error
+      setMode("share-options");
+      Alert.alert("Upload failed", "Your story could not be posted. Please check your connection and try again.");
+      return;
     }
 
     // Cross-post to feed if requested
@@ -673,6 +687,10 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
         await createFeedPost({ userId, caption: pending.caption, mediaUri: pending.mediaUri }).catch(() => null);
       }
     }
+
+    // Notify parent immediately so the Stories bar refreshes in the background
+    // while the user is still looking at the posted-viewer screen.
+    onPost?.();
 
     setMode("posted-viewer");
   };
@@ -718,7 +736,7 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
         <PostedStoryViewer
           pending={pending}
           username={username}
-          onClose={() => { setMode("sheet"); setPending(null); onPost?.(); onClose(); }}
+          onClose={() => { setMode("sheet"); setPending(null); onClose(); }}
           onAddNew={() => { setMode("sheet"); setPending(null); }}
         />
       ) : (
