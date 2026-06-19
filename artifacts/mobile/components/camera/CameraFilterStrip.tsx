@@ -92,6 +92,7 @@ export function CameraFilterStrip({ visible, activeFilter, intensity, onFilterCh
     <View style={st.container}>
       <ScrollView
         horizontal
+        nestedScrollEnabled
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={st.scroll}
       >

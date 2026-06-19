@@ -571,6 +571,12 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
     };
   }, []);
 
+  // Disable the outer Reels↔Post page-swipe while the filter strip is open so
+  // the strip's own horizontal ScrollView wins the gesture on both iOS and Android.
+  useEffect(() => {
+    onSetPagerEnabled?.(!showFilterStrip);
+  }, [showFilterStrip]);
+
   // ── Tap to focus ──────────────────────────────────────────────────────────
   const handleCameraTap = useCallback((e: any) => {
     const { locationX, locationY } = e.nativeEvent;
@@ -835,9 +841,14 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
     setShowStickerModal(false);
   };
 
-  const cycleFlash = () => setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
-  const flashColor = flashMode === "off" ? "#fff" : flashMode === "on" ? "#EAB308" : "#60A5FA";
-  const flashIcon = flashMode === "off" ? "flash-off-outline" : flashMode === "on" ? "flash-outline" : "flash-outline";
+  // Flash only works on back camera; front camera has no torch hardware
+  const cycleFlash = () => {
+    if (facing !== "back") return;
+    setFlashMode((f) => f === "off" ? "on" : f === "on" ? "auto" : "off");
+  };
+  const flashActive = flashMode !== "off" && facing === "back";
+  const flashColor = !flashActive ? (facing === "front" ? "rgba(255,255,255,0.25)" : "#fff") : flashMode === "on" ? "#EAB308" : "#60A5FA";
+  const flashIcon = flashMode === "off" ? "flash-off-outline" : "flash-outline";
 
   const maxDuration = DURATION_SECS[selectedDuration] ?? 15;
   const recordProgress = recording ? Math.min(recordingElapsed / maxDuration, 1) : 0;
@@ -890,6 +901,7 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
               style={StyleSheet.absoluteFill}
               facing={facing}
               flash={flashMode}
+              enableTorch={flashMode === "on" && facing === "back"}
               mode="video"
               zoom={zoom}
             />
@@ -1069,11 +1081,17 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
               <Text style={s.sideLabel}>Flip</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={s.sideTool} onPress={cycleFlash}>
-              <View style={[s.sideCircle, flashMode !== "off" && { backgroundColor: "#EAB30830" }]}>
+            <TouchableOpacity
+              style={s.sideTool}
+              onPress={facing === "back" ? cycleFlash : undefined}
+              activeOpacity={facing === "back" ? 0.7 : 1}
+            >
+              <View style={[s.sideCircle, flashActive && { backgroundColor: "#EAB30830" }]}>
                 <CI name={flashIcon} size={22} color={flashColor} />
               </View>
-              <Text style={[s.sideLabel, { color: flashColor }]}>{flashMode === "off" ? "Flash" : flashMode === "on" ? "On" : "Auto"}</Text>
+              <Text style={[s.sideLabel, { color: flashColor }]}>
+                {facing === "front" ? "Flash" : flashMode === "off" ? "Flash" : flashMode === "on" ? "Torch" : "Auto"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={s.sideTool} onPress={() => { const opts: TimerValue[] = [0, 3, 5, 10]; setTimerSecs((t) => opts[(opts.indexOf(t) + 1) % opts.length]); }}>
