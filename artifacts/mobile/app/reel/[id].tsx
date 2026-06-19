@@ -16,7 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { Reel, formatCount } from "@/lib/supabase";
+import { supabase, Reel, formatCount } from "@/lib/supabase";
 import { shareContent } from "@/lib/share";
 
 const { width: W, height: H } = Dimensions.get("window");

@@ -14,6 +14,7 @@ import {
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommentsSheet } from "@/components/CommentsSheet";
+import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
@@ -33,6 +34,7 @@ export default function PostDetailScreen() {
   const [saved, setSaved] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -134,8 +136,15 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
 
-        {/* Image */}
-        <Image source={{ uri: imageUrl }} style={{ width: W, height: W }} contentFit="cover" />
+        {/* Image — tap to view fullscreen */}
+        <TouchableOpacity activeOpacity={0.92} onPress={() => setShowViewer(true)}>
+          <Image source={{ uri: imageUrl }} style={{ width: W, height: W }} contentFit="cover" />
+        </TouchableOpacity>
+        <FullscreenImageViewer
+          images={post.images && post.images.length > 0 ? post.images.filter(Boolean) : [imageUrl].filter(Boolean)}
+          visible={showViewer}
+          onClose={() => setShowViewer(false)}
+        />
 
         {/* Actions */}
         <View style={styles.actionsRow}>

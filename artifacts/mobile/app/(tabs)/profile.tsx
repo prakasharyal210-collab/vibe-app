@@ -78,6 +78,7 @@ const MOCK_PROFILE: Profile = {
 interface GridItem {
   id: string;
   image_url: string;
+  media_url?: string;
   isReel?: boolean;
   is_video?: boolean;
   likes?: number;

@@ -24,6 +24,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { CommentsSheet } from "@/components/CommentsSheet";
+import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { ShareSheet } from "@/components/ShareSheet";
 import { useColors } from "@/hooks/useColors";
 import { Post, timeAgo } from "@/lib/supabase";
@@ -68,6 +69,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [commentsDisplay, setCommentsDisplay] = useState(post.comments_count);
   const [achievement, setAchievement] = useState<Achievement | null>(null);
   const [bookmarked, setBookmarked] = useState(false);
+  const [showViewer, setShowViewer] = useState(false);
+  const [viewerStartIndex, setViewerStartIndex] = useState(0);
   const [reposted, setReposted] = useState(false);
   const [favourited, setFavourited] = useState(false);
   const [following, setFollowing] = useState(false);
@@ -163,8 +166,13 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             showsHorizontalScrollIndicator={false}
             onScroll={onScroll}
             scrollEventThrottle={16}
-            renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} resizeMode="cover" />
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
+              >
+                <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} resizeMode="cover" />
+              </TouchableOpacity>
             )}
             scrollEnabled={images.length > 1}
           />
@@ -263,6 +271,12 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         <CommentsSheet visible={showComments} onClose={() => setShowComments(false)} postId={post.id} isLoggedIn={isLoggedIn} onRequireLogin={() => { setShowComments(false); onRequireLogin?.(); }} />
         <ShareSheet visible={showShare} onClose={() => setShowShare(false)} contentType="post" username={post.profiles?.username} />
         <AchievementModal visible={!!achievement} achievement={achievement} onClose={() => setAchievement(null)} />
+        <FullscreenImageViewer
+          images={images.filter(Boolean) as string[]}
+          initialIndex={viewerStartIndex}
+          visible={showViewer}
+          onClose={() => setShowViewer(false)}
+        />
       </View>
     );
   }
@@ -377,8 +391,13 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               showsHorizontalScrollIndicator={false}
               onScroll={onScroll}
               scrollEventThrottle={16}
-              renderItem={({ item }) => (
-                <Image source={{ uri: item }} style={styles.image} resizeMode="cover" />
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
+                >
+                  <Image source={{ uri: item }} style={styles.image} resizeMode="cover" />
+                </TouchableOpacity>
               )}
               scrollEnabled={images.length > 1}
             />
@@ -530,6 +549,12 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         visible={!!achievement}
         achievement={achievement}
         onClose={() => setAchievement(null)}
+      />
+      <FullscreenImageViewer
+        images={images.filter(Boolean) as string[]}
+        initialIndex={viewerStartIndex}
+        visible={showViewer}
+        onClose={() => setShowViewer(false)}
       />
     </View>
   );
