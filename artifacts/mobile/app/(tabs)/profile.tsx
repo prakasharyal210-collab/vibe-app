@@ -756,9 +756,9 @@ export default function ProfileScreen() {
             {(profile as any).zodiac_sign ? (
               <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
             ) : null}
-            <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `gundruk.app/${displayUsername}`)}>
+            <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `gundrukapp.com/${displayUsername}`)}>
               <Ionicons name="link-outline" size={13} color="#8B5CF6" />
-              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>gundruk.app/{displayUsername}</Text>
+              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>gundrukapp.com/{displayUsername}</Text>
             </TouchableOpacity>
           </View>
         </View>

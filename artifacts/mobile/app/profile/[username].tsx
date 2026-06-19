@@ -451,7 +451,7 @@ function ThreeDotsModal({ visible, onClose, username, userId, myId, onBlocked, o
 
   const options: { icon: string; label: string; action: () => void; destructive?: boolean }[] = [
     { icon: "share-social", label: "Share Profile", action: () => Alert.alert("Share", `Share @${username}'s profile`) },
-    { icon: "copy", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `gundruk.app/@${username} copied`) },
+    { icon: "copy", label: "Copy Profile Link", action: () => Alert.alert("Copied!", `gundrukapp.com/@${username} copied`) },
     { icon: "volume-mute", label: isMuted ? `Unmute @${username}` : `Mute @${username}`, action: handleMute },
     { icon: "person-remove", label: busy ? "Please wait…" : `Block @${username}`, action: handleBlock, destructive: true },
     { icon: "eye-off", label: `Restrict @${username}`, action: handleRestrict, destructive: true },

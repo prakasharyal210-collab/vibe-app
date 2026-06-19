@@ -156,7 +156,7 @@ function InviteRow({
 
   const handleInvite = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    const msg = `Hey ${name}! I'm using Gundruk, the new social app 🔥\nJoin me: https://gundruk.app/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
+    const msg = `Hey ${name}! I'm using Gundruk, the new social app 🔥\nJoin me: https://gundrukapp.com/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
     if (phone) {
       const waUrl = `whatsapp://send?phone=${phone.replace(/\D/g, "")}&text=${encodeURIComponent(msg)}`;
       const waSupported = await Linking.canOpenURL(waUrl).catch(() => false);
@@ -358,10 +358,10 @@ export default function FindFriendsScreen() {
   const topPad = Platform.OS === "web" ? 16 : insets.top + 4;
   const bottomPad = Platform.OS === "web" ? 84 : insets.bottom + 20;
 
-  const profileUrl = `https://gundruk.app/@${username}`;
+  const profileUrl = `https://gundrukapp.com/@${username}`;
   const shareMsg = `Hey! Follow me on Gundruk 🔥\n${profileUrl}`;
   const referralCode = myId ? makeReferralCode(username, myId) : "—";
-  const inviteMsg = `Hey! I'm using Gundruk, the new social app 🔥\nJoin me: https://gundruk.app/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
+  const inviteMsg = `Hey! I'm using Gundruk, the new social app 🔥\nJoin me: https://gundrukapp.com/download\nUse my code: ${referralCode}\nWe both get 100 free coins! 🎁`;
 
   const [qrVisible, setQrVisible] = useState(false);
   const [urlCopied, setUrlCopied] = useState(false);

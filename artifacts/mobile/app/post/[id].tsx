@@ -178,11 +178,6 @@ export default function PostDetailScreen() {
           </View>
         ) : null}
 
-        {/* Share link */}
-        <TouchableOpacity style={styles.linkRow} onPress={handleShare}>
-          <Ionicons name="link-outline" size={14} color="#7C3AED" />
-          <Text style={styles.linkText}>gundruk.app/@{username}/post/{post.id.slice(0, 8)}</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       <CommentsSheet

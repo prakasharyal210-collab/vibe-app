@@ -178,10 +178,6 @@ export default function ReelDetailScreen() {
         {reel.caption ? (
           <Text style={styles.caption} numberOfLines={3}>{reel.caption}</Text>
         ) : null}
-        <TouchableOpacity style={styles.linkRow} onPress={handleShare}>
-          <Ionicons name="link-outline" size={12} color="#A78BFA" />
-          <Text style={styles.linkText}>gundruk.app/@{username}/reel/{reel.id.slice(0, 8)}</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Play/pause indicator — shown briefly when toggling, or always if no video */}
