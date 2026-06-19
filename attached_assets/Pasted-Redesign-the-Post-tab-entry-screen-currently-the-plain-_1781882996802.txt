@@ -1,0 +1,26 @@
+Redesign the Post tab entry screen (currently the plain "Add to your grid — Gallery / Camera" screen on the Post tab) to use a CapCut-style home-screen LAYOUT, but keep Gundruk's existing dark theme + orange→purple gradient branding (NOT CapCut's light blue look).
+Layout to mimic (from CapCut's home screen):
+
+Two large prominent action cards at the top (side by side, big and tappable, like CapCut's "New Video" / "Edit Photo" cards):
+
+Card 1 — "Video Post" (for video / long video): big icon, title, short subtitle. Uses the orange→purple gradient as the card background.
+Card 2 — "Photo Post": big icon, title, subtitle. Dark card with a subtle gradient accent/border.
+
+
+A row/grid of smaller tool shortcuts below the big cards (like CapCut's AutoCut / Retouch / Auto captions grid) — icon + label tiles for:
+
+Gallery (choose from library)
+Camera (take photo/video)
+(optional, if they fit your flow: any other quick entry like Story or Reel — but keep to what Gundruk actually supports)
+
+Style these as clean icon tiles in a row/grid, dark cards with the brand accent on icons.
+
+Design requirements:
+
+Dark background (Gundruk's existing theme), orange→purple gradient on the primary "Video Post" card and on icon accents — do NOT use CapCut's light/blue palette.
+Generous spacing, rounded cards, subtle shadows/elevation so cards feel lifted — the polished, premium feel of CapCut's layout.
+Keep the existing Reels/Post top toggle.
+Each card/tile routes to its existing destination: Video Post → video composer/picker, Photo Post → photo composer, Gallery → gallery picker, Camera → camera screen. Don't break the existing flows — just change the entry-screen presentation and wire the cards to the same destinations.
+
+Important: This is a VISUAL/LAYOUT redesign of the entry screen only. Don't change the underlying post-creation logic, upload flow, or composer — just make the entry screen look like CapCut's layout with Gundruk's branding, and make sure each card/tile leads to the correct existing screen.
+Please report which file(s) were edited, describe the new layout, and confirm all four entries (Video Post, Photo Post, Gallery, Camera) route to their correct existing destinations.

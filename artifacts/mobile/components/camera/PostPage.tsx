@@ -220,7 +220,8 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
-  const prevIsActive = useRef(false);
+  // prevIsActive removed — auto-open gallery on tab switch replaced by the
+  // CapCut-style entry screen that lets the user choose their post type.
 
   // ── Tag search debounce ──────────────────────────────────────────────────
   useEffect(() => {
@@ -273,15 +274,8 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     }
   }, []);
 
-  // ── Auto-open gallery when Post tab becomes active ──────────────────────
-  useEffect(() => {
-    if (isActive && !prevIsActive.current && phaseRef.current === "idle") {
-      const t = setTimeout(() => pickFromGallery(), 180);
-      prevIsActive.current = true;
-      return () => clearTimeout(t);
-    }
-    prevIsActive.current = isActive;
-  }, [isActive, pickFromGallery]);
+  // Auto-open removed — the CapCut-style entry screen now shows on idle so
+  // users can choose between Video Post, Photo Post, Gallery, and Camera.
 
   // ── Camera ──────────────────────────────────────────────────────────────
   const openCamera = useCallback(async () => {
@@ -373,27 +367,78 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   // ── Audience helper ─────────────────────────────────────────────────────
   const audienceSel = AUDIENCE_OPTIONS.find((o) => o.key === visibility) ?? AUDIENCE_OPTIONS[0]!;
 
-  // ── Idle ────────────────────────────────────────────────────────────────
+  // ── Idle — CapCut-style entry screen ─────────────────────────────────────
   if (phase === "idle") {
     return (
-      <View style={[p.fill, p.centered, { paddingTop: topInset, paddingBottom: bottomInset }]}>
+      <View style={[p.fill, { paddingTop: topInset + 20, paddingBottom: bottomInset + 16 }]}>
         <StatusBar style="light" />
-        <Text style={p.fallbackEmoji}>🖼️</Text>
-        <Text style={p.fallbackTitle}>Add to your grid</Text>
-        <Text style={p.fallbackSub}>Choose photos or videos to share</Text>
-        <View style={p.fallbackRow}>
-          <TouchableOpacity onPress={pickFromGallery} style={p.fallbackBtn} activeOpacity={0.8}>
-            <LinearGradient colors={["#EA580C", "#7C3AED"]} style={p.fallbackBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-              <Text style={p.fallbackBtnIcon}>🖼️</Text>
-              <Text style={p.fallbackBtnText}>Gallery</Text>
+
+        {/* Header */}
+        <Text style={p.homeTitle}>Create Post</Text>
+        <Text style={p.homeSub}>What do you want to share?</Text>
+
+        {/* ── Two big action cards ── */}
+        <View style={p.bigCardRow}>
+
+          {/* Video Post — gradient card */}
+          <TouchableOpacity style={p.bigCard} onPress={pickFromGallery} activeOpacity={0.86}>
+            <LinearGradient
+              colors={["#EA580C", "#9333EA", "#7C3AED"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={p.bigCardGrad}
+            >
+              <View style={p.bigCardIconWrap}>
+                <Ionicons name="videocam" size={30} color="#fff" />
+              </View>
+              <Text style={p.bigCardTitle}>Video Post</Text>
+              <Text style={p.bigCardSub}>Share a video{"\n"}to your profile</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <TouchableOpacity onPress={openCamera} style={p.fallbackBtn} activeOpacity={0.8}>
-            <View style={p.fallbackBtnSecondary}>
-              <Text style={p.fallbackBtnIcon}>📷</Text>
-              <Text style={p.fallbackBtnText}>Camera</Text>
-            </View>
+
+          {/* Photo Post — dark card with accent border */}
+          <TouchableOpacity style={p.bigCard} onPress={pickFromGallery} activeOpacity={0.86}>
+            <LinearGradient
+              colors={["#18102e", "#0e0b1e"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[p.bigCardGrad, p.bigCardDark]}
+            >
+              <View style={[p.bigCardIconWrap, p.bigCardIconAccent]}>
+                <Ionicons name="image" size={30} color="#A78BFA" />
+              </View>
+              <Text style={p.bigCardTitle}>Photo Post</Text>
+              <Text style={p.bigCardSub}>Add a photo{"\n"}to your grid</Text>
+            </LinearGradient>
           </TouchableOpacity>
+
+        </View>
+
+        {/* ── Quick-access tiles ── */}
+        <Text style={p.quickSectionLabel}>Quick Access</Text>
+        <View style={p.quickRow}>
+
+          <TouchableOpacity style={p.quickTile} onPress={pickFromGallery} activeOpacity={0.8}>
+            <LinearGradient
+              colors={["#EA580C", "#7C3AED"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={p.quickIconCircle}
+            >
+              <Ionicons name="images-outline" size={22} color="#fff" />
+            </LinearGradient>
+            <Text style={p.quickTileLabel}>Gallery</Text>
+            <Text style={p.quickTileSub}>Choose from library</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={p.quickTile} onPress={openCamera} activeOpacity={0.8}>
+            <View style={p.quickIconCircleAccent}>
+              <Ionicons name="camera-outline" size={22} color="#A78BFA" />
+            </View>
+            <Text style={p.quickTileLabel}>Camera</Text>
+            <Text style={p.quickTileSub}>Take a photo or video</Text>
+          </TouchableOpacity>
+
         </View>
       </View>
     );
@@ -910,7 +955,78 @@ const p = StyleSheet.create({
   fill: { flex: 1, backgroundColor: "#080810" },
   centered: { alignItems: "center", justifyContent: "center" },
 
-  // Fallback
+  // ── CapCut-style home entry screen ───────────────────────────────────────
+  homeTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 24, paddingHorizontal: 20, marginBottom: 4 },
+  homeSub: { color: "rgba(255,255,255,0.38)", fontFamily: "Poppins_400Regular", fontSize: 13, paddingHorizontal: 20, marginBottom: 24 },
+
+  // Big cards
+  bigCardRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, marginBottom: 28 },
+  bigCard: {
+    flex: 1,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#7C3AED",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  bigCardGrad: { padding: 18, minHeight: 170, justifyContent: "flex-end", gap: 4 },
+  bigCardDark: { borderWidth: 1, borderColor: "rgba(124,58,237,0.4)" },
+  bigCardIconWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  bigCardIconAccent: { backgroundColor: "rgba(124,58,237,0.28)" },
+  bigCardTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  bigCardSub: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_400Regular", fontSize: 11, lineHeight: 17 },
+
+  // Quick-access tiles
+  quickSectionLabel: {
+    color: "rgba(255,255,255,0.28)",
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 10,
+    textTransform: "uppercase",
+    letterSpacing: 1.4,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+  },
+  quickRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16 },
+  quickTile: {
+    flex: 1,
+    backgroundColor: "#0F0F1E",
+    borderRadius: 18,
+    padding: 18,
+    alignItems: "center",
+    gap: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.07)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  quickIconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  quickIconCircleAccent: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(124,58,237,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(124,58,237,0.35)",
+  },
+  quickTileLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  quickTileSub: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 10, textAlign: "center" },
+
+  // Legacy fallback keys kept so any residual references don't break
   fallbackEmoji: { fontSize: 44, marginBottom: 12 },
   fallbackTitle: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold", marginBottom: 6 },
   fallbackSub: { color: "rgba(255,255,255,0.4)", fontSize: 13, fontFamily: "Poppins_400Regular", textAlign: "center", paddingHorizontal: 32, marginBottom: 28 },
