@@ -323,6 +323,7 @@ function ClassicTabLayout({
         options={{
           title: "",
           tabBarIcon: () => <CreateIcon />,
+          tabBarStyle: { display: "none" },
         }}
       />
       <Tabs.Screen
