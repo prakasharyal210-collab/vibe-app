@@ -777,13 +777,9 @@ export default function FeedScreen() {
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
                 renderItem={renderTabPost(tab.id, snapH)}
-                snapToInterval={snapH}
-                snapToAlignment="start"
-                decelerationRate="fast"
-                disableIntervalMomentum
+                decelerationRate="normal"
                 getItemLayout={(_data, index) => ({ length: snapH, offset: snapH * index, index })}
                 onMomentumScrollEnd={(e) => {
-                  // Native snapToInterval handles the actual snapping — just sync the index.
                   const idx = Math.round(e.nativeEvent.contentOffset.y / snapH);
                   dragStartIndexRefs.current[tabIndex] = Math.max(0, idx);
                 }}
