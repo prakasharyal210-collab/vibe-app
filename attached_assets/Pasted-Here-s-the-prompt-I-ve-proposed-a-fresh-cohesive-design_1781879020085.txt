@@ -1,0 +1,36 @@
+Here's the prompt. I've proposed a fresh, cohesive design direction that matches Gundruk's existing brand (the orange→purple gradient, dark theme, the gradient-ring avatars you use elsewhere) while adding genuinely useful features:
+
+Prompt for Replit AI:
+Redesign the post detail screen (app/post/[id].tsx) to be unique, polished, and on-brand — both a visual redesign AND new features. Currently it's plain: basic header, media, a row of action icons, caption. Make it feel like a premium, distinctive Gundruk experience.
+Design direction (cohesive with the rest of the app):
+
+Use Gundruk's existing brand language — dark theme, the orange→purple gradient (used on Follow / + buttons), and the gradient-ring avatar style from the profile redesign. Keep it clean but distinctive.
+Visual redesign:
+
+Author header — gradient-ring avatar (orange→purple), username + relationship status/zodiac pill if set, timestamp, and a gradient Follow button (switches to outlined "Following" when followed). Tapping the author → opens their profile.
+Media — keep the fullscreen-tap-to-zoom viewer already built. Add subtle rounded corners and a soft shadow/elevation on the media card so it feels lifted off the background. For multi-image posts, show a clean dot indicator.
+Action bar — redesign the like/comment/share/save row into a polished bar: animated like (heart scales + fills on tap, Reanimated), live counts, and a bookmark/save icon. Use consistent icon+count styling. Consider a subtle frosted/elevated bar.
+Caption — cleaner typography, username bolded inline before caption text, "more"/"less" expand for long captions, tappable @mentions and #hashtags styled in the brand purple.
+Spacing & polish — generous, consistent spacing; nothing cramped; smooth section separation.
+
+New features to add:
+
+Like with animation — tapping like animates (heart pop), updates count, toggles correctly (proper like/unlike — check it doesn't just increment, same toggle logic as reels). Route through API server.
+Save/Bookmark — save a post to a personal saved list. Add a saved_posts table (user_id, post_id, created_at) if it doesn't exist; route through API server. Bookmark icon fills when saved.
+Double-tap to like — double-tapping the media likes it with a heart burst animation over the image.
+Comments preview — show the top 1–2 comments inline under the caption with a "View all N comments" link that opens the comments sheet.
+Share — wire the existing shareContent() (gundrukapp.com link) to the share icon.
+
+Follow project conventions:
+
+ALL DB access through artifacts/api-server (service-role) — no direct anon-key supabase.from() calls (they hang under RLS).
+In any profile join, do NOT select display_name (doesn't exist). Use username, avatar_url, full_name, is_verified.
+Map media_url → image_url so media never renders black.
+Every loading state resets in a finally block.
+Add if (error) console.error(...) after Supabase calls.
+
+Please report back:
+
+Migration SQL needed (e.g. saved_posts table)
+Files created/edited
+Confirm like toggles correctly (not just increments), save persists, double-tap-to-like works, comments preview loads, and everything routes through the API server.

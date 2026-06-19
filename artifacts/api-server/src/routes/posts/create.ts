@@ -415,6 +415,90 @@ router.get("/saved", async (req, res) => {
   }
 });
 
+// GET /api/posts/like-status — ?postId=&userId= — { liked, saved }
+router.get("/like-status", async (req, res) => {
+  const { postId, userId } = req.query as { postId?: string; userId?: string };
+  if (!postId || !userId) { res.status(400).json({ error: "postId and userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const [likeRes, saveRes] = await Promise.all([
+      sb.from("post_likes").select("id").eq("post_id", postId).eq("user_id", userId).maybeSingle(),
+      sb.from("favourites").select("id").eq("post_id", postId).eq("user_id", userId).maybeSingle(),
+    ]);
+    res.json({ liked: !!likeRes.data, saved: !!saveRes.data });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "like-status exception");
+    res.json({ liked: false, saved: false });
+  }
+});
+
+// POST /api/posts/like — body: { postId, userId } — toggles like, returns { liked, likesCount }
+router.post("/like", async (req, res) => {
+  const { postId, userId } = req.body as { postId?: string; userId?: string };
+  if (!postId || !userId) { res.status(400).json({ error: "postId and userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    // Try Supabase RPC first (handles count + toggle atomically)
+    const { data: rpcData, error: rpcErr } = await sb.rpc("toggle_post_like", {
+      p_post_id: postId,
+      p_user_id: userId,
+    });
+    if (!rpcErr && rpcData != null) {
+      const d = rpcData as any;
+      res.json({ liked: !!d.liked, likesCount: d.likes_count ?? 0 });
+      return;
+    }
+    // Fallback: manual toggle via post_likes table (DB trigger maintains likes_count)
+    const { data: existing } = await sb
+      .from("post_likes")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    let liked: boolean;
+    if (existing) {
+      await sb.from("post_likes").delete().eq("post_id", postId).eq("user_id", userId);
+      liked = false;
+    } else {
+      await sb.from("post_likes").upsert(
+        { post_id: postId, user_id: userId },
+        { onConflict: "post_id,user_id", ignoreDuplicates: true },
+      );
+      liked = true;
+    }
+    const { data: post } = await sb.from("posts").select("likes_count").eq("id", postId).single();
+    res.json({ liked, likesCount: post?.likes_count ?? 0 });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "post like toggle exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
+// POST /api/posts/save — body: { postId, userId } — toggles bookmark, returns { saved }
+router.post("/save", async (req, res) => {
+  const { postId, userId } = req.body as { postId?: string; userId?: string };
+  if (!postId || !userId) { res.status(400).json({ error: "postId and userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data: existing } = await sb
+      .from("favourites")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (existing) {
+      await sb.from("favourites").delete().eq("post_id", postId).eq("user_id", userId);
+      res.json({ saved: false });
+    } else {
+      await sb.from("favourites").insert({ post_id: postId, user_id: userId });
+      res.json({ saved: true });
+    }
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "post save toggle exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
 // GET /api/posts/:postId — fetch a single post by ID, bypassing RLS.
 // Maps media_url → image_url so clients that read image_url always get the URL.
 router.get("/:postId", async (req, res) => {
