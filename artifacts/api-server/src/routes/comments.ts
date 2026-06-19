@@ -40,6 +40,64 @@ function checkProfanity(text: string): { ok: boolean; reason?: string } {
   return { ok: true };
 }
 
+// ─── GET /api/comments ────────────────────────────────────────────────────────
+// Fetch comments for a post or reel via service-role key (bypasses RLS).
+// Query params: postId OR reelId
+// Returns: Comment[]  (same shape used by the mobile client)
+router.get("/", async (req, res) => {
+  const { postId, reelId } = req.query as { postId?: string; reelId?: string };
+  if (!postId && !reelId) {
+    res.status(400).json({ error: "postId or reelId required" });
+    return;
+  }
+  const sb = makeSupabase();
+
+  try {
+    if (reelId) {
+      // Try the RPC first (richer data, handles content normalisations)
+      const { data: rpcData, error: rpcErr } = await sb.rpc("get_reel_comments", {
+        p_reel_id: reelId,
+        p_user_id: null,
+      });
+      if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
+        res.json({ comments: rpcData });
+        return;
+      }
+      // Fallback: direct select (safe — service-role key)
+      const { data, error } = await sb
+        .from("reel_comments")
+        .select("*, profiles:user_id(id, username, avatar_url)")
+        .eq("reel_id", reelId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) {
+        req.log.warn({ error: error.message }, "reel_comments fetch error");
+        res.json({ comments: [] });
+        return;
+      }
+      res.json({ comments: data ?? [] });
+      return;
+    }
+
+    // Post comments
+    const { data, error } = await sb
+      .from("comments")
+      .select("*, profiles:user_id(id, username, avatar_url)")
+      .eq("post_id", postId!)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) {
+      req.log.warn({ error: error.message }, "comments fetch error");
+      res.json({ comments: [] });
+      return;
+    }
+    res.json({ comments: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "comments GET exception");
+    res.json({ comments: [] });
+  }
+});
+
 // ─── POST /api/comments ───────────────────────────────────────────────────────
 // body: { userId, postId?, reelId?, text, contentType: "post" | "reel", parentCommentId? }
 // Enforces: profanity filter + block check vs content owner → 403 if blocked.

@@ -58,14 +58,14 @@ function notifText(type: string, message?: string): string {
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
 export async function fetchComments(postId: string): Promise<Comment[]> {
+  // Route through API server (service-role key) — direct Supabase anon-key calls
+  // hang forever under RLS and never resolve, leaving the spinner stuck.
   try {
-    const { data, error } = await supabase
-      .from("comments")
-      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
-      .eq("post_id", postId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (!error && data) return data as unknown as Comment[];
+    const res = await fetch(`${API_BASE}/comments?postId=${encodeURIComponent(postId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      return (json.comments ?? []) as Comment[];
+    }
   } catch {}
   return [];
 }
@@ -101,18 +101,14 @@ export async function addComment(
 // ─── Reel Comments ────────────────────────────────────────────────────────────
 
 export async function fetchReelComments(reelId: string): Promise<Comment[]> {
+  // Route through API server (service-role key) — direct anon-key calls hang under RLS.
   try {
-    const { data: rpcData } = await supabase.rpc("get_reel_comments", { p_reel_id: reelId, p_user_id: null });
-    if (rpcData && rpcData.length > 0) return rpcData as Comment[];
-  } catch {}
-  try {
-    const { data, error } = await supabase
-      .from("reel_comments")
-      .select("*, profiles:user_id(id, username, avatar_url, is_verified)")
-      .eq("reel_id", reelId)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (!error && data && data.length > 0) return data as unknown as Comment[];
+    const res = await fetch(`${API_BASE}/comments?reelId=${encodeURIComponent(reelId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      const items = (json.comments ?? []) as Comment[];
+      if (items.length > 0) return items;
+    }
   } catch {}
   return MOCK_COMMENTS.slice(0, 5);
 }
