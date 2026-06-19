@@ -16,7 +16,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { supabase, Reel, formatCount } from "@/lib/supabase";
+import { Reel, formatCount } from "@/lib/supabase";
 import { shareContent } from "@/lib/share";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -37,17 +37,25 @@ export default function ReelDetailScreen() {
 
   useEffect(() => {
     if (!id) return;
+    const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
     (async () => {
-      const { data } = await supabase
-        .from("reels")
-        .select("*, profiles!user_id(id, username, avatar_url, is_verified)")
-        .eq("id", id)
-        .single();
-      if (data) {
-        setReel(data as Reel);
-        setLikesCount((data as any).likes_count ?? 0);
+      try {
+        const res = await fetch(`${API_BASE}/reels/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          const body = await res.json();
+          const data = body.data as any;
+          if (data) {
+            setReel(data as Reel);
+            setLikesCount(data.likes_count ?? 0);
+          }
+        } else {
+          console.error("[reel-detail] API error", res.status);
+        }
+      } catch (e: any) {
+        console.error("[reel-detail] fetch threw:", e?.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, [id]);
 

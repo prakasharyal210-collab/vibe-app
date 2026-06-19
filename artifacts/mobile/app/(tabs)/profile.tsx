@@ -187,7 +187,7 @@ function VideoItem({ item, isActive }: { item: GridItem; isActive: boolean }) {
     <View style={{ width: W, alignItems: "center", justifyContent: "center" }}>
       <Video
         ref={videoRef}
-        source={{ uri: item.video_url ?? item.image_url }}
+        source={{ uri: item.media_url ?? item.image_url }}
         style={pvStyles.photo}
         resizeMode={ResizeMode.CONTAIN}
         useNativeControls={false}
@@ -555,7 +555,7 @@ export default function ProfileScreen() {
           setSavedPosts(
             (json.posts ?? []).map((p: any) => ({
               id: p.id,
-              image_url: p.image_url,
+              image_url: p.media_url ?? p.image_url,
               isReel: false,
               likes: p.likes ?? 0,
               comments: p.comments ?? 0,
@@ -584,7 +584,7 @@ export default function ProfileScreen() {
               .filter(Boolean)
               .map((p: any) => ({
                 id: p.id,
-                image_url: p.media_url ?? p.image_url,
+                image_url: p.media_url ?? p.image_url ?? null,
                 isReel: false,
                 likes: p.likes_count ?? 0,
                 comments: p.comments_count ?? 0,
@@ -915,10 +915,10 @@ export default function ProfileScreen() {
               }
             }}
           >
-            {item.is_video && item.image_url ? (
-              <VideoGridCell videoUri={item.image_url} style={styles.gridImage} />
+            {item.is_video && (item.media_url ?? item.image_url) ? (
+              <VideoGridCell videoUri={(item.media_url ?? item.image_url)!} style={styles.gridImage} />
             ) : (
-              <Image source={{ uri: item.image_url || undefined }} style={styles.gridImage} resizeMode="cover" />
+              <Image source={{ uri: item.media_url ?? item.image_url ?? undefined }} style={styles.gridImage} resizeMode="cover" />
             )}
             {(item as any).is_pinned && (
               <View style={styles.pinBadge}>

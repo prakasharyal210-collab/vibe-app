@@ -91,4 +91,24 @@ router.post("/like", async (req, res) => {
   });
 });
 
+// GET /api/reels/:reelId — fetch a single reel by ID, bypassing RLS.
+router.get("/:reelId", async (req, res) => {
+  const { reelId } = req.params;
+  if (!reelId) { res.status(400).json({ error: "reelId required" }); return; }
+
+  const sb = makeSupabase();
+  const { data, error } = await sb
+    .from("reels")
+    .select("*, profiles!user_id(id, username, avatar_url, full_name, is_verified)")
+    .eq("id", reelId)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ error: error?.message ?? "Reel not found" });
+    return;
+  }
+
+  res.json({ data });
+});
+
 export default router;

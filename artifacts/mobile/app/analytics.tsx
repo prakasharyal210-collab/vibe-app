@@ -83,17 +83,22 @@ export default function AnalyticsScreen() {
     const cutoff = new Date(Date.now() - days * 86400000).toISOString();
 
     try {
+      // supabase.from("posts") hangs forever under RLS with the anon key,
+      // and Promise.allSettled waits for all — so one hung promise freezes all 4.
+      // Route the posts query through the API server (service-role key) instead.
+      const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
       const [likesRes, commentsRes, followersRes, postsRes] = await Promise.allSettled([
         supabase.from("likes").select("id", { count: "exact" }).eq("user_id", uid).gte("created_at", cutoff),
         supabase.from("comments").select("id", { count: "exact" }).eq("user_id", uid).gte("created_at", cutoff),
         supabase.from("follows").select("id", { count: "exact" }).eq("following_id", uid).gte("created_at", cutoff),
-        supabase.from("posts").select("id, media_url, likes_count, comments_count, caption").eq("user_id", uid).order("likes_count", { ascending: false }).limit(5),
+        fetch(`${API_BASE}/posts/user/${uid}?limit=5`).then((r) => r.ok ? r.json() : { posts: [] }).catch(() => ({ posts: [] })),
       ]);
 
       const likes = likesRes.status === "fulfilled" ? (likesRes.value.count ?? 0) : Math.floor(Math.random() * 800) + 100;
       const comments = commentsRes.status === "fulfilled" ? (commentsRes.value.count ?? 0) : Math.floor(Math.random() * 200) + 30;
       const newFollowers = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : Math.floor(Math.random() * 120) + 20;
-      const posts = postsRes.status === "fulfilled" && postsRes.value.data ? postsRes.value.data : [];
+      const postsBody = postsRes.status === "fulfilled" ? postsRes.value : { posts: [] };
+      const posts = postsBody.posts ?? postsBody.data ?? [];
 
       setStats([
         { icon: "eye-outline", label: "Profile Views", value: Math.floor(Math.random() * 2000) + 500, change: 12, color: "#8B5CF6" },
