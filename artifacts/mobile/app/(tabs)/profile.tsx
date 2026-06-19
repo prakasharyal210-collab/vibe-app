@@ -42,7 +42,7 @@ import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { Profile, supabase } from "@/lib/supabase";
 import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
-import { shareContent } from "@/lib/share";
+import { BASE_URL, shareContent } from "@/lib/share";
 
 const { width: W, height: H } = Dimensions.get("window");
 const GRID_ITEM = (W - 3) / 3;
@@ -756,9 +756,9 @@ export default function ProfileScreen() {
             {(profile as any).zodiac_sign ? (
               <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
             ) : null}
-            <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `gundrukapp.com/${displayUsername}`)}>
+            <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `${BASE_URL}/${displayUsername}`)}>
               <Ionicons name="link-outline" size={13} color="#8B5CF6" />
-              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>gundrukapp.com/{displayUsername}</Text>
+              <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>{BASE_URL.replace("https://", "")}/{displayUsername}</Text>
             </TouchableOpacity>
           </View>
         </View>

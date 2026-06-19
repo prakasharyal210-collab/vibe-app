@@ -1,3 +1,4 @@
+import { BASE_URL } from "@/lib/share";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -950,7 +951,7 @@ export default function SettingsScreen() {
           <Card>
             <Row icon="help-circle-outline" iconBg="#0EA5E9" label="Help Center"
               sub="FAQs, guides & contact"
-              onPress={() => openLink("https://gundrukapp.com/help", "Help Center")} />
+              onPress={() => openLink(`${BASE_URL}/help`, "Help Center")} />
             <Row icon="bug-outline" iconBg="#F97316" label="Report a Problem"
               sub="Let us know about issues"
               onPress={() => Alert.alert("Report a Problem", "Please describe your issue:", [
@@ -958,9 +959,9 @@ export default function SettingsScreen() {
                 { text: "Send Report", onPress: () => showToast("✅ Report sent — thank you!") },
               ])} />
             <Row icon="document-text-outline" iconBg="#6B7280" label="Terms of Service"
-              onPress={() => openLink("https://gundrukapp.com/terms", "Terms of Service")} />
+              onPress={() => openLink(`${BASE_URL}/terms`, "Terms of Service")} />
             <Row icon="shield-checkmark-outline" iconBg="#10B981" label="Privacy Policy"
-              onPress={() => openLink("https://gundrukapp.com/privacy", "Privacy Policy")}
+              onPress={() => openLink(`${BASE_URL}/privacy`, "Privacy Policy")}
               isLast />
           </Card>
         </View>
