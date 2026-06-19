@@ -83,8 +83,19 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
 
-  // Reset aspect ratio when FlatList recycles this view for a different post
-  useEffect(() => { setMediaAspectRatio(1); }, [post.id]);
+  // Pre-fetch the first image's intrinsic dimensions before the first render.
+  // Image.getSize is reliable for network URIs; onLoad (inside FlatList) fires
+  // too late — FlatList has already locked in the square height by then.
+  useEffect(() => {
+    setMediaAspectRatio(1);
+    const url = images[0];
+    if (!url) return;
+    Image.getSize(
+      url,
+      (w, h) => { if (w && h) setMediaAspectRatio(w / h); },
+      () => {}
+    );
+  }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect video posts — check is_video flag OR file extension on the URL
   const videoUrl = post.is_video
@@ -395,19 +406,17 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               showsHorizontalScrollIndicator={false}
               onScroll={onScroll}
               scrollEventThrottle={16}
-              renderItem={({ item, index }) => (
+              extraData={mediaAspectRatio}
+              style={{ height: CARD_W / mediaAspectRatio }}
+              renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.9}
-                  onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
+                  onPress={() => { setViewerStartIndex(images.indexOf(item)); setShowViewer(true); }}
                 >
                   <Image
                     source={{ uri: item }}
                     style={{ width: CARD_W, height: CARD_W / mediaAspectRatio }}
                     resizeMode="contain"
-                    onLoad={index === 0 ? (e) => {
-                      const { width, height } = e.nativeEvent.source;
-                      if (width && height) setMediaAspectRatio(width / height);
-                    } : undefined}
                   />
                 </TouchableOpacity>
               )}
