@@ -7,13 +7,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import Svg, { Ellipse } from "react-native-svg";
-
 export interface BeautySettings {
   smooth: number;
   brighten: number;
   slim: number;
-  eyes: number;
 }
 
 interface Props {
@@ -28,7 +25,6 @@ const SLIDERS: { key: keyof BeautySettings; label: string; emoji: string; color:
   { key: "smooth",   label: "Smooth",   emoji: "✨", color: "#EC4899" },
   { key: "brighten", label: "Brighten", emoji: "☀️", color: "#FBBF24" },
   { key: "slim",     label: "Slim",     emoji: "💎", color: "#8B5CF6" },
-  { key: "eyes",     label: "Big Eyes", emoji: "👁",  color: "#3B82F6" },
 ];
 
 // ── Working draggable slider ───────────────────────────────────────────────
@@ -140,9 +136,9 @@ export function BeautyPanel({ visible, settings, onChange, onClose, bottomOffset
 
 // ── Live overlay effects on the camera view ────────────────────────────────
 export function BeautyOverlay({ settings }: { settings: BeautySettings }) {
-  const { smooth, brighten, slim, eyes } = settings;
+  const { smooth, brighten, slim } = settings;
 
-  if (smooth === 0 && brighten === 0 && slim === 0 && eyes === 0) return null;
+  if (smooth === 0 && brighten === 0 && slim === 0) return null;
 
   // Slim: dark gradient bars on the sides — creates face-narrowing illusion
   const slimOpacity = slim / 200;          // max ~0.5 at 100
@@ -194,25 +190,6 @@ export function BeautyOverlay({ settings }: { settings: BeautySettings }) {
         </>
       )}
 
-      {/* ── Eyes ── bright spotlight around the eye area */}
-      {eyes > 0 && (
-        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-          <Ellipse
-            cx="37%"
-            cy="30%"
-            rx="12%"
-            ry="7%"
-            fill={`rgba(255,255,255,${eyes / 600})`}
-          />
-          <Ellipse
-            cx="63%"
-            cy="30%"
-            rx="12%"
-            ry="7%"
-            fill={`rgba(255,255,255,${eyes / 600})`}
-          />
-        </Svg>
-      )}
     </View>
   );
 }

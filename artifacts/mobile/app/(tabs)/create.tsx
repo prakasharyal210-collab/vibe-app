@@ -495,7 +495,7 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
 
   // ── Beauty ────────────────────────────────────────────────────────────────
   const [showBeauty, setShowBeauty] = useState(false);
-  const [beautySettings, setBeautySettings] = useState<BeautySettings>({ smooth: 0, brighten: 0, slim: 0, eyes: 0 });
+  const [beautySettings, setBeautySettings] = useState<BeautySettings>({ smooth: 0, brighten: 0, slim: 0 });
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [showFilterStrip, setShowFilterStrip] = useState(false);
