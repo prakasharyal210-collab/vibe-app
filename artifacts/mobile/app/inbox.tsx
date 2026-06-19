@@ -177,7 +177,8 @@ function SwipeableRow({
   onMute?: () => void;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const OPEN_X = -104;
+  const OPEN_X = -216;
+  const ACTION_W = 72;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -209,30 +210,28 @@ function SwipeableRow({
   const close = () =>
     Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
 
-  const actionWidth = 104 / ([onMute, onArchive, onDelete].filter(Boolean).length || 1);
-
   return (
     <View style={{ overflow: "hidden" }}>
       <View style={[StyleSheet.absoluteFill, { flexDirection: "row", justifyContent: "flex-end" }]}>
         {onMute && (
           <TouchableOpacity onPress={() => { close(); onMute(); }}
-            style={[swipeSt.action, { backgroundColor: "#6B7280", width: actionWidth }]}>
+            style={[swipeSt.action, { backgroundColor: "#6B7280", width: ACTION_W }]}>
             <Ionicons name="notifications-off-outline" size={19} color="#fff" />
-            <Text style={swipeSt.actionLabel}>Mute</Text>
+            <Text style={swipeSt.actionLabel} numberOfLines={1}>Mute</Text>
           </TouchableOpacity>
         )}
         {onArchive && (
           <TouchableOpacity onPress={() => { close(); onArchive(); }}
-            style={[swipeSt.action, { backgroundColor: "#374151", width: actionWidth }]}>
+            style={[swipeSt.action, { backgroundColor: "#374151", width: ACTION_W }]}>
             <Ionicons name="archive-outline" size={19} color="#fff" />
-            <Text style={swipeSt.actionLabel}>Archive</Text>
+            <Text style={swipeSt.actionLabel} numberOfLines={1}>Archive</Text>
           </TouchableOpacity>
         )}
         {onDelete && (
           <TouchableOpacity onPress={() => { close(); onDelete(); }}
-            style={[swipeSt.action, { backgroundColor: "#EF4444", width: actionWidth }]}>
+            style={[swipeSt.action, { backgroundColor: "#EF4444", width: ACTION_W }]}>
             <Ionicons name="trash-outline" size={19} color="#fff" />
-            <Text style={swipeSt.actionLabel}>Delete</Text>
+            <Text style={swipeSt.actionLabel} numberOfLines={1}>Delete</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -244,8 +243,8 @@ function SwipeableRow({
 }
 
 const swipeSt = StyleSheet.create({
-  action: { alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 6 },
-  actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 10 },
+  action: { alignItems: "center", justifyContent: "center", gap: 4 },
+  actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 11, letterSpacing: 0.2 },
 });
 
 // ─── GundrukAIRow ─────────────────────────────────────────────────────────────
@@ -317,10 +316,10 @@ const msgSt = StyleSheet.create({
 
 function MessageConvoItem({
   convo, isPinned, isMuted, isFavorite, hasStory,
-  onCamera, onLongPress, onDelete, onMute, onArchive,
+  onLongPress, onDelete, onMute, onArchive,
 }: {
   convo: Conversation; isPinned: boolean; isMuted: boolean; isFavorite: boolean; hasStory: boolean;
-  onCamera: () => void; onLongPress: () => void;
+  onCamera?: () => void; onLongPress: () => void;
   onDelete: () => void; onMute: () => void; onArchive: () => void;
 }) {
   const colors = useColors();
@@ -377,9 +376,6 @@ function MessageConvoItem({
             )}
           </View>
         </View>
-        <TouchableOpacity onPress={onCamera} style={msgSt.camBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="camera-outline" size={21} color={colors.mutedForeground} />
-        </TouchableOpacity>
       </Pressable>
     </SwipeableRow>
   );

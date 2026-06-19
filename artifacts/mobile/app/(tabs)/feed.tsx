@@ -261,7 +261,7 @@ const whyStyles = StyleSheet.create({
 });
 
 
-function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts: { id: string; image_url?: string; media_url?: string; likes_count: number }[]; colors: any; title?: string }) {
+function TrendingGrid({ posts, colors, title = "Trending on the web" }: { posts: { id: string; image_url?: string; media_url?: string; likes_count: number }[]; colors: any; title?: string }) {
   const ITEM = (W - 4) / 3;
   function fmt(n: number) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
@@ -270,10 +270,13 @@ function TrendingGrid({ posts, colors, title = "Trending on Gundruk" }: { posts:
   }
   return (
     <View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 20, paddingBottom: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 20, paddingBottom: 4 }}>
         <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: 3, height: 16, borderRadius: 2 }} />
         <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 15 }}>{title}</Text>
       </View>
+      <Text style={{ color: "rgba(255,255,255,0.28)", fontFamily: "Poppins_400Regular", fontSize: 11, paddingHorizontal: 14, paddingBottom: 10 }}>
+        Popular content from around the web — not Gundruk user posts
+      </Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
         {posts.map((p) => (
           <TouchableOpacity
@@ -812,7 +815,7 @@ export default function FeedScreen() {
                         <TrendingGrid
                           posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
                           colors={colors}
-                          title={`🔥 Trending — ${TABS[tabIndex].label}`}
+                          title={`🔥 Trending on the web`}
                         />
                       </>
                     );

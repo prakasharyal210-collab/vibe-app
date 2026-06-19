@@ -121,16 +121,12 @@ export function PexelsCard({ photo, category }: Props) {
             <Text style={[styles.photographer, { color: colors.foreground }]} numberOfLines={1}>
               {photo.photographer}
             </Text>
-            {/* Featured badge */}
+            {/* Pexels attribution badge — clearly external/stock content */}
             <View style={styles.featuredBadge}>
-              <LinearGradient
-                colors={["#7C3AED", "#EC4899"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.featuredGrad}
-              >
-                <Text style={styles.featuredText}>✦ Featured</Text>
-              </LinearGradient>
+              <View style={styles.pexelsBadge}>
+                <Ionicons name="camera-outline" size={9} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.featuredText}>Pexels</Text>
+              </View>
             </View>
           </View>
           <View style={styles.metaRow}>
@@ -138,8 +134,7 @@ export function PexelsCard({ photo, category }: Props) {
               {categoryLabel}
             </Text>
             <Text style={[styles.metaDot, { color: colors.mutedForeground }]}>·</Text>
-            <Ionicons name="camera-outline" size={11} color={colors.mutedForeground} />
-            <Text style={[styles.metaText, { color: colors.mutedForeground }]}>Pexels</Text>
+            <Text style={[styles.metaText, { color: colors.mutedForeground }]}>Stock photo</Text>
           </View>
         </View>
 

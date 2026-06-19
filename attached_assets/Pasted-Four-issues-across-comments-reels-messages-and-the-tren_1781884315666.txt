@@ -1,0 +1,17 @@
+Four issues across comments, reels, messages, and the trending feed. Several involve mock/fake data appearing as if it's real — we need real data only (or clearly-labeled filler).
+1. Remove fake/mock comments
+
+The comments sheet shows hardcoded mock comments (e.g. "marcus_vibe", "zoe.creates", "kai_adventures", "nadia.official", "alex.w" with fake like counts like 12, 8, 24). These are seed/mock data, not real comments. Find where these are defined (likely a MOCK_COMMENTS array or similar fallback) and remove them. The comments sheet should show ONLY real comments from the database via the API server. If a post has no comments, show a clean empty state ("No comments yet — be the first!"), NOT fake ones.
+2. Comment like button doesn't work
+
+In the comments sheet, the heart/like icon next to each comment does nothing when tapped. Wire up comment liking: tapping the heart likes/unlikes the comment (toggle, optimistic update then reconcile), updates the count, and persists. Needs a comment_likes table (comment_id, user_id, created_at, UNIQUE(comment_id, user_id)) and routes through the API server (service-role). Report the migration SQL needed.
+3. Messages/Snaps — remove mock data + fix swipe-action layout
+
+If the Messages and Snaps lists contain any hardcoded/mock conversations, remove them — show only real conversations from the DB via the API server. (Note: "testuser_fixed", "banana", "haceriz" may be real test accounts — only remove genuinely hardcoded mock entries, keep real DB conversations.)
+The swipe-to-reveal actions (Mute / Archive / Delete) have a broken layout: the labels are cut off and wrapping ("Mut e", "Arc hive", "Dele te") and overlapping a stray camera icon. Fix the swipe action buttons: each action (Mute, Archive, Delete) should be a clean fixed-width button with its icon + full label on one line, properly spaced, no text wrapping, no overlapping icons. Remove the stray camera icon bleeding into the swipe area.
+
+4. Trending feed — label external/stock content honestly
+
+The "Trending Worldwide" feed pulls Pexels stock photos and presents them with real-sounding names ("Jonathan Borba") and a "Featured" badge, making stock content look like real Gundruk user posts. Keep the trending feed (it fills an empty feed for new users), BUT make it clearly distinguishable as external/stock content: label it honestly (e.g. "Trending on the web" or a "Pexels" / "Stock" badge instead of "Featured"), and ensure it's visually distinct from real user posts so users aren't misled. Don't dress stock photos up as real users.
+For all four: route DB access through artifacts/api-server (service-role), no direct anon-key calls, verify columns exist, reset loading states in finally.
+Please report: where the mock comments/messages were defined and confirm removed, the comment_likes migration SQL, confirm comment likes work, confirm the swipe-action layout is fixed, and how the trending feed is now labeled.

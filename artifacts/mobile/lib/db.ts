@@ -2,8 +2,6 @@ import { readAsStringAsync } from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import {
-  MOCK_COMMENTS,
-  MOCK_CONVERSATIONS,
   MOCK_HASHTAGS,
   MOCK_NOTIFICATIONS,
   MOCK_SEARCH_ACCOUNTS,
@@ -106,11 +104,10 @@ export async function fetchReelComments(reelId: string): Promise<Comment[]> {
     const res = await fetch(`${API_BASE}/comments?reelId=${encodeURIComponent(reelId)}`);
     if (res.ok) {
       const json = await res.json();
-      const items = (json.comments ?? []) as Comment[];
-      if (items.length > 0) return items;
+      return (json.comments ?? []) as Comment[];
     }
   } catch {}
-  return MOCK_COMMENTS.slice(0, 5);
+  return [];
 }
 
 export async function addReelComment(
