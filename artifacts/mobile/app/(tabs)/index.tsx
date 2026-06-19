@@ -724,9 +724,8 @@ export default function ReelsScreen() {
 
   useFocusEffect(useCallback(() => {
     setScreenFocused(true);
-    loadFeed();
     return () => setScreenFocused(false);
-  }, [loadFeed]));
+  }, []));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -748,32 +747,13 @@ export default function ReelsScreen() {
     }
   ).current;
 
-  // Record the settled index when the user begins a new drag gesture.
-  // This is the reference point for the ±1 clamp in onMomentumScrollEnd.
-  const onScrollBeginDrag = useCallback((e: any) => {
-    dragStartIndexRef.current = Math.round(e.nativeEvent.contentOffset.y / SCREEN_H);
-  }, []);
-
-  // TikTok-style ±1 clamp: regardless of how fast the user swiped (and how far
-  // momentum carried the offset), we only ever advance or retreat ONE reel at a time.
+  // Sync the settled index after native snap completes.
+  // snapToInterval handles all the actual snapping — we just track state here.
   const onMomentumScrollEnd = useCallback((e: any) => {
-    const offsetY = e.nativeEvent.contentOffset.y;
-    const from = dragStartIndexRef.current;
-
-    let target: number;
-    if (offsetY >= (from + 0.5) * SCREEN_H) {
-      target = from + 1;   // crossed midpoint going forward
-    } else if (offsetY <= (from - 0.5) * SCREEN_H) {
-      target = from - 1;   // crossed midpoint going backward
-    } else {
-      target = from;       // didn't reach midpoint → snap back
-    }
-    target = Math.max(0, Math.min(target, displayReels.length - 1));
-
-    // Settle on the exact boundary for this reel
-    flatListRef.current?.scrollToOffset({ offset: target * SCREEN_H, animated: true });
-    dragStartIndexRef.current = target;
-    setActiveIndex(target);
+    const idx = Math.round(e.nativeEvent.contentOffset.y / SCREEN_H);
+    const clamped = Math.max(0, Math.min(idx, displayReels.length - 1));
+    dragStartIndexRef.current = clamped;
+    setActiveIndex(clamped);
   }, [displayReels.length]);
 
   const handleComplete = useCallback(() => {
@@ -825,10 +805,12 @@ export default function ReelsScreen() {
           if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
           return (item as Reel).id + feedTab;
         }}
+        snapToInterval={SCREEN_H}
+        snapToAlignment="start"
         decelerationRate="fast"
+        disableIntervalMomentum
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, index) => ({ length: SCREEN_H, offset: SCREEN_H * index, index })}
-        onScrollBeginDrag={onScrollBeginDrag}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={REEL_VIEWABILITY_CONFIG}
         onMomentumScrollEnd={onMomentumScrollEnd}
