@@ -105,6 +105,8 @@ export default function PostDetailScreen() {
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [previewComments, setPreviewComments] = useState<any[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [morePosts, setMorePosts] = useState<any[]>([]);
+  const [moreLoading, setMoreLoading] = useState(false);
 
   // Reanimated — like heart pop + double-tap burst
   const likeScale = useSharedValue(1);
@@ -159,6 +161,17 @@ export default function PostDetailScreen() {
       })
       .catch(() => {});
   }, [id, session?.user?.id]);
+
+  // ── Fetch "More from this user" grid once post is loaded ────────────────────
+  useEffect(() => {
+    if (!post?.user_id || !id) return;
+    setMoreLoading(true);
+    fetch(`${API_BASE}/posts/user/${encodeURIComponent(post.user_id)}/more?excludeId=${encodeURIComponent(id)}&limit=9`)
+      .then((r) => r.json())
+      .then((body) => setMorePosts(body.posts ?? []))
+      .catch(() => {})
+      .finally(() => setMoreLoading(false));
+  }, [post?.user_id, id]);
 
   // ── Fetch top 2 preview comments ────────────────────────────────────────────
   useEffect(() => {
@@ -485,6 +498,61 @@ export default function PostDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* ── More from this user ─────────────────────────────────────────── */}
+        {(moreLoading || morePosts.length > 0) && (
+          <View style={styles.moreSection}>
+            {/* Divider + header */}
+            <View style={[styles.moreDivider, { backgroundColor: colors.border ?? "rgba(255,255,255,0.08)" }]} />
+            <View style={styles.moreHeader}>
+              <View style={styles.moreAccentBar} />
+              <Text style={[styles.moreTitle, { color: colors.foreground }]}>
+                More from{" "}
+                <Text style={styles.moreUsername}>@{username}</Text>
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push(`/profile/${username}` as any)}
+                style={styles.moreSeAllBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.moreSeeAll}>See all →</Text>
+              </TouchableOpacity>
+            </View>
+
+            {moreLoading ? (
+              <View style={styles.moreLoadingWrap}>
+                <ActivityIndicator size="small" color="#7C3AED" />
+              </View>
+            ) : (
+              <View style={styles.moreGrid}>
+                {morePosts.map((p) => {
+                  const thumb = p.image_url ?? p.media_url ?? "";
+                  const isVideo = typeof p.media_url === "string" &&
+                    /\.(mp4|mov|m4v|webm)(\?|$)/i.test(p.media_url);
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.moreThumb}
+                      activeOpacity={0.82}
+                      onPress={() => router.replace(`/post/${p.id}` as any)}
+                    >
+                      <Image
+                        source={{ uri: thumb }}
+                        style={styles.moreThumbImg}
+                        contentFit="cover"
+                      />
+                      {isVideo && (
+                        <View style={styles.moreVideoIcon}>
+                          <Ionicons name="play" size={11} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* ── Sheets ─────────────────────────────────────────────────────────── */}
@@ -610,4 +678,52 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   viewAllText: { fontSize: 13, fontFamily: "Poppins_400Regular" },
+
+  // More from this user
+  moreSection: { marginTop: 8 },
+  moreDivider: { height: 6, marginVertical: 8 },
+  moreHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  moreAccentBar: {
+    width: 3,
+    height: 16,
+    borderRadius: 2,
+    backgroundColor: "#7C3AED",
+  },
+  moreTitle: { flex: 1, fontSize: 14, fontFamily: "Poppins_700Bold" },
+  moreUsername: { color: "#A78BFA", fontFamily: "Poppins_700Bold" },
+  moreSeAllBtn: { paddingHorizontal: 4 },
+  moreSeeAll: { fontSize: 12, color: "#7C3AED", fontFamily: "Poppins_600SemiBold" },
+  moreLoadingWrap: { paddingVertical: 24, alignItems: "center" },
+  moreGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  moreThumb: {
+    width: W / 3,
+    height: W / 3,
+    position: "relative",
+    borderWidth: 0.5,
+    borderColor: "rgba(0,0,0,0.6)",
+  },
+  moreThumbImg: {
+    width: "100%",
+    height: "100%",
+  },
+  moreVideoIcon: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

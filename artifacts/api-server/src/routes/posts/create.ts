@@ -196,6 +196,34 @@ router.get("/user/:userId", async (req, res) => {
   res.json({ posts, reels });
 });
 
+// GET /api/posts/user/:userId/more — other posts by the same user, excluding one post.
+// Used by the "More from this user" grid on the post detail screen.
+router.get("/user/:userId/more", async (req, res) => {
+  const { userId } = req.params;
+  const { excludeId, limit: limitStr } = req.query as { excludeId?: string; limit?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const limit = Math.min(parseInt(limitStr ?? "9", 10) || 9, 18);
+  const sb = makeSupabase();
+
+  let query = sb
+    .from("posts")
+    .select("id, media_url, caption, likes_count, comments_count, created_at, user_id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (excludeId) query = query.neq("id", excludeId);
+
+  const { data, error } = await query;
+  if (error) { res.status(500).json({ error: error.message }); return; }
+
+  const posts = (data ?? []).map((p: any) => {
+    if (!p.image_url && p.media_url) p.image_url = p.media_url;
+    return p;
+  });
+  res.json({ posts });
+});
+
 router.post("/create", async (req, res) => {
   const {
     userId,
