@@ -1366,7 +1366,7 @@ export async function logWatchEvent(
   videoDuration: number,
   userId?: string
 ): Promise<void> {
-  if (watchDuration <= 0) return;
+  if (!reelId || watchDuration <= 0) return;
   // Strip the 'reel_' prefix if present; skip post-based reel IDs
   let dbReelId = reelId;
   if (reelId.startsWith('post_')) return;
