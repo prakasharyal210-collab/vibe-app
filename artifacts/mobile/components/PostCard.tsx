@@ -79,8 +79,12 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
   const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
+
+  // Reset aspect ratio when FlatList recycles this view for a different post
+  useEffect(() => { setMediaAspectRatio(1); }, [post.id]);
 
   // Detect video posts — check is_video flag OR file extension on the URL
   const videoUrl = post.is_video
@@ -342,7 +346,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
       </View>
 
       {/* Media area — video or image carousel */}
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { height: CARD_W / mediaAspectRatio }]}>
         {isVideoPost ? (
           <TouchableOpacity
             activeOpacity={1}
@@ -360,8 +364,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             <Video
               ref={videoRef}
               source={{ uri: videoUrl! }}
-              style={styles.image}
-              resizeMode={ResizeMode.COVER}
+              style={{ width: CARD_W, height: CARD_W / mediaAspectRatio }}
+              resizeMode={ResizeMode.CONTAIN}
               isLooping
               isMuted={false}
               onPlaybackStatusUpdate={(s) => {
@@ -396,7 +400,15 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                   activeOpacity={0.9}
                   onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
                 >
-                  <Image source={{ uri: item }} style={styles.image} resizeMode="cover" />
+                  <Image
+                    source={{ uri: item }}
+                    style={{ width: CARD_W, height: CARD_W / mediaAspectRatio }}
+                    resizeMode="contain"
+                    onLoad={index === 0 ? (e) => {
+                      const { width, height } = e.nativeEvent.source;
+                      if (width && height) setMediaAspectRatio(width / height);
+                    } : undefined}
+                  />
                 </TouchableOpacity>
               )}
               scrollEnabled={images.length > 1}
@@ -615,10 +627,9 @@ const styles = StyleSheet.create({
   moreBtn: { padding: 4 },
   imageContainer: {
     width: CARD_W,
-    height: CARD_W,
     position: "relative",
   },
-  image: { width: CARD_W, height: CARD_W },
+  image: { width: CARD_W },
   dotsContainer: {
     position: "absolute",
     bottom: 12,
