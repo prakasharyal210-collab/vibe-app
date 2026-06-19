@@ -17,7 +17,7 @@ import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { supabase, Post, formatCount, timeAgo } from "@/lib/supabase";
+import { Post, formatCount, timeAgo } from "@/lib/supabase";
 import { shareContent } from "@/lib/share";
 
 const { width: W } = Dimensions.get("window");
@@ -36,17 +36,27 @@ export default function PostDetailScreen() {
 
   useEffect(() => {
     if (!id) return;
+    const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
     (async () => {
-      const { data } = await supabase
-        .from("posts")
-        .select("*, profiles!user_id(id, username, avatar_url, is_verified)")
-        .eq("id", id)
-        .single();
-      if (data) {
-        setPost(data as Post);
-        setLikesCount((data as any).likes_count ?? 0);
+      try {
+        const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          const body = await res.json();
+          const data = body.data as any;
+          if (data) {
+            // Bridge media_url → image_url in case server didn't (defensive)
+            if (!data.image_url && data.media_url) data.image_url = data.media_url;
+            setPost(data as Post);
+            setLikesCount(data.likes_count ?? 0);
+          }
+        } else {
+          console.error("[post-detail] API error", res.status);
+        }
+      } catch (e: any) {
+        console.error("[post-detail] fetch threw:", e?.message);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, [id]);
 

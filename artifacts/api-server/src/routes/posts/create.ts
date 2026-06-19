@@ -415,4 +415,31 @@ router.get("/saved", async (req, res) => {
   }
 });
 
+// GET /api/posts/:postId — fetch a single post by ID, bypassing RLS.
+// Maps media_url → image_url so clients that read image_url always get the URL.
+router.get("/:postId", async (req, res) => {
+  const { postId } = req.params;
+  if (!postId) { res.status(400).json({ error: "postId required" }); return; }
+
+  const sb = makeSupabase();
+  const { data, error } = await sb
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, full_name, is_verified)")
+    .eq("id", postId)
+    .single();
+
+  if (error || !data) {
+    res.status(404).json({ error: error?.message ?? "Post not found" });
+    return;
+  }
+
+  // Bridge media_url → image_url so PostCard/PostDetailScreen always finds the URL.
+  const post = data as any;
+  if (!post.image_url && post.media_url) {
+    post.image_url = post.media_url;
+  }
+
+  res.json({ data: post });
+});
+
 export default router;
