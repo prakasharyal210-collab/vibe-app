@@ -539,10 +539,15 @@ export default function FeedScreen() {
     if (!fyState.loading && fyState.posts.length === 0) {
       (async () => {
         try {
-          const { data } = await supabase.from("posts").select("id, media_url, likes_count")
-            .order("likes_count", { ascending: false })
-            .limit(9);
-          setTrendingPosts(data?.length ? data : MOCK_TRENDING_GRID);
+          // Route through API server — direct anon-key reads on posts hang under RLS
+          const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9`);
+          if (res.ok) {
+            const json = await res.json();
+            const posts = json.posts ?? json.data ?? [];
+            setTrendingPosts(posts.length ? posts : MOCK_TRENDING_GRID);
+          } else {
+            setTrendingPosts(MOCK_TRENDING_GRID);
+          }
         } catch {
           setTrendingPosts(MOCK_TRENDING_GRID);
         }

@@ -221,4 +221,28 @@ router.get("/following-reels", async (req, res) => {
   res.json({ data: [], source: "empty", error: error?.message });
 });
 
+// ─── GET /api/feed/trending ───────────────────────────────────────────────────
+// Returns top posts by likes_count for the trending grid.
+// Uses service-role key so RLS never blocks the read.
+router.get("/trending", async (req, res) => {
+  const limit = Math.min(Number(req.query["limit"] ?? 9), 50);
+  const supabase = makeSupabase();
+  try {
+    const { data, error } = await supabase
+      .from("posts")
+      .select("id, media_url, likes_count, thumbnail_url")
+      .order("likes_count", { ascending: false })
+      .limit(limit);
+    if (error) {
+      req.log.warn({ error: error.message }, "trending fetch error");
+      res.json({ posts: [] });
+      return;
+    }
+    res.json({ posts: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "trending exception");
+    res.json({ posts: [] });
+  }
+});
+
 export default router;

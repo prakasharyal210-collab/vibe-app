@@ -94,19 +94,19 @@ router.post("/swipe", async (req, res) => {
         try {
           const { data: tPrefs } = await sb
             .from("user_settings")
-            .select("notif_push_enabled, notif_vibe_request")
+            .select("notif_in_app, notif_vibe_request")
             .eq("user_id", targetId)
             .maybeSingle();
-          const pushOn = (tPrefs as any)?.notif_push_enabled !== false;
+          const pushOn = (tPrefs as any)?.notif_in_app !== false;
           const vibeReqOn = (tPrefs as any)?.notif_vibe_request !== false;
           if (!pushOn || !vibeReqOn) return;
 
           const { data: swiperProfile } = await sb
             .from("profiles")
-            .select("username, display_name")
+            .select("username")
             .eq("id", swiperId)
             .maybeSingle();
-          const swiperName = (swiperProfile as any)?.display_name ?? (swiperProfile as any)?.username ?? "Someone";
+          const swiperName = (swiperProfile as any)?.username ?? "Someone";
 
           await sb.from("notifications").insert({
             recipient_id: targetId,
@@ -135,10 +135,10 @@ router.post("/swipe", async (req, res) => {
       { onConflict: "sender_id,receiver_id" },
     );
 
-    // 6. Fetch both display names + notification prefs in parallel
+    // 6. Fetch both usernames + notification prefs in parallel
     const [profilesRes, prefsRes] = await Promise.all([
-      sb.from("profiles").select("id, username, display_name").in("id", [swiperId, targetId]),
-      sb.from("user_settings").select("user_id, notif_push_enabled, notif_vibe_match").in("user_id", [swiperId, targetId]),
+      sb.from("profiles").select("id, username").in("id", [swiperId, targetId]),
+      sb.from("user_settings").select("user_id, notif_in_app, notif_vibe_match").in("user_id", [swiperId, targetId]),
     ]);
 
     const profiles = profilesRes.data as any[] | null;
@@ -146,16 +146,16 @@ router.post("/swipe", async (req, res) => {
 
     const swiperP = profiles?.find((p: any) => p.id === swiperId);
     const targetP = profiles?.find((p: any) => p.id === targetId);
-    const swiperName = swiperP?.display_name ?? swiperP?.username ?? "Someone";
-    const targetName = targetP?.display_name ?? targetP?.username ?? "Someone";
+    const swiperName = swiperP?.username ?? "Someone";
+    const targetName = targetP?.username ?? "Someone";
 
     const swiperPrefs = prefs?.find((p: any) => p.user_id === swiperId);
     const targetPrefs = prefs?.find((p: any) => p.user_id === targetId);
 
     // 7. Insert vibe_match notifications, respecting each user's preferences
     const notifRows: object[] = [];
-    const swiperWantsMatch = (swiperPrefs?.notif_push_enabled !== false) && (swiperPrefs?.notif_vibe_match !== false);
-    const targetWantsMatch = (targetPrefs?.notif_push_enabled !== false) && (targetPrefs?.notif_vibe_match !== false);
+    const swiperWantsMatch = (swiperPrefs?.notif_in_app !== false) && (swiperPrefs?.notif_vibe_match !== false);
+    const targetWantsMatch = (targetPrefs?.notif_in_app !== false) && (targetPrefs?.notif_vibe_match !== false);
 
     if (swiperWantsMatch) {
       notifRows.push({

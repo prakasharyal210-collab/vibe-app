@@ -60,7 +60,12 @@ router.get("/", async (req, res) => {
         p_user_id: null,
       });
       if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
-        res.json({ comments: rpcData });
+        // RPC may already normalise content→text; ensure text field is always set
+        const normalised = (rpcData as any[]).map((c: any) => ({
+          ...c,
+          text: c.text ?? c.content ?? "",
+        }));
+        res.json({ comments: normalised });
         return;
       }
       // Fallback: direct select (safe — service-role key)
@@ -75,11 +80,17 @@ router.get("/", async (req, res) => {
         res.json({ comments: [] });
         return;
       }
-      res.json({ comments: data ?? [] });
+      // DB column is `content`; mobile CommentsSheet reads `.text` — map here
+      const mapped = (data ?? []).map((c: any) => ({
+        ...c,
+        text: c.text ?? c.content ?? "",
+        parent_comment_id: c.parent_comment_id ?? c.reply_to ?? null,
+      }));
+      res.json({ comments: mapped });
       return;
     }
 
-    // Post comments
+    // Post comments — DB column is `content`; CommentsSheet reads `.text`
     const { data, error } = await sb
       .from("comments")
       .select("*, profiles:user_id(id, username, avatar_url)")
@@ -91,7 +102,11 @@ router.get("/", async (req, res) => {
       res.json({ comments: [] });
       return;
     }
-    res.json({ comments: data ?? [] });
+    const mapped = (data ?? []).map((c: any) => ({
+      ...c,
+      text: c.text ?? c.content ?? "",
+    }));
+    res.json({ comments: mapped });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "comments GET exception");
     res.json({ comments: [] });
@@ -162,12 +177,13 @@ router.post("/", async (req, res) => {
       }
 
       // Comment permission gate — honour owner's privacy setting
+      // Real column is who_can_comment (not comment_permission)
       const { data: ownerSettings } = await sb
         .from("user_settings")
-        .select("comment_permission")
+        .select("who_can_comment")
         .eq("user_id", ownerId)
         .maybeSingle();
-      const perm: string = (ownerSettings as any)?.comment_permission ?? "everyone";
+      const perm: string = (ownerSettings as any)?.who_can_comment ?? "everyone";
 
       if (perm === "nobody") {
         res.status(403).json({ error: "Comments are disabled on this content" });
