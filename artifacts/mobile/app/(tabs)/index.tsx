@@ -351,7 +351,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         <Video
           source={{ uri: reel.videoUrl }}
           style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
+          resizeMode={ResizeMode.CONTAIN}
           isLooping
           isMuted={!soundOn}
           shouldPlay={isActive && !paused}

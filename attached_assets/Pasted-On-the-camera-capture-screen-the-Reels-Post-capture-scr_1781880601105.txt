@@ -1,0 +1,15 @@
+On the camera/capture screen (the Reels/Post capture screen with Photo/Video/Portrait/Night modes, capture button, and the right-side feature rail: Grid/Filter/Beauty/Lens/Music/Text/AI Idea), there are two problems:
+1. The main bottom tab bar is overlapping the camera controls
+
+The app's bottom navigation (Reels/Feed/+/Find/Profile) is rendering ON TOP of the camera's own controls — it's blocking the capture button and the bottom gallery/flip controls. A full-screen camera/capture screen should NOT show the main app tab bar at all. Please hide the main bottom tab bar entirely while on this camera/capture screen (it's a full-screen mode, like Instagram/TikTok's camera which hides the tab bar). The camera's own controls (capture, gallery, flip, mode selector) should be the only bottom UI.
+2. Layout is cluttered — make feature rows scrollable/swipeable
+
+The screen feels cramped. Please make the feature controls clean and scrollable/swipeable:
+
+The right-side feature rail (Grid/Filter/Beauty/Lens/Music/Text/AI Idea) should be in a vertically scrollable container so it doesn't crowd the screen and can hold more items cleanly.
+The mode selector (Photo/Video/Portrait/Night) should be horizontally scrollable/swipeable — swipe left/right to change modes (like TikTok/Instagram camera mode switching), with the active mode highlighted and centered.
+Ensure nothing overlaps the capture button or the top Reels/Post toggle. Give clean spacing so the camera preview is unobstructed in the middle.
+
+Please report which file(s) were edited, confirm the main tab bar is hidden on this screen, and confirm both the side feature rail (vertical scroll) and the mode selector (horizontal swipe) are clean and scrollable.
+
+The main fix is hiding the app tab bar on the camera screen (it shouldn't be there at all in a full-screen capture mode) — that alone declutters it a lot. Plus making the rails scrollable. Test after: the camera screen should be full-screen with no app tab bar, capture button fully accessible, and the feature rails should scroll/swipe cleanly. Let me know how it looks.

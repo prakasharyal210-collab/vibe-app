@@ -115,7 +115,7 @@ export default function ReelDetailScreen() {
           ref={videoRef}
           source={{ uri: videoUrl }}
           style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.COVER}
+          resizeMode={ResizeMode.CONTAIN}
           isLooping
           isMuted={false}
           shouldPlay={isPlaying}

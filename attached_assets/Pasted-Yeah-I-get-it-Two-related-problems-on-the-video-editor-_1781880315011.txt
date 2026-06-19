@@ -1,0 +1,23 @@
+Yeah, I get it. Two related problems on the video editor / reel upload:
+
+Crop ratio buttons don't work — tapping free/square/4:3/16:9/9:16 doesn't actually change the crop.
+The video shows zoomed/cropped instead of full — when you upload a reel, it's filling the frame by cropping (zooming in and cutting off edges) instead of showing the whole video. You can see it in the screenshot: the "LOVE" video is cropped to 4:3, cutting off the top/bottom of the original.
+
+The core issue is almost certainly a resizeMode problem — the video player is using COVER (fills the frame, crops the overflow = zoomed) when for showing the full video it should use CONTAIN (fits the whole video inside the frame, letterboxed). And the crop ratio buttons aren't actually applying their selected aspect ratio to the preview/output.
+Here's the prompt:
+
+Prompt for Replit AI:
+Two related bugs on the video/reel editor (the screen with Reels/Post tabs, Crop Ratio options free/square/4:3/16:9/9:16, and Adjustments):
+1. Crop Ratio buttons do nothing
+
+Tapping the crop ratio options (free, square, 4:3, 16:9, 9:16) highlights the button but does NOT actually change the video crop/aspect ratio in the preview or the output. Please wire the crop ratio selection so it actually applies — the preview frame and the exported/uploaded video should reflect the chosen aspect ratio.
+2. Uploaded reels show zoomed/cropped instead of the full video
+
+When a reel is uploaded, it displays zoomed-in and cropped (edges cut off) instead of showing the entire video. This is a resizeMode issue — the video is being rendered with ResizeMode.COVER (fills the frame and crops overflow = the zoom effect) when it should fit the whole video.
+Please:
+
+In the reel player/viewer (expo-av Video components on the Reels screen and reel detail), check the resizeMode. If the intent is to show the full video without cropping, use ResizeMode.CONTAIN (fits the whole video inside the frame, letterboxed if aspect ratios differ) instead of COVER.
+Decide the correct behavior: TikTok-style reels usually use COVER (fill screen) for vertical 9:16 video, but CONTAIN for non-vertical video so nothing is cut off. If the user uploads a non-9:16 video, it should NOT be force-zoomed/cropped — show it fully (CONTAIN with black bars) rather than cropping it.
+For the editor preview, make the crop frame reflect the selected crop ratio, and make the actual exported video respect that ratio (the crop should be applied on export, not just visually).
+
+Please report: which resizeMode was being used and where, how crop ratio is now applied to both preview and output, and confirm that uploading a video shows the full frame (not zoomed) unless the user explicitly crops it.

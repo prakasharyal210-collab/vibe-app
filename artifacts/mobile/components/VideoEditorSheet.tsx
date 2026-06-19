@@ -261,6 +261,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const [rotate, setRotate] = useState(0);
   const [flipH, setFlipH] = useState(false);
   const [cropRatio, setCropRatio] = useState<CropRatio>("free");
+  const [previewLayout, setPreviewLayout] = useState({ w: W, h: 300 });
   const [adjust, setAdjust] = useState<AdjustSettings>(DEFAULT_ADJUST);
 
   const [showAISheet, setShowAISheet] = useState(false);
@@ -455,10 +456,32 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     { scaleX: flipH ? -1 : 1 },
   ];
 
+  // Crop box: compute centered rectangle matching the selected aspect ratio
+  const cropAspect: number | null =
+    cropRatio === "free" ? null :
+    cropRatio === "square" ? 1 :
+    cropRatio === "4:3" ? 4 / 3 :
+    cropRatio === "16:9" ? 16 / 9 :
+    /* 9:16 */ 9 / 16;
+  let cropBoxW = previewLayout.w * 0.92;
+  let cropBoxH = previewLayout.h * 0.9;
+  if (cropAspect !== null) {
+    if (cropBoxW / cropBoxH > cropAspect) {
+      cropBoxW = cropBoxH * cropAspect;
+    } else {
+      cropBoxH = cropBoxW / cropAspect;
+    }
+  }
+  const cropBoxLeft = (previewLayout.w - cropBoxW) / 2;
+  const cropBoxTop = (previewLayout.h - cropBoxH) / 2;
+
   return (
     <View style={[styles.container, { backgroundColor: "#000" }]}>
       {/* ── PREVIEW ── */}
-      <View style={[styles.preview, { paddingTop: insets.top }]}>
+      <View
+        style={[styles.preview, { paddingTop: insets.top }]}
+        onLayout={(e) => setPreviewLayout({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+      >
         <Animated.View style={[StyleSheet.absoluteFill, { transform: imgTransform }]}>
           <Image
             source={{ uri }}
@@ -495,10 +518,25 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
           </View>
         )}
 
-        {/* Crop ratio visual guide */}
-        {cropRatio !== "free" && activeTab === "adjust" && (
+        {/* Crop frame — shown whenever a ratio is selected, on any tab */}
+        {cropRatio !== "free" && (
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <View style={styles.cropOverlay} />
+            {/* Four dimmed panels surrounding the crop area */}
+            <View style={{ position: "absolute", left: 0, right: 0, top: 0, height: cropBoxTop, backgroundColor: "rgba(0,0,0,0.55)" }} />
+            <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, top: cropBoxTop + cropBoxH, backgroundColor: "rgba(0,0,0,0.55)" }} />
+            <View style={{ position: "absolute", left: 0, width: cropBoxLeft, top: cropBoxTop, height: cropBoxH, backgroundColor: "rgba(0,0,0,0.55)" }} />
+            <View style={{ position: "absolute", right: 0, width: cropBoxLeft, top: cropBoxTop, height: cropBoxH, backgroundColor: "rgba(0,0,0,0.55)" }} />
+            {/* Crop border */}
+            <View style={{ position: "absolute", left: cropBoxLeft, top: cropBoxTop, width: cropBoxW, height: cropBoxH, borderWidth: 1.5, borderColor: "rgba(251,191,36,0.9)" }} />
+            {/* Rule-of-thirds grid */}
+            <View style={{ position: "absolute", left: cropBoxLeft, width: cropBoxW, top: cropBoxTop + cropBoxH / 3, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.28)" }} />
+            <View style={{ position: "absolute", left: cropBoxLeft, width: cropBoxW, top: cropBoxTop + (cropBoxH * 2) / 3, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.28)" }} />
+            <View style={{ position: "absolute", top: cropBoxTop, height: cropBoxH, left: cropBoxLeft + cropBoxW / 3, width: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.28)" }} />
+            <View style={{ position: "absolute", top: cropBoxTop, height: cropBoxH, left: cropBoxLeft + (cropBoxW * 2) / 3, width: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.28)" }} />
+            {/* Ratio label */}
+            <View style={{ position: "absolute", left: cropBoxLeft, top: cropBoxTop + 8, backgroundColor: "rgba(251,191,36,0.85)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+              <Text style={{ color: "#000", fontSize: 10, fontFamily: "Poppins_600SemiBold" }}>{cropRatio}</Text>
+            </View>
           </View>
         )}
 
