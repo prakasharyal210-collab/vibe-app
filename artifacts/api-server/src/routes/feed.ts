@@ -47,6 +47,9 @@ function normaliseFriendsRow(row: any): any {
   return {
     ...rest,
     id: post_id ?? rest.id,
+    // PostCard reads post.image_url; the get_friends_feed RPC returns media_url only.
+    // Bridge the gap so the image never renders as a black square.
+    image_url: rest.image_url ?? rest.media_url ?? null,
     profiles: {
       id: rest.user_id ?? null,
       username: username ?? null,
