@@ -107,6 +107,7 @@ export default function PostDetailScreen() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [morePosts, setMorePosts] = useState<any[]>([]);
   const [moreLoading, setMoreLoading] = useState(false);
+  const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
 
   // Reanimated — like heart pop + double-tap burst
   const likeScale = useSharedValue(1);
@@ -161,6 +162,9 @@ export default function PostDetailScreen() {
       })
       .catch(() => {});
   }, [id, session?.user?.id]);
+
+  // ── Reset aspect ratio when navigating to a different post ─────────────────
+  useEffect(() => { setMediaAspectRatio(1); }, [id]);
 
   // ── Fetch "More from this user" grid once post is loaded ────────────────────
   useEffect(() => {
@@ -364,12 +368,13 @@ export default function PostDetailScreen() {
         <View style={styles.mediaShadow}>
           <View style={styles.mediaCard}>
             {images.length > 1 ? (
-              /* Multi-image horizontal scroll */
+              /* Multi-image horizontal scroll — height driven by first image aspect ratio */
               <ScrollView
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 scrollEventThrottle={16}
+                style={{ height: W / mediaAspectRatio }}
                 onScroll={(e) =>
                   setCurrentImageIndex(Math.round(e.nativeEvent.contentOffset.x / W))
                 }
@@ -378,8 +383,14 @@ export default function PostDetailScreen() {
                   <TouchableOpacity key={idx} activeOpacity={1} onPress={() => handleMediaTap(idx)}>
                     <Image
                       source={{ uri: img }}
-                      style={{ width: W, height: W }}
-                      contentFit="cover"
+                      style={{ width: W, height: W / mediaAspectRatio }}
+                      contentFit="contain"
+                      onLoad={(e) => {
+                        if (idx === 0) {
+                          const { width, height } = (e as any).source ?? {};
+                          if (width && height) setMediaAspectRatio(width / height);
+                        }
+                      }}
                     />
                   </TouchableOpacity>
                 ))}
@@ -388,8 +399,12 @@ export default function PostDetailScreen() {
               <TouchableOpacity activeOpacity={1} onPress={() => handleMediaTap(0)}>
                 <Image
                   source={{ uri: images[0] ?? "" }}
-                  style={{ width: W, height: W }}
-                  contentFit="cover"
+                  style={{ width: W, height: W / mediaAspectRatio }}
+                  contentFit="contain"
+                  onLoad={(e) => {
+                    const { width, height } = (e as any).source ?? {};
+                    if (width && height) setMediaAspectRatio(width / height);
+                  }}
                 />
               </TouchableOpacity>
             )}
