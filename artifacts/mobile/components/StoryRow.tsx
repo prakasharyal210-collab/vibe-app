@@ -87,7 +87,6 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const [current, setCurrent] = useState(Math.max(0, startIndex));
   const [reacted, setReacted] = useState<string | null>(null);
   const [reply, setReply] = useState("");
-  const [showReactions, setShowReactions] = useState(false);
   const progress = useSharedValue(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const translateY = useSharedValue(0);
@@ -160,7 +159,6 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
 
   const react = (emoji: string) => {
     setReacted(emoji);
-    setShowReactions(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setTimeout(() => setReacted(null), 2000);
   };
@@ -238,19 +236,14 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={viewerStyles.bottomArea}
         >
-          {showReactions && (
-            <View style={viewerStyles.reactionRow}>
-              {REACTIONS.map((emoji) => (
-                <TouchableOpacity key={emoji} onPress={() => react(emoji)} style={viewerStyles.reactionBtn}>
-                  <Text style={viewerStyles.reactionEmoji}>{emoji}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <View style={viewerStyles.reactionRow}>
+            {REACTIONS.map((emoji) => (
+              <TouchableOpacity key={emoji} onPress={() => react(emoji)} style={viewerStyles.reactionBtn}>
+                <Text style={viewerStyles.reactionEmoji}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <View style={viewerStyles.replyRow}>
-            <TouchableOpacity onPress={() => setShowReactions((s) => !s)} style={viewerStyles.emojiToggle}>
-              <Text style={{ fontSize: 22 }}>😊</Text>
-            </TouchableOpacity>
             <TextInput
               value={reply}
               onChangeText={setReply}
