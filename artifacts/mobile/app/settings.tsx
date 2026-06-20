@@ -217,11 +217,11 @@ function SwitchAccountsModal({
     if (acc.id === currentUserId) return;
     setSwitching(acc.id);
     try {
-      // Race against a 12-second hard timeout so "Switching…" can never hang
+      // Race against a 20-second hard timeout so "Switching…" can never hang
       // forever. supabase.auth.setSession() makes a network round-trip to
       // validate / refresh the token; if that fetch stalls (expired token,
-      // network hiccup, RLS interaction) the Promise never settles without
-      // this guard.
+      // network hiccup, cold connection wakeup) the Promise never settles
+      // without this guard. 20 s is generous enough for slow mobile networks.
       type SetSessionResult = Awaited<ReturnType<typeof supabase.auth.setSession>>;
       const result = await Promise.race<SetSessionResult>([
         supabase.auth.setSession({
@@ -229,12 +229,13 @@ function SwitchAccountsModal({
           refresh_token: acc.refresh_token,
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("timeout")), 12_000),
+          setTimeout(() => reject(new Error("timeout")), 20_000),
         ),
       ]);
 
       if (result.error) {
-        console.error("[account-switch] setSession error:", result.error.message);
+        // warn (not error) — this is an expected / handled path; toast already informs the user
+        console.warn("[account-switch] setSession error:", result.error.message);
         onToast(
           result.error.message?.includes("expired") ||
           result.error.message?.includes("invalid")
@@ -257,7 +258,9 @@ function SwitchAccountsModal({
       onClose();
       router.replace("/(tabs)/" as any);
     } catch (err: any) {
-      console.error("[account-switch] error:", err?.message ?? err);
+      // warn (not error) — timeout is expected when tokens are stale or network is slow;
+      // the toast below already guides the user to re-authenticate.
+      console.warn("[account-switch] error:", err?.message ?? err);
       onToast(
         err?.message === "timeout"
           ? `Timed out switching to @${acc.username} — session may be expired. Tap "Add Account" to log in again.`
