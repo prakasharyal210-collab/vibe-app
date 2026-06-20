@@ -338,7 +338,7 @@ function MessageConvoItem({
         onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
         onLongPress={onLongPress}
         delayLongPress={400}
-        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.03)" : "transparent" }]}
+        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.05)" : colors.background }]}
       >
         <StoryRingAvatar
           username={convo.other_user.username}
@@ -412,7 +412,7 @@ function SnapConvoItemRow({
           : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
         onLongPress={onLongPress}
         delayLongPress={400}
-        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.03)" : "transparent" }]}
+        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.05)" : colors.background }]}
       >
         <StoryRingAvatar
           username={convo.other_user.username}
@@ -439,11 +439,6 @@ function SnapConvoItemRow({
           </View>
           <StatusBox status={status} time={timeAgo(convo.created_at)} />
         </View>
-        <TouchableOpacity onPress={onCamera} style={msgSt.camBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <LinearGradient colors={["#EA580C", "#DC2626"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={snapRowSt.camBtnGrad}>
-            <Ionicons name="camera" size={16} color="#fff" />
-          </LinearGradient>
-        </TouchableOpacity>
       </Pressable>
     </SwipeableRow>
   );
