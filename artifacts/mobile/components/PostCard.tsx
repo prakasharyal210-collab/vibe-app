@@ -72,17 +72,17 @@ function FollowPillButton({ following, onPress }: { following: boolean; onPress:
       >
         {following ? (
           <View style={[styles.followPill, styles.followPillOutline]}>
-            <Ionicons name="checkmark" size={11} color="rgba(255,255,255,0.85)" />
-            <Text style={[styles.followPillText, { color: "rgba(255,255,255,0.85)" }]}>Following</Text>
+            <Ionicons name="checkmark" size={11} color="#D4AF37" />
+            <Text style={[styles.followPillText, { color: "#D4AF37" }]}>Following</Text>
           </View>
         ) : (
           <LinearGradient
-            colors={["#7C3AED", "#C2410C"]}
+            colors={["#111111", "#1C1C1C"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.followPill}
+            style={[styles.followPill, styles.followPillDark]}
           >
-            <Text style={[styles.followPillText, { color: "#fff" }]}>Follow</Text>
+            <Text style={[styles.followPillText, { color: "#D4AF37" }]}>Follow</Text>
           </LinearGradient>
         )}
       </Pressable>
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  username: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+  username: { fontSize: 15, fontFamily: "Poppins_700Bold" },
   time: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: -1 },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 2, marginTop: -1 },
   location: { fontSize: 11, fontFamily: "Poppins_400Regular" },
@@ -774,8 +774,12 @@ const styles = StyleSheet.create({
   },
   followPillOutline: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.28)",
+    borderColor: "rgba(212,175,55,0.35)",
     backgroundColor: "transparent",
+  },
+  followPillDark: {
+    borderWidth: 1,
+    borderColor: "rgba(212,175,55,0.30)",
   },
   followPillText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   moreBtn: { padding: 4 },
@@ -861,8 +865,8 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   locationInline: { flexDirection: "row", alignItems: "center", gap: 3 },
-  caption: { fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 19 },
-  captionUsername: { fontFamily: "Poppins_600SemiBold" },
+  caption: { fontSize: 14, fontFamily: "Poppins_400Regular", lineHeight: 21 },
+  captionUsername: { fontFamily: "Poppins_700Bold" },
   hashTag: { color: "#8B5CF6", fontFamily: "Poppins_500Medium" },
   postTimestamp: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 1 },
 });

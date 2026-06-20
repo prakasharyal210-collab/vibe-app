@@ -465,7 +465,7 @@ export default function FeedScreen() {
   const [headerHeight, setHeaderHeight] = useState(120);
   // Tab bar: 68px height + 10px bottom offset = 78px from screen bottom.
   // Add 10px breathing room → reserve 88px so no post content slides under the tab bar.
-  const snapH = H - headerHeight - (Platform.OS === "web" ? 84 : insets.bottom + 88);
+  const snapH = H - headerHeight - (Platform.OS === "web" ? 84 : insets.bottom + 58);
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
 
@@ -665,6 +665,9 @@ export default function FeedScreen() {
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 88;
+  // Tab bar is position:absolute, height = 58 + insets.bottom — reserves no layout space.
+  // Shrink the pager viewport by exactly that height so no card caption can slide under the bar.
+  const tabBarH = Platform.OS === "web" ? 84 : insets.bottom + 58;
 
   // Animated indicator — spans half-width, centered under each tab
   const indicatorLeft = scrollX.interpolate({
@@ -829,7 +832,7 @@ export default function FeedScreen() {
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],
           { useNativeDriver: false }
         )}
-        style={{ flex: 1 }}
+        style={{ flex: 1, marginBottom: tabBarH }}
         contentContainerStyle={{ flexDirection: "row" }}
         nestedScrollEnabled
       >
@@ -894,7 +897,7 @@ export default function FeedScreen() {
                   }
                   return null;
                 }}
-                contentContainerStyle={{ paddingBottom: bottomInset, paddingTop: headerHeight }}
+                contentContainerStyle={{ paddingBottom: 24, paddingTop: headerHeight }}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing && activeTab === tab.id}
