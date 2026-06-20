@@ -1,0 +1,25 @@
+Add two real, working features to the snap editor (the screen shown after capturing/selecting a snap photo, before sending). Keep it focused — just these two, both fully functional, and the edits must be baked into the final snap image that gets sent.
+Feature 1 — Caption (text on snap)
+
+Add a "Caption" / "Add text" button. Tapping it lets the user type text that appears as an overlay on the snap.
+The text overlay should be draggable (user can move it around the snap by dragging) — use react-native-gesture-handler / PanResponder.
+Provide a few basic options: a small set of text colors (e.g. white, black, red, yellow, brand purple), and maybe 2-3 font sizes. Keep it simple.
+The caption text renders on top of the snap image.
+
+Feature 2 — Draw on snap
+
+Add a "Draw" button. Tapping it enables freehand drawing on the snap with the finger.
+Use react-native-svg (already in the project) with a Path that captures touch points, OR @shopify/react-native-skia if installed — check what's available; prefer react-native-svg if Skia isn't installed to avoid a heavy new dependency.
+Provide a few pen colors (white, black, red, yellow, purple) and an undo button to remove the last stroke. Keep it simple.
+
+Critical — bake edits into the sent image:
+
+When the user sends the snap, the caption text and drawing must be flattened onto the image so the recipient sees them. Use react-native-view-shot (captureRef) to capture the snap preview (image + text overlay + drawing) as a single flattened image, then upload/send THAT composited image via the existing snap-send flow (which now writes to the snaps table).
+If react-native-view-shot isn't installed, install it (it's the standard, lightweight way to do this) — confirm before adding.
+
+Keep it clean:
+
+Place "Caption" and "Draw" as clear buttons in the snap editor (e.g. a top or side toolbar), matching Gundruk's dark theme.
+Don't add Lenses, Sounds, Stickers, Voiceover, etc. — ONLY caption and draw for now.
+
+Please report: which libraries were used (and whether any were newly installed), how the flattening/compositing works, and confirm that a sent snap actually shows the caption text and drawing baked into the image for the recipient.

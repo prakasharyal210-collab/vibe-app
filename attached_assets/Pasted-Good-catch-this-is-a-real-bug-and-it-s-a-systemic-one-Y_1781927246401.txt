@@ -1,0 +1,27 @@
+Good catch — this is a real bug, and it's a systemic one. You sent that snap a few minutes ago, but it shows "10h". And you're right that it's everywhere — posts, comments, messages all show wrong timestamps. This is a timezone bug, and it's exactly the kind of thing that's wrong in one place and breaks everywhere.
+What's almost certainly happening: timestamps are stored in UTC in the database (correct), but when the app calculates "how long ago" it's comparing them wrong — either treating the UTC time as local, or not accounting for your timezone (you're in Sydney/AEST, UTC+10/+11). 10 hours off is suspicious — that's very close to your UTC offset. So a snap sent "now" in Sydney gets compared against UTC "now" and looks ~10h old. That's the tell: the 10h ≈ your timezone offset.
+Here's the prompt:
+
+Prompt for Replit AI:
+There's a systemic timezone/timestamp bug — relative times ("10h", "2d", etc.) are wrong across the whole app: snaps, posts, comments, and messages all show incorrect "time ago" values. Example: a snap sent a few minutes ago shows "10h ago". The user is in Sydney, Australia (AEST, UTC+10/+11) — and the error is ~10 hours, which strongly suggests a UTC-vs-local timezone mismatch in how relative time is calculated.
+Please find and fix the root cause:
+
+Find the shared "time ago" / relative-time formatting function (the one used for posts, comments, messages, snaps — it's likely one util like formatTimeAgo, timeSince, getRelativeTime, or a dayjs/date-fns/moment call). The bug is almost certainly in ONE shared place since it's wrong everywhere.
+Diagnose the timezone handling:
+
+How are timestamps stored in the DB? (Supabase timestamptz stores UTC — confirm.)
+When the app reads a timestamp and computes "time ago", is it correctly parsing the DB timestamp as UTC and comparing against the current time as UTC (or consistently in local)?
+The ~10h error = the Sydney UTC offset, which means the code is likely treating a UTC timestamp as if it were local time (or vice versa) — e.g. parsing created_at without the Z/timezone marker so JS interprets it as local, OR subtracting a local Date.now() from a UTC value without normalizing.
+
+
+Common specific causes to check:
+
+DB returns created_at as a string like 2026-06-20 01:45:00 WITHOUT a timezone suffix → new Date(that) parses it as LOCAL time, not UTC. Fix: ensure the timestamp is parsed as UTC (append Z or use the ISO string with timezone, or use the library's UTC parsing).
+Mixing new Date() (local) with a UTC-parsed value.
+The server inserting created_at using a local/wrong clock instead of now() / NOW() (UTC).
+
+
+Fix it in the shared function so the correction applies everywhere at once (posts, comments, messages, snaps). After the fix, a snap/message/post created "now" should show "Just now" / "1m", not "10h".
+Verify by checking a freshly-created record shows a correct, small "time ago".
+
+Please report: where the relative-time function lives, the exact cause of the ~10h offset (UTC-vs-local mismatch), what you changed, and confirm fresh items now show correct times ("Just now", "2m", etc.) across snaps, posts, comments, and messages.
