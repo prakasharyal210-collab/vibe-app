@@ -63,9 +63,11 @@ interface PostCardProps {
   fullScreen?: boolean;
   itemHeight?: number;
   onPress?: () => void;
+  /** true only when this card is the visible item AND the feed screen is focused */
+  isActive?: boolean;
 }
 
-export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight, onPress }: PostCardProps) {
+export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight, onPress, isActive = false }: PostCardProps) {
   const colors = useColors();
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -482,8 +484,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               style={{ width: CARD_W, height: imgH }}
               resizeMode={ResizeMode.COVER}
               isLooping
-              shouldPlay
-              isMuted={false}
+              shouldPlay={isActive}
+              isMuted={!isActive}
               onPlaybackStatusUpdate={(s) => {
                 if (s.isLoaded) setVideoPlaying(s.isPlaying);
               }}

@@ -382,6 +382,26 @@ export default function FeedScreen() {
   const { notifCount: rtNotifCount, messageCount: rtMsgCount, clearNotifBadge, clearMessageBadge } = useRealtime();
   const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url?: string; media_url?: string; likes_count: number }[]>([]);
 
+  // ── Video playback lifecycle ────────────────────────────────────────────────
+  // Track whether this screen is focused (no video should play while off-screen)
+  const [screenFocused, setScreenFocused] = useState(true);
+  // Track which post ID is currently visible in each tab's FlatList
+  const [visiblePostIds, setVisiblePostIds] = useState<Record<FeedTabId, string | null>>({
+    foryou: null,
+    friends: null,
+  });
+
+  // Stable viewability config — item must be ≥60% visible to count as "active"
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
+
+  // Per-tab stable onViewableItemsChanged handlers (must be stable refs for FlatList)
+  const viewableHandlers = useRef(
+    TABS.map((tab) => ({ viewableItems }: { viewableItems: Array<{ isViewable: boolean; item: Post }> }) => {
+      const top = viewableItems.find((v) => v.isViewable);
+      setVisiblePostIds((prev) => ({ ...prev, [tab.id]: top?.item?.id ?? null }));
+    })
+  ).current;
+
   const pagerRef = useRef<ScrollView>(null);
   const mainTabSwipe = useMainTabSwipe("feed");
   const scrollX = useRef(new Animated.Value(0)).current;
@@ -474,8 +494,14 @@ export default function FeedScreen() {
 
   // Do NOT reload data on focus — that resets scroll position mid-read.
   // Data loads on mount (useEffect above) and on pull-to-refresh only.
+  // Track screen focus so videos pause when the user switches tabs.
   useFocusEffect(useCallback(() => {
-    // intentionally empty — keep screenFocused behaviour here if needed later
+    setScreenFocused(true);
+    return () => {
+      setScreenFocused(false);
+      // Also clear visible IDs so no stale post gets "isActive" when returning
+      setVisiblePostIds({ foryou: null, friends: null });
+    };
   }, []));
 
 
@@ -593,7 +619,7 @@ export default function FeedScreen() {
     extrapolate: "clamp",
   });
 
-  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item, index }: { item: Post; index: number }) => {
+  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item }: { item: Post; index: number }) => {
     const post = item;
     if (userId) markPostSeen(userId, post.id).catch(() => {});
     return (
@@ -601,10 +627,11 @@ export default function FeedScreen() {
         post={post}
         onRequireLogin={() => setShowLoginPrompt(true)}
         isLoggedIn={isLoggedIn}
+        isActive={screenFocused && visiblePostIds[tabId] === post.id}
         onPress={() => router.push(`/post/${post.id}` as any)}
       />
     );
-  }, [isLoggedIn, userId]);
+  }, [isLoggedIn, userId, screenFocused, visiblePostIds]);
 
   const renderEmpty = useCallback((tabId: FeedTabId) => {
     const state = tabStates[tabId];
@@ -756,6 +783,8 @@ export default function FeedScreen() {
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
                 renderItem={renderTabPost(tab.id)}
+                onViewableItemsChanged={viewableHandlers[tabIndex]}
+                viewabilityConfig={viewabilityConfig}
                 decelerationRate="normal"
                 onMomentumScrollEnd={(e) => {
                   dragStartIndexRefs.current[tabIndex] = Math.max(0, Math.floor(e.nativeEvent.contentOffset.y / 400));
