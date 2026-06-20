@@ -59,7 +59,7 @@ export default function SoundsScreen() {
           })));
         }
       })
-      .finally(() => setLoading(false));
+      .then(() => setLoading(false), () => setLoading(false));
   }, [title]);
 
   return (

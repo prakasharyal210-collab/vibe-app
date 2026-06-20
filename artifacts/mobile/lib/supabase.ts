@@ -45,6 +45,8 @@ export interface Post {
   profiles?: Profile;
   music_title?: string;
   music_artist?: string;
+  is_video?: boolean;
+  video_url?: string;
 }
 
 export interface Reel {
