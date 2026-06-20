@@ -854,16 +854,20 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
         </LinearGradient>
         <View style={matchStyles.photos}>
           <View style={matchStyles.photoWrap}>
-            <View style={matchStyles.photoCircle}>
-              <Image source={{ uri: "https://picsum.photos/seed/me/200/200" }} style={{ width: "100%", height: "100%" }} />
-            </View>
+            <LinearGradient colors={["#EA580C", "#7C3AED"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchStyles.photoRing}>
+              <View style={matchStyles.photoCircle}>
+                <Image source={{ uri: "https://picsum.photos/seed/me/200/200" }} style={{ width: "100%", height: "100%" }} />
+              </View>
+            </LinearGradient>
             <Text style={matchStyles.photoName}>You</Text>
           </View>
-          <Ionicons name="heart" size={28} color="#7C3AED" style={{ marginBottom: 24 }} />
+          <Ionicons name="heart" size={32} color="#EC4899" style={matchStyles.heartIcon} />
           <View style={matchStyles.photoWrap}>
-            <View style={[matchStyles.photoCircle, { borderColor: "#EA580C" }]}>
-              <Image source={{ uri: card.image }} style={{ width: "100%", height: "100%" }} />
-            </View>
+            <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchStyles.photoRing}>
+              <View style={matchStyles.photoCircle}>
+                <Image source={{ uri: card.image }} style={{ width: "100%", height: "100%" }} />
+              </View>
+            </LinearGradient>
             <Text style={matchStyles.photoName}>{card.name}</Text>
           </View>
         </View>
@@ -874,7 +878,9 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
           onPress={() => { onClose(); router.push({ pathname: "/chat/[userId]", params: { userId: card.id, username: card.name, isVibeMatch: "true" } }); }}
           style={matchStyles.messageBtn}
         >
-          <Text style={matchStyles.messageBtnText}>💬 Send Message</Text>
+          <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchStyles.messageBtnGrad}>
+            <Text style={matchStyles.messageBtnText}>💬 Send Message</Text>
+          </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={async () => {
@@ -917,25 +923,28 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
 }
 
 const matchStyles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.92)", alignItems: "center", justifyContent: "center", zIndex: 100 },
-  content: { alignItems: "center", paddingHorizontal: 32 },
-  heartEmoji: { fontSize: 72, marginBottom: 16 },
-  badge: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 30, marginBottom: 28 },
-  badgeText: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold" },
-  photos: { flexDirection: "row", alignItems: "center", gap: 20, marginBottom: 16 },
-  photoWrap: { alignItems: "center", gap: 8 },
-  photoCircle: { width: 88, height: 88, borderRadius: 44, overflow: "hidden", borderWidth: 3, borderColor: "#7C3AED" },
-  photoName: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
-  matchSub: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", marginBottom: 28 },
-  messageBtn: { backgroundColor: "#7C3AED", paddingHorizontal: 40, paddingVertical: 14, borderRadius: 28, marginBottom: 12 },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(4,0,20,0.96)", alignItems: "center", justifyContent: "center", zIndex: 100 },
+  content: { alignItems: "center", paddingHorizontal: 28, width: "100%" },
+  heartEmoji: { fontSize: 80, marginBottom: 10 },
+  badge: { paddingHorizontal: 28, paddingVertical: 12, borderRadius: 32, marginBottom: 32 },
+  badgeText: { color: "#fff", fontSize: 22, fontFamily: "Poppins_700Bold", letterSpacing: 0.3 },
+  photos: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 },
+  photoWrap: { alignItems: "center", gap: 10 },
+  photoRing: { width: 112, height: 112, borderRadius: 56, padding: 3, alignItems: "center", justifyContent: "center" },
+  photoCircle: { width: 106, height: 106, borderRadius: 53, overflow: "hidden" },
+  photoName: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  heartIcon: { marginBottom: 28 },
+  matchSub: { color: "rgba(255,255,255,0.72)", fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", marginBottom: 32, lineHeight: 21, paddingHorizontal: 8 },
+  messageBtn: { width: "100%", borderRadius: 28, overflow: "hidden", marginBottom: 12 },
+  messageBtnGrad: { paddingVertical: 16, alignItems: "center" },
   messageBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
-  keepBtn: { paddingVertical: 8 },
-  keepBtnText: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_500Medium", fontSize: 14 },
-  ibBtn: { paddingHorizontal: 24, paddingVertical: 10, borderRadius: 20, borderWidth: 1, borderColor: "rgba(124,58,237,0.5)", backgroundColor: "rgba(124,58,237,0.15)", marginBottom: 12 },
+  keepBtn: { paddingVertical: 10 },
+  keepBtnText: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_500Medium", fontSize: 14 },
+  ibBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 22, borderWidth: 1, borderColor: "rgba(167,139,250,0.4)", backgroundColor: "rgba(124,58,237,0.12)", marginBottom: 12 },
   ibBtnText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   ibList: { width: "100%", gap: 8, marginBottom: 12 },
-  ibItem: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)" },
-  ibItemText: { color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 18, fontStyle: "italic" },
+  ibItem: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  ibItemText: { color: "rgba(255,255,255,0.82)", fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 19, fontStyle: "italic" },
 });
 
 const ICE_BREAKERS = [
@@ -1172,7 +1181,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
     );
   }
 
-  const CARD_H = H * 0.5;
+  const CARD_H = H * 0.62;
   const topCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
   const thirdCard = cards[currentIndex + 2];
@@ -1188,14 +1197,14 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       {nextCard && (
         <Animated.View style={[styles.card, { height: CARD_H, zIndex: 2 }, nextCardStyle]}>
           <Image source={{ uri: nextCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          <LinearGradient colors={["transparent", "rgba(0,0,0,0.88)"]} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={["transparent", "transparent", "rgba(0,0,0,0.6)", "rgba(0,0,0,0.95)"]} locations={[0, 0.4, 0.72, 1]} style={StyleSheet.absoluteFill} />
         </Animated.View>
       )}
       {topCard && (
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[styles.card, { height: CARD_H, zIndex: 10 }, topCardStyle]}>
             <Image source={{ uri: topCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            <LinearGradient colors={["transparent", "rgba(0,0,0,0.88)"]} style={StyleSheet.absoluteFill} />
+            <LinearGradient colors={["transparent", "transparent", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.96)"]} locations={[0, 0.38, 0.7, 1]} style={StyleSheet.absoluteFill} />
 
             <TouchableOpacity onPress={() => setProfileCard(topCard)} style={styles.expandBtn}>
               <Ionicons name="expand-outline" size={20} color="#fff" />
@@ -2181,11 +2190,11 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
 }
 
 const matchTabStyles = StyleSheet.create({
-  card: { borderRadius: 18, borderWidth: 0.5, padding: 14 },
-  cardRow: { flexDirection: "row", gap: 14 },
-  photoRing: { width: 84, height: 84, borderRadius: 42, padding: 2.5, alignItems: "center", justifyContent: "center" },
-  photo: { width: 79, height: 79, borderRadius: 39.5 },
-  onlineDot: { position: "absolute", bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: "#22C55E", borderWidth: 2.5, borderColor: "#fff" },
+  card: { borderRadius: 22, borderWidth: 0.5, padding: 16 },
+  cardRow: { flexDirection: "row", gap: 16 },
+  photoRing: { width: 92, height: 92, borderRadius: 46, padding: 2.5, alignItems: "center", justifyContent: "center" },
+  photo: { width: 87, height: 87, borderRadius: 43.5 },
+  onlineDot: { position: "absolute", bottom: 2, right: 2, width: 15, height: 15, borderRadius: 7.5, backgroundColor: "#22C55E", borderWidth: 2.5, borderColor: "#fff" },
   info: { flex: 1, gap: 4 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
   name: { fontFamily: "Poppins_700Bold", fontSize: 15 },
@@ -2760,31 +2769,31 @@ const styles = StyleSheet.create({
   tabPillEmoji: { fontSize: 17, lineHeight: 22 },
   tabPillLabel: { fontSize: 11, fontFamily: "Poppins_700Bold", marginTop: 1 },
   deckArea: { flex: 1, alignItems: "center", paddingHorizontal: 16, paddingTop: 8 },
-  card: { position: "absolute", width: W - 32, borderRadius: 24, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
-  expandBtn: { position: "absolute", top: 16, left: 16, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 20, padding: 6 },
-  overlayVibe: { position: "absolute", top: 24, left: 24, backgroundColor: "rgba(124,58,237,0.85)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 2, borderColor: "#7C3AED" },
-  overlayVibeText: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold", letterSpacing: 1 },
-  overlaySkip: { position: "absolute", top: 24, right: 24, backgroundColor: "rgba(239,68,68,0.85)", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 2, borderColor: "#EF4444" },
-  overlaySkipText: { color: "#fff", fontSize: 20, fontFamily: "Poppins_700Bold", letterSpacing: 1 },
-  matchBadge: { position: "absolute", bottom: 120, right: 14 },
-  matchGrad: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16 },
-  matchText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_700Bold" },
-  cardBottom: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 18, gap: 5 },
+  card: { position: "absolute", width: W - 32, borderRadius: 28, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 28, elevation: 20 },
+  expandBtn: { position: "absolute", top: 16, left: 16, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 22, padding: 8 },
+  overlayVibe: { position: "absolute", top: 32, left: 20, backgroundColor: "rgba(124,58,237,0.9)", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, borderWidth: 3, borderColor: "#A78BFA", transform: [{ rotate: "-14deg" }] },
+  overlayVibeText: { color: "#fff", fontSize: 24, fontFamily: "Poppins_700Bold", letterSpacing: 2 },
+  overlaySkip: { position: "absolute", top: 32, right: 20, backgroundColor: "rgba(239,68,68,0.9)", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, borderWidth: 3, borderColor: "#FCA5A5", transform: [{ rotate: "14deg" }] },
+  overlaySkipText: { color: "#fff", fontSize: 24, fontFamily: "Poppins_700Bold", letterSpacing: 2 },
+  matchBadge: { position: "absolute", top: 56, right: 16 },
+  matchGrad: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  matchText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold" },
+  cardBottom: { position: "absolute", bottom: 0, left: 0, right: 0, padding: 22, gap: 8 },
   cardNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   cardGoalRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   sameGoalBadge: { backgroundColor: "rgba(234,179,8,0.25)", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "rgba(234,179,8,0.5)" },
   sameGoalText: { color: "#EAB308", fontFamily: "Poppins_600SemiBold", fontSize: 11 },
-  cardName: { color: "#fff", fontSize: 22, fontFamily: "Poppins_700Bold" },
-  distancePill: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  distanceText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium" },
-  cardBio: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18 },
-  interestRow: { flexDirection: "row", gap: 6 },
-  interestTag: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  interestTagMatch: { backgroundColor: "rgba(124,58,237,0.6)" },
-  interestText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_500Medium" },
-  actionButtons: { position: "absolute", bottom: Platform.OS === "web" ? 100 : 90, flexDirection: "row", alignItems: "center", gap: 16 },
-  actionCircle: { width: 60, height: 60, borderRadius: 30, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
-  vibeCircle: { width: 72, height: 72, borderRadius: 36, overflow: "hidden" },
+  cardName: { color: "#fff", fontSize: 26, fontFamily: "Poppins_700Bold" },
+  distancePill: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.45)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  distanceText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_500Medium" },
+  cardBio: { color: "rgba(255,255,255,0.88)", fontSize: 14, fontFamily: "Poppins_400Regular", lineHeight: 20 },
+  interestRow: { flexDirection: "row", gap: 7 },
+  interestTag: { backgroundColor: "rgba(255,255,255,0.18)", paddingHorizontal: 11, paddingVertical: 5, borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(255,255,255,0.3)" },
+  interestTagMatch: { backgroundColor: "rgba(124,58,237,0.65)", borderColor: "#A78BFA" },
+  interestText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  actionButtons: { position: "absolute", bottom: Platform.OS === "web" ? 108 : 96, flexDirection: "row", alignItems: "center", gap: 20 },
+  actionCircle: { width: 68, height: 68, borderRadius: 34, borderWidth: 1.5, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  vibeCircle: { width: 80, height: 80, borderRadius: 40, overflow: "hidden", shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 10 },
   vibeGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyDeck: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 32, paddingBottom: 100 },
   emptyEmoji: { fontSize: 52 },

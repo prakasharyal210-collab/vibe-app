@@ -528,21 +528,21 @@ const roomStyles = StyleSheet.create({
 });
 
 const roomCardStyles = StyleSheet.create({
-  card: { borderRadius: 20, borderWidth: 0.5, padding: 16, gap: 10 },
+  card: { borderRadius: 24, borderWidth: 0.5, padding: 18, gap: 12 },
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  emoji: { fontSize: 32 },
-  liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(34,197,94,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#22C55E" },
-  liveText: { color: "#22C55E", fontFamily: "Poppins_700Bold", fontSize: 11, letterSpacing: 0.5 },
-  joinedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(124,58,237,0.15)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  emoji: { fontSize: 38 },
+  liveBadge: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(34,197,94,0.15)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 },
+  liveDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: "#22C55E" },
+  liveText: { color: "#22C55E", fontFamily: "Poppins_700Bold", fontSize: 11, letterSpacing: 0.8 },
+  joinedBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(124,58,237,0.18)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 },
   joinedText: { color: "#A78BFA", fontFamily: "Poppins_700Bold", fontSize: 11 },
-  name: { fontFamily: "Poppins_700Bold", fontSize: 17 },
-  desc: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 18 },
+  name: { fontFamily: "Poppins_700Bold", fontSize: 19 },
+  desc: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
   memberRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  memberAvatar: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: "#7C3AED", overflow: "hidden" },
-  memberCount: { fontFamily: "Poppins_400Regular", fontSize: 12, marginLeft: 6 },
-  joinBtn: { paddingVertical: 12, borderRadius: 14, alignItems: "center" },
-  joinText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14 },
+  memberAvatar: { width: 30, height: 30, borderRadius: 15, borderWidth: 1.5, borderColor: "#7C3AED", overflow: "hidden" },
+  memberCount: { fontFamily: "Poppins_400Regular", fontSize: 12, marginLeft: 8 },
+  joinBtn: { paddingVertical: 14, borderRadius: 18, alignItems: "center" },
+  joinText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
 });
 
 const roomsTabStyles = StyleSheet.create({

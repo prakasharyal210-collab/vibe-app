@@ -1,0 +1,29 @@
+Before I write this, one important thing — "make Find Vibe premium" covers a lot of screens (the swipe deck, match cards, the Matches tab, Vibe Rooms, Browse by Intention, the settings hub, profile cards). If I write one prompt that says "make everything premium," Replit will spread itself thin and you'll get a shallow pass over everything instead of a real upgrade. Better to be specific about what "premium" means and which screens matter most.
+Let me give you a strong, focused prompt that targets the main Find Vibe screens users actually see (the swipe deck + match cards are the heart of it), with clear premium design direction:
+
+Prompt for Replit AI:
+Redesign the Find Vibe screens to look premium and polished, matching the quality of top dating apps (Hinge/Bumble/Tinder) while keeping Gundruk's dark theme + orange→purple gradient brand. Focus on making it feel high-end: generous spacing, rich cards, smooth animation, clear hierarchy.
+Priority 1 — The swipe deck (the main screen):
+
+Large, premium profile cards: full-bleed photo with rounded corners (20px), subtle shadow/elevation so the card lifts off the background.
+Gradient scrim only at the bottom of the card (subtle) so the name/info text is readable over the photo.
+On the card: name + age, vibe status/relationship intention pill, a short bio line, and key vibe attributes as small pills (zodiac, interests, etc.) if available.
+A vibe compatibility ring/badge (you already have the SVG compatibility ring) shown elegantly on the card — e.g. a small circular % match badge in a corner.
+Premium swipe buttons below the card: a row of circular gradient/glass buttons — pass (✕), super-like/vibe (★), like (♡) — with subtle press animations and shadows.
+Smooth swipe animations: card tilts and fades as dragged, with colored overlays (e.g. green "LIKE" / red "PASS" stamps appearing as you swipe), spring physics.
+
+Priority 2 — Match moment & Matches tab:
+
+When a mutual match happens, a celebratory "It's a Vibe!" full-screen moment — both avatars, gradient background, confetti or animated hearts, "Send a message" CTA.
+Matches tab: clean grid/list of match cards with avatar, name, compatibility, and a message button — styled consistently.
+
+Priority 3 — Polish the supporting screens (Vibe Rooms, Browse by Intention, Find Vibe Settings) to match the same visual language: consistent cards, spacing, gradient accents, and typography — so the whole Find Vibe section feels like one cohesive premium experience.
+Design requirements:
+
+Dark theme + orange→purple gradient accents (Gundruk's identity) — NOT another app's colors.
+Generous spacing, large clean typography, clear hierarchy, rounded cards, subtle shadows — the "breathing room" that makes apps feel premium.
+Smooth, springy animations (Reanimated) for swipes, button presses, and the match moment.
+Keep ALL existing functionality intact: the deck (get_vibe_matches via API server), swipe persistence, mutual match logic (both-direction vibe_matches, deduped), Matches tab + MatchChatView, Vibe Rooms, Browse by Intention with relationship_goals, the goal filter, and the Find Vibe Settings hub. Do NOT break the matching system — only redesign the visuals.
+All DB access through artifacts/api-server (service-role); verify columns; reset loading in finally.
+
+Please report which Find Vibe files were edited, describe the new premium design, and confirm every existing feature (swipe, match, chat, rooms, intention browse, filters, settings) still works.
