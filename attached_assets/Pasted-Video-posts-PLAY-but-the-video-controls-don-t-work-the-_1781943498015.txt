@@ -1,0 +1,19 @@
+Video posts PLAY, but the video controls don't work — the progress bar (seek), mute toggle, and play/pause button are all unresponsive. This is broken in BOTH the feed PostCard video and the post detail screen (app/post/[id].tsx) video player.
+The likely cause: a transparent StyleSheet.absoluteFill touch-catcher overlay (added for double-tap-to-like) sits ON TOP of the video AND on top of the controls — so it intercepts every tap before it can reach the progress bar, mute button, or pause control. The controls render visually but can't receive touches.
+Please fix the touch layering so BOTH the double-tap-like gesture AND the individual controls work:
+
+The controls (progress bar, mute toggle, play/pause) must sit ABOVE the transparent tap-catcher overlay in the view stack (render them AFTER/on top of the absoluteFill overlay), so taps on a control reach the control, not the overlay.
+The transparent tap overlay should only catch taps on the bare video area (for double-tap-like and tap-to-pause), NOT on the control elements. Taps on the progress bar, mute button, etc. should hit those controls directly.
+Specifically:
+
+Progress bar: must be draggable to seek (its own PanResponder/touch handlers must receive the gesture, not the overlay). Put it above the overlay.
+Mute toggle: tapping it must toggle mute (its own onPress must fire).
+Play/pause: tapping the play/pause button must work.
+Double-tap on the bare video (not on a control) → still likes (heart burst).
+Single-tap on the bare video → play/pause (detail) or open post (feed), as before.
+
+
+Use proper z-ordering / render order (controls last = on top), and/or pointerEvents settings so the overlay doesn't block the controls. The controls layer should be interactive; the tap-catcher should only cover the non-control video area.
+
+Apply to BOTH the feed PostCard video and the post detail video player.
+Please report what was blocking the controls (overlay intercepting touches), how you fixed the layering, and confirm progress bar/mute/play-pause all work AND double-tap-like still works on video posts.

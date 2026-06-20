@@ -553,7 +553,28 @@ export default function PostDetailScreen() {
                   }}
                 />
 
-                {/* Controls overlay — fades in/out */}
+                {/*
+                  ── Touch-layer stack (bottom → top) ───────────────────────
+                  1. Tap-catcher  (absoluteFill, rendered FIRST = lowest z)
+                     Handles single-tap play/pause and double-tap like on the
+                     bare video area.
+                  2. Controls overlay (absoluteFill, rendered SECOND = above)
+                     pointerEvents="box-none" → the Animated.View container
+                     itself is transparent to touches; only its interactive
+                     children (mute button, seek track) receive gestures.
+                     The center play-icon area is pointerEvents="none" so
+                     taps there fall through to the tap-catcher.
+                  3. Heart burst (pointerEvents="none", topmost, decorative)
+                */}
+
+                {/* 1 ── Transparent full-area tap handler */}
+                <TouchableOpacity
+                  activeOpacity={1}
+                  style={StyleSheet.absoluteFill}
+                  onPress={handleVideoTap}
+                />
+
+                {/* 2 ── Controls overlay — fades in/out, sits ABOVE tap-catcher */}
                 <Animated.View
                   style={[StyleSheet.absoluteFill, V.controls, videoControlsStyle]}
                   pointerEvents="box-none"
@@ -562,8 +583,11 @@ export default function PostDetailScreen() {
                   <View style={V.topRow} pointerEvents="box-none">
                     <TouchableOpacity
                       style={V.muteBtn}
-                      onPress={() => setIsMuted((m) => !m)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => {
+                        setIsMuted((m) => !m);
+                        showControlsTemporarily();
+                      }}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     >
                       <Ionicons
                         name={isMuted ? "volume-mute" : "volume-high"}
@@ -573,7 +597,8 @@ export default function PostDetailScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Center: play/pause circle */}
+                  {/* Center: visual play/pause indicator — pointerEvents="none"
+                      so taps pass through to the tap-catcher below */}
                   <View style={V.centerRow} pointerEvents="none">
                     <View style={V.playPauseCircle}>
                       <Ionicons
@@ -585,7 +610,7 @@ export default function PostDetailScreen() {
                     </View>
                   </View>
 
-                  {/* Bottom: time + gradient progress bar */}
+                  {/* Bottom: time + gradient seek bar */}
                   <View style={V.bottomRow} pointerEvents="box-none">
                     <Text style={V.timeText}>
                       {formatTime(videoPosition)} / {formatTime(videoDuration)}
@@ -594,7 +619,11 @@ export default function PostDetailScreen() {
                       style={V.progressTrack}
                       onLayout={(e) => setProgressTrackW(e.nativeEvent.layout.width)}
                       onStartShouldSetResponder={() => true}
-                      onResponderGrant={handleSeekGesture}
+                      onMoveShouldSetResponder={() => true}
+                      onResponderGrant={(e) => {
+                        showControlsTemporarily();
+                        handleSeekGesture(e);
+                      }}
                       onResponderMove={handleSeekGesture}
                     >
                       <LinearGradient
@@ -604,20 +633,16 @@ export default function PostDetailScreen() {
                         style={[V.progressFill, { width: progressTrackW * progressRatio }]}
                       />
                       <View
-                        style={[V.progressThumb, { left: Math.max(0, progressTrackW * progressRatio - 7) }]}
+                        style={[
+                          V.progressThumb,
+                          { left: Math.max(0, progressTrackW * progressRatio - 7) },
+                        ]}
                       />
                     </View>
                   </View>
                 </Animated.View>
 
-                {/* Transparent full-area tap handler (single = play/pause, double = like) */}
-                <TouchableOpacity
-                  activeOpacity={1}
-                  style={StyleSheet.absoluteFill}
-                  onPress={handleVideoTap}
-                />
-
-                {/* Heart burst over video */}
+                {/* 3 ── Heart burst (purely decorative, never blocks touches) */}
                 <Animated.View
                   style={[StyleSheet.absoluteFill, S.heartBurstOverlay, heartBurstStyle]}
                   pointerEvents="none"
