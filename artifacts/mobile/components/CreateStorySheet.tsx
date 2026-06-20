@@ -12,6 +12,7 @@ import {
   Image,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -431,16 +432,32 @@ function ShareOptionsScreen({
   );
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmtAgo(isoString: string): string {
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  return `${Math.floor(hrs / 24)}d`;
+}
+
 // ─── Posted Story Viewer ──────────────────────────────────────────────────────
 
 export function PostedStoryViewer({
   pending,
   username,
+  storyId,
+  userId,
   onClose,
   onAddNew,
 }: {
   pending: PendingStory;
   username: string;
+  storyId?: string;
+  userId?: string;
   onClose: () => void;
   onAddNew: () => void;
 }) {
@@ -459,6 +476,25 @@ export function PostedStoryViewer({
     anim.start(({ finished }) => { if (finished) onClose(); });
     return () => anim.stop();
   }, []);
+
+  // ── Insights state ────────────────────────────────────────────────────────
+  type ViewerEntry = {
+    viewer_id: string; viewed_at: string;
+    username: string | null; avatar_url: string | null; reaction: string | null;
+  };
+  const [viewers, setViewers] = useState<ViewerEntry[]>([]);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+  const API_BASE_PV = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+  useEffect(() => {
+    if (!storyId || !userId) return;
+    setLoadingInsights(true);
+    fetch(`${API_BASE_PV}/stories/${encodeURIComponent(storyId)}/insights?userId=${encodeURIComponent(userId)}`)
+      .then((r) => r.json())
+      .then((d: any) => { if (Array.isArray(d.viewers)) setViewers(d.viewers); })
+      .catch(() => {})
+      .finally(() => setLoadingInsights(false));
+  }, [storyId, userId]);
 
   const isText = pending.storyType === "text" || !!pending.textContent;
   const bgColors: [string, string] = pending.bgGradient
@@ -520,12 +556,43 @@ export function PostedStoryViewer({
         </View>
       ) : null}
 
-      {/* Bottom viewer bar */}
-      <View style={[pvStyles.bottomBar, { paddingBottom: botPad }]}>
-        <View style={pvStyles.viewersChip}>
+      {/* ── Insights panel ───────────────────────────────────────────────────── */}
+      <View style={[pvStyles.bottomPanel, { paddingBottom: botPad }]}>
+        {/* Stats header row */}
+        <View style={pvStyles.statsRow}>
           <Ionicons name="eye-outline" size={15} color="rgba(255,255,255,0.75)" />
-          <Text style={pvStyles.viewersText}>No viewers yet</Text>
+          <Text style={pvStyles.statText}>
+            {loadingInsights
+              ? "Loading…"
+              : viewers.length === 0
+                ? "No viewers yet"
+                : `${viewers.length} viewer${viewers.length === 1 ? "" : "s"}`}
+          </Text>
+          {viewers.filter((v) => v.reaction).length > 0 && (
+            <>
+              <Text style={pvStyles.statDot}>·</Text>
+              <Text style={pvStyles.statText}>
+                {`${viewers.filter((v) => v.reaction).length} reaction${viewers.filter((v) => v.reaction).length === 1 ? "" : "s"}`}
+              </Text>
+            </>
+          )}
         </View>
+
+        {/* Viewer list — scrollable, max ~4 rows visible */}
+        {viewers.length > 0 && (
+          <ScrollView style={pvStyles.viewerList} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+            {viewers.map((v) => (
+              <View key={v.viewer_id} style={pvStyles.viewerRow}>
+                <UserAvatar url={v.avatar_url ?? undefined} username={v.username ?? "?"} size={32} />
+                <Text style={pvStyles.viewerName} numberOfLines={1}>{v.username ?? "Unknown"}</Text>
+                <Text style={pvStyles.viewerTime}>{fmtAgo(v.viewed_at)}</Text>
+                {v.reaction ? <Text style={pvStyles.viewerReaction}>{v.reaction}</Text> : null}
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* Action buttons */}
         <View style={pvStyles.actions}>
           <TouchableOpacity onPress={onAddNew} style={pvStyles.actionBtn}>
             <View style={pvStyles.actionIconWrap}>
@@ -579,6 +646,7 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
   const [pending, setPending] = useState<PendingStory | null>(null);
   const [audience, setAudience] = useState<Audience>("public");
   const [alsoShareFeed, setAlsoShareFeed] = useState(false);
+  const [postedStoryId, setPostedStoryId] = useState<string | null>(null);
 
   const botPad = Platform.OS === "web" ? 24 : insets.bottom + 16;
 
@@ -714,6 +782,7 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
     // while the user is still looking at the posted-viewer screen.
     onPost?.();
 
+    setPostedStoryId(storyId);
     setMode("posted-viewer");
   };
 
@@ -758,6 +827,8 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
         <PostedStoryViewer
           pending={pending}
           username={username}
+          storyId={postedStoryId ?? undefined}
+          userId={userId}
           onClose={() => { setMode("sheet"); setPending(null); onClose(); }}
           onAddNew={() => { setMode("sheet"); setPending(null); }}
         />
@@ -889,7 +960,18 @@ const pvStyles = StyleSheet.create({
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingTop: 14, backgroundColor: "rgba(0,0,0,0.55)" },
   viewersChip: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
   viewersText: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_500Medium", fontSize: 13 },
-  actions: { flexDirection: "row", gap: 6 },
+  // ── Insights panel (replaces bottomBar in PostedStoryViewer) ──────────────
+  bottomPanel: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "column", paddingHorizontal: 16, paddingTop: 12, backgroundColor: "rgba(0,0,0,0.65)", gap: 8 },
+  statsRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  statText: { color: "rgba(255,255,255,0.88)", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  statDot: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 13 },
+  viewerList: { maxHeight: 140 },
+  viewerRow: { flexDirection: "row", alignItems: "center", paddingVertical: 5, gap: 10 },
+  viewerName: { flex: 1, color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  viewerTime: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_400Regular", fontSize: 11 },
+  viewerReaction: { fontSize: 18 },
+  // ─────────────────────────────────────────────────────────────────────────
+  actions: { flexDirection: "row", justifyContent: "space-around", paddingTop: 4 },
   actionBtn: { alignItems: "center", gap: 3, paddingHorizontal: 10 },
   actionIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
   actionLabel: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_500Medium", fontSize: 11 },

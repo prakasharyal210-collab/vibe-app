@@ -298,6 +298,102 @@ router.get("/:storyId/reactions", async (req, res) => {
   res.json({ reactions: data ?? [] });
 });
 
+// ─── POST /api/stories/:storyId/view ──────────────────────────────────────────
+// body: { userId }
+// Upserts a view row — repeated opens update viewed_at but don't add duplicates.
+// Story owners viewing their own story are not blocked here; the mobile client
+// already skips the call for isOwn stories.
+router.post("/:storyId/view", async (req, res) => {
+  const { storyId } = req.params;
+  const { userId } = req.body as { userId?: string };
+
+  if (!userId || !storyId) {
+    res.status(400).json({ error: "userId and storyId are required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+  const { error } = await supabase
+    .from("story_views")
+    .upsert(
+      { story_id: storyId, viewer_id: userId, viewed_at: new Date().toISOString() },
+      { onConflict: "story_id,viewer_id" }
+    );
+
+  if (error) {
+    req.log.error({ err: error }, "failed to record story view");
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+// ─── GET /api/stories/:storyId/insights ───────────────────────────────────────
+// query: { userId }  — only accessible to the story owner.
+// Returns viewers merged with their reaction emoji (if any).
+router.get("/:storyId/insights", async (req, res) => {
+  const { storyId } = req.params;
+  const userId = req.query["userId"] as string | undefined;
+
+  if (!userId || !storyId) {
+    res.status(400).json({ error: "userId is required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+
+  // Verify ownership
+  const { data: storyRow } = await supabase
+    .from("stories")
+    .select("user_id")
+    .eq("id", storyId)
+    .single();
+
+  if (!storyRow || storyRow.user_id !== userId) {
+    res.status(403).json({ error: "Not the story owner" });
+    return;
+  }
+
+  // Fetch views and reactions in parallel
+  const [viewsRes, reactionsRes] = await Promise.all([
+    supabase
+      .from("story_views")
+      .select("viewer_id, viewed_at, profiles:viewer_id(id, username, avatar_url)")
+      .eq("story_id", storyId)
+      .order("viewed_at", { ascending: false }),
+    supabase
+      .from("story_reactions")
+      .select("user_id, emoji")
+      .eq("story_id", storyId),
+  ]);
+
+  if (viewsRes.error) {
+    req.log.error({ err: viewsRes.error }, "failed to fetch story views");
+    res.status(500).json({ error: viewsRes.error.message });
+    return;
+  }
+
+  // Build reaction lookup: viewer_id → emoji
+  const reactionMap = new Map<string, string>(
+    (reactionsRes.data ?? []).map((r: any) => [r.user_id as string, r.emoji as string])
+  );
+
+  const viewers = (viewsRes.data ?? []).map((v: any) => ({
+    viewer_id:  v.viewer_id as string,
+    viewed_at:  v.viewed_at as string,
+    username:   (v.profiles as any)?.username   ?? null,
+    avatar_url: (v.profiles as any)?.avatar_url ?? null,
+    reaction:   reactionMap.get(v.viewer_id as string) ?? null,
+  }));
+
+  res.json({
+    viewers,
+    view_count:     viewers.length,
+    reaction_count: reactionMap.size,
+  });
+});
+
 // ─── DELETE /api/stories/:storyId ─────────────────────────────────────────────
 router.delete("/:storyId", async (req, res) => {
   const { storyId } = req.params;

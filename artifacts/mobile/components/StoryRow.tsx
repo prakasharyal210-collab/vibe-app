@@ -129,6 +129,18 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
 
   useEffect(() => {
     startTimer();
+    // Record view for non-own, non-placeholder stories — fire-and-forget so it
+    // never blocks the UI. The upsert on the server means repeated opens don't
+    // create duplicate rows (only viewed_at is updated).
+    const viewerId = session?.user?.id;
+    const sid = story?.id;
+    if (viewerId && sid && sid !== "own_placeholder" && !story?.isOwn) {
+      fetch(`${API_BASE}/stories/${sid}/view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: viewerId }),
+      }).catch(() => {});
+    }
     return clearTimer;
   }, [current]);
 
@@ -452,6 +464,7 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
   const [createOpen, setCreateOpen] = useState(false);
   const [ownViewerOpen, setOwnViewerOpen] = useState(false);
   const [ownStoryPending, setOwnStoryPending] = useState<PendingStory | null>(null);
+  const [ownStoryId, setOwnStoryId] = useState<string | null>(null);
 
   const ownUsername = stories.find((s) => s.isOwn)?.username ?? "";
 
@@ -482,6 +495,7 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
           mediaUri: storyType !== "text" ? story.image : undefined,
           caption: story.caption,
         });
+        setOwnStoryId(story.id);
         setOwnViewerOpen(true);
       }
       return;
@@ -520,6 +534,8 @@ export function StoryRow({ stories, userId, onStoryCreated }: { stories: Story[]
           <PostedStoryViewer
             pending={ownStoryPending}
             username={ownUsername}
+            storyId={ownStoryId ?? undefined}
+            userId={userId}
             onClose={() => setOwnViewerOpen(false)}
             onAddNew={() => {
               setOwnViewerOpen(false);
