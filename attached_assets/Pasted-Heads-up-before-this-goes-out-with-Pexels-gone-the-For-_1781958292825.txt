@@ -1,0 +1,29 @@
+Heads up before this goes out: with Pexels gone, the "For You" feed will only show real user-generated posts — for any account where that's sparse (most test accounts right now), the feed is going to look a lot emptier than what you've been looking at in these screenshots. Worth knowing going in, but I'll proceed since that's a clear instruction.
+This touches more surface area than it sounds like — Pexels content is woven into the feed merge logic, the empty-state filler (CuratedFeedList), possibly the Explore/Trending/Music/Dance category pills, and the attribution UI ("Photos & Videos by Pexels," the "Pexels" badge on each card). Here's the prompt:
+
+Prompt for Replit AI:
+Remove all Pexels API integration from the app, completely.
+
+Find every touchpoint first and report back before deleting anything:
+
+Where Pexels gets fetched (API calls, the Pexels API key/env var, any service/utility file dedicated to it)
+CuratedFeedList — confirm whether this is purely Pexels-backed or has other logic mixed in
+Whether TrendingGrid or the Explore/Trending/Music/Dance category pills in the feed header are Pexels-backed
+The feed merge logic in getForYouFeed/getFriendsFeed (db.ts) and the /feed/foryou route — how Pexels items get blended with real posts
+Any UI elements tied to it: "Photos & Videos by Pexels" footer text, the "Pexels" attribution badge on cards, "Featured · Stock photo" labels
+Any npm package installed specifically for this (a Pexels SDK, if one's used, vs raw fetch calls)
+
+
+Remove it cleanly:
+
+Strip all Pexels fetch calls and the merge logic blending it into feed results — feed should only ever return real posts going forward
+Remove the Pexels API key from env config
+Remove or repurpose CuratedFeedList/TrendingGrid if they're purely Pexels-backed — if so, delete them; if they have other logic mixed in, strip out just the Pexels parts
+Remove all the attribution UI tied to it
+Remove the now-unused npm package if there is one
+
+
+Replace the empty state properly — wherever Pexels filler used to show (an account/feed with no real posts to display), show a clean "No posts yet" empty state with a simple call-to-action instead of nothing. Keep it simple — text + maybe a suggestion to follow people or create a post.
+Make sure nothing crashes or breaks from removing this — particularly the feed pagination/reset logic we fixed earlier, since some of that was specifically dealing with the Pexels-to-real-post boundary. Confirm that logic still makes sense (or simplify it) now that there's no longer a mixed-content boundary to handle.
+
+Report back: the full list of what Pexels touched, what got removed vs repurposed, and confirm the feed still loads/paginates correctly with only real posts.

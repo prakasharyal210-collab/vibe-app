@@ -351,7 +351,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       }}
       delayLongPress={400}
     >
-      {/* Background: real video for DB reels, image poster for Pexels/placeholder */}
+      {/* Background: real video for DB reels, placeholder poster if video not yet loaded */}
       {reel.videoUrl && !videoError ? (
         <Video
           source={{ uri: reel.videoUrl }}

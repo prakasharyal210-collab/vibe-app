@@ -29,7 +29,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
-import { CuratedFeedList } from "@/components/CuratedFeedList";
 import { useRealtime } from "@/context/RealtimeContext";
 import { SkeletonPost } from "@/components/SkeletonLoader";
 import { StoryRow } from "@/components/StoryRow";
@@ -367,7 +366,7 @@ function ForYouListHeader({ isTrending, trendingPosts, colors }: ForYouHeaderPro
       />
     );
   }
-  return <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />;
+  return null;
 }
 
 type FriendsHeaderProps = {
@@ -406,6 +405,7 @@ export default function FeedScreen() {
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState("explore");
+  const isTrending = activeCategory === "trending";
   const [tabStates, setTabStates] = useState<Record<FeedTabId, TabState>>({
     foryou: { ...INIT_TAB },
     friends: { ...INIT_TAB, loading: false },
@@ -708,12 +708,23 @@ export default function FeedScreen() {
 
   const renderEmpty = useCallback((tabId: FeedTabId) => {
     const state = tabStates[tabId];
-    if (tabId === "foryou") {
-      // Header always shows CuratedFeedList — nothing extra needed in empty slot
-      return null;
-    }
     if (state.loading) {
       return <View>{[1, 2].map((i) => <SkeletonPost key={i} />)}</View>;
+    }
+    if (tabId === "foryou") {
+      if (isTrending) return null;
+      return (
+        <View style={emptyStyles.wrap}>
+          <Text style={emptyStyles.emoji}>📸</Text>
+          <Text style={[emptyStyles.title, { color: colors.foreground }]}>No posts yet</Text>
+          <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>
+            Follow people to see posts here, or be the first to create one.
+          </Text>
+          <TouchableOpacity style={emptyStyles.actionBtn} onPress={() => router.push("/create" as any)}>
+            <Text style={emptyStyles.actionBtnText}>Create a post</Text>
+          </TouchableOpacity>
+        </View>
+      );
     }
     if (tabId === "friends") {
       return (
@@ -728,7 +739,7 @@ export default function FeedScreen() {
       );
     }
     return null;
-  }, [tabStates, colors]);
+  }, [tabStates, colors, isTrending, router]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
@@ -839,7 +850,6 @@ export default function FeedScreen() {
         {TABS.map((tab, tabIndex) => {
           const state = tabStates[tab.id];
           const catDef = CATEGORIES.find((c) => c.id === activeCategory);
-          const isTrending = activeCategory === "trending";
           const filteredPosts = (catDef && catDef.keywords.length > 0 && !state.loading)
             ? state.posts.filter((p) => {
                 const haystack = (p.caption ?? "").toLowerCase();
