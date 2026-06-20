@@ -263,17 +263,21 @@ router.get("/stats", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
+    const [postsRes, reelsRes, followersRes, followingRes, postSumsRes] = await Promise.allSettled([
       sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", userId),
       sb.from("reels").select("*", { count: "exact", head: true }).eq("user_id", userId),
       sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
       sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("follower_id", userId),
+      // SUM(likes_count) + SUM(views_count) across ALL user's posts — used for profile stats panel.
+      // Selects only the two integer columns so the payload is minimal even for large accounts.
+      sb.from("posts").select("likes_count, views_count").eq("user_id", userId),
     ]);
 
     if (postsRes.status === "rejected") req.log.error({ err: (postsRes as any).reason?.message }, "[profile-stats] posts COUNT failed");
     if (reelsRes.status === "rejected") req.log.error({ err: (reelsRes as any).reason?.message }, "[profile-stats] reels COUNT failed");
     if (followersRes.status === "rejected") req.log.error({ err: (followersRes as any).reason?.message }, "[profile-stats] followers COUNT failed");
     if (followingRes.status === "rejected") req.log.error({ err: (followingRes as any).reason?.message }, "[profile-stats] following COUNT failed");
+    if (postSumsRes.status === "rejected") req.log.error({ err: (postSumsRes as any).reason?.message }, "[profile-stats] post sums failed");
 
     const posts_count =
       (postsRes.status === "fulfilled" ? (postsRes.value.count ?? 0) : 0) +
@@ -281,7 +285,12 @@ router.get("/stats", async (req, res) => {
     const followers_count = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : 0;
     const following_count = followingRes.status === "fulfilled" ? (followingRes.value.count ?? 0) : 0;
 
-    res.json({ posts_count, followers_count, following_count });
+    const postSumsData: { likes_count: number | null; views_count: number | null }[] =
+      postSumsRes.status === "fulfilled" ? ((postSumsRes.value.data as any) ?? []) : [];
+    const total_likes = postSumsData.reduce((s, p) => s + (p.likes_count ?? 0), 0);
+    const total_views = postSumsData.reduce((s, p) => s + (p.views_count ?? 0), 0);
+
+    res.json({ posts_count, followers_count, following_count, total_likes, total_views });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "[profile-stats] exception");
     res.status(500).json({ error: "Failed" });

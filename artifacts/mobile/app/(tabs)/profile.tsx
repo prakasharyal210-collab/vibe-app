@@ -537,6 +537,7 @@ export default function ProfileScreen() {
     following_count: profile.following_count,
     posts_count: profile.posts_count,
   });
+  const [liveEngagement, setLiveEngagement] = useState({ total_likes: 0, total_views: 0 });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const [myPosts, setMyPosts] = useState<GridItem[]>([]);
   const [taggedPosts, setTaggedPosts] = useState<GridItem[]>([]);
@@ -638,12 +639,20 @@ export default function ProfileScreen() {
           posts_count?: number;
           followers_count?: number;
           following_count?: number;
+          total_likes?: number;
+          total_views?: number;
         };
         liveCounts = {
           posts_count: stats.posts_count ?? liveCounts.posts_count,
           followers_count: stats.followers_count ?? liveCounts.followers_count,
           following_count: stats.following_count ?? liveCounts.following_count,
         };
+        // Move engagement totals to dedicated state so the stats panel always
+        // reflects ALL posts, not just the current client-loaded page.
+        setLiveEngagement({
+          total_likes: stats.total_likes ?? 0,
+          total_views: stats.total_views ?? 0,
+        });
       } catch (e) {
         console.error("[profile-stats] parse error", e);
       }
@@ -755,9 +764,9 @@ export default function ProfileScreen() {
     activeTab === "saved" ? savedPosts :
     taggedPosts;
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
-  const totalLikes = myPosts.reduce((sum, p) => sum + (p.likes ?? 0), 0);
-  const totalViews = myPosts.reduce((sum, p) => sum + (p.views ?? 0), 0);
+  // ── Derived stats — read from live backend (all posts), not client-side page ─
+  const totalLikes = liveEngagement.total_likes;
+  const totalViews = liveEngagement.total_views;
 
   // Vibe % = profile completeness score (vibe-relevant fields filled in).
   // Tells the user how "complete" their vibe profile is for better matching.
