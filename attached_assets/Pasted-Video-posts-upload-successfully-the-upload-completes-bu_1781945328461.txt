@@ -1,0 +1,14 @@
+Video posts upload successfully (the upload completes), but they do NOT appear on the user's profile grid. Photo posts show on the profile, but video posts are missing. Please fix the profile to display video posts.
+Investigate the profile posts grid (profile.tsx / profile/[username].tsx and the endpoint that loads a user's posts):
+
+Is the video post being fetched at all? Check the query that loads the user's posts for the profile grid — does it return video posts, or are they being filtered out? Confirm a freshly-uploaded video post exists in the posts table for this user (SELECT id, media_url, is_video, video_url, created_at FROM posts WHERE user_id = :id ORDER BY created_at DESC).
+Thumbnail field mismatch (most likely cause): The profile grid probably renders thumbnails from image_url, but video posts store their media in media_url / video_url (and is_video = true). So a video post has no image_url → renders as blank/black/invisible, or gets skipped. Please:
+
+Map the video's media field so the grid gets a valid thumbnail source (bridge media_url/video_url → the field the grid reads).
+For video posts, show the video's first frame / thumbnail as the grid image (or render a <Video> poster), with a small ▶ video badge in the corner (like the "More from user" grid already does).
+
+
+Check is_video / video_url handling — the scratchpad notes these are referenced but were flagged as type issues. Confirm the posts table actually has the columns the code expects (is_video, video_url, or whether video is just detected via media_url extension). Align the code with the real schema — if is_video/video_url don't exist as columns, detect video via the media_url file extension (.mp4/.mov/.webm/.m4v) instead.
+Tapping a video post in the grid should open it in the post detail screen (which now has the video player).
+
+Please report: whether the video post was in the DB but not rendered (thumbnail field mismatch) or filtered out, what the real video-related columns are on posts, what you changed, and confirm video posts now appear in the profile grid with a ▶ badge and open correctly when tapped.

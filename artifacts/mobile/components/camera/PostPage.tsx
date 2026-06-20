@@ -317,6 +317,9 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     if (!session?.user?.id) { Alert.alert("Sign in required"); return; }
     if (rawMedia.length === 0) return;
     setPhase("uploading");
+
+    const UPLOAD_TIMEOUT_MS = 30_000;
+
     try {
       const finalUris = await Promise.all(
         rawMedia.map(async (asset) => {
@@ -329,14 +332,27 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         feeling ? `Feeling ${feeling.emoji} ${feeling.label}` : null,
       ].filter(Boolean).join("\n");
 
-      for (const uri of finalUris) {
-        await uploadPostMedia(session.user.id, uri, finalCaption, {
-          location: location.trim() || undefined,
-          taggedUsers: taggedUsers.length ? taggedUsers.map((t) => t.id) : undefined,
-          filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
-          visibility,
-        });
-      }
+      // Race the entire upload batch against a hard 30-second timeout so the
+      // "Uploading..." screen can never hang forever.
+      await Promise.race([
+        (async () => {
+          for (const uri of finalUris) {
+            await uploadPostMedia(session.user.id, uri, finalCaption, {
+              location: location.trim() || undefined,
+              taggedUsers: taggedUsers.length ? taggedUsers.map((t) => t.id) : undefined,
+              filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
+              visibility,
+            });
+          }
+        })(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Upload timed out. Check your internet connection and try again.")),
+            UPLOAD_TIMEOUT_MS,
+          )
+        ),
+      ]);
+
       setCaption(""); setLocation(""); setTaggedUsers([]);
       setRawMedia([]); setPreviewIdx(0); setCropRatio("original");
       setActiveFilter(CAMERA_FILTERS[0]!); setVisibility("public");
@@ -352,8 +368,14 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         ],
       );
     } catch (err) {
-      setPhase("compose");
+      console.error("[post-upload] handlePost error:", err);
       Alert.alert("Post failed", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      // Safety net: if phase is still "uploading" after try/catch completes
+      // (e.g. from an unexpected throw before setPhase("idle")), force it back
+      // to "compose" so the user can retry. On success, phase is already "idle"
+      // so this setState is a no-op.
+      setPhase((current) => (current === "uploading" ? "compose" : current));
     }
   }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling]);
 

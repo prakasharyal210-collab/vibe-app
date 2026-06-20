@@ -1,4 +1,4 @@
-import { readAsStringAsync } from 'expo-file-system/legacy';
+import { readAsStringAsync, getInfoAsync } from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import {
@@ -1634,40 +1634,72 @@ export async function uploadPostMedia(
     downloadsEnabled?: boolean;
     visibility?: string;
   }
-): Promise<{ id: string; mediaUrl: string } | null> {
-  try {
-    const cleanUri = uri.split('?')[0];
-    const rawExt = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
-    const isGif = rawExt === 'gif';
-    const isVideo = ['mp4', 'mov', 'webm', 'm4v'].includes(rawExt);
+): Promise<{ id: string; mediaUrl: string }> {
+  const cleanUri = uri.split('?')[0];
+  const rawExt = (cleanUri.split('.').pop() ?? 'jpg').toLowerCase();
+  const isGif = rawExt === 'gif';
+  const isVideo = ['mp4', 'mov', 'webm', 'm4v'].includes(rawExt);
 
-    // For videos: skip image compression entirely, send raw file
+  // ── File-size guard ───────────────────────────────────────────────────────
+  // Encoding large files as base64-in-JSON blocks the JS thread and exceeds
+  // the server's 50 MB body limit. Reject early with a clear message.
+  try {
+    const info = await getInfoAsync(uri);
+    const sizeMB = ((info as any).size ?? 0) / (1024 * 1024);
+    const limitMB = isVideo ? 45 : 30;
+    if (sizeMB > limitMB) {
+      throw new Error(
+        `${isVideo ? 'Video' : 'Photo'} is too large (${sizeMB.toFixed(0)} MB). ` +
+        `Please choose a ${isVideo ? 'shorter clip (under ~2 min)' : 'smaller photo'}.`
+      );
+    }
+  } catch (sizeErr: any) {
+    // If the error is our own size-limit message, re-throw it
+    if (sizeErr?.message?.includes('too large')) throw sizeErr;
+    // Otherwise getInfoAsync failed (file access issue) — fall through and let upload attempt
+    console.error('[post-upload] getInfoAsync failed:', sizeErr);
+  }
+
+  try {
+    // ── Video path ────────────────────────────────────────────────────────
     if (isVideo) {
       const videoExt = rawExt === 'mov' ? 'mov' : rawExt === 'webm' ? 'webm' : 'mp4';
       const videoMime = rawExt === 'mov' ? 'video/quicktime' : rawExt === 'webm' ? 'video/webm' : 'video/mp4';
+
       let videoBase64: string | undefined;
       try {
-        videoBase64 = await withTimeout(localUriToBase64(uri), 60_000, 'video file read');
-      } catch {
-        // File read failed — post without media
+        videoBase64 = await withTimeout(localUriToBase64(uri), 20_000, 'video file read');
+      } catch (readErr) {
+        console.error('[post-upload] video base64 read failed:', readErr);
+        // Continue — server will create a post without media rather than hang
       }
+
       const vRes = await withTimeout(
         fetch(`${API_BASE}/posts/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, imageBase64: videoBase64, mimeType: videoMime, ext: videoExt, caption, options: { ...options, visibility: options?.visibility ?? 'public' } }),
+          body: JSON.stringify({
+            userId,
+            imageBase64: videoBase64,
+            mimeType: videoMime,
+            ext: videoExt,
+            caption,
+            options: { ...options, visibility: options?.visibility ?? 'public' },
+          }),
         }),
-        90_000,
+        25_000,
         'post create API (video)'
       );
+
       if (!vRes.ok) {
         const errText = await vRes.text().catch(() => 'unknown');
-        throw new Error(`Post create API ${vRes.status}: ${errText}`);
+        throw new Error(`Post upload failed (${vRes.status}): ${errText}`);
       }
       return await vRes.json() as { id: string; mediaUrl: string };
     }
 
-    // Compress + resize photo before upload (skip for GIFs — manipulator strips animation)
+    // ── Photo path ────────────────────────────────────────────────────────
+    // Compress + resize before upload (skip for GIFs — manipulator strips animation)
     let uploadUri = uri;
     if (!isGif) {
       try {
@@ -1689,35 +1721,40 @@ export async function uploadPostMedia(
     const ext = isGif ? 'gif' : 'jpg';
     const mimeType = isGif ? 'image/gif' : 'image/jpeg';
 
-    // Read compressed file as base64 for upload
     let imageBase64: string | undefined;
     try {
-      imageBase64 = await withTimeout(localUriToBase64(uploadUri), 20_000, 'file read');
+      imageBase64 = await withTimeout(localUriToBase64(uploadUri), 15_000, 'photo file read');
     } catch (readErr) {
-      // File read failed — post without image
+      console.error('[post-upload] photo base64 read failed:', readErr);
+      // Continue without image
     }
 
-    // Send to API server — service role key handles storage + DB insert, bypassing RLS
     const res = await withTimeout(
       fetch(`${API_BASE}/posts/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, imageBase64, mimeType, ext, caption, options: { ...options, visibility: options?.visibility ?? 'public' } }),
+        body: JSON.stringify({
+          userId,
+          imageBase64,
+          mimeType,
+          ext,
+          caption,
+          options: { ...options, visibility: options?.visibility ?? 'public' },
+        }),
       }),
-      60_000,
+      25_000,
       'post create API'
     );
 
     if (!res.ok) {
       const errText = await res.text().catch(() => 'unknown');
-      throw new Error(`Post create API ${res.status}: ${errText}`);
+      throw new Error(`Post upload failed (${res.status}): ${errText}`);
     }
 
-    const result = await res.json() as { id: string; mediaUrl: string };
-    return result;
+    return await res.json() as { id: string; mediaUrl: string };
   } catch (err) {
-    console.log('uploadPostMedia error:', err);
-    return null;
+    console.error('[post-upload] uploadPostMedia failed:', err);
+    throw err; // Re-throw so the caller (PostPage) can reset the UI and show an error
   }
 }
 
