@@ -213,6 +213,7 @@ export default function EditProfileScreen() {
       </View>
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

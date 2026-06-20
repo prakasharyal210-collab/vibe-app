@@ -754,6 +754,99 @@ export default function ProfileScreen() {
     activeTab === "saved" ? savedPosts :
     taggedPosts;
 
+  // ── Derived stats ─────────────────────────────────────────────────────────
+  const totalLikes = myPosts.reduce((sum, p) => sum + (p.likes ?? 0), 0);
+
+  // Vibe % = profile completeness score (vibe-relevant fields filled in).
+  // Tells the user how "complete" their vibe profile is for better matching.
+  const vibeFields = [
+    profile.avatar_url,
+    profile.bio,
+    (profile as any).full_name,
+    (profile as any).pronouns,
+    (profile as any).relationship_status,
+    (profile as any).zodiac_sign,
+    (profile as any).location,
+    (profile as any).website,
+  ];
+  const vibePercent = Math.round(
+    (vibeFields.filter(Boolean).length / vibeFields.length) * 100
+  );
+
+  // ── Stable renderItem (prevents FlatList cells from seeing a new function
+  //    reference on every ProfileScreen re-render, which causes Ionicons class
+  //    instances to remount and re-run their fontIsLoaded check). ────────────
+  const renderGridItem = useCallback(
+    ({ item, index }: { item: GridItem; index: number }) => (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        style={{ position: "relative" }}
+        onPress={() => openPhoto(gridData, index)}
+        onLongPress={() => {
+          if (!item.isReel && !item.id.startsWith("reel_")) {
+            const isPinned = (item as any).is_pinned;
+            Alert.alert(
+              isPinned ? "Unpin Post" : "Pin Post",
+              isPinned
+                ? "Remove this post from the top of your profile?"
+                : "Pin this post to the top of your profile?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: isPinned ? "Unpin" : "Pin",
+                  onPress: async () => {
+                    const ok = await togglePinPost(item.id, !isPinned);
+                    if (ok && session?.user?.id) {
+                      await loadMyPosts(session.user.id);
+                    }
+                  },
+                },
+              ]
+            );
+          }
+        }}
+      >
+        {item.is_video && (item.media_url ?? item.image_url) ? (
+          <VideoGridCell videoUri={(item.media_url ?? item.image_url)!} style={styles.gridImage} />
+        ) : (
+          <Image source={{ uri: item.media_url ?? item.image_url ?? undefined }} style={styles.gridImage} resizeMode="cover" />
+        )}
+        {(item as any).is_pinned && (
+          <View style={styles.pinBadge}>
+            <Ionicons name="location" size={10} color="#fff" />
+          </View>
+        )}
+        {(item.isReel || item.is_video) && (
+          <View style={styles.reelBadge}>
+            <Ionicons name="play" size={12} color="#fff" />
+          </View>
+        )}
+        {!item.isReel && item.visibility && item.visibility !== "public" && (
+          <View style={styles.visibilityBadge}>
+            <Text style={styles.visibilityBadgeText}>
+              {item.visibility === "private" ? "🔒" : "👥"}
+            </Text>
+          </View>
+        )}
+        {item.duration != null && (
+          <View style={styles.durationBadge}>
+            <Text style={styles.durationBadgeText}>
+              {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
+            </Text>
+          </View>
+        )}
+        <View style={styles.gridOverlay}>
+          <Ionicons name="heart" size={12} color="#fff" />
+          <Text style={styles.gridLikes}>{formatCount(item.likes ?? 0)}</Text>
+        </View>
+      </TouchableOpacity>
+    ),
+    // gridData and openPhoto must be in deps so the callback always closes
+    // over the current values, but the reference only changes when these change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gridData, session?.user?.id]
+  );
+
   const ListHeader = (
     <View>
       <LinearGradient colors={["rgba(124,58,237,0.35)", "transparent"]} style={[styles.headerGradient, { paddingTop: topInset + 8 }]}>
@@ -795,20 +888,31 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={[styles.statsRow, { backgroundColor: "rgba(255,255,255,0.04)" }]}>
-          <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} />
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatBlock
-            label="Followers"
-            value={rtProfile.followers_count ?? profile.followers_count ?? 0}
-            onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
-          />
-          <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          <StatBlock
-            label="Following"
-            value={rtProfile.following_count ?? profile.following_count ?? 0}
-            onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
-          />
+        {/* ── Stats panel: two-row card ─────────────────────────────────── */}
+        <View style={[styles.statsPanel, { backgroundColor: "rgba(255,255,255,0.04)" }]}>
+          {/* Row 1: Posts | Followers | Following */}
+          <View style={styles.statsPanelRow}>
+            <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <StatBlock
+              label="Followers"
+              value={rtProfile.followers_count ?? profile.followers_count ?? 0}
+              onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
+            />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <StatBlock
+              label="Following"
+              value={rtProfile.following_count ?? profile.following_count ?? 0}
+              onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
+            />
+          </View>
+          {/* Row 2: Total Likes | Vibe % */}
+          <View style={[styles.statsPanelSep, { backgroundColor: colors.border }]} />
+          <View style={styles.statsPanelRow}>
+            <StatBlock label="Total Likes" value={totalLikes} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <StatBlock label="Vibe %" value={`${vibePercent}%`} />
+          </View>
         </View>
 
         <View style={styles.actionButtons}>
@@ -882,18 +986,21 @@ export default function ProfileScreen() {
         </ScrollView>
       </View>
 
-      <View style={[styles.gridTabRow, { borderBottomColor: colors.border }]}>
-        {([
-          { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
-          { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
-          { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
-          { key: "saved" as ProfileTab, icon: "bookmark-outline", label: "Saved" },
-        ]).map((tab) => (
-          <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
-            style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
-            <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#8B5CF6" : colors.mutedForeground} />
-          </TouchableOpacity>
-        ))}
+      {/* ── Content shelf: subtle raised surface with rounded top corners ── */}
+      <View style={[styles.contentShelf, { backgroundColor: "rgba(255,255,255,0.025)" }]}>
+        <View style={[styles.gridTabRow, { borderBottomColor: colors.border }]}>
+          {([
+            { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
+            { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
+            { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
+            { key: "saved" as ProfileTab, icon: "bookmark-outline", label: "Saved" },
+          ]).map((tab) => (
+            <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
+              style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
+              <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#8B5CF6" : colors.mutedForeground} />
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -921,68 +1028,7 @@ export default function ProfileScreen() {
                 : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
               : null
         }
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={{ position: "relative" }}
-            onPress={() => openPhoto(gridData, index)}
-            onLongPress={() => {
-              if (!item.isReel && !item.id.startsWith("reel_")) {
-                const isPinned = (item as any).is_pinned;
-                Alert.alert(
-                  isPinned ? "Unpin Post" : "Pin Post",
-                  isPinned ? "Remove this post from the top of your profile?" : "Pin this post to the top of your profile?",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: isPinned ? "Unpin" : "Pin",
-                      onPress: async () => {
-                        const ok = await togglePinPost(item.id, !isPinned);
-                        if (ok && session?.user?.id) {
-                          await loadMyPosts(session.user.id);
-                        }
-                      },
-                    },
-                  ]
-                );
-              }
-            }}
-          >
-            {item.is_video && (item.media_url ?? item.image_url) ? (
-              <VideoGridCell videoUri={(item.media_url ?? item.image_url)!} style={styles.gridImage} />
-            ) : (
-              <Image source={{ uri: item.media_url ?? item.image_url ?? undefined }} style={styles.gridImage} resizeMode="cover" />
-            )}
-            {(item as any).is_pinned && (
-              <View style={styles.pinBadge}>
-                <Ionicons name="location" size={10} color="#fff" />
-              </View>
-            )}
-            {(item.isReel || item.is_video) && (
-              <View style={styles.reelBadge}>
-                <Ionicons name="play" size={12} color="#fff" />
-              </View>
-            )}
-            {!item.isReel && item.visibility && item.visibility !== "public" && (
-              <View style={styles.visibilityBadge}>
-                <Text style={styles.visibilityBadgeText}>
-                  {item.visibility === "private" ? "🔒" : "👥"}
-                </Text>
-              </View>
-            )}
-            {item.duration != null && (
-              <View style={styles.durationBadge}>
-                <Text style={styles.durationBadgeText}>
-                  {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
-                </Text>
-              </View>
-            )}
-            <View style={styles.gridOverlay}>
-              <Ionicons name="heart" size={12} color="#fff" />
-              <Text style={styles.gridLikes}>{formatCount(item.likes ?? 0)}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
+        renderItem={renderGridItem}
         ItemSeparatorComponent={() => <View style={{ height: 1.5 }} />}
         columnWrapperStyle={{ gap: 1.5 }}
         showsVerticalScrollIndicator={false}
@@ -1077,11 +1123,14 @@ const styles = StyleSheet.create({
   bio: { fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18 },
   shareLinkBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   shareLinkText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
-  statsRow: { flexDirection: "row", alignItems: "center", marginBottom: 14, borderRadius: 16, padding: 14 },
+  statsPanel: { borderRadius: 16, marginBottom: 14, overflow: "hidden" },
+  statsPanelRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4 },
+  statsPanelSep: { height: 0.5, marginHorizontal: 12 },
   stat: { flex: 1, alignItems: "center" },
   statValue: { fontSize: 20, fontFamily: "Poppins_700Bold" },
   statLabel: { fontSize: 11, fontFamily: "Poppins_400Regular" },
   statDivider: { width: 1, height: 30 },
+  contentShelf: { borderTopLeftRadius: 16, borderTopRightRadius: 16, marginTop: 8, overflow: "hidden" },
   actionButtons: { flexDirection: "row", gap: 8, marginBottom: 4 },
   editBtn: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   editBtnText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },

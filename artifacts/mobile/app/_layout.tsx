@@ -5,7 +5,6 @@ import {
   Poppins_700Bold,
   useFonts,
 } from "@expo-google-fonts/poppins";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -132,7 +131,14 @@ function RootLayoutNav() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    ...Ionicons.font,
+    // Explicit require instead of ...Ionicons.font spread — ensures the key
+    // 'ionicons' (lowercase, matching createIconSet's fontName) is always
+    // registered in expo-font's registry before any <Ionicons> mounts.
+    // With @expo/vector-icons v15 the spread can silently return an empty
+    // object which causes Font.isLoaded('ionicons') to stay false and render
+    // a blank <Text /> (tofu box) until componentDidMount loads it async.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    ionicons: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"),
     Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,
