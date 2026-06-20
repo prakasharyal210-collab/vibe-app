@@ -234,11 +234,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
       }
       handleDoubleTap();
     } else {
-      // Single-tap: wait 280ms to confirm no second tap before opening viewer
+      // Single-tap: wait 280ms to confirm no second tap, then open post detail
       singleTapTimerRef.current = setTimeout(() => {
-        setViewerStartIndex(imageIndex);
-        setShowViewer(true);
         singleTapTimerRef.current = null;
+        router.push(`/post/${post.id}` as any);
       }, 280);
     }
     lastTapRef.current = now;
