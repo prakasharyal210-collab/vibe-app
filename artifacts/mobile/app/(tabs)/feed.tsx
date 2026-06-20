@@ -27,7 +27,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AdCard } from "@/components/AdCard";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
 import { CuratedFeedList } from "@/components/CuratedFeedList";
@@ -47,7 +46,6 @@ import {
 } from "@/lib/db";
 import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
-import { AdItem, HOUSE_ADS, insertAdsInFeed, loadFeedAds } from "@/lib/ads";
 
 const { width: W, height: H } = Dimensions.get("window");
 const PAGE_SIZE = 20;
@@ -364,7 +362,6 @@ export default function FeedScreen() {
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
 
-  const [feedAds, setFeedAds] = useState<AdItem[]>(HOUSE_ADS);
   const myUsername: string =
     session?.user?.user_metadata?.["username"] ??
     session?.user?.email?.split("@")[0] ??
@@ -481,9 +478,6 @@ export default function FeedScreen() {
     // intentionally empty — keep screenFocused behaviour here if needed later
   }, []));
 
-  useEffect(() => {
-    loadFeedAds(userId || undefined, "feed_post").then(setFeedAds).catch(() => setFeedAds(HOUSE_ADS));
-  }, [userId]);
 
   // Load friend stories (for Friends tab)
   useEffect(() => {
@@ -599,19 +593,8 @@ export default function FeedScreen() {
     extrapolate: "clamp",
   });
 
-  const renderTabPost = useCallback((tabId: FeedTabId, snapHeight: number) => ({ item, index }: { item: Post | AdItem; index: number }) => {
-    if ('isAd' in item && item.isAd) {
-      return (
-        <View style={{ height: snapHeight, justifyContent: "center" }}>
-          <AdCard
-            ad={item as AdItem}
-            userId={userId || undefined}
-            onHide={(adId) => setFeedAds((prev) => prev.filter((a) => a.ad_id !== adId))}
-          />
-        </View>
-      );
-    }
-    const post = item as Post;
+  const renderTabPost = useCallback((tabId: FeedTabId, snapHeight: number) => ({ item, index }: { item: Post; index: number }) => {
+    const post = item;
     if (userId) markPostSeen(userId, post.id).catch(() => {});
     return (
       <View style={{ height: snapHeight }}>
@@ -776,12 +759,9 @@ export default function FeedScreen() {
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
-                data={state.loading ? [] : (isTrending ? [] : (insertAdsInFeed(filteredPosts, feedAds) as (Post | AdItem)[]))}
+                data={state.loading ? [] : (isTrending ? [] : filteredPosts)}
                 keyExtractor={(item, index) => {
-                  if ('isAd' in item && (item as AdItem).isAd) {
-                    return `ad_${(item as AdItem).ad_id}_${tab.id}`;
-                  }
-                  const postId = (item as Post).id;
+                  const postId = item.id;
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
                 renderItem={renderTabPost(tab.id, snapH)}

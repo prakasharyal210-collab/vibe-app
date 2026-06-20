@@ -40,14 +40,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { LoginPrompt } from "@/components/LoginPrompt";
-import { ReelAdCard } from "@/components/ReelAdCard";
 import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
 import { checkReelLiked, toggleReelLike, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
-import { AdItem, HOUSE_REEL_ADS, insertAdsInReels, loadFeedAds } from "@/lib/ads";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
@@ -574,16 +572,13 @@ export default function ReelsScreen() {
   const dragStartIndexRef = useRef(0);
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
-  const [reelAds, setReelAds] = useState<AdItem[]>(HOUSE_REEL_ADS);
   const [refreshing, setRefreshing] = useState(false);
   const [screenFocused, setScreenFocused] = useState(true);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
-  const displayReels = useMemo<(Reel | AdItem)[]>(() => {
-    return insertAdsInReels(reels, reelAds) as (Reel | AdItem)[];
-  }, [reels, reelAds]);
+  const displayReels = reels;
 
   // Helper: map a posts-table row to the Reel shape
   const postToReel = (p: any): Reel => ({
@@ -733,9 +728,6 @@ export default function ReelsScreen() {
     setRefreshing(false);
   }, [loadFeed]);
 
-  useEffect(() => {
-    loadFeedAds(session?.user?.id, "reel").then(setReelAds).catch(() => setReelAds(HOUSE_REEL_ADS));
-  }, [session?.user?.id]);
 
   // Primary activeIndex update: fires whenever a reel crosses 50% viewport coverage.
   // Using a ref keeps the callback reference stable (React Native requirement).
@@ -801,10 +793,7 @@ export default function ReelsScreen() {
       <FlatList
         ref={flatListRef}
         data={displayReels}
-        keyExtractor={(item) => {
-          if ('isAd' in item && (item as AdItem).isAd) return `ad-${(item as AdItem).ad_id}`;
-          return (item as Reel).id + feedTab;
-        }}
+        keyExtractor={(item) => item.id + feedTab}
         snapToInterval={SCREEN_H}
         snapToAlignment="start"
         decelerationRate="fast"
@@ -826,25 +815,9 @@ export default function ReelsScreen() {
           />
         }
         renderItem={({ item, index }) => {
-          if ('isAd' in item && (item as AdItem).isAd) {
-            return (
-              <ReelAdCard
-                ad={item as AdItem}
-                isActive={index === activeIndex && screenFocused}
-                userId={session?.user?.id}
-                onSkip={() => {
-                  const next = index + 1;
-                  if (next < displayReels.length) {
-                    flatListRef.current?.scrollToOffset({ offset: next * SCREEN_H, animated: true });
-                    setActiveIndex(next);
-                  }
-                }}
-              />
-            );
-          }
           return (
             <ReelItem
-              reel={item as Reel}
+              reel={item}
               isActive={index === activeIndex && screenFocused}
               onComplete={handleComplete}
               onRequireLogin={() => setShowLoginPrompt(true)}
