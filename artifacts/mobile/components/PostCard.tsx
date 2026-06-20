@@ -256,8 +256,14 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             )}
             scrollEnabled={images.length > 1}
           />
-          {/* Dark gradient at top for header legibility */}
-          <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: 90, backgroundColor: "rgba(0,0,0,0.45)" }} />
+          {/* Very subtle fade at top — just enough contrast for the username, not a dark band */}
+          <LinearGradient
+            colors={["rgba(0,0,0,0.28)", "transparent"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, height: 64 }}
+            pointerEvents="none"
+          />
           {/* Dots */}
           {images.length > 1 && (
             <View style={styles.dotsContainer}>
@@ -308,8 +314,15 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
           </TouchableOpacity>
         </View>
 
-        {/* Caption + actions pinned to bottom */}
-        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.6)", paddingBottom: 8 }}>
+        {/* Caption + actions pinned to bottom — subtle gradient scrim, not a heavy dark block */}
+        <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, paddingBottom: 8 }}>
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.32)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           {post.caption ? (
             <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 }}>
               <Text style={[styles.caption, { color: "#fff" }]} numberOfLines={2}>
