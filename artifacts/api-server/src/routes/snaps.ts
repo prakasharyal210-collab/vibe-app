@@ -12,27 +12,34 @@ function makeSupabase() {
 }
 
 // POST /api/snaps
-// Send a snap — writes ONLY to the snaps table, never to messages.
-// body: { senderId, receiverId, content }  where content = "__SNAP__:{...}"
+// Send a snap. Writes to real snaps table columns (media_url, media_type, etc.).
+// body: { senderId, receiverId, mediaUrl, mediaType, duration? }
 router.post("/", async (req, res) => {
-  const { senderId, receiverId, content } = req.body as {
+  const { senderId, receiverId, mediaUrl, mediaType, duration } = req.body as {
     senderId?: string;
     receiverId?: string;
-    content?: string;
+    mediaUrl?: string;
+    mediaType?: string;
+    duration?: number;
   };
-  if (!senderId || !receiverId || !content) {
-    res.status(400).json({ error: "senderId, receiverId, content required" });
-    return;
-  }
-  if (!content.startsWith("__SNAP__:")) {
-    res.status(400).json({ error: "content must be a snap-encoded string" });
+  if (!senderId || !receiverId || !mediaUrl || !mediaType) {
+    res.status(400).json({ error: "senderId, receiverId, mediaUrl, mediaType required" });
     return;
   }
   const sb = makeSupabase();
+  // Snaps expire after 24 hours
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   try {
     const { data, error } = await sb
       .from("snaps")
-      .insert({ sender_id: senderId, receiver_id: receiverId, content })
+      .insert({
+        sender_id: senderId,
+        receiver_id: receiverId,
+        media_url: mediaUrl,
+        media_type: mediaType,
+        duration: duration ?? null,
+        expires_at: expiresAt,
+      })
       .select()
       .single();
     if (error) {
@@ -48,8 +55,8 @@ router.post("/", async (req, res) => {
 });
 
 // GET /api/snaps?userId=
-// Returns snap conversations from the dedicated snaps table,
-// one row per conversation partner (most-recent snap first).
+// Returns snap conversations. Avoids Supabase join syntax (no FK declared in schema cache).
+// Maps real columns → client SnapConversation shape using __SNAP__ encoding for compatibility.
 router.get("/", async (req, res) => {
   const { userId } = req.query as { userId?: string };
   if (!userId) {
@@ -58,39 +65,68 @@ router.get("/", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    const { data, error } = await sb
+    // Step 1: fetch snaps for this user
+    const { data: snaps, error: snapsErr } = await sb
       .from("snaps")
-      .select(
-        "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
-      )
+      .select("id, sender_id, receiver_id, media_url, media_type, viewed_at, created_at, expires_at")
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .order("created_at", { ascending: false })
       .limit(200);
 
-    if (error) {
-      req.log.warn({ err: error.message }, "snaps table read failed (may not exist yet)");
+    if (snapsErr) {
+      req.log.warn({ err: snapsErr.message }, "snaps table read failed (may not exist yet)");
       res.json({ snapConvos: [] });
       return;
     }
 
+    const rows = (snaps ?? []) as any[];
+
+    // Step 2: collect unique partner IDs for profile lookup
+    const partnerIds = new Set<string>();
+    for (const s of rows) {
+      const pid = s.sender_id === userId ? s.receiver_id : s.sender_id;
+      partnerIds.add(pid);
+    }
+
+    let profileMap = new Map<string, { id: string; username: string; avatar_url: string | null }>();
+    if (partnerIds.size > 0) {
+      const { data: profiles } = await sb
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", [...partnerIds]);
+      for (const p of profiles ?? []) profileMap.set(p.id, p);
+    }
+
+    // Step 3: build one entry per conversation partner (most recent snap wins)
     const seen = new Map<string, object>();
-    for (const msg of (data ?? []) as any[]) {
+    for (const msg of rows) {
       const isIncoming = msg.receiver_id === userId;
-      const otherId = isIncoming ? msg.sender_id : msg.receiver_id;
-      const otherUser = isIncoming ? msg.sender : msg.receiver;
-      if (!otherUser || seen.has(otherId)) continue;
+      const otherId: string = isIncoming ? msg.sender_id : msg.receiver_id;
+      const otherUser = profileMap.get(otherId);
+      if (seen.has(otherId)) continue; // already have most-recent for this partner
+
+      // Build message_text in __SNAP__ format so client parseSnap() works unchanged
+      const snapData = {
+        url: msg.media_url ?? "",
+        type: (msg.media_type ?? "photo") as "photo" | "video",
+        viewed: !!msg.viewed_at,
+        viewed_at: msg.viewed_at ?? undefined,
+      };
+      const messageText = `__SNAP__:${JSON.stringify(snapData)}`;
+
       seen.set(otherId, {
         other_user: {
           id: otherId,
-          username: otherUser.username,
-          avatar_url: otherUser.avatar_url,
+          username: otherUser?.username ?? "user",
+          avatar_url: otherUser?.avatar_url ?? null,
         },
         message_id: msg.id,
-        message_text: msg.content,
+        message_text: messageText,
         is_incoming: isIncoming,
         created_at: msg.created_at,
       });
     }
+
     res.json({ snapConvos: Array.from(seen.values()) });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "snaps-get exception");
@@ -99,18 +135,19 @@ router.get("/", async (req, res) => {
 });
 
 // PATCH /api/snaps/:id
-// Mark a snap as viewed — updates the encoded content in the snaps table.
-// body: { content }  (re-encoded snap with viewed:true)
+// Mark a snap as viewed — sets viewed_at = NOW() on the real column.
 router.patch("/:id", async (req, res) => {
   const { id } = req.params;
-  const { content } = req.body as { content?: string };
-  if (!id || !content) {
-    res.status(400).json({ error: "id and content required" });
+  if (!id) {
+    res.status(400).json({ error: "id required" });
     return;
   }
   const sb = makeSupabase();
   try {
-    const { error } = await sb.from("snaps").update({ content }).eq("id", id);
+    const { error } = await sb
+      .from("snaps")
+      .update({ viewed_at: new Date().toISOString() })
+      .eq("id", id);
     if (error) {
       res.status(500).json({ error: error.message });
       return;

@@ -29,31 +29,32 @@ export function isSnap(text: string | undefined | null): boolean {
   return typeof text === "string" && text.startsWith(SNAP_PREFIX);
 }
 
-// Send a snap — writes to the dedicated snaps table (NOT messages) so snaps
-// can never bleed into the Messages tab.
+// Send a snap — writes to the dedicated snaps table using real columns
+// (media_url, media_type) so snaps never bleed into the Messages tab.
 export async function sendSnapMessage(
   senderId: string,
   receiverId: string,
   snapUrl: string,
   snapType: "photo" | "video" = "photo",
+  duration?: number,
 ): Promise<Message | null> {
-  const content = encodeSnap({ url: snapUrl, type: snapType, viewed: false });
   try {
     const res = await fetch(`${API_BASE}/snaps`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senderId, receiverId, content }),
+      body: JSON.stringify({ senderId, receiverId, mediaUrl: snapUrl, mediaType: snapType, duration }),
     });
     if (!res.ok) return null;
     const json = await res.json() as { snap?: Record<string, unknown> };
     const snap = json.snap;
     if (!snap) return null;
-    // Return in Message shape for callers that expect it
+    // Build message text in __SNAP__ format for callers that use parseSnap()
+    const encodedText = encodeSnap({ url: snapUrl, type: snapType, viewed: false });
     return {
       id: snap["id"] as string,
       sender_id: snap["sender_id"] as string,
       receiver_id: snap["receiver_id"] as string,
-      text: snap["content"] as string,
+      text: encodedText,
       created_at: snap["created_at"] as string,
     } as unknown as Message;
   } catch {
@@ -62,22 +63,21 @@ export async function sendSnapMessage(
 }
 
 // Mark a snap as viewed.
-// Tries the new snaps table first (PATCH /api/snaps/:id).
-// Falls back to the legacy messages table for old snaps sent before the migration.
+// New snaps table: PATCH /api/snaps/:id — server sets viewed_at = NOW().
+// Legacy snaps in messages table: PATCH /api/messages/:id with re-encoded content.
 export async function markSnapViewed(messageId: string, currentText: string): Promise<void> {
   const snap = parseSnap(currentText);
   if (!snap || snap.viewed) return;
-  const updated: SnapData = { ...snap, viewed: true, viewed_at: new Date().toISOString() };
-  const body = JSON.stringify({ content: encodeSnap(updated) });
   const headers = { "Content-Type": "application/json" };
   try {
     const res = await fetch(`${API_BASE}/snaps/${encodeURIComponent(messageId)}`, {
-      method: "PATCH", headers, body,
+      method: "PATCH", headers, body: JSON.stringify({}),
     });
     if (!res.ok) {
-      // Legacy snap stored in messages table — fall back
+      // Legacy snap stored in messages table — fall back to re-encoding
+      const updated: SnapData = { ...snap, viewed: true, viewed_at: new Date().toISOString() };
       await fetch(`${API_BASE}/messages/${encodeURIComponent(messageId)}`, {
-        method: "PATCH", headers, body,
+        method: "PATCH", headers, body: JSON.stringify({ content: encodeSnap(updated) }),
       });
     }
   } catch {}
