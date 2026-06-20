@@ -348,6 +348,17 @@ router.post("/create", async (req, res) => {
     insertData = r2.data as { id: string } | null;
     insertErr = r2.error;
   }
+  if (insertErr?.message?.includes("is_video") || insertErr?.message?.includes("video_url")) {
+    // posts table predates the video columns — strip them and retry
+    const payloadNoVideo = { ...payload };
+    delete payloadNoVideo.is_video;
+    delete payloadNoVideo.video_url;
+    delete payloadNoVideo.thumbnail_url;
+    delete payloadNoVideo.visibility;
+    const r3 = await sb.from("posts").insert(payloadNoVideo).select("id").single();
+    insertData = r3.data as { id: string } | null;
+    insertErr = r3.error;
+  }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");
     res.status(500).json({ error: insertErr.message });
