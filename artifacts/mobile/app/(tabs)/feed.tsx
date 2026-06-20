@@ -453,10 +453,10 @@ export default function FeedScreen() {
 
       console.log('[loadTabData] tab:', tab, 'data.length:', data.length, 'reset:', reset);
 
-      // Cycling: when !reset and offset===0 we've wrapped around — clear prev so
-      // the same posts can re-appear (dedup would otherwise filter them all out).
-      const isCycleWrap = !reset && offset === 0;
-      const prev = (reset || isCycleWrap) ? [] : tabStatesRef.current[tab].posts;
+      // Keep existing accumulated posts; only wipe on an explicit reset.
+      // Previously a cycle-wrap (offset===0 on pagination) cleared prev which
+      // erased all accumulated posts — that bug is removed.
+      const prev = reset ? [] : tabStatesRef.current[tab].posts;
       const merged = [...prev, ...data];
       const seenIds = new Set<string>();
       const deduped = merged.filter((p, i) => {
@@ -467,12 +467,12 @@ export default function FeedScreen() {
       });
       console.log('[loadTabData] tab:', tab, 'deduped:', deduped.length, 'posts');
 
-      // Infinite cycling: when we reach the end (partial page), reset offset to 0
-      // so the next loadMore wraps back to the beginning. hasMore stays true unless
-      // there is genuinely zero content to show.
+      // When we reach the end of content (partial page returned), stop requesting
+      // more — hasMore: false prevents further onEndReached triggers.
+      // Do not cycle offset back to 0; pull-to-refresh is the correct way to restart.
       const atEnd = data.length < PAGE_SIZE;
-      const nextOffset = atEnd ? 0 : offset + data.length;
-      const hasMore = deduped.length > 0; // false only when DB is completely empty
+      const nextOffset = atEnd ? offset : offset + data.length;
+      const hasMore = !atEnd;
 
       updateTab(tab, {
         posts: deduped,
@@ -484,6 +484,9 @@ export default function FeedScreen() {
       loadedTabs.current.add(tab);
     } catch (e: any) {
       console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message);
+    } finally {
+      // Always unblock the UI — guards every path including AbortError timeouts
+      // and the early-return for no-userId, ensuring loadingMore never stays stuck.
       updateTab(tab, { loading: false, loadingMore: false });
     }
   }, [userId, updateTab]);

@@ -1450,7 +1450,14 @@ export async function getForYouFeed(userId: string, limit = 20, offset = 0): Pro
       limit: String(limit),
       offset: String(offset),
     });
-    const res = await fetch(`${API_BASE}/feed/foryou?${params}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/feed/foryou?${params}`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     if (res.ok) {
       const body = await res.json();
       const posts = (body.data ?? []) as Post[];
@@ -1486,7 +1493,14 @@ export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Pr
       limit: String(limit),
       offset: String(offset),
     });
-    const res = await fetch(`${API_BASE}/feed/friends?${params}`);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/feed/friends?${params}`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     if (res.ok) {
       const body = await res.json();
       const posts = (body.data ?? []) as Post[];
