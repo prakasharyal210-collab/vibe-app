@@ -1,0 +1,15 @@
+On the post detail screen (app/post/[id].tsx), the "More from @username" grid is appearing too high — it's visible (or peeking in) before the user scrolls. The desired behavior:
+When a post opens, the first screenful should show ONLY the post itself (author header, full image, action bar, caption, comments preview). The "More from @username" grid should be hidden below the fold — only revealed when the user deliberately scrolls down. It should never be visible on initial load.
+Please implement:
+
+Make the post content fill at least one full screen height so the "More from" grid is always pushed below the visible area on load. Specifically: the content block (header + image + actions + caption + comments preview) should occupy a minimum of the full screen height (minus the top header). If that content is naturally shorter than the screen (e.g. a small/short image with little text), add a flexible spacer / minimum height so the area fills the screen and the "More from" grid sits just below the fold — not peeking up into view.
+
+One clean way: wrap the "above-the-fold" content in a container with minHeight equal to the available screen height (screen height minus the top nav header), so the "More from" section always starts at or below the bottom edge of the screen.
+
+
+If there's leftover empty space (small image, short caption), prefer to fill it by letting the comments-preview area / spacing expand to occupy it, OR just an empty flexible spacer — so there's no awkward gap, and the "More from" grid stays below the fold.
+The "More from" grid remains in the same scroll view, just positioned so it's only reached by scrolling down past the full post.
+Keep everything else working: full uncropped image (aspect-ratio sizing), like/save/double-tap, comments preview, the grid itself, and tapping a grid thumbnail.
+
+So the experience: open post → see the complete post filling the screen (no grid visible) → scroll down → THEN the "More from @username" grid appears.
+Please report which file(s) were edited, how you ensured the post fills the first screen (minHeight/spacer approach), and confirm the "More from" grid is no longer visible on initial load and only appears on scroll-down.

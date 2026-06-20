@@ -28,7 +28,7 @@ import { useColors } from "@/hooks/useColors";
 import { Post, formatCount, timeAgo } from "@/lib/supabase";
 import { shareContent } from "@/lib/share";
 
-const { width: W } = Dimensions.get("window");
+const { width: W, height: SCREEN_H } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
 // ─── Module-scope sub-components ─────────────────────────────────────────────
@@ -325,6 +325,8 @@ export default function PostDetailScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 56 }}>
+        {/* Above-fold wrapper: minHeight = full available screen so "More from" starts below the fold */}
+        <View style={{ minHeight: SCREEN_H - (insets.top + 50) }}>
         {/* ── Author row ─────────────────────────────────────────────────── */}
         <View style={styles.authorRow}>
           <TouchableOpacity
@@ -513,6 +515,8 @@ export default function PostDetailScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        </View>{/* end above-fold wrapper */}
 
         {/* ── More from this user ─────────────────────────────────────────── */}
         {(moreLoading || morePosts.length > 0) && (
