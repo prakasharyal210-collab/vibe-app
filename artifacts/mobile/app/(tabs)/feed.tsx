@@ -593,25 +593,16 @@ export default function FeedScreen() {
     extrapolate: "clamp",
   });
 
-  const renderTabPost = useCallback((tabId: FeedTabId, snapHeight: number) => ({ item, index }: { item: Post; index: number }) => {
+  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item, index }: { item: Post; index: number }) => {
     const post = item;
     if (userId) markPostSeen(userId, post.id).catch(() => {});
     return (
-      <View style={{ height: snapHeight }}>
-        <PostCard
-          post={post}
-          onRequireLogin={() => setShowLoginPrompt(true)}
-          isLoggedIn={isLoggedIn}
-          fullScreen
-          itemHeight={snapHeight}
-          onPress={() => router.push(`/post/${post.id}` as any)}
-        />
-        {tabId === "foryou" && (
-          <View style={{ position: "absolute", bottom: 8, left: 0, right: 0, alignItems: "center", pointerEvents: "none" }}>
-            <WhyThisButton index={index} />
-          </View>
-        )}
-      </View>
+      <PostCard
+        post={post}
+        onRequireLogin={() => setShowLoginPrompt(true)}
+        isLoggedIn={isLoggedIn}
+        onPress={() => router.push(`/post/${post.id}` as any)}
+      />
     );
   }, [isLoggedIn, userId]);
 
@@ -764,12 +755,10 @@ export default function FeedScreen() {
                   const postId = item.id;
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
-                renderItem={renderTabPost(tab.id, snapH)}
+                renderItem={renderTabPost(tab.id)}
                 decelerationRate="normal"
-                getItemLayout={(_data, index) => ({ length: snapH, offset: snapH * index, index })}
                 onMomentumScrollEnd={(e) => {
-                  const idx = Math.round(e.nativeEvent.contentOffset.y / snapH);
-                  dragStartIndexRefs.current[tabIndex] = Math.max(0, idx);
+                  dragStartIndexRefs.current[tabIndex] = Math.max(0, Math.floor(e.nativeEvent.contentOffset.y / 400));
                 }}
                 scrollEventThrottle={16}
                 onScroll={(e) => {

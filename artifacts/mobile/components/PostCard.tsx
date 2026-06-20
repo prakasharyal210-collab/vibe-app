@@ -617,21 +617,19 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </View>
       </View>
 
-      {/* Caption */}
-      {post.caption ? (
-        <View style={styles.captionContainer}>
-          {post.location && (
-            <TouchableOpacity
-              style={styles.locationInline}
-              onPress={() => router.push(`/location/${encodeURIComponent(post.location!)}` as any)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="location-outline" size={11} color="#8B5CF6" />
-              <Text style={[styles.location, { color: "#8B5CF6" }]}>
-                {post.location} · {timeAgo(post.created_at)}
-              </Text>
-            </TouchableOpacity>
-          )}
+      {/* Caption + timestamp — Instagram style: username bold inline, timestamp muted below */}
+      <View style={styles.captionContainer}>
+        {post.location && (
+          <TouchableOpacity
+            style={styles.locationInline}
+            onPress={() => router.push(`/location/${encodeURIComponent(post.location!)}` as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="location-outline" size={11} color="#8B5CF6" />
+            <Text style={[styles.location, { color: "#8B5CF6" }]}>{post.location}</Text>
+          </TouchableOpacity>
+        )}
+        {post.caption ? (
           <Text style={[styles.caption, { color: colors.foreground }]}>
             <Text style={styles.captionUsername}>{post.profiles?.username ?? "user"} </Text>
             {post.caption.split(/(#\w+)/g).map((part, i) =>
@@ -648,8 +646,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               )
             )}
           </Text>
-        </View>
-      ) : null}
+        ) : null}
+        <Text style={[styles.postTimestamp, { color: colors.mutedForeground }]}>
+          {timeAgo(post.created_at)}
+        </Text>
+      </View>
 
       <CommentsSheet
         visible={showComments}
@@ -818,4 +819,5 @@ const styles = StyleSheet.create({
   caption: { fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 19 },
   captionUsername: { fontFamily: "Poppins_600SemiBold" },
   hashTag: { color: "#8B5CF6", fontFamily: "Poppins_500Medium" },
+  postTimestamp: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 1 },
 });
