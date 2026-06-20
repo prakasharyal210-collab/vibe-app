@@ -27,7 +27,11 @@ router.post("/snap", async (req, res) => {
   }
 
   const sb = makeSupabase();
-  const ext = mimeType.includes("png") ? "png" : "jpg";
+  const ext = mimeType.includes("png") ? "png"
+    : mimeType.includes("quicktime") || mimeType === "video/mov" ? "mov"
+    : mimeType.includes("webm") ? "webm"
+    : mimeType.startsWith("video/") ? "mp4"
+    : "jpg";
   const fileName = `${userId}/${Date.now()}.${ext}`;
   const buffer = Buffer.from(base64, "base64");
 

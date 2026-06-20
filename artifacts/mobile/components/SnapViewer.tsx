@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -14,33 +15,62 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const VIEW_DURATION = 5000;
+const PHOTO_DURATION = 5000;
 
 export function SnapViewerModal({
   uri,
+  type = "photo",
   onClose,
 }: {
   uri: string;
+  type?: "photo" | "video";
   onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const progress = useRef(new Animated.Value(1)).current;
   const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const timerStartedRef = useRef(false);
+
+  const startTimer = useCallback(
+    (durationMs: number) => {
+      animRef.current?.stop();
+      progress.setValue(1);
+      animRef.current = Animated.timing(progress, {
+        toValue: 0,
+        duration: durationMs,
+        useNativeDriver: false,
+        easing: Easing.linear,
+      });
+      animRef.current.start(({ finished }) => {
+        if (finished) onClose();
+      });
+    },
+    [onClose, progress],
+  );
 
   useEffect(() => {
-    animRef.current = Animated.timing(progress, {
-      toValue: 0,
-      duration: VIEW_DURATION,
-      useNativeDriver: false,
-      easing: Easing.linear,
-    });
-    animRef.current.start(({ finished }) => {
-      if (finished) onClose();
-    });
+    if (type === "photo") {
+      startTimer(PHOTO_DURATION);
+    }
+    // Video timer starts once we know the actual duration (see handleVideoStatus)
     return () => {
       animRef.current?.stop();
     };
-  }, []);
+  }, [type, startTimer]);
+
+  const handleVideoStatus = useCallback(
+    (status: AVPlaybackStatus) => {
+      if (!status.isLoaded) return;
+      // Start the progress bar as soon as we know the video duration
+      if (!timerStartedRef.current && status.durationMillis) {
+        timerStartedRef.current = true;
+        startTimer(status.durationMillis + 200);
+      }
+      // Also close immediately if video finishes playing
+      if (status.didJustFinish) onClose();
+    },
+    [onClose, startTimer],
+  );
 
   const barWidth = progress.interpolate({
     inputRange: [0, 1],
@@ -55,33 +85,56 @@ export function SnapViewerModal({
       onRequestClose={onClose}
     >
       <View style={viewerSt.container}>
+        {/* Progress bar */}
         <View style={[viewerSt.timerTrack, { top: insets.top + 8 }]}>
           <Animated.View
             style={[viewerSt.timerFill, { width: barWidth as any }]}
           />
         </View>
-        <View
-          style={[viewerSt.header, { paddingTop: insets.top + 20 }]}
-        >
+
+        {/* Header */}
+        <View style={[viewerSt.header, { paddingTop: insets.top + 20 }]}>
           <View style={viewerSt.snapBadge}>
-            <Ionicons name="camera" size={14} color="#fff" />
-            <Text style={viewerSt.snapBadgeText}>Snap · tap to close</Text>
+            <Ionicons
+              name={type === "video" ? "videocam" : "camera"}
+              size={14}
+              color="#fff"
+            />
+            <Text style={viewerSt.snapBadgeText}>
+              {type === "video" ? "Video Snap" : "Snap"} · tap to close
+            </Text>
           </View>
           <TouchableOpacity onPress={onClose} style={viewerSt.closeBtn}>
             <Ionicons name="close" size={22} color="#fff" />
           </TouchableOpacity>
         </View>
+
+        {/* Media */}
         <TouchableOpacity
           style={{ flex: 1 }}
           activeOpacity={1}
           onPress={onClose}
         >
-          <Image
-            source={{ uri }}
-            style={viewerSt.image}
-            resizeMode="contain"
-          />
+          {type === "video" ? (
+            <Video
+              source={{ uri }}
+              style={viewerSt.image}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay
+              isLooping={false}
+              isMuted={false}
+              onPlaybackStatusUpdate={handleVideoStatus}
+            />
+          ) : (
+            <Image
+              source={{ uri }}
+              style={viewerSt.image}
+              resizeMode="contain"
+            />
+          )}
         </TouchableOpacity>
+
+        {/* Bottom hint */}
         <View
           style={[viewerSt.bottomHint, { paddingBottom: insets.bottom + 20 }]}
         >

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Video, ResizeMode } from "expo-av";
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -319,14 +320,15 @@ export default function SnapCameraScreen() {
     }
   }, [recording, takePhoto, stopRecording]);
 
-  // Gallery picker
+  // Gallery picker — supports both photos and videos
   const pickFromGallery = useCallback(async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"] as ImagePicker.MediaType[], quality: 0.9,
+      mediaTypes: ["images", "videos"] as ImagePicker.MediaType[], quality: 0.9,
     });
     if (!result.canceled && result.assets[0]) {
-      setCapturedUri(result.assets[0].uri);
-      setCapturedIsPhoto(true);
+      const asset = result.assets[0];
+      setCapturedUri(asset.uri);
+      setCapturedIsPhoto(asset.type !== "video");
       setPhase("preview");
     }
   }, []);
@@ -353,20 +355,23 @@ export default function SnapCameraScreen() {
     captionPos.setValue({ x: W / 2 - 80, y: H * 0.45 });
   }, [captionPos]);
 
-  // ── Enter send phase: capture composited image first ───────────────────────
+  // ── Enter send phase ────────────────────────────────────────────────────────
   const enterSendPhase = useCallback(async () => {
     setEditorMode("idle");
-    try {
-      // Small delay to ensure the View has fully rendered before capturing
-      await new Promise<void>((r) => setTimeout(r, 80));
-      const uri = await captureRef(snapRef, { format: "jpg", quality: 0.92 });
-      setComposedUri(uri);
-    } catch {
-      setComposedUri(capturedUri);
+    if (capturedIsPhoto) {
+      // Photo snaps: capture the composited view (image + SVG drawings + caption) as JPEG
+      try {
+        await new Promise<void>((r) => setTimeout(r, 80));
+        const uri = await captureRef(snapRef, { format: "jpg", quality: 0.92 });
+        setComposedUri(uri);
+      } catch {
+        setComposedUri(capturedUri);
+      }
     }
+    // Video snaps: composedUri stays null → sendSnap falls through to capturedUri (the real video file)
     setSearch(defaultSearch);
     setPhase("send");
-  }, [capturedUri, defaultSearch]);
+  }, [capturedUri, capturedIsPhoto, defaultSearch]);
 
   // ── Send snap ──────────────────────────────────────────────────────────────
   const sendSnap = useCallback(async (toId: string) => {
@@ -374,7 +379,11 @@ export default function SnapCameraScreen() {
     if (!uriToSend || !userId || sentTo.has(toId)) return;
     setSendingTo(toId);
     try {
-      const uploaded = await uploadSnapToStorage(uriToSend, userId);
+      // Detect correct MIME type so video snaps upload as video, not jpeg
+      const mimeType = capturedIsPhoto
+        ? "image/jpeg"
+        : /\.mov(\?|$)/i.test(uriToSend) ? "video/quicktime" : "video/mp4";
+      const uploaded = await uploadSnapToStorage(uriToSend, userId, mimeType);
       const url = uploaded ?? uriToSend;
       await sendSnapMessage(userId, toId, url, capturedIsPhoto ? "photo" : "video");
       setSentTo((prev) => new Set([...prev, toId]));
@@ -417,11 +426,24 @@ export default function SnapCameraScreen() {
             UI chrome (gradient, toolbars) lives OUTSIDE this container.
         ──────────────────────────────────────────────────────────────────── */}
         <View ref={snapRef} style={StyleSheet.absoluteFill} collapsable={false}>
-          <Image
-            source={{ uri: capturedUri }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
+          {/* Photo snaps: static image in compositing container (captured by captureRef).
+              Video snaps: live Video player for preview — NOT captured by captureRef. */}
+          {capturedIsPhoto ? (
+            <Image
+              source={{ uri: capturedUri }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+            />
+          ) : (
+            <Video
+              source={{ uri: capturedUri }}
+              style={StyleSheet.absoluteFill}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping
+              isMuted={false}
+            />
+          )}
 
           {/* SVG drawing layer — renders all completed strokes + in-progress stroke */}
           <Svg

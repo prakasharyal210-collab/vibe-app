@@ -74,7 +74,10 @@ async function fetchStreaks(userId: string): Promise<Map<string, number>> {
 
 function previewText(text: string): string {
   if (!text) return "";
-  if (isSnap(text)) return "📷 Photo";
+  if (isSnap(text)) {
+    const snap = parseSnap(text);
+    return snap?.type === "video" ? "🎬 Video Snap" : "📷 Photo Snap";
+  }
   return text.length > 42 ? text.slice(0, 42) + "…" : text;
 }
 
@@ -1274,7 +1277,7 @@ export default function InboxScreen() {
   const [snapPreviewUri, setSnapPreviewUri] = useState<string | null>(null);
   const [snapPreviewSearch, setSnapPreviewSearch] = useState("");
   const [sendingTo, setSendingTo] = useState<string | null>(null);
-  const [snapViewer, setSnapViewer] = useState<{ uri: string; messageId: string; msgText: string } | null>(null);
+  const [snapViewer, setSnapViewer] = useState<{ uri: string; messageId: string; msgText: string; type: "photo" | "video" } | null>(null);
 
   // De-duplicate snap conversations — the API can occasionally return the same
   // message_id twice (once as sender, once as receiver). Duplicate keys in the
@@ -1363,7 +1366,7 @@ export default function InboxScreen() {
   const handleViewSnap = useCallback((convo: SnapConversation) => {
     const snap = parseSnap(convo.message_text);
     if (!snap) return;
-    setSnapViewer({ uri: snap.url, messageId: convo.message_id, msgText: convo.message_text });
+    setSnapViewer({ uri: snap.url, messageId: convo.message_id, msgText: convo.message_text, type: snap.type ?? "photo" });
   }, []);
 
   const handleSnapViewerClose = useCallback(async () => {
@@ -1496,7 +1499,7 @@ export default function InboxScreen() {
       )}
 
       {/* ── Snap viewer ── */}
-      {snapViewer && <SnapViewerModal uri={snapViewer.uri} onClose={handleSnapViewerClose} />}
+      {snapViewer && <SnapViewerModal uri={snapViewer.uri} type={snapViewer.type} onClose={handleSnapViewerClose} />}
 
       {ToastView}
     </View>

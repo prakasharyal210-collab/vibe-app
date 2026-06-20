@@ -1,0 +1,10 @@
+Video snaps are broken — when a user records and sends a VIDEO snap, the recipient only receives a PHOTO (a still image, not the playable video). Video snaps need to actually send and play as video.
+Please trace the full video-snap flow and fix it:
+
+Capture/selection: When the snap is a video (not a photo), is the video file actually captured and passed through, or is only a still frame / thumbnail being grabbed? Confirm the snap editor preserves the video URI for video snaps.
+Upload: Is the video being uploaded correctly to storage with the right video mime type (e.g. video/mp4), or is it being uploaded/treated as an image? Check the snap upload path — it may be assuming image (jpeg/png) and dropping the video, or only uploading a frame.
+Storage — the snaps table: The snaps table currently stores content (TEXT, a media URL). We need to know whether a snap is a photo or a video so it can be rendered correctly. Add a media_type column (e.g. 'photo' | 'video') to the snaps table if it doesn't exist, and set it on insert based on the captured media. Provide the migration SQL. Make sure the stored content URL points to the actual video file for video snaps.
+Receiving/viewing: When the recipient opens the snap, the snap viewer must render a <Video> (expo-av) for video snaps and an <Image> for photo snaps — based on media_type (or by detecting the file extension .mp4/.mov/.m4v/.webm). Right now it's likely always rendering an <Image>, which is why video snaps show as a static photo.
+Caption/Draw overlays: If the user added caption text or drawing (the new features), make sure those still composite correctly onto video snaps too (note: flattening overlays onto a video is harder than onto a photo — if full video compositing isn't feasible, at minimum the video must play; overlays on video can be a follow-up).
+
+Please report: where the video was being lost/converted to photo, the media_type migration SQL, and confirm a sent video snap now arrives as a playable video (not a still photo) on the recipient's account.

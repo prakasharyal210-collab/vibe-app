@@ -83,10 +83,23 @@ export async function markSnapViewed(messageId: string, currentText: string): Pr
   } catch {}
 }
 
-// Upload snap image through the API server (service-role key bypasses RLS +
-// avoids the Android Supabase client hang). Uses expo-file-system to read the
-// local URI as base64 and POSTs JSON to /api/storage/snap.
-export async function uploadSnapToStorage(uri: string, userId: string): Promise<string | null> {
+// Detect MIME type from a local file URI extension.
+function detectMime(uri: string): string {
+  if (/\.mp4(\?|$)/i.test(uri) || /\.m4v(\?|$)/i.test(uri)) return "video/mp4";
+  if (/\.mov(\?|$)/i.test(uri)) return "video/quicktime";
+  if (/\.webm(\?|$)/i.test(uri)) return "video/webm";
+  if (/\.png(\?|$)/i.test(uri)) return "image/png";
+  return "image/jpeg";
+}
+
+// Upload snap media through the API server (service-role key bypasses RLS +
+// avoids the Android Supabase client hang). Works for both photo and video snaps.
+export async function uploadSnapToStorage(
+  uri: string,
+  userId: string,
+  mimeType?: string,
+): Promise<string | null> {
+  const resolvedMime = mimeType ?? detectMime(uri);
   try {
     const base64 = await FileSystem.readAsStringAsync(uri, {
       encoding: "base64" as any,
@@ -94,7 +107,7 @@ export async function uploadSnapToStorage(uri: string, userId: string): Promise<
     const res = await fetch(`${API_BASE}/storage/snap`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64, userId, mimeType: "image/jpeg" }),
+      body: JSON.stringify({ base64, userId, mimeType: resolvedMime }),
     });
     if (!res.ok) return null;
     const json = await res.json() as { url?: string };
