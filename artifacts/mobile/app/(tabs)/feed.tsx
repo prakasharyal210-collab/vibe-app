@@ -11,6 +11,7 @@ import React, {
 import {
   Alert,
   Animated,
+  DeviceEventEmitter,
   Dimensions,
   Easing,
   FlatList,
@@ -412,6 +413,27 @@ export default function FeedScreen() {
   });
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
+
+  // Remove a deleted post from all cached tab states immediately so it doesn't
+  // appear stale before the next pull-to-refresh.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(
+      "postDeleted",
+      ({ postId }: { postId: string }) => {
+        setTabStates((prev) => {
+          const next = { ...prev };
+          for (const tabId of ["foryou", "friends"] as FeedTabId[]) {
+            next[tabId] = {
+              ...prev[tabId],
+              posts: prev[tabId].posts.filter((p) => p.id !== postId),
+            };
+          }
+          return next;
+        });
+      },
+    );
+    return () => sub.remove();
+  }, []);
 
   const myUsername: string =
     session?.user?.user_metadata?.["username"] ??

@@ -4,7 +4,9 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   AppState,
+  DeviceEventEmitter,
   Dimensions,
   GestureResponderEvent,
   Modal,
@@ -390,6 +392,7 @@ export default function PostDetailScreen() {
   const [morePosts, setMorePosts] = useState<any[]>([]);
   const [moreLoading, setMoreLoading] = useState(false);
   const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
+  const [deleting, setDeleting] = useState(false);
   const [authorStats, setAuthorStats] = useState<{
     followers_count: number;
     posts_count: number;
@@ -614,6 +617,52 @@ export default function PostDetailScreen() {
     );
   };
 
+  const handleDeletePost = async () => {
+    if (!post || !session?.user?.id || deleting) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id }),
+      });
+      if (res.ok) {
+        DeviceEventEmitter.emit("postDeleted", { postId: post.id });
+        router.back();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        Alert.alert("Delete failed", (body as any).error ?? "Please try again.");
+      }
+    } catch {
+      Alert.alert("Delete failed", "Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleMoreOptions = () => {
+    Alert.alert(
+      "Post options",
+      undefined,
+      [
+        {
+          text: "Delete Post",
+          style: "destructive",
+          onPress: () =>
+            Alert.alert(
+              "Delete Post",
+              "This can't be undone.",
+              [
+                { text: "Cancel", style: "cancel" },
+                { text: "Delete", style: "destructive", onPress: handleDeletePost },
+              ],
+            ),
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  };
+
   // ── Video helpers ────────────────────────────────────────────────────────────
   const showControlsTemporarily = useCallback(() => {
     controlsOpacity.value = withTiming(1, { duration: 180 });
@@ -680,6 +729,7 @@ export default function PostDetailScreen() {
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const username = post?.profiles?.username ?? "user";
+  const isOwnPost = !!(post && session?.user?.id && post.user_id === session.user.id);
   const isVerified = post?.profiles?.is_verified;
   const avatarUrl = post?.profiles?.avatar_url;
   const images = post
@@ -763,13 +813,25 @@ export default function PostDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[S.navTitle, { color: colors.foreground }]}>Post</Text>
-        <TouchableOpacity
-          onPress={handleShare}
-          style={S.navBtn}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="share-social-outline" size={22} color={colors.foreground} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <TouchableOpacity
+            onPress={handleShare}
+            style={S.navBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="share-social-outline" size={22} color={colors.foreground} />
+          </TouchableOpacity>
+          {isOwnPost && (
+            <TouchableOpacity
+              onPress={handleMoreOptions}
+              style={[S.navBtn, { marginLeft: 4 }]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              disabled={deleting}
+            >
+              <Ionicons name="ellipsis-vertical" size={20} color={colors.foreground} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <ScrollView
