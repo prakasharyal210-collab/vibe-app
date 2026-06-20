@@ -177,8 +177,12 @@ function SwipeableRow({
   onMute?: () => void;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const OPEN_X = -216;
-  const ACTION_W = 72;
+  // Compute reveal distance from the ACTUAL number of visible buttons so the
+  // camera icon in SnapConvoItemRow never overlaps the action area, and so
+  // single-button (Snaps/Delete) rows don't over-reveal.
+  const ACTION_W = 80;
+  const numActions = [onMute, onArchive, onDelete].filter(Boolean).length;
+  const OPEN_X = -(ACTION_W * numActions);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -244,7 +248,7 @@ function SwipeableRow({
 
 const swipeSt = StyleSheet.create({
   action: { alignItems: "center", justifyContent: "center", gap: 4 },
-  actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 11, letterSpacing: 0.2 },
+  actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 11, textAlign: "center" },
 });
 
 // ─── GundrukAIRow ─────────────────────────────────────────────────────────────

@@ -1,0 +1,24 @@
+Yeah — this is the swipe-action layout bug in Messages/Snaps that I flagged earlier. When you swipe a conversation row, the reveal actions are broken:
+
+Labels are cut off and wrapping — "Mut e", "Arc hive", "Dele te" (text breaking across two lines because the buttons are too narrow).
+A stray camera icon is bleeding into the swipe area, overlapping the Mute/Archive/Delete buttons (you can see the 📷 icon sitting on top of "Delete").
+The actions look cramped and messy overall.
+
+Same issue on both the Messages tab (Mute/Archive/Delete) and Snaps tab (Delete). Here's the prompt:
+
+Prompt for Replit AI:
+The swipe-to-reveal actions on conversation rows in the Messages and Snaps tabs have a broken layout (see screenshots). Problems:
+
+Action labels are cut off / wrapping onto two lines — "Mute" shows as "Mut e", "Archive" as "Arc hive", "Delete" as "Dele te". The action buttons are too narrow for their text, so the labels wrap and look broken.
+A stray camera icon is overlapping the swipe actions — there's a camera 📷 icon bleeding into/overlapping the Mute/Archive/Delete buttons. It shouldn't be there in the swipe action area.
+The actions look cramped and messy.
+
+Please fix the swipe action buttons (in the Messages list and Snaps list row components):
+
+Give each action button (Mute / Archive / Delete on Messages; Delete on Snaps) enough width so the label fits on ONE line — no text wrapping. Either widen each button or reduce font size / use numberOfLines={1} with adequate width so "Mute", "Archive", "Delete" each display fully on a single line.
+Stack the icon ABOVE the label cleanly (icon on top, single-line label below), centered, with consistent padding — the standard swipe-action button layout.
+Remove the stray camera icon that's overlapping the swipe action area. Find what's rendering it there and remove/reposition it so it's not in the swipe actions.
+Ensure consistent button widths and spacing so the revealed actions look clean and aligned (like iOS/WhatsApp swipe actions).
+Apply the same fix to both the Messages rows (Mute/Archive/Delete) and the Snaps rows (Delete).
+
+Please report which component(s) render the swipe actions, what was causing the label wrapping and the stray camera icon, and confirm the swipe actions now show clean single-line labels with no overlapping icons.
