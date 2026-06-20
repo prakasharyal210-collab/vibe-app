@@ -486,11 +486,11 @@ function EmptyGrid({ onCreatePost }: { onCreatePost: () => void }) {
   );
 }
 
-function StatBlock({ label, value, onPress }: { label: string; value: number | string; onPress?: () => void }) {
+function StatBlock({ label, value, onPress, valueColor }: { label: string; value: number | string; onPress?: () => void; valueColor?: string }) {
   const colors = useColors();
   const inner = (
     <View style={styles.stat}>
-      <Text style={[styles.statValue, { color: colors.foreground }]}>
+      <Text style={[styles.statValue, { color: valueColor ?? colors.foreground }]}>
         {typeof value === "number" && value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value}
       </Text>
       <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
@@ -907,45 +907,37 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* ── Stats panel: two-row card ─────────────────────────────────── */}
-        <View style={[styles.statsPanel, { backgroundColor: "rgba(255,255,255,0.04)" }]}>
-          {/* Row 1: Posts | Followers | Following */}
+        {/* ── Stats panel ─────────────────────────────────────────────── */}
+        <View style={[styles.statsPanel, { backgroundColor: "#141414", borderWidth: 1, borderColor: "rgba(212,175,55,0.28)" }]}>
           <View style={styles.statsPanelRow}>
-            <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} />
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} valueColor="#D4AF37" />
+            <View style={[styles.statDivider, { backgroundColor: "rgba(212,175,55,0.18)" }]} />
             <StatBlock
               label="Followers"
               value={rtProfile.followers_count ?? profile.followers_count ?? 0}
               onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
+              valueColor="#D4AF37"
             />
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={[styles.statDivider, { backgroundColor: "rgba(212,175,55,0.18)" }]} />
             <StatBlock
               label="Following"
               value={rtProfile.following_count ?? profile.following_count ?? 0}
               onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
+              valueColor="#D4AF37"
             />
-          </View>
-          {/* Row 2: Total Views | Total Likes | Vibe % */}
-          <View style={[styles.statsPanelSep, { backgroundColor: colors.border }]} />
-          <View style={styles.statsPanelRow}>
-            <StatBlock label="Total Views" value={totalViews} />
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <StatBlock label="Total Likes" value={totalLikes} />
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <StatBlock label="Vibe %" value={`${vibePercent}%`} />
           </View>
         </View>
 
         <View style={styles.actionButtons}>
-          <TouchableOpacity onPress={() => router.push("/edit-profile" as any)} style={[styles.editBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <Text style={[styles.editBtnText, { color: colors.foreground }]}>Edit Profile</Text>
+          <TouchableOpacity onPress={() => router.push("/edit-profile" as any)} style={[styles.editBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}>
+            <Text style={[styles.editBtnText, { color: "#D4AF37" }]}>Edit Profile</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/analytics" as any)}
-            style={[styles.analyticsBtn, { backgroundColor: "rgba(139,92,246,0.12)", borderColor: "#8B5CF6" }]}
+            style={[styles.analyticsBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}
           >
-            <Ionicons name="bar-chart-outline" size={15} color="#8B5CF6" />
-            <Text style={styles.analyticsBtnText}>Analytics</Text>
+            <Ionicons name="bar-chart-outline" size={15} color="#D4AF37" />
+            <Text style={[styles.analyticsBtnText, { color: "#D4AF37" }]}>Analytics</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() =>
@@ -963,14 +955,14 @@ export default function ProfileScreen() {
                 { text: "Cancel", style: "cancel" },
               ])
             }
-            style={[styles.moreBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+            style={[styles.moreBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}
           >
-            <Ionicons name="ellipsis-horizontal" size={16} color={colors.foreground} />
-            <Text style={[styles.moreBtnText, { color: colors.foreground }]}>More</Text>
+            <Ionicons name="ellipsis-horizontal" size={16} color="#D4AF37" />
+            <Text style={[styles.moreBtnText, { color: "#D4AF37" }]}>More</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(139,92,246,0.15)", borderColor: "#8B5CF6" }]}>
+          <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}>
             <Text style={styles.walletEmoji}>🪙</Text>
-            <Text style={styles.walletChipText}>Wallet</Text>
+            <Text style={[styles.walletChipText, { color: "#D4AF37" }]}>Wallet</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -1251,7 +1243,7 @@ const styles = StyleSheet.create({
   highlightLabel: { fontSize: 11, fontFamily: "Poppins_400Regular", textAlign: "center" },
   walletChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   walletEmoji: { fontSize: 14 },
-  walletChipText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  walletChipText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   findFriendsBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   findFriendsBtnText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   gridTabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginTop: 4 },
@@ -1266,5 +1258,5 @@ const styles = StyleSheet.create({
   gridOverlay: { position: "absolute", bottom: 4, left: 4, flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: "rgba(0,0,0,0.45)", borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
   gridLikes: { color: "#fff", fontSize: 10, fontFamily: "Poppins_500Medium" },
   analyticsBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
-  analyticsBtnText: { color: "#8B5CF6", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  analyticsBtnText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
 });
