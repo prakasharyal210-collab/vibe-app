@@ -170,9 +170,11 @@ router.get("/inbox", async (req, res) => {
   if (!userId) { res.json({ requests: [] }); return; }
 
   const sb = makeSupabase();
+
+  // Step 1: fetch pending requests (no FK registered for profiles join in schema cache)
   const { data, error } = await sb
     .from("vibe_requests")
-    .select("id, sender_id, created_at, profiles!vibe_requests_sender_id_fkey(id, username, full_name, avatar_url, relationship_status)")
+    .select("id, sender_id, created_at")
     .eq("receiver_id", userId)
     .eq("status", "pending")
     .order("created_at", { ascending: false })
@@ -184,18 +186,34 @@ router.get("/inbox", async (req, res) => {
     return;
   }
 
-  const requests = (data ?? []).map((r: any) => ({
-    id: r.id,
-    senderId: r.sender_id,
-    createdAt: r.created_at,
-    sender: {
-      id: r.profiles?.id ?? r.sender_id,
-      username: r.profiles?.username ?? "unknown",
-      displayName: r.profiles?.full_name ?? null,
-      avatarUrl: r.profiles?.avatar_url ?? null,
-      relationshipStatus: r.profiles?.relationship_status ?? null,
-    },
-  }));
+  const rows = data ?? [];
+
+  // Step 2: batch-fetch sender profiles in one round-trip
+  const senderIds = [...new Set(rows.map((r: any) => r.sender_id as string))];
+  const profileMap: Record<string, any> = {};
+  if (senderIds.length > 0) {
+    const { data: profiles } = await sb
+      .from("profiles")
+      .select("id, username, full_name, avatar_url, relationship_status")
+      .in("id", senderIds);
+    (profiles ?? []).forEach((p: any) => { profileMap[p.id] = p; });
+  }
+
+  const requests = rows.map((r: any) => {
+    const p = profileMap[r.sender_id] ?? {};
+    return {
+      id: r.id,
+      senderId: r.sender_id,
+      createdAt: r.created_at,
+      sender: {
+        id: p.id ?? r.sender_id,
+        username: p.username ?? "unknown",
+        displayName: p.full_name ?? null,
+        avatarUrl: p.avatar_url ?? null,
+        relationshipStatus: p.relationship_status ?? null,
+      },
+    };
+  });
 
   res.json({ requests });
 });

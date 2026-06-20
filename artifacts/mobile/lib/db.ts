@@ -2851,6 +2851,70 @@ export async function deleteHighlight(highlightId: string): Promise<boolean> {
   }
 }
 
+// ── Highlight Stories (join table) ───────────────────────────────────────────
+
+export interface HighlightStory {
+  id: string;
+  media_url: string;
+  caption?: string | null;
+  created_at: string;
+}
+
+/** Fetch all stories pinned to a highlight via highlight_stories join table */
+export async function fetchHighlightStories(highlightId: string): Promise<HighlightStory[]> {
+  try {
+    const { data, error } = await supabase
+      .from('highlight_stories')
+      .select('story_id, stories(id, media_url, caption, created_at)')
+      .eq('highlight_id', highlightId)
+      .order('id', { ascending: true });
+    if (error || !data) return [];
+    return (data as any[])
+      .map((row: any) => row.stories)
+      .filter(Boolean) as HighlightStory[];
+  } catch {}
+  return [];
+}
+
+/** Add a story to a highlight (idempotent — silently ignores duplicates) */
+export async function addStoryToHighlight(highlightId: string, storyId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('highlight_stories')
+      .upsert({ highlight_id: highlightId, story_id: storyId }, { onConflict: 'highlight_id,story_id' });
+    return !error;
+  } catch {}
+  return false;
+}
+
+/** Remove a story from a highlight */
+export async function removeStoryFromHighlight(highlightId: string, storyId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('highlight_stories')
+      .delete()
+      .eq('highlight_id', highlightId)
+      .eq('story_id', storyId);
+    return !error;
+  } catch {}
+  return false;
+}
+
+/** Fetch this user's own stories (story archive for the highlight picker) */
+export async function fetchMyStories(userId: string): Promise<HighlightStory[]> {
+  try {
+    const { data, error } = await supabase
+      .from('stories')
+      .select('id, media_url, caption, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+    if (error || !data) return [];
+    return data as HighlightStory[];
+  } catch {}
+  return [];
+}
+
 // ── Pinned Posts ──────────────────────────────────────────────────────────────
 
 export async function togglePinPost(postId: string, isPinned: boolean): Promise<boolean> {

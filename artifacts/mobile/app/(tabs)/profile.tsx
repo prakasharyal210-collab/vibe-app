@@ -37,7 +37,7 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProfilePosts, getProfileStats, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight } from "@/lib/db";
+import { fetchProfilePosts, getProfileStats, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight, fetchMyStories, addStoryToHighlight, HighlightStory } from "@/lib/db";
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { Profile, supabase } from "@/lib/supabase";
@@ -553,6 +553,11 @@ export default function ProfileScreen() {
   const [highlights, setHighlights] = useState<StoryHighlight[]>([]);
   const [highlightsLoading, setHighlightsLoading] = useState(false);
   const [creatingHighlight, setCreatingHighlight] = useState(false);
+  const [pendingHighlightId, setPendingHighlightId] = useState<string | null>(null);
+  const [showStoryPicker, setShowStoryPicker] = useState(false);
+  const [myStories, setMyStories] = useState<HighlightStory[]>([]);
+  const [selectedStoryIds, setSelectedStoryIds] = useState<Set<string>>(new Set());
+  const [savingStories, setSavingStories] = useState(false);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   // Tab bar: 68px height + 10px bottom offset = 78px from screen bottom. Add 10px buffer → 88px.
@@ -1110,6 +1115,12 @@ export default function ProfileScreen() {
                     setHighlights((prev) => [hl, ...prev]);
                     setNewHighlightName("");
                     setShowCreateHighlight(false);
+                    // Immediately open story picker so user can pin stories to new highlight
+                    setPendingHighlightId(hl.id);
+                    setSelectedStoryIds(new Set());
+                    const stories = await fetchMyStories(session.user.id);
+                    setMyStories(stories);
+                    setShowStoryPicker(true);
                   } else {
                     Alert.alert("Error", "Could not create highlight. Please run the DB migration in the Supabase SQL editor first.");
                   }
@@ -1120,6 +1131,72 @@ export default function ProfileScreen() {
                 </Text>
               </TouchableOpacity>
             </LinearGradient>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Story picker — shown after creating a highlight so user can pin stories to it */}
+      <Modal visible={showStoryPicker} transparent animationType="slide" onRequestClose={() => setShowStoryPicker(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" }}>
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setShowStoryPicker(false)} />
+          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "75%", paddingBottom: insets.bottom + 16 }}>
+            <View style={{ padding: 20, paddingBottom: 0, gap: 4 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: "center", marginBottom: 8 }} />
+              <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 17, color: colors.foreground }}>Add Stories</Text>
+              <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground }}>
+                {myStories.length === 0 ? "You have no stories yet. Post a story first." : "Tap to select stories for this highlight."}
+              </Text>
+            </View>
+            {myStories.length > 0 && (
+              <FlatList
+                data={myStories}
+                keyExtractor={(s) => s.id}
+                numColumns={3}
+                contentContainerStyle={{ padding: 12, gap: 4 }}
+                columnWrapperStyle={{ gap: 4 }}
+                renderItem={({ item }) => {
+                  const selected = selectedStoryIds.has(item.id);
+                  return (
+                    <TouchableOpacity
+                      style={{ width: (Dimensions.get("window").width - 56) / 3, aspectRatio: 9 / 16, borderRadius: 10, overflow: "hidden", borderWidth: selected ? 2.5 : 0, borderColor: "#8B5CF6" }}
+                      onPress={() => setSelectedStoryIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                        return next;
+                      })}
+                    >
+                      <Image source={{ uri: item.media_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                      {selected && (
+                        <View style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "#8B5CF6", alignItems: "center", justifyContent: "center" }}>
+                          <Ionicons name="checkmark" size={14} color="#fff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+            <View style={{ paddingHorizontal: 20, paddingTop: 12, gap: 10 }}>
+              <LinearGradient colors={["#8B5CF6", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ borderRadius: 14 }}>
+                <TouchableOpacity
+                  style={{ paddingVertical: 14, alignItems: "center" }}
+                  disabled={savingStories}
+                  onPress={async () => {
+                    if (!pendingHighlightId || selectedStoryIds.size === 0) { setShowStoryPicker(false); return; }
+                    setSavingStories(true);
+                    await Promise.all([...selectedStoryIds].map((sid) => addStoryToHighlight(pendingHighlightId, sid)));
+                    setSavingStories(false);
+                    setShowStoryPicker(false);
+                    setPendingHighlightId(null);
+                    setSelectedStoryIds(new Set());
+                  }}
+                >
+                  <Text style={{ fontFamily: "Poppins_700Bold", fontSize: 15, color: "#fff" }}>
+                    {savingStories ? "Saving…" : selectedStoryIds.size === 0 ? "Skip" : `Add ${selectedStoryIds.size} Story${selectedStoryIds.size > 1 ? "s" : ""}`}
+                  </Text>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
           </View>
         </View>
       </Modal>

@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
-import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
-import { fetchHighlights } from "@/lib/db";
+import { HighlightViewer, Highlight, Story } from "@/components/HighlightViewer";
+import { fetchHighlights, fetchHighlightStories } from "@/lib/db";
 import { useAuth } from "@/context/AuthContext";
 
 export default function HighlightScreen() {
@@ -14,25 +14,44 @@ export default function HighlightScreen() {
     if (!id) return;
     (async () => {
       const uid = session?.user?.id;
+      let baseHighlight: Highlight | null = null;
+
       if (uid) {
         const highlights = await fetchHighlights(uid);
         const found = highlights.find((h) => h.id === id);
         if (found) {
-          setHighlight({
+          baseHighlight = {
             id: found.id,
             label: found.title,
             image: found.cover_url ?? `https://picsum.photos/seed/${found.id}/200/200`,
             username: session?.user?.email?.split("@")[0] ?? "user",
-          });
-          return;
+          };
         }
       }
-      setHighlight({
-        id,
-        label: "Highlight",
-        image: `https://picsum.photos/seed/${id}/200/200`,
-        username: "user",
-      });
+
+      if (!baseHighlight) {
+        baseHighlight = {
+          id,
+          label: "Highlight",
+          image: `https://picsum.photos/seed/${id}/200/200`,
+          username: "user",
+        };
+      }
+
+      // Load actual stories from the highlight_stories join table
+      const dbStories = await fetchHighlightStories(id);
+      if (dbStories.length > 0) {
+        const stories: Story[] = dbStories.map((s) => ({
+          id: s.id,
+          image: s.media_url,
+          username: baseHighlight!.username,
+          time: undefined,
+        }));
+        baseHighlight = { ...baseHighlight, stories };
+      }
+      // If no stories pinned yet, HighlightViewer falls back to placeholder frames
+
+      setHighlight(baseHighlight);
     })();
   }, [id, session?.user?.id]);
 
