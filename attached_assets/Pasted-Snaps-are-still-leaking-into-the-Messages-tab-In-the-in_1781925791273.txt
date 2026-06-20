@@ -1,0 +1,14 @@
+Snaps are still leaking into the Messages tab. In the inbox Messages list, there are multiple "Delivered · 10h" rows (haceriz, banana, testuser_fixed) — these are SNAPS, but they're showing in the Messages tab. Messages and Snaps must be completely separate. A previous filter attempt didn't fully fix this.Root fix — properly separate snaps from messages at the data layer:
+Determine current storage. Are snaps and messages stored in the SAME table (e.g. both in messages with a type flag) or different tables (messages vs snaps)? Report the actual schema.
+If they share one table: The Messages list query MUST filter to messages only (exclude any row where the type is a snap — e.g. WHERE message_type != 'snap' or WHERE is_snap = false), and the Snaps list query must filter to snaps only (WHERE is_snap = true). Find the exact column that flags a snap and confirm both queries filter on it correctly. The current Messages query is clearly NOT filtering out snaps — fix it.
+Strongly preferred — separate storage: If feasible, store snaps in their OWN dedicated table (snaps) separate from messages, so there's zero chance of cross-contamination:
+
+Snaps (ephemeral photo/video, Delivered/Opened status, expiry) → snaps table.
+Messages (persistent text/photo chat) → messages table.
+The Messages tab reads ONLY from messages; the Snaps tab reads ONLY from snaps. They never mix.
+If migrating, provide the migration SQL and update the send-snap flow to write to snaps, and send-message to write to messages.
+
+
+Verify the send flows: When a snap is sent (from the Snaps camera/flow), it must write to the snap storage ONLY — not create a message row. When a message is sent, it writes to messages only. Check that sending a snap isn't currently inserting into the messages table (that's likely why it appears in both).
+Route all through artifacts/api-server (service-role), verify columns exist, reset loading in finally.
+Please report: the current schema (shared table or separate), the exact field that distinguishes snaps, WHY snaps are still appearing in Messages (which query/insert is wrong), what you changed, and confirm snaps now appear ONLY in the Snaps tab and messages ONLY in the Messages tab.

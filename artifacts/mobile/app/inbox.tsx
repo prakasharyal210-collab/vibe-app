@@ -708,18 +708,14 @@ const subSt = StyleSheet.create({
 // ─── ChatsTab ─────────────────────────────────────────────────────────────────
 
 function ChatsTab({
-  myId, conversations, snapConvos, refreshing, onRefresh, usersWithStories,
-  onCamera, onSnapCamera, onSnapView, show, requests,
+  myId, conversations, refreshing, onRefresh, usersWithStories,
+  show, requests,
 }: {
   myId: string;
   conversations: Conversation[];
-  snapConvos: SnapConversation[];
   refreshing: boolean;
   onRefresh: () => void;
   usersWithStories: Set<string>;
-  onCamera: (preSearch?: string) => void;
-  onSnapCamera: (preSearch?: string) => void;
-  onSnapView: (c: SnapConversation) => void;
   show: (msg: string) => void;
   requests: Conversation[];
 }) {
@@ -756,33 +752,18 @@ function ChatsTab({
       hasStory: usersWithStories.has(c.other_user.id),
       hasUnread: c.unread_count > 0,
     }));
-    const snapItems: UnifiedItem[] = snapConvos.map((c) => {
-      const snap = parseSnap(c.message_text);
-      return {
-        key: `snap_${c.message_id}`,
-        kind: "snap",
-        convo: c,
-        ts: c.created_at,
-        userId: c.other_user.id,
-        isPinned: pinnedIds.has(c.message_id),
-        hasStory: usersWithStories.has(c.other_user.id),
-        hasUnread: !!(c.is_incoming && snap && !snap.viewed),
-      };
-    });
-    const merged = [...chatItems, ...snapItems];
+    const merged = [...chatItems];
     merged.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
     merged.sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0));
     return merged;
-  }, [conversations, snapConvos, pinnedIds, usersWithStories]);
+  }, [conversations, pinnedIds, usersWithStories]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     let base = allItems;
     if (q) {
       base = base.filter((i) => {
-        const n = i.kind === "chat"
-          ? (i.convo as Conversation).other_user.username
-          : (i.convo as SnapConversation).other_user.username;
+        const n = (i.convo as Conversation).other_user.username;
         return n.toLowerCase().includes(q);
       });
     }
@@ -868,34 +849,19 @@ function ChatsTab({
             </View>
           }
           renderItem={({ item }) => {
-            if (item.kind === "chat") {
-              const c = item.convo as Conversation;
-              const isMuted = mutedIds.has(c.id);
-              const isFav = favIds.has(c.other_user.id);
-              return (
-                <MessageConvoItem
-                  convo={c}
-                  isPinned={item.isPinned}
-                  isMuted={isMuted}
-                  isFavorite={isFav}
-                  hasStory={item.hasStory}
-                  onLongPress={() => handleLongPress(c.id, c.other_user.id, c.other_user.username, item.isPinned, isFav)}
-                />
-              );
-            } else {
-              const c = item.convo as SnapConversation;
-              return (
-                <SnapConvoItemRow
-                  convo={c}
-                  isPinned={item.isPinned}
-                  hasStory={item.hasStory}
-                  streak={0}
-                  onView={() => onSnapView(c)}
-                  onCamera={() => onSnapCamera(c.other_user.username)}
-                  onLongPress={() => handleLongPress(c.message_id, c.other_user.id, c.other_user.username, item.isPinned, false)}
-                />
-              );
-            }
+            const c = item.convo as Conversation;
+            const isMuted = mutedIds.has(c.id);
+            const isFav = favIds.has(c.other_user.id);
+            return (
+              <MessageConvoItem
+                convo={c}
+                isPinned={item.isPinned}
+                isMuted={isMuted}
+                isFavorite={isFav}
+                hasStory={item.hasStory}
+                onLongPress={() => handleLongPress(c.id, c.other_user.id, c.other_user.username, item.isPinned, isFav)}
+              />
+            );
           }}
           contentContainerStyle={{ paddingBottom: 100 }}
         />
@@ -1477,13 +1443,9 @@ export default function InboxScreen() {
             <ChatsTab
               myId={userId ?? ""}
               conversations={conversations}
-              snapConvos={dedupedSnapConvos}
               refreshing={refreshing}
               onRefresh={onRefresh}
               usersWithStories={usersWithStories}
-              onCamera={openSnapCamera}
-              onSnapCamera={openSnapCamera}
-              onSnapView={handleViewSnap}
               show={show}
               requests={messageRequests}
             />

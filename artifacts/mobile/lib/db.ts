@@ -2553,12 +2553,30 @@ export interface SnapConversation {
 
 export async function fetchSnapConversations(userId: string): Promise<SnapConversation[]> {
   try {
-    // Route through API server — direct Supabase client hangs on Android,
-    // and the old filter used "text" (wrong column, should be "content").
-    const res = await fetch(`${API_BASE}/messages/snaps?userId=${encodeURIComponent(userId)}`);
-    if (!res.ok) return [];
-    const json = await res.json() as { snapConvos?: SnapConversation[] };
-    return json.snapConvos ?? [];
+    // Fetch from BOTH sources in parallel:
+    //   1. /api/snaps        — new dedicated snaps table (snaps sent after migration)
+    //   2. /api/messages/snaps — legacy snaps stored in the messages table
+    // Merge and dedupe by other_user.id so each conversation partner appears once.
+    const param = `userId=${encodeURIComponent(userId)}`;
+    const [newRes, legacyRes] = await Promise.allSettled([
+      fetch(`${API_BASE}/snaps?${param}`).then((r) => r.ok ? r.json() as Promise<{ snapConvos?: SnapConversation[] }> : { snapConvos: [] }),
+      fetch(`${API_BASE}/messages/snaps?${param}`).then((r) => r.ok ? r.json() as Promise<{ snapConvos?: SnapConversation[] }> : { snapConvos: [] }),
+    ]);
+    const newConvos: SnapConversation[] =
+      newRes.status === "fulfilled" ? (newRes.value.snapConvos ?? []) : [];
+    const legacyConvos: SnapConversation[] =
+      legacyRes.status === "fulfilled" ? (legacyRes.value.snapConvos ?? []) : [];
+
+    // Prefer newer snaps table entries; fall back to legacy for users not yet in new table
+    const seen = new Set<string>();
+    const merged: SnapConversation[] = [];
+    for (const c of [...newConvos, ...legacyConvos]) {
+      if (!seen.has(c.other_user.id)) {
+        seen.add(c.other_user.id);
+        merged.push(c);
+      }
+    }
+    return merged;
   } catch { return []; }
 }
 

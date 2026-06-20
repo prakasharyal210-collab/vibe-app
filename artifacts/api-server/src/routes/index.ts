@@ -24,6 +24,7 @@ import feedRouter from "./feed";
 import vibeRouter from "./vibe";
 import vibeRequestsRouter from "./vibe-requests";
 import vibeRoomsRouter from "./vibe-rooms";
+import snapsRouter from "./snaps";
 
 const router: IRouter = Router();
 
@@ -52,5 +53,6 @@ router.use("/feed", feedRouter);
 router.use("/vibe", vibeRouter);
 router.use("/vibe-requests", vibeRequestsRouter);
 router.use("/vibe-rooms", vibeRoomsRouter);
+router.use("/snaps", snapsRouter);
 
 export default router;

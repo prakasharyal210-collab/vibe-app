@@ -241,7 +241,7 @@ router.get("/conversations", async (req, res) => {
       .limit(100),
     sb
       .from("messages")
-      .select("sender_id")
+      .select("sender_id, content")
       .eq("receiver_id", userId)
       .is("read_at", null)
       .not("content", "like", "__SNAP__%"),
@@ -252,9 +252,12 @@ router.get("/conversations", async (req, res) => {
     return;
   }
 
-  // Build unread counts map: senderId → count of unread messages they sent me
+  // Build unread counts map: senderId → count of unread messages they sent me.
+  // JS-level guard: skip any snap row that slipped past the SQL filter
+  // (SQL LIKE uses _ as a wildcard which can behave unexpectedly in PostgREST).
   const unreadByOther = new Map<string, number>();
   for (const row of (unreadRes.data ?? []) as any[]) {
+    if (String((row as any).content ?? "").startsWith("__SNAP__")) continue;
     const sid = row.sender_id as string;
     unreadByOther.set(sid, (unreadByOther.get(sid) ?? 0) + 1);
   }
@@ -262,6 +265,8 @@ router.get("/conversations", async (req, res) => {
   const seen = new Set<string>();
   const convos: object[] = [];
   for (const msg of (msgRes.data ?? []) as any[]) {
+    // JS-level snap guard — belt-and-suspenders on top of the SQL NOT LIKE filter
+    if (String(msg.content ?? "").startsWith("__SNAP__")) continue;
     const otherId =
       msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
     const otherUser =
