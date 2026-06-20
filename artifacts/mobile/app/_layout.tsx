@@ -139,6 +139,9 @@ export default function RootLayout() {
     // a blank <Text /> (tofu box) until componentDidMount loads it async.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     ionicons: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"),
+    // Feather is used in components/ErrorFallback.tsx — same explicit-require pattern
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    Feather: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf"),
     Poppins_400Regular,
     Poppins_500Medium,
     Poppins_600SemiBold,

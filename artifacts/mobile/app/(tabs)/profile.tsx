@@ -620,7 +620,7 @@ export default function ProfileScreen() {
     const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
     const [supabaseResult, statsResult] = await Promise.allSettled([
       supabase.from("profiles").select("*").eq("id", uid).single(),
-      fetch(`${apiBase}/users/stats?userId=${encodeURIComponent(uid)}`),
+      fetch(`${apiBase}/users/stats?userId=${encodeURIComponent(uid)}`, { cache: "no-store" }),
     ]);
 
     const profileData =
@@ -940,15 +940,25 @@ export default function ProfileScreen() {
             <Text style={styles.analyticsBtnText}>Analytics</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => {
-              shareContent("profile", { username: displayUsername }, `Check out @${displayUsername} on Gundruk!`);
-            }}
-            style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
+            onPress={() =>
+              Alert.alert("More", undefined, [
+                {
+                  text: "Share Profile",
+                  onPress: () =>
+                    shareContent(
+                      "profile",
+                      { username: displayUsername },
+                      `Check out @${displayUsername} on Gundruk!`,
+                    ),
+                },
+                { text: "Find Friends", onPress: () => router.push("/suggested-users" as any) },
+                { text: "Cancel", style: "cancel" },
+              ])
+            }
+            style={[styles.moreBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
           >
-            <Ionicons name="share-social-outline" size={18} color={colors.foreground} />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconActionBtn, { backgroundColor: colors.muted, borderColor: colors.border }]} onPress={() => router.push("/suggested-users" as any)}>
-            <Ionicons name="person-add-outline" size={18} color={colors.foreground} />
+            <Ionicons name="ellipsis-horizontal" size={16} color={colors.foreground} />
+            <Text style={[styles.moreBtnText, { color: colors.foreground }]}>More</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "rgba(139,92,246,0.15)", borderColor: "#8B5CF6" }]}>
             <Text style={styles.walletEmoji}>🪙</Text>
@@ -1148,6 +1158,8 @@ const styles = StyleSheet.create({
   editBtn: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   editBtnText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   iconActionBtn: { width: 38, height: 38, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  moreBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
+  moreBtnText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   highlightsSection: { paddingVertical: 10, borderBottomWidth: 0.5 },
   highlightsScroll: { paddingHorizontal: 14, gap: 14 },
   highlightNew: { alignItems: "center", gap: 5, width: 68 },
