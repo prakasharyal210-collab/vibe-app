@@ -223,6 +223,27 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     lastTapRef.current = now;
   }, [handleDoubleTap, onPress]);
 
+  // Tap dispatcher for normal card image: single → open viewer, double → like+burst
+  const handleMediaTap = useCallback((imageIndex: number) => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      // Double-tap: cancel pending viewer open, fire like+burst
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      handleDoubleTap();
+    } else {
+      // Single-tap: wait 280ms to confirm no second tap before opening viewer
+      singleTapTimerRef.current = setTimeout(() => {
+        setViewerStartIndex(imageIndex);
+        setShowViewer(true);
+        singleTapTimerRef.current = null;
+      }, 280);
+    }
+    lastTapRef.current = now;
+  }, [handleDoubleTap]);
+
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const page = Math.round(e.nativeEvent.contentOffset.x / CARD_W);
     setActiveImg(page);
@@ -507,7 +528,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.9}
-                  onPress={() => { setViewerStartIndex(images.indexOf(item)); setShowViewer(true); }}
+                  onPress={() => handleMediaTap(images.indexOf(item))}
                 >
                   <Image
                     source={{ uri: item }}
@@ -540,6 +561,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 <Text style={styles.imageCountText}>{activeImg + 1}/{images.length}</Text>
               </View>
             )}
+            {/* Heart burst — double-tap like animation, pointerEvents="none" so it doesn't block scrolling */}
+            <Animated.View style={[styles.heartBurst, heartBurstStyle]} pointerEvents="none">
+              <Ionicons name="heart" size={100} color="#EC4899" />
+            </Animated.View>
           </>
         )}
         </View>
