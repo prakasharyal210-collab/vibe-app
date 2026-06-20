@@ -1579,6 +1579,7 @@ export interface ProfileGridItem {
   is_video?: boolean;
   isReel: boolean;
   likes: number;
+  views: number;
   comments: number;
   caption: string;
   duration?: number;
@@ -1624,6 +1625,7 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
           is_video: isVid,
           isReel: false,
           likes: p.likes_count ?? 0,
+          views: p.views_count ?? 0,
           comments: p.comments_count ?? 0,
           caption: p.caption ?? '',
           created_at: p.created_at,
@@ -1637,6 +1639,7 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
         video_url: r.video_url,
         isReel: true,
         likes: r.likes_count ?? 0,
+        views: r.views_count ?? 0,
         comments: r.comments_count ?? 0,
         caption: r.caption ?? '',
         duration: r.duration,

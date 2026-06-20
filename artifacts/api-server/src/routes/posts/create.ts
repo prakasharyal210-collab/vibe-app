@@ -578,6 +578,31 @@ router.post("/save", async (req, res) => {
   }
 });
 
+// POST /api/posts/:postId/view — increment views_count by 1 (fire-and-forget safe).
+// Uses atomic SQL RPC (increment_post_views); falls back to read+write if the
+// function doesn't exist yet (migration not run).
+router.post("/:postId/view", async (req, res) => {
+  const { postId } = req.params;
+  if (!postId) { res.status(400).json({ error: "postId required" }); return; }
+  const sb = makeSupabase();
+
+  // Try atomic RPC first (defined in posts-video-columns-migration.sql)
+  const { error: rpcErr } = await sb.rpc("increment_post_views", { post_id: postId });
+  if (!rpcErr) { res.status(204).end(); return; }
+
+  // Fallback: read current count then increment (acceptable eventual consistency for views)
+  try {
+    const { data } = await sb.from("posts").select("views_count").eq("id", postId).single();
+    if (data) {
+      await sb
+        .from("posts")
+        .update({ views_count: ((data as any).views_count ?? 0) + 1 })
+        .eq("id", postId);
+    }
+  } catch {}
+  res.status(204).end();
+});
+
 // GET /api/posts/:postId — fetch a single post by ID, bypassing RLS.
 // Maps media_url → image_url so clients that read image_url always get the URL.
 router.get("/:postId", async (req, res) => {

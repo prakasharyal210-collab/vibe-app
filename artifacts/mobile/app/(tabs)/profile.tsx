@@ -82,6 +82,7 @@ interface GridItem {
   isReel?: boolean;
   is_video?: boolean;
   likes?: number;
+  views?: number;
   comments?: number;
   caption?: string;
   duration?: number;
@@ -756,6 +757,7 @@ export default function ProfileScreen() {
 
   // ── Derived stats ─────────────────────────────────────────────────────────
   const totalLikes = myPosts.reduce((sum, p) => sum + (p.likes ?? 0), 0);
+  const totalViews = myPosts.reduce((sum, p) => sum + (p.views ?? 0), 0);
 
   // Vibe % = profile completeness score (vibe-relevant fields filled in).
   // Tells the user how "complete" their vibe profile is for better matching.
@@ -906,9 +908,11 @@ export default function ProfileScreen() {
               onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
             />
           </View>
-          {/* Row 2: Total Likes | Vibe % */}
+          {/* Row 2: Total Views | Total Likes | Vibe % */}
           <View style={[styles.statsPanelSep, { backgroundColor: colors.border }]} />
           <View style={styles.statsPanelRow}>
+            <StatBlock label="Total Views" value={totalViews} />
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <StatBlock label="Total Likes" value={totalLikes} />
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <StatBlock label="Vibe %" value={`${vibePercent}%`} />

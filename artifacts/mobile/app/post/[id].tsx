@@ -197,6 +197,14 @@ export default function PostDetailScreen() {
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // ── Record view once per post open (fire-and-forget, no deduplication needed) ─
+  const viewRecordedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!id || viewRecordedRef.current === id) return;
+    viewRecordedRef.current = id;
+    fetch(`${API_BASE}/posts/${encodeURIComponent(id)}/view`, { method: "POST" }).catch(() => {});
+  }, [id]);
+
   // ── Fetch post ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;

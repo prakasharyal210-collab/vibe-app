@@ -16,3 +16,17 @@ SET is_video = true
 WHERE is_video = false
   AND media_url IS NOT NULL
   AND media_url ~* '\.(mp4|mov|webm|m4v)($|\?)';
+
+-- Add view-count tracking
+ALTER TABLE posts
+  ADD COLUMN IF NOT EXISTS views_count INTEGER NOT NULL DEFAULT 0;
+
+-- Atomic increment helper called from the API server (service-role key).
+-- Safe to CREATE OR REPLACE repeatedly.
+CREATE OR REPLACE FUNCTION increment_post_views(post_id TEXT)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE posts SET views_count = views_count + 1 WHERE id = post_id::uuid;
+$$;
