@@ -1,0 +1,27 @@
+Two things on the Feed (Friends tab) here:
+1. Image is still zoomed/cropped. We fixed this on the post detail screen, but the feed PostCard fix apparently didn't fully take — the Messi image is cropped (cut off top and bottom). This is the aspect-ratio fix that was supposed to apply to the feed too.
+2. Double-tap to like opens the post instead of liking it. On the feed, double-tapping should like the post (with a heart animation), but instead it's opening the full post detail. The double-tap gesture isn't wired on the feed PostCard — so two quick taps just register as a tap that navigates into the post.
+Here's the prompt:
+
+Prompt for Replit AI:
+Two issues on the Feed PostCard (For You and Friends tabs):
+1. Feed images are still zoomed/cropped
+
+Post images in the feed are still cropped/zoomed (e.g. a portrait image is cut off top and bottom). We previously fixed this on the post detail screen (app/post/[id].tsx) by sizing the image to its natural aspect ratio with contentFit="contain" + onLoad reading real dimensions, but the SAME fix did NOT fully apply to the feed PostCard component. Please apply it to components/PostCard.tsx:
+
+Add a mediaAspectRatio state (default 1).
+On the image's onLoad, read real pixel dimensions (e.source.width / e.source.height) and set the aspect ratio.
+Size the image container with height: CARD_W / mediaAspectRatio instead of a fixed square height.
+Use contentFit="contain" (not "cover") so the full image shows uncropped.
+IMPORTANT (FlatList recycling): each card must track its OWN aspect ratio keyed to its post id, so a tall post's height doesn't bleed onto another post while scrolling.
+
+2. Double-tap to like doesn't work on the feed — it opens the post instead
+
+On the feed, double-tapping a post should LIKE it (with a heart-burst animation), like Instagram. Currently double-tapping opens the full post detail screen instead. The double-tap gesture isn't wired on the feed PostCard, so two quick taps just register as a navigation tap.
+Please add double-tap-to-like to the feed PostCard:
+
+Double-tap on the post image → likes the post (optimistic update + reconcile, proper toggle, routes through the API server — same like logic as the post detail screen), with a heart-burst animation over the image.
+Single tap → still opens the post detail (keep existing behavior), but disambiguate: a single tap should wait briefly (~250-280ms) to confirm it's not the first of a double-tap before navigating (same pattern used on the post detail screen's single-vs-double tap handling).
+Make sure the double-tap doesn't ALSO navigate to the post after liking.
+
+Please report which file(s) were edited, confirm feed images now show fully (uncropped, aspect-ratio correct, no bleed between posts), and confirm double-tap likes the post with animation while single-tap still opens it.

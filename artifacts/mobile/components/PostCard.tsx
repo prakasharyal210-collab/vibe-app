@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Video, ResizeMode } from "expo-av";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -82,6 +82,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
   const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
+  const heartBurstOpacity = useSharedValue(0);
+  const heartBurstScale = useSharedValue(0);
+  const lastTapRef = useRef(0);
+  const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Pre-fetch the first image's intrinsic dimensions before the first render.
   // Image.getSize is reliable for network URIs; onLoad (inside FlatList) fires
@@ -109,7 +113,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   });
 
   useEffect(() => {
-    return () => cancelAnimation(heartScale);
+    return () => {
+      cancelAnimation(heartScale);
+      if (singleTapTimerRef.current) clearTimeout(singleTapTimerRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -157,6 +164,42 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   };
 
   const heartStyle = useAnimatedStyle(() => ({ transform: [{ scale: heartScale.value }] }));
+  const heartBurstStyle = useAnimatedStyle(() => ({
+    opacity: heartBurstOpacity.value,
+    transform: [{ scale: heartBurstScale.value }],
+  }));
+
+  // Double-tap: like + burst animation (only likes, never unlikes — Instagram behaviour)
+  const handleDoubleTap = useCallback(() => {
+    if (!liked) handleLike();
+    heartBurstOpacity.value = 0;
+    heartBurstScale.value = 0.3;
+    heartBurstOpacity.value = withTiming(1, { duration: 80 });
+    heartBurstScale.value = withSpring(1, { damping: 7, stiffness: 200 });
+    // Fade out on JS thread — safe to call setTimeout outside Reanimated callbacks
+    setTimeout(() => {
+      heartBurstOpacity.value = withTiming(0, { duration: 450 });
+      heartBurstScale.value = withTiming(1.3, { duration: 450 });
+    }, 650);
+  }, [liked, handleLike, heartBurstOpacity, heartBurstScale]);
+
+  // Tap dispatcher: single tap → navigate after 280ms delay; double tap → like
+  const handleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      handleDoubleTap();
+    } else {
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        onPress?.();
+      }, 280);
+    }
+    lastTapRef.current = now;
+  }, [handleDoubleTap, onPress]);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const page = Math.round(e.nativeEvent.contentOffset.x / CARD_W);
@@ -186,7 +229,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 activeOpacity={0.9}
                 onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
               >
-                <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} resizeMode="cover" />
+                <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} resizeMode="contain" />
               </TouchableOpacity>
             )}
             scrollEnabled={images.length > 1}
@@ -207,14 +250,16 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
           )}
         </View>
 
-        {/* Transparent tap target — sits below header/actions in z-order so they capture their own touches */}
-        {onPress && (
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            onPress={onPress}
-            activeOpacity={0.92}
-          />
-        )}
+        {/* Tap dispatcher: single tap → navigate (280ms delay), double tap → like + burst */}
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          onPress={handleTap}
+          activeOpacity={1}
+        />
+        {/* Heart burst overlay — shown on double-tap, pointerEvents="none" so it doesn't block other touches */}
+        <Animated.View style={[styles.heartBurst, heartBurstStyle]} pointerEvents="none">
+          <Ionicons name="heart" size={100} color="#EC4899" />
+        </Animated.View>
 
         {/* Header overlaid on top of image */}
         <View style={[styles.header, { backgroundColor: "transparent" }]}>
@@ -667,6 +712,11 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.1)",
   },
   imageCountText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  heartBurst: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   videoPlayOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
