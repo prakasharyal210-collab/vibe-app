@@ -217,13 +217,56 @@ function SwitchAccountsModal({
     if (acc.id === currentUserId) return;
     setSwitching(acc.id);
     try {
-      await supabase.auth.setSession({ access_token: acc.access_token, refresh_token: acc.refresh_token });
+      // Race against a 12-second hard timeout so "Switching…" can never hang
+      // forever. supabase.auth.setSession() makes a network round-trip to
+      // validate / refresh the token; if that fetch stalls (expired token,
+      // network hiccup, RLS interaction) the Promise never settles without
+      // this guard.
+      type SetSessionResult = Awaited<ReturnType<typeof supabase.auth.setSession>>;
+      const result = await Promise.race<SetSessionResult>([
+        supabase.auth.setSession({
+          access_token: acc.access_token,
+          refresh_token: acc.refresh_token,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 12_000),
+        ),
+      ]);
+
+      if (result.error) {
+        console.error("[account-switch] setSession error:", result.error.message);
+        onToast(
+          result.error.message?.includes("expired") ||
+          result.error.message?.includes("invalid")
+            ? `Session expired for @${acc.username} — please log in again`
+            : `Failed to switch to @${acc.username}`,
+        );
+        return;
+      }
+
+      // Persist freshly-issued tokens so subsequent switches also work
+      if (result.data?.session) {
+        await saveAccount({
+          ...acc,
+          access_token: result.data.session.access_token,
+          refresh_token: result.data.session.refresh_token,
+        }).catch(() => {});
+      }
+
       onToast(`Switched to @${acc.username} ✅`);
       onClose();
       router.replace("/(tabs)/" as any);
-    } catch {
-      onToast("Failed to switch account");
-    } finally { setSwitching(null); }
+    } catch (err: any) {
+      console.error("[account-switch] error:", err?.message ?? err);
+      onToast(
+        err?.message === "timeout"
+          ? `Timed out switching to @${acc.username} — session may be expired. Tap "Add Account" to log in again.`
+          : `Failed to switch to @${acc.username}`,
+      );
+    } finally {
+      // Always unblock the UI — even if the Promise timed out
+      setSwitching(null);
+    }
   };
 
   const handleRemove = (acc: SavedAccount) => {
@@ -759,6 +802,33 @@ export default function SettingsScreen() {
       }).catch(() => {});
     }
   }, [userId]);
+
+  // Keep stored tokens fresh — Supabase auto-refreshes the access_token every
+  // ~55 min. Without this, saved tokens go stale and setSession() hangs/fails
+  // when switching back to this account later.
+  useEffect(() => {
+    if (!userId) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        if (
+          (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") &&
+          newSession?.user?.id === userId &&
+          newSession.access_token &&
+          newSession.refresh_token
+        ) {
+          saveAccount({
+            id: userId,
+            username: emailUsername,
+            email: userEmail,
+            avatar_url: userAvatar,
+            access_token: newSession.access_token,
+            refresh_token: newSession.refresh_token,
+          }).catch(() => {});
+        }
+      },
+    );
+    return () => subscription.unsubscribe();
+  }, [userId, emailUsername, userEmail, userAvatar]);
 
   const permLabel = (opts: { label: string; value: string }[], v: string) =>
     opts.find((o) => o.value === v)?.label ?? "Everyone";
