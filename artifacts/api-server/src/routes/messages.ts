@@ -226,7 +226,9 @@ router.get("/conversations", async (req, res) => {
   }
   const sb = makeSupabase();
 
-  // Fetch last 100 messages + real unread counts in parallel
+  // Fetch last 100 non-snap messages + real unread counts in parallel.
+  // Snaps are identified by content starting with "__SNAP__:" — they belong
+  // exclusively in the Snaps tab and must not bleed into the Messages list.
   const [msgRes, unreadRes] = await Promise.all([
     sb
       .from("messages")
@@ -234,13 +236,15 @@ router.get("/conversations", async (req, res) => {
         "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
       )
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .not("content", "like", "__SNAP__%")
       .order("created_at", { ascending: false })
       .limit(100),
     sb
       .from("messages")
       .select("sender_id")
       .eq("receiver_id", userId)
-      .is("read_at", null),
+      .is("read_at", null)
+      .not("content", "like", "__SNAP__%"),
   ]);
 
   if (msgRes.error) {
