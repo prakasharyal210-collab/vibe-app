@@ -1584,9 +1584,12 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
       const posts: ProfileGridItem[] = rawPosts.map((p: any) => {
         const mediaUrl = p.media_url ?? p.image_url ?? '';
         const isVid = isVideoMediaUrl(mediaUrl);
+        // For video posts, prefer the stored thumbnail (a static JPEG) over the
+        // raw video URL — Image components can't render video URLs.
+        const thumbUrl: string | undefined = p.thumbnail_url ?? undefined;
         return {
           id: p.id,
-          image_url: mediaUrl,
+          image_url: isVid ? (thumbUrl ?? mediaUrl) : mediaUrl,
           video_url: isVid ? mediaUrl : undefined,
           is_video: isVid,
           isReel: false,
@@ -1666,6 +1669,30 @@ export async function uploadPostMedia(
       const videoExt = rawExt === 'mov' ? 'mov' : rawExt === 'webm' ? 'webm' : 'mp4';
       const videoMime = rawExt === 'mov' ? 'video/quicktime' : rawExt === 'webm' ? 'video/webm' : 'video/mp4';
 
+      // Generate thumbnail from the local file's first frame so the profile grid
+      // can show a static image instead of trying to load the remote video at render time.
+      let thumbnailBase64: string | undefined;
+      try {
+        const { uri: rawThumbUri } = await withTimeout(
+          VideoThumbnails.getThumbnailAsync(uri, { time: 0 }),
+          10_000,
+          'video post thumbnail gen'
+        );
+        const compressedThumb = await withTimeout(
+          ImageManipulator.manipulateAsync(
+            rawThumbUri,
+            [{ resize: { width: 720 } }],
+            { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+          ),
+          8_000,
+          'video post thumbnail compress'
+        );
+        thumbnailBase64 = await withTimeout(localUriToBase64(compressedThumb.uri), 8_000, 'video post thumbnail read');
+      } catch {
+        // Thumbnail generation failed — post will upload without a static thumbnail.
+        // The profile grid will fall back to the visible gradient + play-icon placeholder.
+      }
+
       let videoBase64: string | undefined;
       try {
         videoBase64 = await withTimeout(localUriToBase64(uri), 20_000, 'video file read');
@@ -1681,6 +1708,7 @@ export async function uploadPostMedia(
           body: JSON.stringify({
             userId,
             imageBase64: videoBase64,
+            thumbnailBase64,
             mimeType: videoMime,
             ext: videoExt,
             caption,

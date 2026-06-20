@@ -99,15 +99,29 @@ function VideoGridCell({ videoUri, style }: { videoUri: string; style: any }) {
   const [thumbUri, setThumbUri] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
+    // Try to get a thumbnail from the local/remote URI.
+    // This works reliably for local files; remote URLs may fail on some devices.
     VideoThumbnails.getThumbnailAsync(videoUri, { time: 0 })
       .then(({ uri }) => { if (!cancelled) setThumbUri(uri); })
-      .catch(() => {});
+      .catch(() => { /* fallback placeholder renders instead */ });
     return () => { cancelled = true; };
   }, [videoUri]);
+
   if (thumbUri) return <Image source={{ uri: thumbUri }} style={style} resizeMode="cover" />;
+
+  // Visible video-post placeholder — gradient background + play icon.
+  // Shows while thumbnail is loading or if generation fails.
   return (
-    <View style={[style, { backgroundColor: "#1a1a2e", alignItems: "center", justifyContent: "center" }]}>
-      <ActivityIndicator color="#A78BFA" size="small" />
+    <View style={[style, { overflow: "hidden" }]}>
+      <LinearGradient
+        colors={["#1a0a2e", "#0d0d1f"]}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={{ ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(139,92,246,0.9)", alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="play" size={16} color="#fff" style={{ marginLeft: 2 }} />
+        </View>
+      </View>
     </View>
   );
 }

@@ -228,6 +228,7 @@ router.post("/create", async (req, res) => {
   const {
     userId,
     imageBase64,
+    thumbnailBase64,
     mimeType = "image/jpeg",
     ext = "jpg",
     caption = "",
@@ -235,6 +236,7 @@ router.post("/create", async (req, res) => {
   } = req.body as {
     userId: string;
     imageBase64?: string;
+    thumbnailBase64?: string;
     mimeType?: string;
     ext?: string;
     caption?: string;
@@ -265,7 +267,7 @@ router.post("/create", async (req, res) => {
 
   let mediaUrl: string | null = null;
 
-  // Upload image to storage if base64 provided
+  // Upload image/video to storage if base64 provided
   if (imageBase64) {
     try {
       const filename = `${userId}/${Date.now()}.${ext}`;
@@ -284,13 +286,33 @@ router.post("/create", async (req, res) => {
     }
   }
 
+  const isVideoMime = mimeType.startsWith("video/");
+
+  // Upload video thumbnail if provided (stored as a separate JPEG in the posts bucket)
+  let thumbnailUrl: string | null = null;
+  if (thumbnailBase64 && isVideoMime) {
+    try {
+      const thumbFilename = `${userId}/${Date.now()}_thumb.jpg`;
+      const thumbBuffer = Buffer.from(thumbnailBase64, "base64");
+      const { error: thumbErr } = await sb.storage
+        .from("posts")
+        .upload(thumbFilename, thumbBuffer, { contentType: "image/jpeg", upsert: true });
+      if (!thumbErr) {
+        const { data: thumbUrlData } = sb.storage.from("posts").getPublicUrl(thumbFilename);
+        thumbnailUrl = thumbUrlData.publicUrl;
+      } else {
+        req.log.warn({ err: thumbErr.message }, "Thumbnail upload error (non-fatal)");
+      }
+    } catch (err) {
+      req.log.warn({ err }, "Thumbnail upload failed (non-fatal)");
+    }
+  }
+
   // Insert post record (service role bypasses RLS)
   const VALID_VISIBILITIES = ["public", "friends", "private"] as const;
   const safeVisibility: string = VALID_VISIBILITIES.includes(options.visibility as any)
     ? (options.visibility as string)
     : "public";
-
-  const isVideoMime = mimeType.startsWith("video/");
 
   const payload: Record<string, unknown> = {
     user_id: userId,
@@ -302,17 +324,26 @@ router.post("/create", async (req, res) => {
     views_count: 0,
     created_at: new Date().toISOString(),
     ...(isVideoMime ? { is_video: true } : {}),
+    ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
     ...(options.filterId ? { filter_id: options.filterId } : {}),
     ...(options.location ? { location: options.location } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
-  // Graceful fallback: if visibility column not yet created, retry without it
+  // Graceful fallback: strip columns that haven't been added via migration yet.
   let insertData = r1.data as { id: string } | null;
   let insertErr = r1.error;
+  if (insertErr?.message?.includes("thumbnail_url")) {
+    const payloadNoThumb = { ...payload };
+    delete payloadNoThumb.thumbnail_url;
+    const r1b = await sb.from("posts").insert(payloadNoThumb).select("id").single();
+    insertData = r1b.data as { id: string } | null;
+    insertErr = r1b.error;
+  }
   if (insertErr?.message?.includes("visibility")) {
     const payloadNoVis = { ...payload };
     delete payloadNoVis.visibility;
+    delete payloadNoVis.thumbnail_url;
     const r2 = await sb.from("posts").insert(payloadNoVis).select("id").single();
     insertData = r2.data as { id: string } | null;
     insertErr = r2.error;
