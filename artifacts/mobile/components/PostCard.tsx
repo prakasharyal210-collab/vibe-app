@@ -10,6 +10,7 @@ import {
   Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -55,6 +56,39 @@ const MAX_PORTRAIT_H = CARD_W * 1.25; // cap for very tall portraits only
 // Image.getSize is synchronous for images already in RN's decode cache, so
 // returning the stored ratio on re-render eliminates the "flash-then-resize".
 const _ratioCache = new Map<string, number>();
+
+// ── FollowPillButton ────────────────────────────────────────────────────────
+// Module-scope so Ionicons class instances are stable across re-renders
+// (prevents the empty-glyph remount bug — see crash-fixes.md).
+function FollowPillButton({ following, onPress }: { following: boolean; onPress: () => void }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(0.96, { damping: 15, stiffness: 400 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 12, stiffness: 300 }); }}
+      >
+        {following ? (
+          <View style={[styles.followPill, styles.followPillOutline]}>
+            <Ionicons name="checkmark" size={11} color="rgba(255,255,255,0.85)" />
+            <Text style={[styles.followPillText, { color: "rgba(255,255,255,0.85)" }]}>Following</Text>
+          </View>
+        ) : (
+          <LinearGradient
+            colors={["#7C3AED", "#C2410C"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.followPill}
+          >
+            <Text style={[styles.followPillText, { color: "#fff" }]}>Follow</Text>
+          </LinearGradient>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 interface PostCardProps {
   post: Post;
@@ -336,15 +370,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             </TouchableOpacity>
             <Text style={[styles.time, { color: "rgba(255,255,255,0.7)" }]}>{timeAgo(post.created_at)}</Text>
           </View>
-          <TouchableOpacity onPress={() => setFollowing((f) => !f)} style={[styles.followBtn, following ? { borderWidth: 1, borderColor: "rgba(255,255,255,0.3)", backgroundColor: "transparent" } : {}]}>
-            {following ? (
-              <Text style={[styles.followBtnText, { color: "#fff" }]}>Following</Text>
-            ) : (
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.followGradient}>
-                <Text style={[styles.followBtnText, { color: "#fff" }]}>Follow</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
+          <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
         </View>
 
         {/* Caption + actions pinned to bottom — subtle gradient scrim, not a heavy dark block */}
@@ -442,28 +468,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(post.created_at)}</Text>
           )}
         </View>
-        <TouchableOpacity
-          onPress={() => setFollowing((f) => !f)}
-          style={[
-            styles.followBtn,
-            following
-              ? { borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", backgroundColor: "transparent" }
-              : {},
-          ]}
-        >
-          {following ? (
-            <Text style={[styles.followBtnText, { color: colors.foreground }]}>Following</Text>
-          ) : (
-            <LinearGradient
-              colors={[colors.gradientStart, colors.gradientMid] as [string, string]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.followGradient}
-            >
-              <Text style={[styles.followBtnText, { color: "#fff" }]}>Follow</Text>
-            </LinearGradient>
-          )}
-        </TouchableOpacity>
+        <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
         <TouchableOpacity onPress={() => { setHidden(true); if (userId && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "hide", post.id, "post").catch(() => {}); }} style={styles.moreBtn}>
           <Ionicons name="ellipsis-horizontal" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
@@ -757,18 +762,22 @@ const styles = StyleSheet.create({
   time: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: -1 },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 2, marginTop: -1 },
   location: { fontSize: 11, fontFamily: "Poppins_400Regular" },
-  followBtn: {
-    borderRadius: 10,
+  followPill: {
+    borderRadius: 999,
     overflow: "hidden",
-  },
-  followGradient: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 10,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 13,
+    paddingVertical: 5,
+    gap: 4,
   },
-  followBtnText: { fontSize: 12, fontFamily: "Poppins_600SemiBold", paddingHorizontal: 14, paddingVertical: 6 },
+  followPillOutline: {
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.28)",
+    backgroundColor: "transparent",
+  },
+  followPillText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   moreBtn: { padding: 4 },
   imageContainer: {
     width: CARD_W,
