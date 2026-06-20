@@ -79,7 +79,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
+  // Default to 4:3 landscape — a realistic mid-point that avoids a large
+  // square flash while Image.getSize resolves async.
+  const [mediaAspectRatio, setMediaAspectRatio] = useState(4 / 3);
   const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
   const heartBurstOpacity = useSharedValue(0);
@@ -89,9 +91,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
   // Pre-fetch the first image's intrinsic dimensions before the first render.
   // Image.getSize is reliable for network URIs; onLoad (inside FlatList) fires
-  // too late — FlatList has already locked in the square height by then.
+  // too late — FlatList has already locked in the height by then.
   useEffect(() => {
-    setMediaAspectRatio(1);
+    setMediaAspectRatio(4 / 3); // reset to sensible default, not 1:1 square
     const url = images[0];
     if (!url) return;
     Image.getSize(
@@ -401,8 +403,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </TouchableOpacity>
       </View>
 
-      {/* Media area — video or image carousel */}
-      <View style={[styles.imageContainer, { height: CARD_W / mediaAspectRatio }]}>
+      {/* Media area — video or image carousel.
+          Container is sized to the image's natural aspect ratio (capped at 1.25× width
+          for portrait images, matching Instagram). resizeMode="cover" fills the box
+          completely with no letterbox black bands. */}
+      <View style={[styles.imageContainer, { height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }]}>
         {isVideoPost ? (
           <TouchableOpacity
             activeOpacity={1}
@@ -420,8 +425,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             <Video
               ref={videoRef}
               source={{ uri: videoUrl! }}
-              style={{ width: CARD_W, height: CARD_W / mediaAspectRatio }}
-              resizeMode={ResizeMode.CONTAIN}
+              style={{ width: CARD_W, height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }}
+              resizeMode={ResizeMode.COVER}
               isLooping
               isMuted={false}
               onPlaybackStatusUpdate={(s) => {
@@ -452,7 +457,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               onScroll={onScroll}
               scrollEventThrottle={16}
               extraData={mediaAspectRatio}
-              style={{ height: CARD_W / mediaAspectRatio }}
+              style={{ height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.9}
@@ -460,8 +465,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 >
                   <Image
                     source={{ uri: item }}
-                    style={{ width: CARD_W, height: CARD_W / mediaAspectRatio }}
-                    resizeMode="contain"
+                    style={{ width: CARD_W, height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }}
+                    resizeMode="cover"
                   />
                 </TouchableOpacity>
               )}
@@ -644,7 +649,7 @@ const musicCreditStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: CARD_MARGIN,
-    marginBottom: 20,
+    marginBottom: 12,
     borderRadius: 20,
     overflow: "hidden",
     shadowColor: "#000",
@@ -740,7 +745,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 8,
     backgroundColor: "rgba(255,255,255,0.03)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.06)",
@@ -751,9 +756,9 @@ const styles = StyleSheet.create({
   actionCount: { fontSize: 13, fontFamily: "Poppins_500Medium", marginRight: 6 },
   captionContainer: {
     paddingHorizontal: 14,
-    paddingBottom: 14,
-    paddingTop: 4,
-    gap: 4,
+    paddingBottom: 10,
+    paddingTop: 2,
+    gap: 3,
   },
   locationInline: { flexDirection: "row", alignItems: "center", gap: 3 },
   caption: { fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 19 },

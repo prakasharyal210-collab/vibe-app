@@ -1,0 +1,16 @@
+Image 1 (your Gundruk app): The feed posts have big black gaps/empty bands above and below each post — there's dead black space between the post image and the action icons, and between posts. The image itself shows fine now (uncropped), but there's too much empty black padding around it, making the feed look sparse and broken. You want it tight and clean like Instagram (Image 2), where the image, action bar, and caption sit close together with no big black gaps.
+Image 2 (Instagram): That's your reference for how clean it should look — image, then immediately the action row (heart/comment/share/save), then caption, tightly spaced. No dead space.
+Here's the prompt:
+
+Prompt for Replit AI:
+The feed posts (For You / Friends PostCard) have too much empty black space/gaps around each post — there are large black bands above and below the post image, and dead space between the image and the action icons (like/comment/share). This makes the feed look sparse and broken. Make it tight and clean like Instagram's feed, where the image, action bar, and caption sit close together with no large empty gaps.
+Context: we recently changed the feed images to size by natural aspect ratio with contentFit="contain" so they're not cropped. But now contain is leaving big empty letterbox bands around images that don't match the container's fixed height — the container is still a fixed/large height while the image only fills part of it, creating the black gaps.
+Please fix the PostCard layout (components/PostCard.tsx):
+
+Size the image container to the image's actual displayed height (using the mediaAspectRatio from onLoad), so there's NO leftover empty space around the image. The container height should equal CARD_W / mediaAspectRatio exactly — not a fixed large height with the image floating inside it. With the container sized to the image, contain and cover look the same (no letterbox), because the box fits the image.
+Remove the large vertical gaps between: the image and the action bar, the action bar and the caption, and between consecutive posts. Use tight, consistent spacing like Instagram (small margins ~8-12px, not large empty bands).
+Each post should be: author header → image (sized to its aspect ratio, no empty space) → action row (like/comment/share/save, tight under the image) → caption → small separator → next post. Compact and clean.
+Keep: uncropped images (full image visible), aspect-ratio sizing per post (no bleed between recycled FlatList rows), double-tap-to-like, single-tap-to-open.
+For very tall (portrait) images, you can optionally cap the max height (e.g. 1.25× screen width like Instagram caps portrait posts) and use cover within that cap — but the key is NO empty black bands around images.
+
+Please report what was causing the black gaps (fixed container height vs image height mismatch) and confirm the feed is now tight and clean like Instagram with no empty space around posts.
