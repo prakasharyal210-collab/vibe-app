@@ -52,6 +52,7 @@ export interface Story {
   textContent?: string;
   bgGradient?: string;
   caption?: string;
+  mentions?: Array<{ userId: string; username: string; x: number; y: number }>;
 }
 
 // ─── Progress bar ────────────────────────────────────────────────────────────
@@ -271,6 +272,23 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
           </View>
         ) : null}
 
+        {/* Mention stickers — tap to visit profile */}
+        {story.mentions?.map((m, idx) => (
+          <TouchableOpacity
+            key={m.userId + idx}
+            style={[viewerStyles.mentionBubble, { left: m.x, top: m.y }]}
+            onPress={() => {
+              onClose();
+              setTimeout(() => router.push(`/profile/${m.username}` as any), 280);
+            }}
+          >
+            <BlurView intensity={60} tint="dark" style={viewerStyles.mentionBubbleInner}>
+              <Ionicons name="at" size={11} color="#fff" />
+              <Text style={viewerStyles.mentionBubbleText}>{m.username}</Text>
+            </BlurView>
+          </TouchableOpacity>
+        ))}
+
         {reacted && (
           <Animated.View style={[viewerStyles.reactedBubble, floatStyle]} pointerEvents="none">
             <Text style={viewerStyles.reactedEmoji}>{reacted}</Text>
@@ -386,6 +404,13 @@ const viewerStyles = StyleSheet.create({
     textShadowRadius: 8,
     lineHeight: 38,
   },
+  mentionBubble: { position: "absolute", zIndex: 15 },
+  mentionBubbleInner: {
+    flexDirection: "row" as const, alignItems: "center" as const, gap: 3,
+    borderRadius: 18, paddingHorizontal: 12, paddingVertical: 6, overflow: "hidden" as const,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
+  },
+  mentionBubbleText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
 });
 
 // ─── Story circle item ────────────────────────────────────────────────────────

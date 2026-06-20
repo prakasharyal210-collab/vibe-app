@@ -11,6 +11,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  PanResponder,
   Platform,
   ScrollView,
   StyleSheet,
@@ -25,8 +26,18 @@ import { useColors } from "@/hooks/useColors";
 import { StoryInteractionSheet, InteractionConfig } from "@/components/StoryInteractionSheet";
 import { createStory, uploadStoryMedia, createFeedPost } from "@/lib/db";
 import { UserAvatar } from "@/components/UserAvatar";
+import { MusicPickerSheet } from "@/components/MusicPickerSheet";
+import { Track } from "@/lib/music";
+import {
+  StoryEffectsSheet,
+  FilterOverlay,
+  ParticleOverlay,
+  StoryFilter,
+  ParticleType,
+} from "@/components/StoryEffectsSheet";
+import { MentionPickerSheet, MentionUser } from "@/components/MentionPickerSheet";
 
-const { width: W } = Dimensions.get("window");
+const { width: W, height: H } = Dimensions.get("window");
 
 const BG_GRADIENTS: [string, string][] = [
   ["#7C3AED", "#EA580C"],
@@ -44,12 +55,23 @@ const TEXT_ALIGNS: ("left" | "center" | "right")[] = ["left", "center", "right"]
 type Mode = "sheet" | "text" | "media-edit" | "share-options" | "uploading" | "posted-viewer";
 type Audience = "public" | "friends" | "close_friends";
 
+export interface MentionSticker {
+  userId: string;
+  username: string;
+  x: number;
+  y: number;
+}
+
 export interface PendingStory {
   textContent?: string;
   bgGradient?: string;
   mediaUri?: string;
   caption?: string;
   storyType: "text" | "image" | "video";
+  musicTrack?: Track | null;
+  storyFilter?: string | null;
+  storyParticle?: string | null;
+  mentions?: MentionSticker[];
 }
 
 interface CreateStorySheetProps {
@@ -167,6 +189,62 @@ function TextStoryEditor({
   );
 }
 
+// ─── Draggable mention sticker (module-scope: hooks must not live inside .map()) ──
+
+interface DraggableMention {
+  id: string;
+  userId: string;
+  username: string;
+  pan: Animated.ValueXY;
+}
+
+function MentionStickerView({
+  mention,
+  onRemove,
+}: {
+  mention: DraggableMention;
+  onRemove: () => void;
+}) {
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => { mention.pan.extractOffset(); },
+      onPanResponderMove: Animated.event(
+        [null, { dx: mention.pan.x, dy: mention.pan.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => { mention.pan.flattenOffset(); },
+    })
+  ).current;
+
+  return (
+    <Animated.View
+      style={[stickerStyles.wrap, { transform: mention.pan.getTranslateTransform() }]}
+      {...panResponder.panHandlers}
+    >
+      <TouchableOpacity
+        onLongPress={onRemove}
+        style={stickerStyles.pill}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="at" size={12} color="#fff" />
+        <Text style={stickerStyles.text}>{mention.username}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+const stickerStyles = StyleSheet.create({
+  wrap: { position: "absolute", zIndex: 30 },
+  pill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.4)",
+  },
+  text: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+});
+
 // ─── Media Edit Screen ────────────────────────────────────────────────────────
 
 const EDIT_TOOLS = [
@@ -181,53 +259,124 @@ function MediaEditScreen({
   uri,
   storyType,
   username,
+  userId,
   onBack,
   onNext,
 }: {
   uri: string;
   storyType: "image" | "video";
   username: string;
+  userId?: string;
   onBack: () => void;
-  onNext: (caption: string) => void;
+  onNext: (caption: string, opts: {
+    track: Track | null;
+    filter: StoryFilter | null;
+    particle: ParticleType | null;
+    mentions: MentionSticker[];
+  }) => void;
 }) {
   const insets = useSafeAreaInsets();
   const [caption, setCaption] = useState("");
   const [showCaption, setShowCaption] = useState(false);
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [musicPickerOpen, setMusicPickerOpen] = useState(false);
+  const [effectsOpen, setEffectsOpen] = useState(false);
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<StoryFilter | null>(null);
+  const [selectedParticle, setSelectedParticle] = useState<ParticleType | null>(null);
+  const [mentions, setMentions] = useState<DraggableMention[]>([]);
+
   const topPad = Platform.OS === "web" ? 20 : insets.top + 8;
   const botPad = Platform.OS === "web" ? 20 : insets.bottom + 16;
 
-  const stub = (name: string) =>
-    Alert.alert(name, "Coming soon ✨", [{ text: "OK" }]);
+  const handleAddMention = (user: MentionUser) => {
+    const newMention: DraggableMention = {
+      id: `${user.id}_${Date.now()}`,
+      userId: user.id,
+      username: user.username,
+      pan: new Animated.ValueXY({ x: W / 2 - 60, y: H / 2 - 20 }),
+    };
+    setMentions((prev) => [...prev, newMention]);
+  };
+
+  const handleNext = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const mentionPositions: MentionSticker[] = mentions.map((m) => {
+      const val = (m.pan as any).__getValue() as { x: number; y: number };
+      return { userId: m.userId, username: m.username, x: val.x ?? 0, y: val.y ?? 0 };
+    });
+    onNext(caption, {
+      track: selectedTrack,
+      filter: selectedFilter,
+      particle: selectedParticle,
+      mentions: mentionPositions,
+    });
+  };
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      {/* Blurred background — fills frame with diffused version of the image */}
+      {/* Blurred background */}
       <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
       <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
-      {/* Sharp foreground — full image contained, no cropping */}
+      {/* Sharp foreground */}
       <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.12)" }]} />
+
+      {/* Color filter overlay — rendered above the image, pointer-events none */}
+      <FilterOverlay filter={selectedFilter} />
+
+      {/* Particle overlay — animated particles above the filter */}
+      <ParticleOverlay type={selectedParticle} />
+
+      {/* Draggable mention stickers */}
+      {mentions.map((m) => (
+        <MentionStickerView
+          key={m.id}
+          mention={m}
+          onRemove={() => setMentions((prev) => prev.filter((x) => x.id !== m.id))}
+        />
+      ))}
 
       {/* Top bar */}
       <View style={[meStyles.topBar, { paddingTop: topPad }]}>
         <TouchableOpacity onPress={onBack} style={meStyles.circleBtn}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => stub("Music")} style={meStyles.musicChip}>
-          <Ionicons name="musical-notes" size={14} color="#fff" />
-          <Text style={meStyles.musicChipText}>Add music</Text>
+
+        {/* Music chip — shows track title when selected */}
+        <TouchableOpacity
+          onPress={() => setMusicPickerOpen(true)}
+          style={meStyles.musicChip}
+        >
+          <Ionicons
+            name="musical-notes"
+            size={14}
+            color={selectedTrack ? "#A78BFA" : "#fff"}
+          />
+          <Text
+            style={[meStyles.musicChipText, selectedTrack && { color: "#A78BFA" }]}
+            numberOfLines={1}
+          >
+            {selectedTrack ? selectedTrack.title : "Add music"}
+          </Text>
+          {selectedTrack && (
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation(); setSelectedTrack(null); }}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            >
+              <Ionicons name="close-circle" size={14} color="rgba(167,139,250,0.8)" />
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
+
         <View style={meStyles.topRight}>
-          <TouchableOpacity onPress={() => stub("More options")} style={meStyles.circleBtn}>
-            <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
-          </TouchableOpacity>
           <TouchableOpacity onPress={onBack} style={meStyles.circleBtn}>
             <Ionicons name="close" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Caption text input (if text tool tapped) */}
+      {/* Caption input */}
       {showCaption && (
         <View style={meStyles.captionWrap}>
           <TextInput
@@ -246,21 +395,32 @@ function MediaEditScreen({
 
       {/* Bottom toolbar */}
       <View style={[meStyles.toolbar, { paddingBottom: botPad + 68 }]}>
-        {EDIT_TOOLS.map((tool) => (
-          <TouchableOpacity
-            key={tool.label}
-            style={meStyles.toolItem}
-            onPress={() => {
-              if (tool.label === "Text") { setShowCaption(true); return; }
-              stub(tool.label);
-            }}
-          >
-            <View style={meStyles.toolIconWrap}>
-              <Ionicons name={tool.icon as any} size={22} color="#fff" />
-            </View>
-            <Text style={meStyles.toolLabel}>{tool.label}</Text>
-          </TouchableOpacity>
-        ))}
+        {EDIT_TOOLS.map((tool) => {
+          const isEffectsActive = tool.label === "Effects" && (!!selectedFilter || !!selectedParticle);
+          const isMentionActive = tool.label === "Mention" && mentions.length > 0;
+          const isMusicActive   = tool.label === "Music"   && !!selectedTrack;
+          return (
+            <TouchableOpacity
+              key={tool.label}
+              style={meStyles.toolItem}
+              onPress={() => {
+                if (tool.label === "Text")     { setShowCaption(true);       return; }
+                if (tool.label === "Music")    { setMusicPickerOpen(true);   return; }
+                if (tool.label === "Effects")  { setEffectsOpen(true);       return; }
+                if (tool.label === "Mention")  { setMentionPickerOpen(true); return; }
+                if (tool.label === "Stickers") { Alert.alert("Stickers", "Coming soon ✨"); return; }
+              }}
+            >
+              <View style={[
+                meStyles.toolIconWrap,
+                (isEffectsActive || isMentionActive || isMusicActive) && meStyles.toolIconActive,
+              ]}>
+                <Ionicons name={tool.icon as any} size={22} color="#fff" />
+              </View>
+              <Text style={meStyles.toolLabel}>{tool.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Bottom posting bar */}
@@ -269,17 +429,33 @@ function MediaEditScreen({
           <UserAvatar username={username} size={28} />
           <Text style={meStyles.yourStoryText}>Your story</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onNext(caption);
-          }}
-          style={meStyles.nextBtn}
-        >
+        <TouchableOpacity onPress={handleNext} style={meStyles.nextBtn}>
           <Text style={meStyles.nextBtnText}>Next</Text>
           <Ionicons name="chevron-forward" size={18} color="#000" />
         </TouchableOpacity>
       </View>
+
+      {/* ── Sub-sheets ─────────────────────────────────────────────────────── */}
+      <MusicPickerSheet
+        visible={musicPickerOpen}
+        onClose={() => setMusicPickerOpen(false)}
+        onSelect={(track) => { setSelectedTrack(track); setMusicPickerOpen(false); }}
+        selectedTrack={selectedTrack}
+      />
+      <StoryEffectsSheet
+        visible={effectsOpen}
+        onClose={() => setEffectsOpen(false)}
+        selectedFilter={selectedFilter}
+        selectedParticle={selectedParticle}
+        onSelectFilter={setSelectedFilter}
+        onSelectParticle={setSelectedParticle}
+      />
+      <MentionPickerSheet
+        visible={mentionPickerOpen}
+        onClose={() => setMentionPickerOpen(false)}
+        onSelect={handleAddMention}
+        viewerId={userId}
+      />
     </View>
   );
 }
@@ -556,6 +732,20 @@ export function PostedStoryViewer({
         </View>
       ) : null}
 
+      {/* Mention stickers — same positions as placed in the editor */}
+      {pending.mentions?.map((m, idx) => (
+        <View
+          key={m.userId + idx}
+          style={[pvStyles.mentionBubble, { left: m.x, top: m.y }]}
+          pointerEvents="none"
+        >
+          <View style={pvStyles.mentionBubbleInner}>
+            <Ionicons name="at" size={11} color="#fff" />
+            <Text style={pvStyles.mentionBubbleText}>{m.username}</Text>
+          </View>
+        </View>
+      ))}
+
       {/* ── Insights panel ───────────────────────────────────────────────────── */}
       <View style={[pvStyles.bottomPanel, { paddingBottom: botPad }]}>
         {/* Stats header row */}
@@ -711,9 +901,25 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
     setMode("share-options");
   };
 
-  const handleMediaNext = (caption: string) => {
+  const handleMediaNext = (
+    caption: string,
+    opts: {
+      track: Track | null;
+      filter: StoryFilter | null;
+      particle: ParticleType | null;
+      mentions: MentionSticker[];
+    }
+  ) => {
     if (!pickedUri) return;
-    setPending({ storyType: pickedType, mediaUri: pickedUri, caption });
+    setPending({
+      storyType: pickedType,
+      mediaUri: pickedUri,
+      caption,
+      musicTrack: opts.track,
+      storyFilter: opts.filter?.id ?? null,
+      storyParticle: opts.particle as ParticleType | null,
+      mentions: opts.mentions,
+    });
     setMode("share-options");
   };
 
@@ -807,6 +1013,7 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
           uri={pickedUri}
           storyType={pickedType}
           username={username}
+          userId={userId}
           onBack={() => setMode("sheet")}
           onNext={handleMediaNext}
         />
@@ -912,6 +1119,7 @@ const meStyles = StyleSheet.create({
   toolbar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 16 },
   toolItem: { alignItems: "center", gap: 4 },
   toolIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" },
+  toolIconActive: { backgroundColor: "rgba(139,92,246,0.35)", borderWidth: 1.5, borderColor: "#8B5CF6" },
   toolLabel: { color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_500Medium", fontSize: 11 },
   bottomBar: { position: "absolute", bottom: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 12 },
   yourStoryChip: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 22, paddingHorizontal: 12, paddingVertical: 8, flex: 1 },
@@ -971,6 +1179,14 @@ const pvStyles = StyleSheet.create({
   viewerTime: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_400Regular", fontSize: 11 },
   viewerReaction: { fontSize: 18 },
   // ─────────────────────────────────────────────────────────────────────────
+  mentionBubble: { position: "absolute", zIndex: 15 },
+  mentionBubbleInner: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
+    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.4)",
+  },
+  mentionBubbleText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   actions: { flexDirection: "row", justifyContent: "space-around", paddingTop: 4 },
   actionBtn: { alignItems: "center", gap: 3, paddingHorizontal: 10 },
   actionIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
