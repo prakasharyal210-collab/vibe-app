@@ -269,65 +269,129 @@ function ConvoContextMenu({ visible, username, actions, onClose }: {
   onClose: () => void;
 }) {
   const colors = useColors();
+  const translateY = useRef(new Animated.Value(700)).current;
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(false);
+  // guard against double-dismiss when action press + useEffect both try to close
+  const isDismissing = useRef(false);
+
+  const dismiss = useCallback(() => {
+    if (isDismissing.current) return;
+    isDismissing.current = true;
+    Animated.parallel([
+      Animated.timing(translateY, { toValue: 700, duration: 260, useNativeDriver: true }),
+      Animated.timing(backdropOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      setMounted(false);
+      onClose();
+    });
+  }, [onClose, translateY, backdropOpacity]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (visible) {
+      isDismissing.current = false;
+      setMounted(true);
+      translateY.setValue(700);
+      backdropOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, damping: 26, stiffness: 220, useNativeDriver: true }),
+        Animated.timing(backdropOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      ]).start();
+    } else if (!isDismissing.current) {
+      setMounted(false);
+    }
+  }, [visible]);
+
+  // PanResponder on the drag-handle area — swipe down to dismiss
+  const panResponder = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gs) => gs.dy > 5 && Math.abs(gs.dy) > Math.abs(gs.dx),
+    onPanResponderMove: (_, gs) => {
+      if (gs.dy > 0) translateY.setValue(gs.dy);
+    },
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dy > 80 || gs.vy > 0.5) {
+        dismiss();
+      } else {
+        Animated.spring(translateY, { toValue: 0, damping: 26, stiffness: 220, useNativeDriver: true }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(translateY, { toValue: 0, damping: 26, stiffness: 220, useNativeDriver: true }).start();
+    },
+  })).current;
+
+  // Android hardware back
+  useEffect(() => {
+    if (!mounted) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      onClose();
+      dismiss();
       return true;
     });
     return () => sub.remove();
-  }, [visible, onClose]);
+  }, [mounted, dismiss]);
+
+  if (!mounted) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={menuSt.backdrop} onPress={onClose}>
-        <Pressable style={[menuSt.sheet, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+    <Modal visible={mounted} transparent animationType="none" onRequestClose={dismiss} statusBarTranslucent>
+      {/* Pressable semi-transparent backdrop — tap outside to dismiss */}
+      <Animated.View style={[StyleSheet.absoluteFill, menuSt.backdropFill, { opacity: backdropOpacity }]}>
+        <Pressable style={{ flex: 1 }} onPress={dismiss} />
+      </Animated.View>
+
+      {/* Bottom sheet, positioned absolutely at the bottom */}
+      <Animated.View style={[menuSt.sheet, { backgroundColor: colors.card, transform: [{ translateY }] }]}>
+        {/* Drag handle — the only area with the pan handler so action rows scroll normally */}
+        <View {...panResponder.panHandlers} style={menuSt.dragArea}>
           <View style={menuSt.handle} />
-          <View style={menuSt.header}>
-            <Text style={[menuSt.headerUsername, { color: colors.foreground }]}>@{username}</Text>
-          </View>
-          <View style={[menuSt.divider, { backgroundColor: colors.border }]} />
-          {actions.map((action, i) => (
-            <Pressable
-              key={i}
-              style={({ pressed }) => [menuSt.actionRow, pressed && menuSt.actionRowPressed]}
-              onPress={() => { action.onPress(); onClose(); }}
-            >
-              <Ionicons name={action.icon} size={20} color={action.destructive ? "#EF4444" : colors.foreground} />
-              <Text style={[menuSt.actionLabel, { color: action.destructive ? "#EF4444" : colors.foreground }]}>
-                {action.label}
-              </Text>
-            </Pressable>
-          ))}
-          <View style={[menuSt.divider, { backgroundColor: colors.border, marginTop: 4 }]} />
+        </View>
+
+        {/* Username header */}
+        <View style={menuSt.header}>
+          <Text style={[menuSt.headerUsername, { color: colors.foreground }]}>@{username}</Text>
+        </View>
+        <View style={[menuSt.divider, { backgroundColor: colors.border }]} />
+
+        {/* Action rows */}
+        {actions.map((action, i) => (
           <Pressable
-            style={({ pressed }) => [menuSt.cancelRow, pressed && menuSt.actionRowPressed]}
-            onPress={onClose}
+            key={i}
+            style={({ pressed }) => [menuSt.actionRow, pressed && menuSt.actionRowPressed]}
+            onPress={() => { action.onPress(); dismiss(); }}
           >
-            <Text style={[menuSt.cancelLabel, { color: colors.mutedForeground }]}>Cancel</Text>
+            <Ionicons
+              name={action.icon}
+              size={20}
+              color={action.destructive ? "#EF4444" : colors.foreground}
+            />
+            <Text style={[menuSt.actionLabel, { color: action.destructive ? "#EF4444" : colors.foreground }]}>
+              {action.label}
+            </Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        ))}
+      </Animated.View>
     </Modal>
   );
 }
 
 const menuSt = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 32, overflow: "hidden" },
-  handle: {
-    width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.18)",
-    alignSelf: "center", marginTop: 12, marginBottom: 4,
+  backdropFill: { backgroundColor: "rgba(0,0,0,0.65)" },
+  sheet: {
+    position: "absolute", left: 0, right: 0, bottom: 0,
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    paddingBottom: 36,
   },
-  header: { paddingHorizontal: 20, paddingVertical: 14 },
+  dragArea: { alignItems: "center", paddingTop: 10, paddingBottom: 6 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.22)" },
+  header: { paddingHorizontal: 20, paddingBottom: 14, paddingTop: 2 },
   headerUsername: { fontFamily: "Poppins_700Bold", fontSize: 15 },
   divider: { height: StyleSheet.hairlineWidth },
-  actionRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingVertical: 15 },
+  actionRow: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    paddingHorizontal: 20, paddingVertical: 15,
+  },
   actionRowPressed: { backgroundColor: "rgba(255,255,255,0.06)" },
   actionLabel: { fontFamily: "Poppins_500Medium", fontSize: 15 },
-  cancelRow: { alignItems: "center", paddingVertical: 16 },
-  cancelLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
 });
 
 // ─── GundrukAIRow ─────────────────────────────────────────────────────────────
@@ -981,6 +1045,12 @@ function ChatsTab({
                 if (myId && menuTarget.otherId) void markMessagesRead(myId, menuTarget.otherId);
                 show(`@${menuTarget.username} marked as read`);
               },
+            },
+            {
+              icon: "trash-outline",
+              label: "Delete Conversation",
+              destructive: true,
+              onPress: () => show(`Conversation with @${menuTarget.username} deleted`),
             },
           ]}
         />
