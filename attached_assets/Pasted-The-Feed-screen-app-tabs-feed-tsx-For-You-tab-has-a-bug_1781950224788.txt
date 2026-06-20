@@ -1,0 +1,19 @@
+The Feed screen (app/(tabs)/feed.tsx, For You tab) has a bug: when scrolling from a Pexels/stock post toward a real user post, the feed resets — it reloads from skeleton, scroll jumps back to top, and afterward only Pexels posts show; the user's real post never renders.
+There's also a related symptom: the whole feed sometimes resets itself (skeleton + scroll-to-top) with no user interaction at all, observed repeating every 1-2 seconds in a screen recording.
+Investigate first:
+
+Where Pexels content is fetched and merged into the For You feed array (likely in getForYouFeed in db.ts or the /feed/foryou route) — what shape does a Pexels item have vs. a real posts row (field names, id type, missing fields like user_id/media_url/profiles)?
+Does PostCard (or whatever renders list items) assume one shared shape for all items? Does rendering a real post right after a Pexels item throw an error — and is that error caught anywhere in a way that triggers loadTabData(tab, { reset: true }) or an unhandled rejection that bubbles up to a reset?
+Does keyExtractor produce stable, unique, non-colliding keys across both Pexels items and real posts? Unstable/colliding keys at that exact boundary would explain the remount.
+Also check for any useEffect/useFocusEffect/subscription/interval that could independently be calling reset in a loop — confirm whether that's the same root cause as #1-3 or a separate bug.
+
+Then fix it:
+
+Fix whatever is causing the crash/reset at the Pexels→real-post boundary (normalize both item shapes to a common interface before they hit the renderer, fix the key extractor, and/or add proper error boundaries so a single bad item can't take down the whole list).
+Make sure no error in rendering or fetching one item can ever trigger a full list reset — that should only happen on explicit pull-to-refresh.
+
+Report back:
+
+The exact root cause and file/line.
+What you changed.
+Confirm whether this also explains the earlier "feed flickers to skeleton on its own" video, or if that's a separate issue still open.

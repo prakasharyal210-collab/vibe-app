@@ -345,6 +345,57 @@ function SuggestedCTA({ colors }: { colors: any }) {
   );
 }
 
+// ─── Stable FlatList header components ────────────────────────────────────────
+// MUST be defined at module scope so their type identity never changes between
+// renders. If they were inline functions inside TABS.map or ListHeaderComponent,
+// React would see a new component type on every FeedScreen re-render (e.g. from
+// setVisiblePostIds firing on scroll), unmount+remount the old header, causing
+// CuratedFeedList to lose state → show skeleton → refetch → re-render → loop.
+
+type ForYouHeaderProps = {
+  isTrending: boolean;
+  trendingPosts: { id: string; image_url?: string; media_url?: string; likes_count: number }[];
+  colors: any;
+};
+function ForYouListHeader({ isTrending, trendingPosts, colors }: ForYouHeaderProps) {
+  if (isTrending) {
+    return (
+      <TrendingGrid
+        posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
+        colors={colors}
+        title="🔥 Trending on the web"
+      />
+    );
+  }
+  return <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />;
+}
+
+type FriendsHeaderProps = {
+  isTrending: boolean;
+  trendingPosts: { id: string; image_url?: string; media_url?: string; likes_count: number }[];
+  colors: any;
+  stories: StoryEntry[];
+  userId?: string;
+  activeTab: FeedTabId;
+  onStoryCreated: () => void;
+};
+function FriendsListHeader({ isTrending, trendingPosts, colors, stories, userId, activeTab, onStoryCreated }: FriendsHeaderProps) {
+  return (
+    <>
+      {activeTab === "friends" && (
+        <FriendsStoriesBar stories={stories} colors={colors} userId={userId} onStoryCreated={onStoryCreated} />
+      )}
+      {isTrending && (
+        <TrendingGrid
+          posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
+          colors={colors}
+          title="🔥 Trending on the web"
+        />
+      )}
+    </>
+  );
+}
+
 export default function FeedScreen() {
   "use no memo";
   const colors = useColors();
@@ -622,16 +673,32 @@ export default function FeedScreen() {
     extrapolate: "clamp",
   });
 
-  const renderTabPost = useCallback((tabId: FeedTabId) => ({ item }: { item: Post; index: number }) => {
-    const post = item;
-    if (userId) markPostSeen(userId, post.id).catch(() => {});
+  // Two stable renderItem callbacks — one per tab — so the FlatList prop reference
+  // does not change on every render. Using a factory pattern (renderTabPost(tab.id))
+  // called inside render produced a new function on every render, forcing all items
+  // to re-render on every scroll event.
+  const renderForYouItem = useCallback(({ item }: { item: Post }) => {
+    if (userId) markPostSeen(userId, item.id).catch(() => {});
     return (
       <PostCard
-        post={post}
+        post={item}
         onRequireLogin={() => setShowLoginPrompt(true)}
         isLoggedIn={isLoggedIn}
-        isActive={screenFocused && visiblePostIds[tabId] === post.id}
-        onPress={() => router.push(`/post/${post.id}` as any)}
+        isActive={screenFocused && visiblePostIds["foryou"] === item.id}
+        onPress={() => router.push(`/post/${item.id}` as any)}
+      />
+    );
+  }, [isLoggedIn, userId, screenFocused, visiblePostIds]);
+
+  const renderFriendsItem = useCallback(({ item }: { item: Post }) => {
+    if (userId) markPostSeen(userId, item.id).catch(() => {});
+    return (
+      <PostCard
+        post={item}
+        onRequireLogin={() => setShowLoginPrompt(true)}
+        isLoggedIn={isLoggedIn}
+        isActive={screenFocused && visiblePostIds["friends"] === item.id}
+        onPress={() => router.push(`/post/${item.id}` as any)}
       />
     );
   }, [isLoggedIn, userId, screenFocused, visiblePostIds]);
@@ -785,7 +852,7 @@ export default function FeedScreen() {
                   const postId = item.id;
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
                 }}
-                renderItem={renderTabPost(tab.id)}
+                renderItem={tab.id === "foryou" ? renderForYouItem : renderFriendsItem}
                 onViewableItemsChanged={viewableHandlers[tabIndex]}
                 viewabilityConfig={viewabilityConfig}
                 decelerationRate="normal"
@@ -806,31 +873,16 @@ export default function FeedScreen() {
                     useNativeDriver: false,
                   }).start();
                 }}
-                ListHeaderComponent={() => {
-                  if (isTrending) {
-                    return (
-                      <>
-                        {tab.id === "friends" && activeTab === "friends" && (
-                          <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} onStoryCreated={refreshStories} />
-                        )}
-                        <TrendingGrid
-                          posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
-                          colors={colors}
-                          title={`🔥 Trending on the web`}
-                        />
-                      </>
-                    );
-                  }
-                  if (tab.id === "friends" && activeTab === "friends") {
-                    return <FriendsStoriesBar stories={friendStories} colors={colors} userId={userId} onStoryCreated={refreshStories} />;
-                  }
-                  if (tab.id === "foryou") {
-                    // Always show Pexels curated content — above user posts when they exist,
-                    // or as the full feed when the app is new and DB is empty
-                    return <CuratedFeedList mode="empty" maxPhotos={10} maxVideos={5} />;
-                  }
-                  return null;
-                }}
+                ListHeaderComponent={
+                  // Pass JSX elements (not inline functions) so React reconciles by
+                  // component type identity. Module-scope ForYouListHeader /
+                  // FriendsListHeader have stable type references → React re-renders
+                  // (not remounts) them on every FeedScreen state update, preserving
+                  // CuratedFeedList's internal state and eliminating the skeleton loop.
+                  tab.id === "foryou"
+                    ? <ForYouListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} />
+                    : <FriendsListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} stories={friendStories} userId={userId} activeTab={activeTab} onStoryCreated={refreshStories} />
+                }
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {
                   if (state.loadingMore) {
