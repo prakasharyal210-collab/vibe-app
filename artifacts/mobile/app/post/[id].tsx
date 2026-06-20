@@ -238,19 +238,24 @@ function FullscreenVideoViewer({
   const handleFsStatus = useCallback((status: AVPlaybackStatus) => {
     if (!status.isLoaded) return;
     const pos = status.positionMillis ?? 0;
-    const playing = status.isPlaying ?? false;
     positionSV.value = pos;
-    playingSV.value = playing ? 1 : 0;
+    // NOTE: intentionally NOT calling setFsPlaying(status.isPlaying) here.
+    // expo-av fires isPlaying=false during the initial buffer/seek phase,
+    // which would set shouldPlay=false and permanently freeze playback.
+    // fsPlaying is controlled solely by the tap handler + initialPlaying.
     setFsPosition(pos);
     fsDurationRef.current = status.durationMillis ?? 0;
     setFsDuration(status.durationMillis ?? 0);
-    setFsPlaying(playing);
-  }, [positionSV, playingSV]);
+  }, [positionSV]);
 
   const handleFsTap = useCallback(() => {
-    setFsPlaying((p) => !p);
+    setFsPlaying((p) => {
+      const next = !p;
+      playingSV.value = next ? 1 : 0; // keep shared value in sync for close handoff
+      return next;
+    });
     showCtrlsTemporarily();
-  }, [showCtrlsTemporarily]);
+  }, [showCtrlsTemporarily, playingSV]);
 
   const seekToRatio = useCallback((ratio: number) => {
     const ms = Math.max(0, Math.min(1, ratio)) * fsDurationRef.current;
@@ -275,16 +280,21 @@ function FullscreenVideoViewer({
   return (
     <Modal visible transparent animationType="fade" onRequestClose={doClose} statusBarTranslucent>
       <StatusBar hidden />
-      {/* Solid black backdrop — sits behind the animated container so it stays fixed during swipe */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#000" }]} />
-      <GestureDetector gesture={pan}>
-        <Animated.View style={[StyleSheet.absoluteFill, containerStyle]}>
-          {/* Tap catcher — single tap = play/pause */}
-          <TouchableOpacity activeOpacity={1} style={StyleSheet.absoluteFill} onPress={handleFsTap}>
+      {/* flex:1 wrapper — GestureDetector has no intrinsic size; without this the
+          Animated.View collapses to 0 height and the Video renders at inline size.
+          Same fix as FullScreenMediaViewer. */}
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        <GestureDetector gesture={pan}>
+          <Animated.View style={[{ flex: 1 }, containerStyle]}>
+
+            {/* Video — flex:1 fills the container; rendered first (lowest z) so the
+                native surface stays below the React-Native controls overlay.
+                On Android, expo-av's SurfaceView punches through absoluteFill siblings
+                if the Video is higher in the z-stack, showing icons as tofu. */}
             <Video
               ref={fsRef}
               source={{ uri: src }}
-              style={{ width: FW, height: FH }}
+              style={{ flex: 1 }}
               resizeMode={ResizeMode.CONTAIN}
               isLooping
               shouldPlay={fsPlaying}
@@ -292,11 +302,14 @@ function FullscreenVideoViewer({
               positionMillis={initialPosition}
               onPlaybackStatusUpdate={handleFsStatus}
             />
-          </TouchableOpacity>
 
-          {/* Controls overlay — fades in/out on tap */}
+            {/* Transparent tap catcher — absoluteFill above Video, below controls */}
+            <TouchableOpacity activeOpacity={1} style={StyleSheet.absoluteFill} onPress={handleFsTap} />
+
+          {/* Controls overlay — fades in/out on tap; zIndex:10 ensures it renders
+              above the native Video surface on Android */}
           <Animated.View
-            style={[StyleSheet.absoluteFill, { justifyContent: "space-between" }, ctrlsStyle]}
+            style={[StyleSheet.absoluteFill, { justifyContent: "space-between", zIndex: 10 }, ctrlsStyle]}
             pointerEvents="box-none"
           >
             {/* Top: mute (left) + collapse/close (right) */}
@@ -363,8 +376,9 @@ function FullscreenVideoViewer({
               </View>
             </View>
           </Animated.View>
-        </Animated.View>
-      </GestureDetector>
+          </Animated.View>
+        </GestureDetector>
+      </View>
     </Modal>
   );
 }
