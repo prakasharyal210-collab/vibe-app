@@ -1,0 +1,26 @@
+Redesign the post detail screen (app/post/[id].tsx) to feel premium and polished like the Pexels app's photo detail screen, while keeping Gundruk's dark theme + orange→purple gradient branding. Reference layout (top to bottom):
+
+Top action bar (above or just under the image): like (heart) and save (bookmark) icons on the left, kept minimal and clean.
+Full image — clean, uncropped, sized to its natural aspect ratio (already working — keep it). Give it generous margins so it breathes.
+Author row — circular avatar + username, with a secondary line showing follower count or post count (e.g. "215 Followers · 24 Posts"), and a Follow button on the right. Use the gradient on Follow. Clean, spacious, large typography like Pexels.
+"Post Information" section (like Pexels' "Photo Information") — a clean horizontal stats row with 2-3 stats, each as a label (muted, small) above a value (bold, larger):
+
+Likes (count) · Comments (count) · Posted (date, e.g. "2 days ago")
+Pull real values from the post. Route counts through the API server.
+
+
+Caption — below the stats, with bold username inline, "more" expansion for long captions.
+Comments preview — top 1-2 comments + "View all N comments →".
+"More from @username" section (like Pexels' "More like this") — keep the existing recent-posts grid, but style it to match: a clean section header, and present the posts as a nice 2-column or 3-column grid of rounded thumbnails with good spacing. Tapping a thumbnail opens that post.
+
+Design requirements:
+
+Dark theme, orange→purple gradient accents (NOT Pexels' green/light look — keep Gundruk's identity).
+Generous spacing and padding — let elements breathe (this is what makes Pexels feel premium: lots of whitespace, large clean type, clear sections).
+Large, clean typography with clear hierarchy (section headers bold and prominent, labels muted/small, values bold).
+Rounded corners on the image and thumbnails, subtle separators between sections.
+Keep everything functional: like (toggle), save, double-tap-like, comments, follow, the recent-posts grid, full uncropped image.
+All DB access through artifacts/api-server (service-role); verify columns exist; map media fields; reset loading in finally.
+
+The goal: a spacious, premium, well-organized post detail screen with clear sections (image → author → post info stats → caption → comments → more-from grid), matching Pexels' polish but in Gundruk's dark+gradient brand.
+Please report which file(s) were edited, the new section structure, and confirm everything still works (like, save, follow, comments, grid).

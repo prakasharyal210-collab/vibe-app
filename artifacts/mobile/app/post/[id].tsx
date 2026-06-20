@@ -28,16 +28,20 @@ import { useColors } from "@/hooks/useColors";
 import { Post, formatCount, timeAgo } from "@/lib/supabase";
 import { shareContent } from "@/lib/share";
 
-const { width: W, height: SCREEN_H } = Dimensions.get("window");
+const { width: W } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+const IMG_MARGIN = 16;
+const IMG_W = W - IMG_MARGIN * 2;
+const GRID_GAP = 4;
+const THUMB_W = (W - IMG_MARGIN * 2 - GRID_GAP * 2) / 3;
 
 // ─── Module-scope sub-components ─────────────────────────────────────────────
-// Defined at module scope to avoid the Ionicons empty-box remount bug.
+// All defined at module scope to avoid the Ionicons empty-box remount bug.
 
 function GradientRingAvatar({
   username,
   url,
-  size = 44,
+  size = 52,
 }: {
   username: string;
   url?: string | null;
@@ -62,6 +66,50 @@ function GradientRingAvatar({
   );
 }
 
+function StatCell({
+  label,
+  value,
+  mutedColor,
+  boldColor,
+}: {
+  label: string;
+  value: string;
+  mutedColor: string;
+  boldColor: string;
+}) {
+  return (
+    <View style={{ flex: 1, alignItems: "center", gap: 4 }}>
+      <Text
+        style={{
+          fontSize: 11,
+          fontFamily: "Poppins_400Regular",
+          letterSpacing: 0.4,
+          color: mutedColor,
+          textTransform: "uppercase",
+        }}
+      >
+        {label}
+      </Text>
+      <Text style={{ fontSize: 22, fontFamily: "Poppins_700Bold", color: boldColor }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function StatDivider() {
+  return (
+    <View
+      style={{
+        width: StyleSheet.hairlineWidth,
+        backgroundColor: "rgba(255,255,255,0.13)",
+        alignSelf: "stretch",
+        marginVertical: 4,
+      }}
+    />
+  );
+}
+
 function CommentRow({
   comment,
   textColor,
@@ -73,9 +121,14 @@ function CommentRow({
   const text = (comment.text ?? comment.content ?? "").trim();
   if (!text) return null;
   return (
-    <View style={{ paddingVertical: 3 }}>
+    <View style={{ paddingVertical: 4 }}>
       <Text
-        style={{ fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18, color: textColor }}
+        style={{
+          fontSize: 13,
+          fontFamily: "Poppins_400Regular",
+          lineHeight: 19,
+          color: textColor,
+        }}
         numberOfLines={2}
       >
         <Text style={{ fontFamily: "Poppins_700Bold" }}>{username} </Text>
@@ -108,6 +161,10 @@ export default function PostDetailScreen() {
   const [morePosts, setMorePosts] = useState<any[]>([]);
   const [moreLoading, setMoreLoading] = useState(false);
   const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
+  const [authorStats, setAuthorStats] = useState<{
+    followers_count: number;
+    posts_count: number;
+  } | null>(null);
 
   // Reanimated — like heart pop + double-tap burst
   const likeScale = useSharedValue(1);
@@ -122,13 +179,13 @@ export default function PostDetailScreen() {
     transform: [{ scale: heartBurstScale.value }],
   }));
 
-  // Double-tap: track last tap + pending single-tap timer
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch post ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
+    setLoading(true);
     (async () => {
       try {
         const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(id)}`);
@@ -140,18 +197,13 @@ export default function PostDetailScreen() {
             setPost(data as Post);
             setLikesCount(data.likes_count ?? 0);
           }
-        } else {
-          console.error("[post-detail] API error", res.status);
         }
-      } catch (e: any) {
-        console.error("[post-detail] fetch threw:", e?.message);
-      } finally {
-        setLoading(false);
-      }
+      } catch {}
+      finally { setLoading(false); }
     })();
   }, [id]);
 
-  // ── Fetch like/save status once post loaded ─────────────────────────────────
+  // ── Fetch like/save status ──────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !session?.user?.id) return;
     fetch(`${API_BASE}/posts/like-status?postId=${id}&userId=${session.user.id}`)
@@ -163,21 +215,34 @@ export default function PostDetailScreen() {
       .catch(() => {});
   }, [id, session?.user?.id]);
 
-  // ── Reset aspect ratio when navigating to a different post ─────────────────
-  useEffect(() => { setMediaAspectRatio(1); }, [id]);
+  // ── Fetch author stats once post loads ─────────────────────────────────────
+  useEffect(() => {
+    if (!post?.user_id) return;
+    fetch(`${API_BASE}/users/stats?userId=${post.user_id}`)
+      .then((r) => r.json())
+      .then((body) =>
+        setAuthorStats({
+          followers_count: body.followers_count ?? 0,
+          posts_count: body.posts_count ?? 0,
+        }),
+      )
+      .catch(() => {});
+  }, [post?.user_id]);
 
-  // ── Fetch "More from this user" grid once post is loaded ────────────────────
+  // ── Fetch "More from this user" ─────────────────────────────────────────────
   useEffect(() => {
     if (!post?.user_id || !id) return;
     setMoreLoading(true);
-    fetch(`${API_BASE}/posts/user/${encodeURIComponent(post.user_id)}/more?excludeId=${encodeURIComponent(id)}&limit=9`)
+    fetch(
+      `${API_BASE}/posts/user/${encodeURIComponent(post.user_id)}/more?excludeId=${encodeURIComponent(id)}&limit=9`,
+    )
       .then((r) => r.json())
       .then((body) => setMorePosts(body.posts ?? []))
       .catch(() => {})
       .finally(() => setMoreLoading(false));
   }, [post?.user_id, id]);
 
-  // ── Fetch top 2 preview comments ────────────────────────────────────────────
+  // ── Fetch top 2 preview comments ───────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
     fetch(`${API_BASE}/comments?postId=${id}`)
@@ -186,13 +251,17 @@ export default function PostDetailScreen() {
       .catch(() => {});
   }, [id]);
 
-  // ── Like handler (optimistic + server confirm) ──────────────────────────────
+  // ── Reset aspect ratio when navigating to a different post ─────────────────
+  useEffect(() => {
+    setMediaAspectRatio(1);
+  }, [id]);
+
+  // ── Like handler ────────────────────────────────────────────────────────────
   const handleLike = async () => {
     if (!session?.user?.id || !post) return;
     const nowLiked = !liked;
     setLiked(nowLiked);
     setLikesCount((n) => (nowLiked ? n + 1 : Math.max(0, n - 1)));
-    // Pop animation on action bar heart
     likeScale.value = withSequence(
       withSpring(1.4, { damping: 5 }),
       withSpring(1, { damping: 7 }),
@@ -205,7 +274,6 @@ export default function PostDetailScreen() {
       });
       if (res.ok) {
         const body = await res.json();
-        // Reconcile with server truth
         setLiked(body.liked);
         setLikesCount(body.likesCount);
       }
@@ -215,30 +283,26 @@ export default function PostDetailScreen() {
   // ── Double-tap: burst heart + like ─────────────────────────────────────────
   const handleDoubleTap = () => {
     if (!liked) handleLike();
-    // Burst animation
     heartBurstOpacity.value = 0;
     heartBurstScale.value = 0.3;
     heartBurstOpacity.value = withTiming(1, { duration: 80 });
     heartBurstScale.value = withSpring(1, { damping: 7, stiffness: 200 });
-    // Fade out after beat — setTimeout on JS thread, safe outside Reanimated callbacks
     setTimeout(() => {
       heartBurstOpacity.value = withTiming(0, { duration: 450 });
       heartBurstScale.value = withTiming(1.3, { duration: 450 });
     }, 650);
   };
 
-  // ── Tap dispatcher (single = fullscreen, double = like) ────────────────────
+  // ── Tap dispatcher (single = fullscreen viewer, double = like) ─────────────
   const handleMediaTap = (imageIndex: number) => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      // Double-tap — cancel pending fullscreen open
       if (singleTapTimerRef.current) {
         clearTimeout(singleTapTimerRef.current);
         singleTapTimerRef.current = null;
       }
       handleDoubleTap();
     } else {
-      // Wait to see if a second tap follows before opening fullscreen
       singleTapTimerRef.current = setTimeout(() => {
         setViewerInitialIndex(imageIndex);
         setShowViewer(true);
@@ -281,16 +345,19 @@ export default function PostDetailScreen() {
         : [post.image_url ?? ""].filter(Boolean))
     : [];
   const caption = post?.caption ?? "";
-  const captionNeedsExpand = caption.length > 120;
+  const captionNeedsExpand = caption.length > 140;
   const displayCaption =
-    captionExpanded || !captionNeedsExpand ? caption : caption.slice(0, 120) + "…";
+    captionExpanded || !captionNeedsExpand ? caption : caption.slice(0, 140) + "…";
   const captionParts = displayCaption.split(/([@#]\w+)/g);
   const commentsCount = post?.comments_count ?? 0;
+  const imgH = IMG_W / mediaAspectRatio;
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View
+        style={[S.center, { backgroundColor: colors.background, paddingTop: insets.top }]}
+      >
         <ActivityIndicator color="#7C3AED" size="large" />
       </View>
     );
@@ -299,9 +366,17 @@ export default function PostDetailScreen() {
   // ── Not found ───────────────────────────────────────────────────────────────
   if (!post) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+      <View
+        style={[S.center, { backgroundColor: colors.background, paddingTop: insets.top }]}
+      >
         <Ionicons name="alert-circle-outline" size={48} color={colors.mutedForeground} />
-        <Text style={{ color: colors.mutedForeground, marginTop: 12, fontFamily: "Poppins_400Regular" }}>
+        <Text
+          style={{
+            color: colors.mutedForeground,
+            marginTop: 12,
+            fontFamily: "Poppins_400Regular",
+          }}
+        >
           Post not found
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16 }}>
@@ -312,80 +387,63 @@ export default function PostDetailScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* ── Header bar ─────────────────────────────────────────────────────── */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+    <View style={[S.screen, { backgroundColor: colors.background }]}>
+      {/* ── Nav bar ─────────────────────────────────────────────────────────── */}
+      <View
+        style={[
+          S.navBar,
+          {
+            paddingTop: insets.top + 6,
+            borderBottomColor: colors.border ?? "rgba(255,255,255,0.08)",
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={S.navBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="arrow-back" size={24} color={colors.foreground} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Post</Text>
-        <TouchableOpacity onPress={handleShare} style={styles.headerBtn}>
+        <Text style={[S.navTitle, { color: colors.foreground }]}>Post</Text>
+        <TouchableOpacity
+          onPress={handleShare}
+          style={S.navBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons name="share-social-outline" size={22} color={colors.foreground} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 56 }}>
-        {/* Above-fold wrapper: minHeight = full available screen so "More from" starts below the fold */}
-        <View style={{ minHeight: SCREEN_H - (insets.top + 50) }}>
-        {/* ── Author row ─────────────────────────────────────────────────── */}
-        <View style={styles.authorRow}>
-          <TouchableOpacity
-            style={styles.authorInfo}
-            onPress={() => router.push(`/profile/${username}` as any)}
-            activeOpacity={0.75}
-          >
-            <GradientRingAvatar username={username} url={avatarUrl} size={44} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text style={[styles.authorUsername, { color: colors.foreground }]}>{username}</Text>
-                {isVerified && <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />}
-              </View>
-              <Text style={[styles.authorTime, { color: colors.mutedForeground }]}>
-                {timeAgo(post.created_at)}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Follow button */}
-          <TouchableOpacity onPress={() => setFollowing((f) => !f)} activeOpacity={0.8}>
-            {following ? (
-              <View style={styles.followingBtn}>
-                <Text style={[styles.followBtnText, { color: colors.foreground }]}>Following</Text>
-              </View>
-            ) : (
-              <LinearGradient
-                colors={["#EA580C", "#7C3AED"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.followGrad}
-              >
-                <Text style={[styles.followBtnText, { color: "#fff" }]}>Follow</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Media card ─────────────────────────────────────────────────── */}
-        {/* Shadow wrapper (separate from overflow:hidden to keep shadow visible) */}
-        <View style={styles.mediaShadow}>
-          <View style={styles.mediaCard}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={S.scroll}
+      >
+        {/* ── Full image — clean, generous margins, rounded, natural ratio ── */}
+        <View style={S.imageShadow}>
+          <View style={[S.imageCard, { height: imgH }]}>
             {images.length > 1 ? (
-              /* Multi-image horizontal scroll — height driven by first image aspect ratio */
               <ScrollView
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
                 scrollEventThrottle={16}
-                style={{ height: W / mediaAspectRatio }}
+                style={{ height: imgH, width: IMG_W }}
                 onScroll={(e) =>
-                  setCurrentImageIndex(Math.round(e.nativeEvent.contentOffset.x / W))
+                  setCurrentImageIndex(
+                    Math.round(e.nativeEvent.contentOffset.x / IMG_W),
+                  )
                 }
               >
                 {images.map((img, idx) => (
-                  <TouchableOpacity key={idx} activeOpacity={1} onPress={() => handleMediaTap(idx)}>
+                  <TouchableOpacity
+                    key={idx}
+                    activeOpacity={1}
+                    onPress={() => handleMediaTap(idx)}
+                  >
                     <Image
                       source={{ uri: img }}
-                      style={{ width: W, height: W / mediaAspectRatio }}
+                      style={{ width: IMG_W, height: imgH }}
                       contentFit="contain"
                       onLoad={(e) => {
                         if (idx === 0) {
@@ -398,10 +456,14 @@ export default function PostDetailScreen() {
                 ))}
               </ScrollView>
             ) : (
-              <TouchableOpacity activeOpacity={1} onPress={() => handleMediaTap(0)}>
+              <TouchableOpacity
+                activeOpacity={1}
+                onPress={() => handleMediaTap(0)}
+                style={{ flex: 1 }}
+              >
                 <Image
                   source={{ uri: images[0] ?? "" }}
-                  style={{ width: W, height: W / mediaAspectRatio }}
+                  style={{ width: IMG_W, height: imgH }}
                   contentFit="contain"
                   onLoad={(e) => {
                     const { width, height } = (e as any).source ?? {};
@@ -413,19 +475,19 @@ export default function PostDetailScreen() {
 
             {/* Double-tap heart burst overlay */}
             <Animated.View
-              style={[StyleSheet.absoluteFill, styles.heartBurstOverlay, heartBurstStyle]}
+              style={[StyleSheet.absoluteFill, S.heartBurstOverlay, heartBurstStyle]}
               pointerEvents="none"
             >
-              <Ionicons name="heart" size={100} color="rgba(255,255,255,0.88)" />
+              <Ionicons name="heart" size={100} color="#EC4899" />
             </Animated.View>
 
-            {/* Multi-image dot indicators */}
+            {/* Carousel dot indicators */}
             {images.length > 1 && (
-              <View style={styles.dotsRow} pointerEvents="none">
+              <View style={S.dotsRow} pointerEvents="none">
                 {images.map((_, i) => (
                   <View
                     key={i}
-                    style={[styles.dot, i === currentImageIndex && styles.dotActive]}
+                    style={[S.dot, i === currentImageIndex && S.dotActive]}
                   />
                 ))}
               </View>
@@ -433,10 +495,9 @@ export default function PostDetailScreen() {
           </View>
         </View>
 
-        {/* ── Action bar ─────────────────────────────────────────────────── */}
-        <View style={styles.actionsRow}>
-          {/* Like */}
-          <TouchableOpacity onPress={handleLike} style={styles.actionItem}>
+        {/* ── Action bar: like · comment · save · share ─────────────────── */}
+        <View style={S.actionBar}>
+          <TouchableOpacity onPress={handleLike} style={S.actionBtn} activeOpacity={0.7}>
             <Animated.View style={likeAnimStyle}>
               <Ionicons
                 name={liked ? "heart" : "heart-outline"}
@@ -444,49 +505,136 @@ export default function PostDetailScreen() {
                 color={liked ? "#EF4444" : colors.foreground}
               />
             </Animated.View>
-            <Text style={[styles.actionCount, { color: colors.foreground }]}>
+            <Text style={[S.actionCount, { color: colors.foreground }]}>
               {formatCount(likesCount)}
             </Text>
           </TouchableOpacity>
 
-          {/* Comment */}
-          <TouchableOpacity onPress={() => setShowComments(true)} style={styles.actionItem}>
+          <TouchableOpacity
+            onPress={() => setShowComments(true)}
+            style={S.actionBtn}
+            activeOpacity={0.7}
+          >
             <Ionicons name="chatbubble-outline" size={26} color={colors.foreground} />
-            <Text style={[styles.actionCount, { color: colors.foreground }]}>
+            <Text style={[S.actionCount, { color: colors.foreground }]}>
               {formatCount(commentsCount)}
             </Text>
           </TouchableOpacity>
 
-          {/* Repost / forward */}
-          <TouchableOpacity onPress={handleShare} style={styles.actionItem}>
-            <Ionicons name="arrow-redo-outline" size={26} color={colors.foreground} />
-          </TouchableOpacity>
-
           <View style={{ flex: 1 }} />
 
-          {/* Bookmark */}
-          <TouchableOpacity onPress={handleSave} style={styles.actionItem}>
+          <TouchableOpacity onPress={handleSave} style={S.actionBtn} activeOpacity={0.7}>
             <Ionicons
               name={saved ? "bookmark" : "bookmark-outline"}
               size={26}
               color={saved ? "#7C3AED" : colors.foreground}
             />
           </TouchableOpacity>
-
-          {/* Share / send */}
-          <TouchableOpacity onPress={handleShare} style={styles.actionItem}>
+          <TouchableOpacity onPress={handleShare} style={S.actionBtn} activeOpacity={0.7}>
             <Ionicons name="paper-plane-outline" size={24} color={colors.foreground} />
           </TouchableOpacity>
         </View>
 
-        {/* ── Caption ────────────────────────────────────────────────────── */}
+        {/* ── Author row — large avatar + follower/post count + Follow ─── */}
+        <View
+          style={[
+            S.authorSection,
+            {
+              borderTopColor: "rgba(255,255,255,0.07)",
+              borderBottomColor: "rgba(255,255,255,0.07)",
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={S.authorLeft}
+            onPress={() => router.push(`/profile/${username}` as any)}
+            activeOpacity={0.75}
+          >
+            <GradientRingAvatar username={username} url={avatarUrl} size={52} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                <Text style={[S.authorName, { color: colors.foreground }]}>{username}</Text>
+                {isVerified && (
+                  <Ionicons name="checkmark-circle" size={15} color="#7C3AED" />
+                )}
+              </View>
+              {authorStats ? (
+                <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
+                  {formatCount(authorStats.followers_count)} Followers ·{" "}
+                  {formatCount(authorStats.posts_count)} Posts
+                </Text>
+              ) : (
+                <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
+                  {timeAgo(post.created_at)}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setFollowing((f) => !f)} activeOpacity={0.8}>
+            {following ? (
+              <View
+                style={[S.followingBtn, { borderColor: "rgba(255,255,255,0.22)" }]}
+              >
+                <Text style={[S.followBtnTxt, { color: colors.foreground }]}>
+                  Following
+                </Text>
+              </View>
+            ) : (
+              <LinearGradient
+                colors={["#EA580C", "#7C3AED"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={S.followGrad}
+              >
+                <Text style={[S.followBtnTxt, { color: "#fff" }]}>Follow</Text>
+              </LinearGradient>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Post Information — 3-column stats row ─────────────────────── */}
+        <View
+          style={[
+            S.statsSection,
+            { borderBottomColor: "rgba(255,255,255,0.07)" },
+          ]}
+        >
+          <Text style={[S.sectionLabel, { color: colors.mutedForeground }]}>
+            POST INFORMATION
+          </Text>
+          <View style={S.statsRow}>
+            <StatCell
+              label="Likes"
+              value={formatCount(likesCount)}
+              mutedColor={colors.mutedForeground}
+              boldColor={colors.foreground}
+            />
+            <StatDivider />
+            <StatCell
+              label="Comments"
+              value={formatCount(commentsCount)}
+              mutedColor={colors.mutedForeground}
+              boldColor={colors.foreground}
+            />
+            <StatDivider />
+            <StatCell
+              label="Posted"
+              value={timeAgo(post.created_at)}
+              mutedColor={colors.mutedForeground}
+              boldColor={colors.foreground}
+            />
+          </View>
+        </View>
+
+        {/* ── Caption ─────────────────────────────────────────────────────── */}
         {caption ? (
-          <View style={styles.captionSection}>
-            <Text style={[styles.captionText, { color: colors.foreground }]}>
-              <Text style={styles.captionAuthor}>{username} </Text>
+          <View style={S.captionSection}>
+            <Text style={[S.captionText, { color: colors.foreground }]}>
+              <Text style={S.captionAuthor}>{username} </Text>
               {captionParts.map((part, i) =>
                 part.startsWith("@") || part.startsWith("#") ? (
-                  <Text key={i} style={styles.captionAccent}>
+                  <Text key={i} style={S.captionAccent}>
                     {part}
                   </Text>
                 ) : (
@@ -495,74 +643,90 @@ export default function PostDetailScreen() {
               )}
             </Text>
             {captionNeedsExpand && (
-              <TouchableOpacity onPress={() => setCaptionExpanded((v) => !v)} style={{ marginTop: 4 }}>
-                <Text style={styles.moreText}>{captionExpanded ? "less" : "more"}</Text>
+              <TouchableOpacity
+                onPress={() => setCaptionExpanded((v) => !v)}
+                style={{ marginTop: 6 }}
+              >
+                <Text style={S.moreText}>{captionExpanded ? "less" : "more"}</Text>
               </TouchableOpacity>
             )}
           </View>
         ) : null}
 
-        {/* ── Comments preview ───────────────────────────────────────────── */}
+        {/* ── Comments preview ─────────────────────────────────────────────── */}
         {previewComments.length > 0 && (
-          <View style={styles.commentsPreview}>
+          <View
+            style={[
+              S.commentsSection,
+              { borderTopColor: "rgba(255,255,255,0.07)" },
+            ]}
+          >
+            <Text style={[S.sectionLabel, { color: colors.mutedForeground }]}>
+              COMMENTS
+            </Text>
             {previewComments.map((c, i) => (
               <CommentRow key={c.id ?? i} comment={c} textColor={colors.foreground} />
             ))}
-            <TouchableOpacity onPress={() => setShowComments(true)} style={{ marginTop: 8 }}>
-              <Text style={[styles.viewAllText, { color: colors.mutedForeground }]}>
-                View all {formatCount(commentsCount)} comment{commentsCount !== 1 ? "s" : ""} →
+            <TouchableOpacity
+              onPress={() => setShowComments(true)}
+              style={{ marginTop: 10 }}
+            >
+              <Text style={[S.viewAllComments, { color: colors.mutedForeground }]}>
+                View all {formatCount(commentsCount)} comment
+                {commentsCount !== 1 ? "s" : ""} →
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        </View>{/* end above-fold wrapper */}
-
-        {/* ── More from this user ─────────────────────────────────────────── */}
+        {/* ── More from @username — rounded 3-column grid ───────────────── */}
         {(moreLoading || morePosts.length > 0) && (
-          <View style={styles.moreSection}>
-            {/* Divider + header */}
-            <View style={[styles.moreDivider, { backgroundColor: colors.border ?? "rgba(255,255,255,0.08)" }]} />
-            <View style={styles.moreHeader}>
-              <View style={styles.moreAccentBar} />
-              <Text style={[styles.moreTitle, { color: colors.foreground }]}>
+          <View style={S.moreSection}>
+            <View
+              style={[
+                S.moreSep,
+                { backgroundColor: colors.border ?? "rgba(255,255,255,0.06)" },
+              ]}
+            />
+            <View style={S.moreHeader}>
+              <Text style={[S.moreTitle, { color: colors.foreground }]}>
                 More from{" "}
-                <Text style={styles.moreUsername}>@{username}</Text>
+                <Text style={S.moreUser}>@{username}</Text>
               </Text>
               <TouchableOpacity
                 onPress={() => router.push(`/profile/${username}` as any)}
-                style={styles.moreSeAllBtn}
                 activeOpacity={0.7}
               >
-                <Text style={styles.moreSeeAll}>See all →</Text>
+                <Text style={S.moreSeeAll}>See all →</Text>
               </TouchableOpacity>
             </View>
 
             {moreLoading ? (
-              <View style={styles.moreLoadingWrap}>
+              <View style={{ paddingVertical: 32, alignItems: "center" }}>
                 <ActivityIndicator size="small" color="#7C3AED" />
               </View>
             ) : (
-              <View style={styles.moreGrid}>
+              <View style={S.moreGrid}>
                 {morePosts.map((p) => {
                   const thumb = p.image_url ?? p.media_url ?? "";
-                  const isVideo = typeof p.media_url === "string" &&
+                  const isVideo =
+                    typeof p.media_url === "string" &&
                     /\.(mp4|mov|m4v|webm)(\?|$)/i.test(p.media_url);
                   return (
                     <TouchableOpacity
                       key={p.id}
-                      style={styles.moreThumb}
+                      style={S.moreThumb}
                       activeOpacity={0.82}
                       onPress={() => router.replace(`/post/${p.id}` as any)}
                     >
                       <Image
                         source={{ uri: thumb }}
-                        style={styles.moreThumbImg}
+                        style={S.moreThumbImg}
                         contentFit="cover"
                       />
                       {isVideo && (
-                        <View style={styles.moreVideoIcon}>
-                          <Ionicons name="play" size={11} color="#fff" />
+                        <View style={S.moreVideoIcon}>
+                          <Ionicons name="play" size={10} color="#fff" />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -572,6 +736,8 @@ export default function PostDetailScreen() {
             )}
           </View>
         )}
+
+        <View style={{ height: 48 }} />
       </ScrollView>
 
       {/* ── Sheets ─────────────────────────────────────────────────────────── */}
@@ -595,55 +761,42 @@ export default function PostDetailScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
+const S = StyleSheet.create({
+  screen: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  scroll: { paddingBottom: 80 },
 
-  // Header
-  header: {
+  // Nav
+  navBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.1)",
   },
-  headerTitle: { flex: 1, textAlign: "center", fontSize: 16, fontFamily: "Poppins_700Bold" },
-  headerBtn: { padding: 4, width: 40 },
+  navTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 16,
+    fontFamily: "Poppins_700Bold",
+  },
+  navBtn: { padding: 8, width: 44, alignItems: "center" },
 
-  // Author row
-  authorRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  authorInfo: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  authorUsername: { fontSize: 14, fontFamily: "Poppins_700Bold" },
-  authorTime: { fontSize: 12, fontFamily: "Poppins_400Regular" },
-  followGrad: { borderRadius: 20, paddingHorizontal: 18, paddingVertical: 7 },
-  followingBtn: {
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.25)",
-  },
-  followBtnText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
-
-  // Media
-  mediaShadow: {
+  // Image
+  imageShadow: {
+    marginHorizontal: IMG_MARGIN,
+    marginTop: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 28,
+    elevation: 20,
   },
-  mediaCard: {
-    position: "relative",
+  imageCard: {
+    borderRadius: 18,
     overflow: "hidden",
-    borderRadius: 0, // Full-bleed (shadow comes from mediaShadow wrapper)
+    backgroundColor: "#0a0a0a",
+    position: "relative",
   },
   heartBurstOverlay: { alignItems: "center", justifyContent: "center" },
   dotsRow: {
@@ -659,81 +812,127 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(255,255,255,0.4)",
   },
   dotActive: { backgroundColor: "#fff", width: 18 },
 
-  // Actions
-  actionsRow: {
+  // Action bar
+  actionBar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 2,
+    paddingHorizontal: IMG_MARGIN,
+    paddingTop: 16,
+    paddingBottom: 6,
+    gap: 4,
   },
-  actionItem: {
+  actionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 5,
-    paddingVertical: 5,
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
-  actionCount: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  actionCount: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+
+  // Author
+  authorSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: IMG_MARGIN,
+    paddingVertical: 18,
+    gap: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    marginTop: 12,
+  },
+  authorLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    flex: 1,
+  },
+  authorName: { fontSize: 17, fontFamily: "Poppins_700Bold" },
+  authorSub: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 2 },
+  followGrad: { borderRadius: 22, paddingHorizontal: 20, paddingVertical: 9 },
+  followingBtn: {
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+  },
+  followBtnTxt: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+
+  // Post Information
+  statsSection: {
+    paddingHorizontal: IMG_MARGIN,
+    paddingTop: 22,
+    paddingBottom: 22,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontFamily: "Poppins_600SemiBold",
+    letterSpacing: 1.4,
+    marginBottom: 16,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
 
   // Caption
-  captionSection: { paddingHorizontal: 14, paddingBottom: 8 },
-  captionText: { fontSize: 14, fontFamily: "Poppins_400Regular", lineHeight: 21 },
+  captionSection: {
+    paddingHorizontal: IMG_MARGIN,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  captionText: {
+    fontSize: 14,
+    fontFamily: "Poppins_400Regular",
+    lineHeight: 22,
+  },
   captionAuthor: { fontFamily: "Poppins_700Bold" },
   captionAccent: { color: "#8B5CF6", fontFamily: "Poppins_600SemiBold" },
   moreText: { fontSize: 13, color: "#7C3AED", fontFamily: "Poppins_600SemiBold" },
 
-  // Comments preview
-  commentsPreview: {
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 8,
+  // Comments
+  commentsSection: {
+    paddingHorizontal: IMG_MARGIN,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.08)",
     marginTop: 4,
   },
-  viewAllText: { fontSize: 13, fontFamily: "Poppins_400Regular" },
+  viewAllComments: { fontSize: 13, fontFamily: "Poppins_400Regular" },
 
-  // More from this user
+  // More from user
   moreSection: { marginTop: 8 },
-  moreDivider: { height: 6, marginVertical: 8 },
+  moreSep: { height: 6, marginVertical: 8 },
   moreHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
+    justifyContent: "space-between",
+    paddingHorizontal: IMG_MARGIN,
+    paddingVertical: 16,
   },
-  moreAccentBar: {
-    width: 3,
-    height: 16,
-    borderRadius: 2,
-    backgroundColor: "#7C3AED",
-  },
-  moreTitle: { flex: 1, fontSize: 14, fontFamily: "Poppins_700Bold" },
-  moreUsername: { color: "#A78BFA", fontFamily: "Poppins_700Bold" },
-  moreSeAllBtn: { paddingHorizontal: 4 },
-  moreSeeAll: { fontSize: 12, color: "#7C3AED", fontFamily: "Poppins_600SemiBold" },
-  moreLoadingWrap: { paddingVertical: 24, alignItems: "center" },
+  moreTitle: { fontSize: 16, fontFamily: "Poppins_700Bold" },
+  moreUser: { color: "#A78BFA" },
+  moreSeeAll: { fontSize: 13, color: "#7C3AED", fontFamily: "Poppins_600SemiBold" },
   moreGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    paddingHorizontal: IMG_MARGIN,
+    gap: GRID_GAP,
   },
   moreThumb: {
-    width: W / 3,
-    height: W / 3,
+    width: THUMB_W,
+    height: THUMB_W,
+    borderRadius: 10,
+    overflow: "hidden",
     position: "relative",
-    borderWidth: 0.5,
-    borderColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "#111",
   },
-  moreThumbImg: {
-    width: "100%",
-    height: "100%",
-  },
+  moreThumbImg: { width: "100%", height: "100%" },
   moreVideoIcon: {
     position: "absolute",
     top: 6,
