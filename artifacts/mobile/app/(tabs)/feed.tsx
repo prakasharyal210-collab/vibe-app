@@ -709,11 +709,11 @@ export default function FeedScreen() {
         post={item}
         onRequireLogin={() => setShowLoginPrompt(true)}
         isLoggedIn={isLoggedIn}
-        isActive={screenFocused && visiblePostIds["foryou"] === item.id}
+        isActive={screenFocused && activeTab === "foryou" && visiblePostIds["foryou"] === item.id}
         onPress={() => router.push(`/post/${item.id}` as any)}
       />
     );
-  }, [isLoggedIn, userId, screenFocused, visiblePostIds]);
+  }, [isLoggedIn, userId, screenFocused, activeTab, visiblePostIds]);
 
   const renderFriendsItem = useCallback(({ item }: { item: Post }) => {
     if (userId) markPostSeen(userId, item.id).catch(() => {});
@@ -722,11 +722,11 @@ export default function FeedScreen() {
         post={item}
         onRequireLogin={() => setShowLoginPrompt(true)}
         isLoggedIn={isLoggedIn}
-        isActive={screenFocused && visiblePostIds["friends"] === item.id}
+        isActive={screenFocused && activeTab === "friends" && visiblePostIds["friends"] === item.id}
         onPress={() => router.push(`/post/${item.id}` as any)}
       />
     );
-  }, [isLoggedIn, userId, screenFocused, visiblePostIds]);
+  }, [isLoggedIn, userId, screenFocused, activeTab, visiblePostIds]);
 
   const renderEmpty = useCallback((tabId: FeedTabId) => {
     const state = tabStates[tabId];
