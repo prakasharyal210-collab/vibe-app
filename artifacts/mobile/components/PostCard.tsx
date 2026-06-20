@@ -435,7 +435,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
       ) : (() => {
         const isExtremePortrait = (CARD_W / mediaAspectRatio) > MAX_PORTRAIT_H;
         const imgH = isExtremePortrait ? MAX_PORTRAIT_H : CARD_W / mediaAspectRatio;
-        const imgResizeMode = isExtremePortrait ? "cover" as const : "contain" as const;
+        // Always cover: the container is already sized to CARD_W × (CARD_W / ratio),
+        // so cover fills it exactly. Any sub-pixel rounding becomes a hairline clip
+        // rather than a visible dark band from letterboxing.
+        const imgResizeMode = "cover" as const;
         return (
         <View style={[styles.imageContainer, { height: imgH }]}>
         {isVideoPost ? (
@@ -456,7 +459,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               ref={videoRef}
               source={{ uri: videoUrl! }}
               style={{ width: CARD_W, height: imgH }}
-              resizeMode={isExtremePortrait ? ResizeMode.COVER : ResizeMode.CONTAIN}
+              resizeMode={ResizeMode.COVER}
               isLooping
               isMuted={false}
               onPlaybackStatusUpdate={(s) => {
