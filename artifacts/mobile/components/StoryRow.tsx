@@ -4,6 +4,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { CreateStorySheet, PendingStory, PostedStoryViewer } from "./CreateStorySheet";
 import {
   Dimensions,
@@ -25,6 +26,8 @@ import Animated, {
   SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -77,6 +80,7 @@ interface StoryViewerProps {
 
 function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   // Include own story when they have an existing one; exclude non-own stories
   // that have no usable content (no image for media stories, no text for text stories).
   const viewable = stories.filter((s) => {
@@ -88,6 +92,9 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const [reacted, setReacted] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   const progress = useSharedValue(0);
+  const floatScale = useSharedValue(0.3);
+  const floatOpacity = useSharedValue(0);
+  const floatY = useSharedValue(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const translateY = useSharedValue(0);
 
@@ -156,11 +163,37 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
     });
 
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+  const floatStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: floatScale.value }, { translateY: floatY.value }],
+    opacity: floatOpacity.value,
+  }));
+
+  const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
   const react = (emoji: string) => {
     setReacted(emoji);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setTimeout(() => setReacted(null), 2000);
+
+    // ── Float animation: pop up then float & fade ────────────────────────────
+    floatScale.value = 0.3;
+    floatOpacity.value = 1;
+    floatY.value = 0;
+    floatScale.value = withSpring(1.8, { damping: 10, stiffness: 220 });
+    floatY.value = withDelay(150, withTiming(-100, { duration: 750 }));
+    floatOpacity.value = withDelay(150, withTiming(0, { duration: 750 }, (finished) => {
+      if (finished) runOnJS(setReacted)(null);
+    }));
+
+    // ── Persist to backend (fire-and-forget) ────────────────────────────────
+    const viewerId = session?.user?.id;
+    const storyId = story?.id;
+    if (viewerId && storyId && storyId !== "own_placeholder" && !story?.isOwn) {
+      fetch(`${API_BASE}/stories/${storyId}/react`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: viewerId, emoji }),
+      }).catch(() => { /* silent — reaction animation already shown */ });
+    }
   };
 
   if (!story) return null;
@@ -227,9 +260,9 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
         ) : null}
 
         {reacted && (
-          <View style={viewerStyles.reactedBubble} pointerEvents="none">
+          <Animated.View style={[viewerStyles.reactedBubble, floatStyle]} pointerEvents="none">
             <Text style={viewerStyles.reactedEmoji}>{reacted}</Text>
-          </View>
+          </Animated.View>
         )}
 
         <KeyboardAvoidingView

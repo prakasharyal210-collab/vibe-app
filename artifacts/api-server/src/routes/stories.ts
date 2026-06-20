@@ -230,6 +230,74 @@ router.get("/check", async (req, res) => {
   });
 });
 
+// ─── POST /api/stories/:storyId/react ─────────────────────────────────────────
+// body: { userId, emoji }
+// Upserts one reaction per viewer per story (latest emoji wins).
+router.post("/:storyId/react", async (req, res) => {
+  const { storyId } = req.params;
+  const { userId, emoji } = req.body as { userId?: string; emoji?: string };
+
+  if (!userId || !emoji || !storyId) {
+    res.status(400).json({ error: "userId, emoji, and storyId are required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+  const { error } = await supabase
+    .from("story_reactions")
+    .upsert(
+      { story_id: storyId, user_id: userId, emoji, created_at: new Date().toISOString() },
+      { onConflict: "story_id,user_id" }
+    );
+
+  if (error) {
+    req.log.error({ err: error }, "failed to upsert story reaction");
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
+// ─── GET /api/stories/:storyId/reactions ──────────────────────────────────────
+// query: { userId }  — only accessible to the story owner
+router.get("/:storyId/reactions", async (req, res) => {
+  const { storyId } = req.params;
+  const userId = req.query["userId"] as string | undefined;
+
+  if (!userId || !storyId) {
+    res.status(400).json({ error: "userId is required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+
+  const { data: storyRow } = await supabase
+    .from("stories")
+    .select("user_id")
+    .eq("id", storyId)
+    .single();
+
+  if (!storyRow || storyRow.user_id !== userId) {
+    res.status(403).json({ error: "Not the story owner" });
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("story_reactions")
+    .select("id, emoji, created_at, profiles:user_id(id, username, avatar_url)")
+    .eq("story_id", storyId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    req.log.error({ err: error }, "failed to fetch story reactions");
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ reactions: data ?? [] });
+});
+
 // ─── DELETE /api/stories/:storyId ─────────────────────────────────────────────
 router.delete("/:storyId", async (req, res) => {
   const { storyId } = req.params;
