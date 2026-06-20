@@ -1,0 +1,26 @@
+This is a long-press menu (@haceriz with Add to Favorites / Mute / Pin Conversation) and it's stuck — there's no way to close it. Two problems:
+
+No close/cancel button and no dismiss-on-tap-outside — you can't exit it. A menu like this needs to close when you tap outside it (the dark area) or have a Cancel button.
+It's also badly styled — white background that doesn't match your dark theme, options awkwardly right-aligned, no title separation. Looks out of place vs the rest of the app.
+
+Here's the prompt:
+
+Prompt for Replit AI:
+The long-press conversation menu (the popup showing "@username" with "Add to Favorites / Mute / Pin Conversation" options) is stuck and cannot be closed — there's no close button and tapping outside it doesn't dismiss it. Users get trapped on this menu.
+Fix the dismiss behavior (critical):
+
+Make the menu close when the user taps OUTSIDE it (on the dark backdrop) — wrap it in a Modal/overlay with a pressable backdrop that calls the close/dismiss handler (setMenuVisible(false) or equivalent).
+Add an explicit Cancel / close button at the bottom of the menu as well, so there's always a clear way out.
+Make sure the Android hardware back button also closes the menu.
+
+Also restyle it to match the app's dark theme (it currently has a white background that clashes):
+
+4. Use the app's dark surface color for the menu background (not white), with light text — consistent with the rest of Gundruk's dark theme.
+
+5. Left-align the options with their icons, evenly spaced, each a full-width tappable row (not awkwardly right-aligned).
+
+6. Show the "@username" as a clear title/header at the top with a subtle divider below it.
+
+7. Style it as a clean bottom sheet or centered card consistent with the app's other modals.
+Each action (Add to Favorites, Mute, Pin Conversation) should perform its function AND close the menu afterward.
+Please report which component renders this menu, confirm it now dismisses on tap-outside / Cancel / back button, and confirm it matches the dark theme

@@ -7,9 +7,11 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Dimensions,
   FlatList,
   Image,
+  Modal,
   PanResponder,
   Platform,
   Pressable,
@@ -249,6 +251,83 @@ function SwipeableRow({
 const swipeSt = StyleSheet.create({
   action: { alignItems: "center", justifyContent: "center", gap: 4 },
   actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 11, textAlign: "center" },
+});
+
+// ─── ConvoContextMenu ──────────────────────────────────────────────────────────
+
+type ContextMenuAction = {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+};
+
+function ConvoContextMenu({ visible, username, actions, onClose }: {
+  visible: boolean;
+  username: string;
+  actions: ContextMenuAction[];
+  onClose: () => void;
+}) {
+  const colors = useColors();
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable style={menuSt.backdrop} onPress={onClose}>
+        <Pressable style={[menuSt.sheet, { backgroundColor: colors.card }]} onPress={(e) => e.stopPropagation()}>
+          <View style={menuSt.handle} />
+          <View style={menuSt.header}>
+            <Text style={[menuSt.headerUsername, { color: colors.foreground }]}>@{username}</Text>
+          </View>
+          <View style={[menuSt.divider, { backgroundColor: colors.border }]} />
+          {actions.map((action, i) => (
+            <Pressable
+              key={i}
+              style={({ pressed }) => [menuSt.actionRow, pressed && menuSt.actionRowPressed]}
+              onPress={() => { action.onPress(); onClose(); }}
+            >
+              <Ionicons name={action.icon} size={20} color={action.destructive ? "#EF4444" : colors.foreground} />
+              <Text style={[menuSt.actionLabel, { color: action.destructive ? "#EF4444" : colors.foreground }]}>
+                {action.label}
+              </Text>
+            </Pressable>
+          ))}
+          <View style={[menuSt.divider, { backgroundColor: colors.border, marginTop: 4 }]} />
+          <Pressable
+            style={({ pressed }) => [menuSt.cancelRow, pressed && menuSt.actionRowPressed]}
+            onPress={onClose}
+          >
+            <Text style={[menuSt.cancelLabel, { color: colors.mutedForeground }]}>Cancel</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const menuSt = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" },
+  sheet: { borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: 32, overflow: "hidden" },
+  handle: {
+    width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.18)",
+    alignSelf: "center", marginTop: 12, marginBottom: 4,
+  },
+  header: { paddingHorizontal: 20, paddingVertical: 14 },
+  headerUsername: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  divider: { height: StyleSheet.hairlineWidth },
+  actionRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingVertical: 15 },
+  actionRowPressed: { backgroundColor: "rgba(255,255,255,0.06)" },
+  actionLabel: { fontFamily: "Poppins_500Medium", fontSize: 15 },
+  cancelRow: { alignItems: "center", paddingVertical: 16 },
+  cancelLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 15 },
 });
 
 // ─── GundrukAIRow ─────────────────────────────────────────────────────────────
@@ -677,6 +756,10 @@ function ChatsTab({
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
   const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
   const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  const [menuTarget, setMenuTarget] = useState<null | {
+    id: string; otherId: string; username: string;
+    isPinned: boolean; isMuted: boolean; isFav: boolean;
+  }>(null);
 
   type UnifiedItem = {
     key: string;
@@ -737,29 +820,8 @@ function ChatsTab({
   const unreadCount = useMemo(() => allItems.filter((i) => i.hasUnread).length, [allItems]);
 
   const handleLongPress = useCallback((id: string, otherId: string, username: string, isPinned: boolean, isFav: boolean) => {
-    Alert.alert(`@${username}`, undefined, [
-      {
-        text: isPinned ? "Unpin" : "📌 Pin Conversation",
-        onPress: () => setPinnedIds((p) => { const n = new Set(p); isPinned ? n.delete(id) : n.add(id); return n; }),
-      },
-      {
-        text: mutedIds.has(id) ? "🔔 Unmute" : "🔕 Mute",
-        onPress: () => setMutedIds((p) => { const n = new Set(p); p.has(id) ? n.delete(id) : n.add(id); return n; }),
-      },
-      {
-        text: isFav ? "★ Unfavorite" : "⭐ Add to Favorites",
-        onPress: () => setFavIds((p) => { const n = new Set(p); p.has(id) ? n.delete(id) : n.add(id); return n; }),
-      },
-      {
-        text: "✓ Mark as Read",
-        onPress: () => {
-          if (myId && otherId) void markMessagesRead(myId, otherId);
-          show(`@${username} marked as read`);
-        },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }, [myId, mutedIds, show]);
+    setMenuTarget({ id, otherId, username, isPinned, isMuted: mutedIds.has(id), isFav });
+  }, [mutedIds]);
 
   const TABS: Array<{ id: ChatFilter; label: string; badge?: number }> = [
     { id: "all", label: "All", badge: unreadCount || undefined },
@@ -887,6 +949,42 @@ function ChatsTab({
           <Ionicons name="create-outline" size={22} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
+
+      {menuTarget && (
+        <ConvoContextMenu
+          visible
+          username={menuTarget.username}
+          onClose={() => setMenuTarget(null)}
+          actions={[
+            {
+              icon: menuTarget.isPinned ? "pin" : "pin-outline",
+              label: menuTarget.isPinned ? "Unpin" : "Pin Conversation",
+              onPress: () => setPinnedIds((p) => { const n = new Set(p); menuTarget.isPinned ? n.delete(menuTarget.id) : n.add(menuTarget.id); return n; }),
+            },
+            {
+              icon: menuTarget.isMuted ? "notifications-outline" : "notifications-off-outline",
+              label: menuTarget.isMuted ? "Unmute" : "Mute",
+              onPress: () => {
+                setMutedIds((p) => { const n = new Set(p); p.has(menuTarget.id) ? n.delete(menuTarget.id) : n.add(menuTarget.id); return n; });
+                show(menuTarget.isMuted ? `@${menuTarget.username} unmuted` : `@${menuTarget.username} muted`);
+              },
+            },
+            {
+              icon: menuTarget.isFav ? "star" : "star-outline",
+              label: menuTarget.isFav ? "Unfavorite" : "Add to Favorites",
+              onPress: () => setFavIds((p) => { const n = new Set(p); p.has(menuTarget.id) ? n.delete(menuTarget.id) : n.add(menuTarget.id); return n; }),
+            },
+            {
+              icon: "checkmark-circle-outline",
+              label: "Mark as Read",
+              onPress: () => {
+                if (myId && menuTarget.otherId) void markMessagesRead(myId, menuTarget.otherId);
+                show(`@${menuTarget.username} marked as read`);
+              },
+            },
+          ]}
+        />
+      )}
     </View>
   );
 }
@@ -937,6 +1035,7 @@ function SnapsTab({
   const colors = useColors();
   const [filter, setFilter] = useState<SnapFilter>("all");
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [snapMenuTarget, setSnapMenuTarget] = useState<null | { id: string; username: string; isPinned: boolean }>(null);
 
   const storyUsers = useMemo(() => {
     const seen = new Set<string>();
@@ -1002,19 +1101,11 @@ function SnapsTab({
             streak={streaks.get(c.other_user.id) ?? 0}
             onView={() => onSnapView(c)}
             onCamera={() => onSnapCamera(c.other_user.username)}
-            onLongPress={() =>
-              Alert.alert(`@${c.other_user.username}`, undefined, [
-                {
-                  text: pinnedIds.has(c.message_id) ? "Unpin" : "📌 Pin",
-                  onPress: () => setPinnedIds((p) => { const n = new Set(p); p.has(c.message_id) ? n.delete(c.message_id) : n.add(c.message_id); return n; }),
-                },
-                {
-                  text: "👁 View Profile",
-                  onPress: () => router.push(`/profile/${c.other_user.username}` as any),
-                },
-                { text: "Cancel", style: "cancel" },
-              ])
-            }
+            onLongPress={() => setSnapMenuTarget({
+              id: c.message_id,
+              username: c.other_user.username,
+              isPinned: pinnedIds.has(c.message_id),
+            })}
             onDelete={() => show("Snap deleted")}
           />
         )}
@@ -1027,6 +1118,30 @@ function SnapsTab({
           <Ionicons name="camera" size={22} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
+
+      {snapMenuTarget && (
+        <ConvoContextMenu
+          visible
+          username={snapMenuTarget.username}
+          onClose={() => setSnapMenuTarget(null)}
+          actions={[
+            {
+              icon: snapMenuTarget.isPinned ? "pin" : "pin-outline",
+              label: snapMenuTarget.isPinned ? "Unpin" : "Pin",
+              onPress: () => setPinnedIds((p) => {
+                const n = new Set(p);
+                snapMenuTarget.isPinned ? n.delete(snapMenuTarget.id) : n.add(snapMenuTarget.id);
+                return n;
+              }),
+            },
+            {
+              icon: "person-outline",
+              label: "View Profile",
+              onPress: () => router.push(`/profile/${snapMenuTarget.username}` as any),
+            },
+          ]}
+        />
+      )}
     </View>
   );
 }
