@@ -2935,9 +2935,10 @@ export async function createStory(opts: {
   textContent?: string;
   storyType?: "text" | "image" | "video";
   audience?: string;
-}): Promise<string | null> {
+}): Promise<string> {
+  let res: Response;
   try {
-    const res = await fetch(`${API_BASE}/stories`, {
+    res = await fetch(`${API_BASE}/stories`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2950,12 +2951,18 @@ export async function createStory(opts: {
         audience: opts.audience ?? "Everyone",
       }),
     });
-    if (!res.ok) return null;
-    const data = await res.json() as { id: string };
-    return data.id;
-  } catch {
-    return null;
+  } catch (err) {
+    console.error("[createStory] network error:", err);
+    throw new Error("network");
   }
+  if (!res.ok) {
+    let errMsg = `Server error (${res.status})`;
+    try { const b = await res.json(); errMsg = (b as any).error ?? errMsg; } catch {}
+    console.error("[createStory] API error", res.status, errMsg);
+    throw new Error(errMsg);
+  }
+  const data = await res.json() as { id: string };
+  return data.id;
 }
 
 export async function createFeedPost(opts: {
@@ -2994,27 +3001,29 @@ export async function uploadStoryMedia(
   caption?: string,
   storyType: "image" | "video" = "image",
   audience = "Everyone",
-): Promise<string | null> {
+): Promise<string> {
+  const cleanUri = uri.split("?")[0];
+  const ext = (cleanUri.split(".").pop() ?? "jpg").toLowerCase();
+  const mimeType =
+    storyType === "video"
+      ? ext === "mov"
+        ? "video/quicktime"
+        : "video/mp4"
+      : ext === "png"
+        ? "image/png"
+        : "image/jpeg";
+
+  let imageBase64: string | undefined;
   try {
-    const cleanUri = uri.split("?")[0];
-    const ext = (cleanUri.split(".").pop() ?? "jpg").toLowerCase();
-    const mimeType =
-      storyType === "video"
-        ? ext === "mov"
-          ? "video/quicktime"
-          : "video/mp4"
-        : ext === "png"
-          ? "image/png"
-          : "image/jpeg";
+    imageBase64 = await withTimeout(localUriToBase64(uri), 25_000, "story file read");
+  } catch (readErr) {
+    console.error("[uploadStoryMedia] file read failed:", readErr);
+    throw new Error("network");
+  }
 
-    let imageBase64: string | undefined;
-    try {
-      imageBase64 = await withTimeout(localUriToBase64(uri), 25_000, "story file read");
-    } catch (readErr) {
-      console.log("Story file read failed:", readErr);
-    }
-
-    const res = await withTimeout(
+  let res: Response;
+  try {
+    res = await withTimeout(
       fetch(`${API_BASE}/stories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3031,11 +3040,17 @@ export async function uploadStoryMedia(
       60_000,
       "story media create API",
     );
-
-    if (!res.ok) return null;
-    const data = (await res.json()) as { id: string };
-    return data.id;
-  } catch {
-    return null;
+  } catch (err) {
+    console.error("[uploadStoryMedia] network error:", err);
+    throw new Error("network");
   }
+
+  if (!res.ok) {
+    let errMsg = `Server error (${res.status})`;
+    try { const b = await res.json(); errMsg = (b as any).error ?? errMsg; } catch {}
+    console.error("[uploadStoryMedia] API error", res.status, errMsg);
+    throw new Error(errMsg);
+  }
+  const data = (await res.json()) as { id: string };
+  return data.id;
 }

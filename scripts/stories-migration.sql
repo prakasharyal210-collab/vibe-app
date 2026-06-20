@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS stories (
   bg_gradient   TEXT,
   text_content  TEXT,
   story_type    TEXT NOT NULL DEFAULT 'text',   -- 'text' | 'image' | 'video'
+  audience      TEXT NOT NULL DEFAULT 'everyone', -- 'everyone' | 'friends' | 'close_friends' | 'followers' | 'only_me'
   viewed        BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

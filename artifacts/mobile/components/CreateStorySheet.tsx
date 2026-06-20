@@ -652,30 +652,41 @@ export function CreateStorySheet({ visible, onClose, onPost, userId, username = 
     };
     const audienceValue = audienceLabel[audience] ?? "Everyone";
 
-    // Create the story — capture result so we can detect failures
+    // Create the story — let errors propagate so we can show the real cause
     let storyId: string | null = null;
-    if (pending.storyType === "text") {
-      storyId = await createStory({
-        userId,
-        storyType: "text",
-        textContent: pending.textContent,
-        bgGradient: pending.bgGradient,
-        audience: audienceValue,
-      }).catch(() => null);
-    } else {
-      storyId = await uploadStoryMedia(
-        userId,
-        pending.mediaUri!,
-        pending.caption,
-        pending.storyType,
-        audienceValue,
-      ).catch(() => null);
+    let storyErr: string | null = null;
+    try {
+      if (pending.storyType === "text") {
+        storyId = await createStory({
+          userId,
+          storyType: "text",
+          textContent: pending.textContent,
+          bgGradient: pending.bgGradient,
+          audience: audienceValue,
+        });
+      } else {
+        storyId = await uploadStoryMedia(
+          userId,
+          pending.mediaUri!,
+          pending.caption,
+          pending.storyType,
+          audienceValue,
+        );
+      }
+    } catch (err) {
+      storyErr = err instanceof Error ? err.message : String(err);
+      console.error("[handleShare] story upload failed:", storyErr);
     }
 
     if (!storyId) {
-      // Creation failed — go back to share options and surface the error
       setMode("share-options");
-      Alert.alert("Upload failed", "Your story could not be posted. Please check your connection and try again.");
+      const isNetworkErr = !storyErr || storyErr === "network" || /timeout|network|fetch/i.test(storyErr);
+      Alert.alert(
+        "Upload failed",
+        isNetworkErr
+          ? "Your story could not be posted. Please check your connection and try again."
+          : storyErr ?? "Something went wrong. Please try again.",
+      );
       return;
     }
 
