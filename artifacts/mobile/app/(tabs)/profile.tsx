@@ -982,7 +982,7 @@ export default function ProfileScreen() {
               onPress={() => setActiveHighlight({
                 id: h.id,
                 label: h.title,
-                image: h.cover_image_url ?? `https://picsum.photos/seed/${h.id}/200/200`,
+                image: h.cover_url ?? `https://picsum.photos/seed/${h.id}/200/200`,
                 username: displayUsername,
               })}
               onLongPress={() => {
@@ -998,7 +998,7 @@ export default function ProfileScreen() {
               <LinearGradient colors={["#8B5CF6", "#EC4899"]} style={styles.highlightRing}>
                 <View style={[styles.highlightInner, { backgroundColor: colors.background }]}>
                   <Image
-                    source={{ uri: h.cover_image_url ?? `https://picsum.photos/seed/${h.id}/200/200` }}
+                    source={{ uri: h.cover_url ?? `https://picsum.photos/seed/${h.id}/200/200` }}
                     style={styles.highlightImg}
                   />
                 </View>

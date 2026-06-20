@@ -172,7 +172,7 @@ router.get("/inbox", async (req, res) => {
   const sb = makeSupabase();
   const { data, error } = await sb
     .from("vibe_requests")
-    .select("id, sender_id, created_at, profiles!vibe_requests_sender_id_fkey(id, username, avatar_url, relationship_status)")
+    .select("id, sender_id, created_at, profiles!vibe_requests_sender_id_fkey(id, username, full_name, avatar_url, relationship_status)")
     .eq("receiver_id", userId)
     .eq("status", "pending")
     .order("created_at", { ascending: false })
@@ -191,7 +191,7 @@ router.get("/inbox", async (req, res) => {
     sender: {
       id: r.profiles?.id ?? r.sender_id,
       username: r.profiles?.username ?? "unknown",
-      displayName: r.profiles?.display_name ?? null,
+      displayName: r.profiles?.full_name ?? null,
       avatarUrl: r.profiles?.avatar_url ?? null,
       relationshipStatus: r.profiles?.relationship_status ?? null,
     },

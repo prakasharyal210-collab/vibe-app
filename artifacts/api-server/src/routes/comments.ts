@@ -193,7 +193,7 @@ router.post("/", async (req, res) => {
         // Commenter must follow the content owner
         const { data: followRow } = await sb
           .from("follows")
-          .select("id")
+          .select("follower_id")
           .eq("follower_id", userId)
           .eq("following_id", ownerId)
           .maybeSingle();
@@ -206,7 +206,7 @@ router.post("/", async (req, res) => {
         // Content owner must follow the commenter
         const { data: followRow } = await sb
           .from("follows")
-          .select("id")
+          .select("follower_id")
           .eq("follower_id", ownerId)
           .eq("following_id", userId)
           .maybeSingle();
@@ -218,8 +218,8 @@ router.post("/", async (req, res) => {
       if (perm === "friends") {
         // Legacy "friends" value — require mutual follow
         const [f1, f2] = await Promise.all([
-          sb.from("follows").select("id").eq("follower_id", userId).eq("following_id", ownerId).maybeSingle(),
-          sb.from("follows").select("id").eq("follower_id", ownerId).eq("following_id", userId).maybeSingle(),
+          sb.from("follows").select("follower_id").eq("follower_id", userId).eq("following_id", ownerId).maybeSingle(),
+          sb.from("follows").select("follower_id").eq("follower_id", ownerId).eq("following_id", userId).maybeSingle(),
         ]);
         if (!f1.data || !f2.data) {
           res.status(403).json({ error: "Only mutual followers can comment on this content" });
@@ -262,7 +262,7 @@ router.post("/", async (req, res) => {
 
       // RPC unavailable — direct insert fallback (with optional reply threading)
       const reelRow: Record<string, unknown> = { reel_id: reelId, user_id: userId, content: trimmed };
-      if (parentCommentId) reelRow["parent_comment_id"] = parentCommentId;
+      if (parentCommentId) reelRow["reply_to"] = parentCommentId;
       const { data: inserted, error: insertErr } = await sb
         .from("reel_comments")
         .insert(reelRow)

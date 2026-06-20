@@ -47,7 +47,7 @@ router.post("/swipe", async (req, res) => {
       if (privacy === "followers_only") {
         const { data: followRow } = await sb
           .from("follows")
-          .select("id")
+          .select("follower_id")
           .eq("follower_id", swiperId)
           .eq("following_id", targetId)
           .maybeSingle();
@@ -597,7 +597,7 @@ router.get("/by-intention", async (req, res) => {
   const users = (data ?? []).map((p: any) => ({
     id: p.id,
     username: p.username ?? null,
-    name: p.display_name ?? p.username ?? "Vibe User",
+    name: p.full_name ?? p.username ?? "Vibe User",
     age: p.age ?? null,
     image: (Array.isArray(p.vibe_photos) && (p.vibe_photos as string[]).length > 0
       ? (p.vibe_photos as string[])[0]

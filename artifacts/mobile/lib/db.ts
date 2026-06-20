@@ -615,7 +615,7 @@ export async function fetchUserSettings(userId: string): Promise<UserSettings> {
 export interface BlockedUser {
   id: string;
   username: string;
-  display_name?: string;
+  full_name?: string;
   avatar_url?: string;
 }
 
@@ -623,12 +623,12 @@ export async function getBlockedUsers(userId: string): Promise<BlockedUser[]> {
   try {
     const { data, error } = await supabase
       .from("blocks")
-      .select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, display_name, avatar_url)")
+      .select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, full_name, avatar_url)")
       .eq("blocker_id", userId);
     if (error || !data) return [];
     return (data as any[]).map((row: any) => {
       const p = row.profiles ?? {};
-      return { id: row.blocked_id, username: p.username ?? "user", display_name: p.display_name, avatar_url: p.avatar_url };
+      return { id: row.blocked_id, username: p.username ?? "user", full_name: p.full_name, avatar_url: p.avatar_url };
     });
   } catch { return []; }
 }
@@ -636,7 +636,7 @@ export async function getBlockedUsers(userId: string): Promise<BlockedUser[]> {
 export interface RestrictedUser {
   id: string;
   username: string;
-  display_name?: string;
+  full_name?: string;
   avatar_url?: string;
 }
 
@@ -644,12 +644,12 @@ export async function getRestrictedUsers(userId: string): Promise<RestrictedUser
   try {
     const { data, error } = await supabase
       .from("restricted_users")
-      .select("restricted_id, profiles!restricted_users_restricted_id_fkey(id, username, display_name, avatar_url)")
+      .select("restricted_id, profiles!restricted_users_restricted_id_fkey(id, username, full_name, avatar_url)")
       .eq("restrictor_id", userId);
     if (error || !data) return [];
     return (data as any[]).map((row: any) => {
       const p = row.profiles ?? {};
-      return { id: row.restricted_id, username: p.username ?? "user", display_name: p.display_name, avatar_url: p.avatar_url };
+      return { id: row.restricted_id, username: p.username ?? "user", full_name: p.full_name, avatar_url: p.avatar_url };
     });
   } catch { return []; }
 }
@@ -1923,7 +1923,7 @@ export async function getUsersByIntention(
     const json = await res.json();
     return ((json.users ?? []) as any[]).map((p: any) => ({
       id: p.id,
-      name: p.name ?? p.display_name ?? p.username ?? "Vibe User",
+      name: p.name ?? p.full_name ?? p.username ?? "Vibe User",
       age: p.age ?? 25,
       image: p.image ?? p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`,
       bio: p.bio ?? "",
@@ -2127,7 +2127,7 @@ export async function getVibeMatches(
     if (error || !data) return [];
     return (data as any[]).map((p: any) => ({
       id: p.user_id ?? p.id,
-      name: p.display_name ?? p.username ?? 'Vibe User',
+      name: p.full_name ?? p.username ?? 'Vibe User',
       age: p.age ?? 25,
       image: p.avatar_url ?? `https://picsum.photos/seed/${p.user_id ?? p.id}/400/600`,
       bio: p.bio ?? '',
@@ -2167,7 +2167,7 @@ function mapRpcMatch(row: any): VibeMatchProfile {
   const shared = Array.isArray(row.shared_interests) ? row.shared_interests : [];
   return {
     id: row.other_user_id ?? row.matched_user_id ?? row.id,
-    name: row.full_name ?? row.display_name ?? row.username ?? 'Vibe User',
+    name: row.full_name ?? row.username ?? 'Vibe User',
     username: row.username,
     age: row.age ?? 25,
     image: row.avatar_url ?? `https://picsum.photos/seed/${row.other_user_id}/400/400`,
@@ -2300,18 +2300,33 @@ export async function fetchMessageRequests(userId: string): Promise<Conversation
   try {
     const { data, error } = await supabase
       .from("conversations")
-      .select("*, other_user:profiles!conversations_other_user_id_fkey(id, username, avatar_url)")
-      .eq("user_id", userId)
+      .select(
+        "id, last_message, last_message_at, created_at, unread_count_1, unread_count_2, user1_id, user2_id, is_request," +
+        " user1:profiles!conversations_user1_id_fkey(id, username, avatar_url)," +
+        " user2:profiles!conversations_user2_id_fkey(id, username, avatar_url)"
+      )
       .eq("is_request", true)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .order("last_message_at", { ascending: false });
     if (!error && data && data.length > 0) {
-      return (data as any[]).map((row: any) => ({
-        id: row.id,
-        other_user: { id: row.other_user?.id ?? "", username: row.other_user?.username ?? "User", avatar_url: row.other_user?.avatar_url },
-        last_message: row.last_message ?? "",
-        last_message_at: row.last_message_at ?? row.created_at ?? "",
-        unread_count: row.unread_count ?? 1,
-      }));
+      return (data as any[]).map((row: any) => {
+        const isUser1 = row.user1_id === userId;
+        const otherUser = isUser1 ? row.user2 : row.user1;
+        const unreadCount = isUser1
+          ? (row.unread_count_1 ?? 0)
+          : (row.unread_count_2 ?? 0);
+        return {
+          id: row.id,
+          other_user: {
+            id: otherUser?.id ?? "",
+            username: otherUser?.username ?? "User",
+            avatar_url: otherUser?.avatar_url,
+          },
+          last_message: row.last_message ?? "",
+          last_message_at: row.last_message_at ?? row.created_at ?? "",
+          unread_count: unreadCount,
+        };
+      });
     }
   } catch {}
   return [];
@@ -2580,7 +2595,7 @@ export async function getNearbyUsers(
           Array.isArray(row.vibe_photos) && row.vibe_photos.length > 0 ? row.vibe_photos : null;
         return {
           id: row.id ?? row.user_id,
-          name: row.display_name ?? row.username ?? "Vibe User",
+          name: row.full_name ?? row.username ?? "Vibe User",
           age: row.age ?? 24,
           // Use first vibe_photo as primary card image if available, fall back to avatar
           image: (vibePhotos?.[0]) ?? row.avatar_url ?? `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
@@ -2634,7 +2649,7 @@ export interface VibeRoomMessage {
   user_id: string;
   text: string;
   created_at: string;
-  profiles?: { display_name?: string; username?: string; avatar_url?: string };
+  profiles?: { full_name?: string; username?: string; avatar_url?: string };
 }
 
 export async function getRoomMessages(roomId: string): Promise<VibeRoomMessage[]> {
@@ -2791,8 +2806,8 @@ export interface StoryHighlight {
   id: string;
   user_id: string;
   title: string;
-  cover_image_url?: string;
-  story_ids: string[];
+  cover_url?: string;
+  stories_count: number;
   created_at: string;
 }
 
@@ -2800,7 +2815,7 @@ export async function fetchHighlights(userId: string): Promise<StoryHighlight[]>
   try {
     const { data, error } = await supabase
       .from('story_highlights')
-      .select('*')
+      .select('id, user_id, title, cover_url, stories_count, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (!error && data) return data as StoryHighlight[];
@@ -2811,13 +2826,13 @@ export async function fetchHighlights(userId: string): Promise<StoryHighlight[]>
 export async function createHighlight(
   userId: string,
   title: string,
-  coverImageUrl?: string,
+  coverUrl?: string,
 ): Promise<StoryHighlight | null> {
   try {
     const { data, error } = await supabase
       .from('story_highlights')
-      .insert({ user_id: userId, title, cover_image_url: coverImageUrl ?? null, story_ids: [] })
-      .select()
+      .insert({ user_id: userId, title, cover_url: coverUrl ?? null })
+      .select('id, user_id, title, cover_url, stories_count, created_at')
       .single();
     if (!error && data) return data as StoryHighlight;
   } catch {}

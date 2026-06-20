@@ -165,7 +165,7 @@ router.get("/user/:userId", async (req, res) => {
     try {
       const { data: follow } = await sb
         .from("follows")
-        .select("id")
+        .select("follower_id")
         .eq("follower_id", viewerId)
         .eq("following_id", userId)
         .maybeSingle();

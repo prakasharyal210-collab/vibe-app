@@ -21,7 +21,7 @@ export default function HighlightScreen() {
           setHighlight({
             id: found.id,
             label: found.title,
-            image: found.cover_image_url ?? `https://picsum.photos/seed/${found.id}/200/200`,
+            image: found.cover_url ?? `https://picsum.photos/seed/${found.id}/200/200`,
             username: session?.user?.email?.split("@")[0] ?? "user",
           });
           return;

@@ -119,7 +119,7 @@ function mapApiMessage(r: VibeRoomMessage): RoomMessage {
   return {
     id: r.id,
     userId: r.user_id,
-    username: r.profiles?.display_name ?? r.profiles?.username ?? "Vibe User",
+    username: r.profiles?.full_name ?? r.profiles?.username ?? "Vibe User",
     text: r.text,
     time: formatMsgTime(r.created_at),
     avatar: `seed/${r.user_id.slice(0, 8)}`,

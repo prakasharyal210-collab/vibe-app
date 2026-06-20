@@ -431,8 +431,8 @@ function BlockedAccountsModal({
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={[baStyles.username, { color: colors.foreground }]}>@{user.username}</Text>
-                    {user.display_name && (
-                      <Text style={[baStyles.displayName, { color: colors.mutedForeground }]}>{user.display_name}</Text>
+                    {user.full_name && (
+                      <Text style={[baStyles.displayName, { color: colors.mutedForeground }]}>{user.full_name}</Text>
                     )}
                   </View>
                   <TouchableOpacity
@@ -546,8 +546,8 @@ function RestrictedAccountsModal({
                   )}
                   <View style={{ flex: 1 }}>
                     <Text style={[baStyles.username, { color: colors.foreground }]}>@{user.username}</Text>
-                    {user.display_name && (
-                      <Text style={[baStyles.displayName, { color: colors.mutedForeground }]}>{user.display_name}</Text>
+                    {user.full_name && (
+                      <Text style={[baStyles.displayName, { color: colors.mutedForeground }]}>{user.full_name}</Text>
                     )}
                   </View>
                   <TouchableOpacity
