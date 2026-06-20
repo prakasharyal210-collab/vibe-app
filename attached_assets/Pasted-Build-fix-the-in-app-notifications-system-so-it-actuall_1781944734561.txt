@@ -1,0 +1,29 @@
+Build/fix the in-app notifications system so it actually works, then make the notification screen premium. Two parts:
+PART 1 — Make notifications actually get created (the foundation):
+When these events happen, a notification row must be created for the relevant user, routed through artifacts/api-server (service-role):
+
+Like: when User A likes User B's post/reel → create a notification for User B ("A liked your post").
+Follow: when User A follows User B → notification for User B ("A started following you").
+Comment: when User A comments on User B's post → notification for User B ("A commented: <comment preview>").
+Vibe request / match: when a vibe request is sent or a mutual match happens → notification for the recipient.
+(Optional) Mention/reply if applicable.
+
+Requirements:
+
+Confirm the notifications table schema (columns like id, user_id (recipient), actor_id (who did it), type ('like'/'follow'/'comment'/'vibe'), post_id/reel_id (nullable, for navigation), read (boolean), created_at). If columns are missing, provide migration SQL.
+Each event handler (in the like/follow/comment/vibe endpoints) must INSERT a notification for the recipient. Do NOT notify a user about their own action (skip if actor == recipient).
+Verify every column referenced exists (avoid the 42703 bad-column pattern); route through API server (no direct anon-key); reset loading in finally.
+Don't create duplicates: unliking then re-liking shouldn't spam — consider not notifying on re-like, or dedupe.
+
+PART 2 — Make the notification screen premium:
+Redesign the notification list (the bell-icon screen) to look high-end, matching Gundruk's dark + orange→purple brand:
+
+Grouped sections: "Today", "This Week", "Earlier" (by date).
+Each notification row: actor's avatar (with gradient ring for unread), bold actor username + action text ("liked your post", "started following you", "commented: ..."), relative timestamp (use the existing timeAgo UTC-safe helper), and on the right: a thumbnail of the relevant post (for like/comment) OR a Follow-back button (for follows).
+Unread state: unread notifications have a subtle highlighted background / a small dot; tapping marks them read.
+Tapping a notification navigates to the relevant content (post → post detail, follow → that user's profile, vibe → Find Vibe/matches).
+Clean empty state ("No notifications yet") when there are none.
+Mark-all-as-read action. Pull-to-refresh.
+Generous spacing, clean typography, gradient accents — premium feel.
+
+Please report: the notifications table schema (+ any migration needed), which event handlers now create notifications, confirm likes/follows/comments actually generate notifications for the right user, and describe the premium screen redesign. Confirm tapping a notification navigates correctly and unread/read state works.

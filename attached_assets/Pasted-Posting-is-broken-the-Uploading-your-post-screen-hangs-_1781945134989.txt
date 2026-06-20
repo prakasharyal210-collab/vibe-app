@@ -1,0 +1,10 @@
+Posting is broken — the "Uploading your post..." screen hangs forever (stuck 5+ minutes). A post upload should take seconds. This is happening on the standalone APK build.
+Please investigate the post upload flow:
+
+Is the upload actually hanging, or failing silently with no UI reset? Trace the upload: media upload to storage → create post via /api/posts/create. Wrap the whole flow in try/catch/finally so the "Uploading..." state ALWAYS resets — on success, error, OR timeout. Add a timeout (e.g. 30s) using Promise.race so it can never hang forever; on timeout, show an error and reset the UI. Add console.error('[post-upload]', error) on every failure path (the swallowed-error → infinite-spinner pattern has hit this app repeatedly).
+Check the API base URL for the standalone build. This is the installed APK, which uses EXPO_PUBLIC_API_URL to reach the backend — NOT the dev server. Confirm EXPO_PUBLIC_API_URL points to the live published backend (https://gundruk.replit.app or wherever the API server is deployed), and that the API server is actually running and reachable. If the APK is trying to hit localhost / a dev URL / an unreachable address, every upload (and other API call) will hang. This is the most likely cause of "works in Expo Go, hangs in APK."
+Check media upload to Supabase storage — is the image/video upload to the storage bucket succeeding? Large files, wrong mime type, or an unreachable storage endpoint could stall. Add progress/error logging. Confirm the storage bucket is reachable from the standalone app.
+Confirm the post-create endpoint works — after media upload, does /api/posts/create get called and return? Or does it hang there?
+After a successful upload, the UI should navigate away from the uploading screen and the post should appear in the feed/profile.
+
+Please report: where the upload hangs (media upload / post-create / unreachable backend), whether EXPO_PUBLIC_API_URL is correctly pointing to the live backend for the APK, what you changed, and confirm posts now upload and complete (or fail with a clear error + UI reset) instead of hanging forever.

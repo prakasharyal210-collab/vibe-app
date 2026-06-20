@@ -98,9 +98,10 @@ export interface Notification {
   text: string;
   time: string;
   read: boolean;
-  post_image?: string;
+  post_image?: string | null;
   post_id?: string | null;
   reference_id?: string | null;
+  sender_id?: string | null;
 }
 
 export interface Hashtag {

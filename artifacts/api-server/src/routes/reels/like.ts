@@ -58,24 +58,56 @@ router.post("/like", async (req, res) => {
     // Unlike: remove the row
     await sb.from("reel_likes").delete().eq("user_id", userId).eq("reel_id", reelId);
     // Decrement count (floor at 0)
-    await sb.rpc("decrement_reel_likes", { p_reel_id: reelId }).catch(async () => {
-      // Fallback if RPC doesn't exist: manual read-modify-write
+    const { error: rpcDecErr } = await sb.rpc("decrement_reel_likes", { p_reel_id: reelId });
+    if (rpcDecErr) {
       const { data: reel } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
       const current = (reel as any)?.likes_count ?? 0;
       await sb.from("reels").update({ likes_count: Math.max(0, current - 1) }).eq("id", reelId);
-    });
+    }
   } else {
-    // Like: insert (UNIQUE constraint prevents duplicates at DB level)
-    await sb.from("reel_likes").insert({ user_id: userId, reel_id: reelId }).catch(() => {
-      // Duplicate insert — already liked, no-op
-    });
+    // Like: insert — ignore duplicate errors (race condition / UNIQUE constraint)
+    await sb.from("reel_likes").insert({ user_id: userId, reel_id: reelId });
     // Increment count
-    await sb.rpc("increment_reel_likes", { p_reel_id: reelId }).catch(async () => {
-      // Fallback: manual read-modify-write
+    const { error: rpcIncErr } = await sb.rpc("increment_reel_likes", { p_reel_id: reelId });
+    if (rpcIncErr) {
       const { data: reel } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
       const current = (reel as any)?.likes_count ?? 0;
       await sb.from("reels").update({ likes_count: current + 1 }).eq("id", reelId);
-    });
+    }
+
+    // Notify reel owner — non-blocking, skip self, dedup per user+reel
+    void (async () => {
+      try {
+        const { data: reelRow } = await sb
+          .from("reels")
+          .select("user_id, thumbnail_url")
+          .eq("id", reelId!)
+          .maybeSingle();
+        const ownerId: string | null = (reelRow as any)?.user_id ?? null;
+        if (!ownerId || ownerId === userId) return;
+
+        // Dedup: one notification per liker+reel
+        const { data: existing } = await sb
+          .from("notifications")
+          .select("id")
+          .eq("recipient_id", ownerId)
+          .eq("sender_id", userId!)
+          .eq("type", "like")
+          .eq("reference_id", reelId)
+          .maybeSingle();
+        if (existing) return;
+
+        await sb.from("notifications").insert({
+          recipient_id: ownerId,
+          sender_id: userId,
+          type: "like",
+          message: "liked your reel",
+          reference_id: reelId,
+          thumbnail_url: (reelRow as any)?.thumbnail_url ?? null,
+          is_read: false,
+        });
+      } catch {}
+    })();
   }
 
   // Return updated count

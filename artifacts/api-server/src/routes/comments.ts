@@ -231,6 +231,8 @@ router.post("/", async (req, res) => {
     const trimmed = text.trim();
 
     if (contentType === "reel") {
+      const preview = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
+
       // Try the RPC first (handles comment-count increment atomically)
       const { data: rpcData } = await sb.rpc("add_reel_comment", {
         p_user_id: userId,
@@ -239,6 +241,21 @@ router.post("/", async (req, res) => {
       });
       if (rpcData) {
         const c = rpcData as Record<string, any>;
+        // Notify reel owner (non-blocking)
+        if (userId !== ownerId) {
+          void (async () => {
+            try {
+              await sb.from("notifications").insert({
+                recipient_id: ownerId,
+                sender_id: userId,
+                type: "comment",
+                message: `commented on your reel: "${preview}"`,
+                reference_id: reelId,
+                is_read: false,
+              });
+            } catch {}
+          })();
+        }
         res.status(201).json({ comment: { ...c, text: c.content ?? c.text ?? trimmed } });
         return;
       }
@@ -256,6 +273,22 @@ router.post("/", async (req, res) => {
         req.log.warn({ error: insertErr.message }, "reel_comments insert error");
         res.status(500).json({ error: "Failed to save comment" });
         return;
+      }
+
+      // Notify reel owner (non-blocking)
+      if (userId !== ownerId) {
+        void (async () => {
+          try {
+            await sb.from("notifications").insert({
+              recipient_id: ownerId,
+              sender_id: userId,
+              type: "comment",
+              message: `commented on your reel: "${preview}"`,
+              reference_id: reelId,
+              is_read: false,
+            });
+          } catch {}
+        })();
       }
 
       const c = inserted as Record<string, any>;
@@ -282,14 +315,16 @@ router.post("/", async (req, res) => {
 
     // Notify post owner (non-blocking, skip if commenting on own post)
     if (userId !== ownerId) {
+      const preview = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
       void (async () => {
         try {
           await sb.from("notifications").insert({
             recipient_id: ownerId,
             sender_id: userId,
             type: "comment",
-            message: "commented on your post",
+            message: `commented: "${preview}"`,
             post_id: postId,
+            thumbnail_url: (c as any)?.thumbnail_url ?? null,
             is_read: false,
           });
         } catch {}

@@ -56,17 +56,42 @@ router.post("/", async (req, res) => {
   if ((action === "like" || action === "repost") && contentId && contentType === "post") {
     void (async () => {
       try {
-        await sb.from("notifications").insert({
-          recipient_id: creatorId,
-          sender_id: userId,
-          type: action,
-          message: action === "like" ? "liked your post" : "reposted your post",
-          post_id: contentId,
-          is_read: false,
-        });
+        // Dedup: don't spam if user un-likes then re-likes (one notification per user+post)
+        const { data: existing } = await sb
+          .from("notifications")
+          .select("id")
+          .eq("recipient_id", creatorId)
+          .eq("sender_id", userId!)
+          .eq("type", action)
+          .eq("post_id", contentId)
+          .maybeSingle();
+
+        if (!existing) {
+          // Fetch post thumbnail to show in notification row
+          const { data: postData } = await sb
+            .from("posts")
+            .select("media_url, image_url")
+            .eq("id", contentId)
+            .maybeSingle();
+          const thumbnailUrl =
+            (postData as any)?.media_url ||
+            (postData as any)?.image_url ||
+            null;
+
+          await sb.from("notifications").insert({
+            recipient_id: creatorId,
+            sender_id: userId,
+            type: action,
+            message: action === "like" ? "liked your post" : "reposted your post",
+            post_id: contentId,
+            thumbnail_url: thumbnailUrl,
+            is_read: false,
+          });
+        }
       } catch {}
+
       // Push notification gated by per-category preference
-      const { data: actor } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
+      const { data: actor } = await sb.from("profiles").select("username").eq("id", userId!).maybeSingle();
       const name = actor?.username ?? "Someone";
       const prefKey = action === "like" ? "notif_likes" : "notif_reposts";
       void sendPushToUser(sb, creatorId, {
