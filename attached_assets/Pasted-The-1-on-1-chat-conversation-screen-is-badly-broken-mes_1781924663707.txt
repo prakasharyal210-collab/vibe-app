@@ -1,0 +1,14 @@
+The 1-on-1 chat conversation screen is badly broken — message bubbles and quick-reply suggestion chips are rendering as giant vertical bars/boxes that stretch almost the full height of the screen, instead of wrapping tightly around their text (see screenshots).
+Problems:
+
+Message bubbles stretch vertically — a chat message bubble (orange/sent, purple/received) is filling the entire screen height as a tall column, instead of being a small bubble sized to its text content.
+Quick-reply suggestion chips (the "hey what's up" / "hi! how are you doing?" / "well hello there" tappable suggestions) are rendering as huge full-height boxes in a row, instead of small pill-shaped chips.
+
+Root cause is almost certainly a layout/flex bug — these elements have flex: 1 or are stretching to fill the cross-axis/vertical space with no height constraint. A chat bubble should size to its content (alignSelf: 'flex-start'/'flex-end', height driven by text, with maxWidth ~75% of screen width), NOT stretch vertically.
+Please fix the chat screen (the message list / MessageBubble component and the quick-reply chips component):
+
+Message bubbles: each bubble should wrap tightly around its text — height determined by the text content, maxWidth ~70-75% of screen width, alignSelf left for received / right for sent. Remove any flex: 1 or vertical stretching on the bubble or its container. Make sure the bubble container in the FlatList/ScrollView row doesn't force full height.
+Quick-reply chips: render as small horizontal pills (icon optional + short text, padding ~8-12px, rounded), in a horizontally scrollable row, each sized to its text — NOT full-height boxes. Constrain their height to a single line of text + padding.
+Check the message list container and row wrappers for a stray flex: 1, height: '100%', or alignItems: 'stretch' that's causing children to expand vertically.
+
+Please report which component(s) were stretching, what caused the vertical expansion (the specific flex/height issue), and confirm message bubbles and quick-reply chips now size correctly to their content.

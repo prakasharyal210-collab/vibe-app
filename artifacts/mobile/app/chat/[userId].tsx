@@ -691,7 +691,7 @@ export default function ChatScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior="padding"
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
         {/* Messages list */}
@@ -699,6 +699,7 @@ export default function ChatScreen() {
           ref={flatRef}
           data={messages}
           keyExtractor={(item) => item.id}
+          style={{ flex: 1 }}
           renderItem={({ item, index }) => {
             const isMe = item.sender_id === myId;
             const prevMsg = messages[index - 1];
@@ -762,19 +763,24 @@ export default function ChatScreen() {
 
         {/* Smart Reply Pills */}
         {smartReplies.length > 0 && !text && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 8, paddingBottom: 4 }}>
-            <View style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
+          <View style={{ flexShrink: 0 }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 6 }}
+              style={{ flexGrow: 0 }}
+            >
               {smartReplies.map((r, i) => (
                 <TouchableOpacity
                   key={i}
                   onPress={() => { setText(r); setSmartReplies([]); }}
-                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.35)" }}
+                  style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(124,58,237,0.15)", borderWidth: 1, borderColor: "rgba(124,58,237,0.35)", alignSelf: "center" }}
                 >
                   <Text style={{ color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12 }}>{r}</Text>
                 </TouchableOpacity>
               ))}
-            </View>
-          </ScrollView>
+            </ScrollView>
+          </View>
         )}
 
         {/* Input bar */}
