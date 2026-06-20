@@ -37,11 +37,7 @@ export interface Highlight {
 
 function buildStories(highlight: Highlight): Story[] {
   if (highlight.stories && highlight.stories.length > 0) return highlight.stories;
-  return [
-    { id: `${highlight.id}-1`, image: `https://picsum.photos/seed/${highlight.id}a/450/900`, username: highlight.username, time: "2h" },
-    { id: `${highlight.id}-2`, image: `https://picsum.photos/seed/${highlight.id}b/450/900`, username: highlight.username, time: "1d" },
-    { id: `${highlight.id}-3`, image: `https://picsum.photos/seed/${highlight.id}c/450/900`, username: highlight.username, time: "3d" },
-  ];
+  return [];
 }
 
 interface Props {

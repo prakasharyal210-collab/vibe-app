@@ -33,25 +33,6 @@ import { UserAvatar } from "./UserAvatar";
 
 const { width: W, height: H } = Dimensions.get("window");
 
-const STORY_IMAGES = [
-  "https://picsum.photos/seed/sv1/400/700",
-  "https://picsum.photos/seed/sv2/400/700",
-  "https://picsum.photos/seed/sv3/400/700",
-  "https://picsum.photos/seed/sv4/400/700",
-  "https://picsum.photos/seed/sv5/400/700",
-  "https://picsum.photos/seed/sv6/400/700",
-  "https://picsum.photos/seed/sv7/400/700",
-];
-
-const STORY_CAPTIONS = [
-  "Golden hour vibes ✨",
-  "City nights 🌃",
-  "Living my best life 🎉",
-  "Coffee and sunsets ☕",
-  "Adventure time 🏔️",
-  "Good vibes only 💜",
-  "Saturday mood 🎵",
-];
 
 const REACTIONS = ["❤️", "🔥", "😍", "😂", "😮", "👏"];
 
@@ -96,8 +77,13 @@ interface StoryViewerProps {
 
 function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
   const insets = useSafeAreaInsets();
-  // Include own story when they have an existing one
-  const viewable = stories.filter((s) => !s.isOwn || s.hasExistingStory);
+  // Include own story when they have an existing one; exclude non-own stories
+  // that have no usable content (no image for media stories, no text for text stories).
+  const viewable = stories.filter((s) => {
+    if (s.isOwn) return s.hasExistingStory;
+    const isText = s.storyType === "text" || (!!s.textContent && !s.image);
+    return isText ? !!s.textContent : !!s.image;
+  });
   const [current, setCurrent] = useState(Math.max(0, startIndex));
   const [reacted, setReacted] = useState<string | null>(null);
   const [reply, setReply] = useState("");
@@ -108,8 +94,8 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
 
   const story = viewable[current];
   const isTextStory = story?.storyType === "text" || (!!story?.textContent && !story?.image);
-  const storyImage = story?.image || (!isTextStory ? STORY_IMAGES[current % STORY_IMAGES.length] : "");
-  const caption = story?.caption || (!isTextStory ? STORY_CAPTIONS[current % STORY_CAPTIONS.length] : "");
+  const storyImage = story?.image ?? "";
+  const caption = story?.caption ?? "";
   const bgColors: [string, string] = story?.bgGradient
     ? (story.bgGradient.split(",").slice(0, 2) as [string, string])
     : ["#7C3AED", "#EA580C"];
