@@ -790,26 +790,93 @@ export default function ProfileScreen() {
         style={{ position: "relative" }}
         onPress={() => openPhoto(gridData, index)}
         onLongPress={() => {
-          if (!item.isReel && !item.id.startsWith("reel_")) {
+          const isReel = item.isReel || item.id.startsWith("reel_");
+          const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+          const uid = session?.user?.id;
+
+          if (isReel) {
+            // ── Reel long-press ──────────────────────────────────────────
+            Alert.alert("Reel options", undefined, [
+              {
+                text: "Delete Reel",
+                style: "destructive",
+                onPress: () =>
+                  Alert.alert("Delete Reel", "This can't be undone.", [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: async () => {
+                        const reelId = item.id.replace(/^reel_/, "");
+                        try {
+                          const res = await fetch(
+                            `${apiBase}/reels/${encodeURIComponent(reelId)}`,
+                            {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ userId: uid }),
+                            },
+                          );
+                          if (res.ok) {
+                            setMyPosts((prev) => prev.filter((p) => p.id !== item.id));
+                          } else {
+                            const body = await res.json().catch(() => ({}));
+                            Alert.alert("Delete failed", (body as any).error ?? "Please try again.");
+                          }
+                        } catch {
+                          Alert.alert("Delete failed", "Please try again.");
+                        }
+                      },
+                    },
+                  ]),
+              },
+              { text: "Cancel", style: "cancel" },
+            ]);
+          } else {
+            // ── Post long-press ──────────────────────────────────────────
             const isPinned = (item as any).is_pinned;
-            Alert.alert(
-              isPinned ? "Unpin Post" : "Pin Post",
-              isPinned
-                ? "Remove this post from the top of your profile?"
-                : "Pin this post to the top of your profile?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: isPinned ? "Unpin" : "Pin",
-                  onPress: async () => {
-                    const ok = await togglePinPost(item.id, !isPinned);
-                    if (ok && session?.user?.id) {
-                      await loadMyPosts(session.user.id);
-                    }
-                  },
+            Alert.alert("Post options", undefined, [
+              {
+                text: isPinned ? "Unpin Post" : "Pin Post",
+                onPress: async () => {
+                  const ok = await togglePinPost(item.id, !isPinned);
+                  if (ok && uid) await loadMyPosts(uid);
                 },
-              ]
-            );
+              },
+              {
+                text: "Delete Post",
+                style: "destructive",
+                onPress: () =>
+                  Alert.alert("Delete Post", "This can't be undone.", [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: async () => {
+                        try {
+                          const res = await fetch(
+                            `${apiBase}/posts/${encodeURIComponent(item.id)}`,
+                            {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ userId: uid }),
+                            },
+                          );
+                          if (res.ok) {
+                            setMyPosts((prev) => prev.filter((p) => p.id !== item.id));
+                          } else {
+                            const body = await res.json().catch(() => ({}));
+                            Alert.alert("Delete failed", (body as any).error ?? "Please try again.");
+                          }
+                        } catch {
+                          Alert.alert("Delete failed", "Please try again.");
+                        }
+                      },
+                    },
+                  ]),
+              },
+              { text: "Cancel", style: "cancel" },
+            ]);
           }
         }}
       >
