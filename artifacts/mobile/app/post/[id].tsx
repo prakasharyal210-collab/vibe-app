@@ -4,21 +4,26 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   Dimensions,
   GestureResponderEvent,
+  Modal,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import Animated, {
+  runOnJS,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
   withSequence,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { Image } from "expo-image";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,6 +41,14 @@ const IMG_MARGIN = 16;
 const IMG_W = W - IMG_MARGIN * 2;
 const GRID_GAP = 4;
 const THUMB_W = (W - IMG_MARGIN * 2 - GRID_GAP * 2) / 3;
+
+// ─── Module-scope helpers ─────────────────────────────────────────────────────
+
+function formatTime(ms: number) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}
 
 // ─── Module-scope sub-components ─────────────────────────────────────────────
 // All defined at module scope to avoid the Ionicons empty-box remount bug.
@@ -140,6 +153,220 @@ function CommentRow({
   );
 }
 
+// ─── FullscreenVideoViewer ────────────────────────────────────────────────────
+// Replicates the swipe-down-to-dismiss gesture from FullscreenImageViewer.
+// Two separate Video instances (inline + fullscreen) with position handoff on
+// open/close — expo-av cannot share a single native player across two trees.
+function FullscreenVideoViewer({
+  src,
+  initialPosition,
+  initialPlaying,
+  isMuted,
+  onMuteToggle,
+  onClose,
+}: {
+  src: string;
+  initialPosition: number;
+  initialPlaying: boolean;
+  isMuted: boolean;
+  onMuteToggle: () => void;
+  onClose: (position: number, playing: boolean) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { width: FW, height: FH } = Dimensions.get("window");
+  const fsRef = useRef<Video>(null);
+  const [fsPlaying, setFsPlaying] = useState(initialPlaying);
+  const [fsDuration, setFsDuration] = useState(0);
+  const [fsPosition, setFsPosition] = useState(initialPosition);
+  const [fsProgressW, setFsProgressW] = useState(0);
+  const fsDurationRef = useRef(0);
+
+  // Shared values accessible from the Pan worklet for position handoff on dismiss
+  const positionSV = useSharedValue(initialPosition);
+  const playingSV = useSharedValue(initialPlaying ? 1 : 0);
+
+  // Swipe-down dismiss animation
+  const ty = useSharedValue(0);
+  const bgOpacity = useSharedValue(1);
+  const ctrlOpacity = useSharedValue(1);
+  const ctrlHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pause when app goes to background while fullscreen is open
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") {
+        fsRef.current?.pauseAsync().catch(() => {});
+        setFsPlaying(false);
+      }
+    });
+    return () => {
+      sub.remove();
+      if (ctrlHideTimer.current) clearTimeout(ctrlHideTimer.current);
+    };
+  }, []);
+
+  const doClose = useCallback(() => {
+    if (ctrlHideTimer.current) clearTimeout(ctrlHideTimer.current);
+    onClose(positionSV.value, playingSV.value === 1);
+  }, [onClose, positionSV, playingSV]);
+
+  const showCtrlsTemporarily = useCallback(() => {
+    ctrlOpacity.value = withTiming(1, { duration: 180 });
+    if (ctrlHideTimer.current) clearTimeout(ctrlHideTimer.current);
+    ctrlHideTimer.current = setTimeout(() => {
+      ctrlHideTimer.current = null;
+      ctrlOpacity.value = withTiming(0, { duration: 600 });
+    }, 3000);
+  }, [ctrlOpacity]);
+
+  const pan = Gesture.Pan()
+    .onUpdate((e) => {
+      ty.value = Math.max(0, e.translationY);
+      bgOpacity.value = Math.max(0.15, 1 - e.translationY / 260);
+    })
+    .onEnd((e) => {
+      if (e.translationY > 90 || e.velocityY > 700) {
+        runOnJS(doClose)();
+      } else {
+        ty.value = withSpring(0, { damping: 20 });
+        bgOpacity.value = withSpring(1);
+      }
+    });
+
+  const handleFsStatus = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) return;
+    const pos = status.positionMillis ?? 0;
+    const playing = status.isPlaying ?? false;
+    positionSV.value = pos;
+    playingSV.value = playing ? 1 : 0;
+    setFsPosition(pos);
+    fsDurationRef.current = status.durationMillis ?? 0;
+    setFsDuration(status.durationMillis ?? 0);
+    setFsPlaying(playing);
+  }, [positionSV, playingSV]);
+
+  const handleFsTap = useCallback(() => {
+    setFsPlaying((p) => !p);
+    showCtrlsTemporarily();
+  }, [showCtrlsTemporarily]);
+
+  const seekToRatio = useCallback((ratio: number) => {
+    const ms = Math.max(0, Math.min(1, ratio)) * fsDurationRef.current;
+    fsRef.current?.setPositionAsync(ms).catch(() => {});
+    setFsPosition(ms);
+    positionSV.value = ms;
+  }, [positionSV]);
+
+  const handleFsSeek = useCallback((e: GestureResponderEvent) => {
+    if (!fsProgressW) return;
+    seekToRatio(e.nativeEvent.locationX / fsProgressW);
+  }, [fsProgressW, seekToRatio]);
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: bgOpacity.value,
+    transform: [{ translateY: ty.value }],
+  }));
+  const ctrlsStyle = useAnimatedStyle(() => ({ opacity: ctrlOpacity.value }));
+
+  const fsProgressRatio = fsDuration > 0 ? fsPosition / fsDuration : 0;
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={doClose} statusBarTranslucent>
+      <StatusBar hidden />
+      {/* Solid black backdrop — sits behind the animated container so it stays fixed during swipe */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "#000" }]} />
+      <GestureDetector gesture={pan}>
+        <Animated.View style={[StyleSheet.absoluteFill, containerStyle]}>
+          {/* Tap catcher — single tap = play/pause */}
+          <TouchableOpacity activeOpacity={1} style={StyleSheet.absoluteFill} onPress={handleFsTap}>
+            <Video
+              ref={fsRef}
+              source={{ uri: src }}
+              style={{ width: FW, height: FH }}
+              resizeMode={ResizeMode.CONTAIN}
+              isLooping
+              shouldPlay={fsPlaying}
+              isMuted={isMuted}
+              positionMillis={initialPosition}
+              onPlaybackStatusUpdate={handleFsStatus}
+            />
+          </TouchableOpacity>
+
+          {/* Controls overlay — fades in/out on tap */}
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { justifyContent: "space-between" }, ctrlsStyle]}
+            pointerEvents="box-none"
+          >
+            {/* Top: mute (left) + collapse/close (right) */}
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                padding: 12,
+                paddingTop: insets.top + 12,
+              }}
+              pointerEvents="box-none"
+            >
+              <TouchableOpacity
+                style={V.muteBtn}
+                onPress={() => { onMuteToggle(); showCtrlsTemporarily(); }}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name={isMuted ? "volume-mute" : "volume-high"} size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={V.muteBtn}
+                onPress={doClose}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="contract" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Center: play/pause indicator — pointerEvents none so taps fall to TouchableOpacity */}
+            <View style={V.centerRow} pointerEvents="none">
+              <View style={V.playPauseCircle}>
+                <Ionicons
+                  name={fsPlaying ? "pause" : "play"}
+                  size={34}
+                  color="#fff"
+                  style={fsPlaying ? {} : { marginLeft: 4 }}
+                />
+              </View>
+            </View>
+
+            {/* Bottom: time label + gradient seek bar */}
+            <View
+              style={{ paddingHorizontal: 14, paddingBottom: Math.max(insets.bottom, 16) + 8, gap: 8 }}
+              pointerEvents="box-none"
+            >
+              <Text style={V.timeText}>{formatTime(fsPosition)} / {formatTime(fsDuration)}</Text>
+              <View
+                style={V.progressTrack}
+                onLayout={(e) => setFsProgressW(e.nativeEvent.layout.width)}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(e) => { showCtrlsTemporarily(); handleFsSeek(e); }}
+                onResponderMove={handleFsSeek}
+              >
+                <LinearGradient
+                  colors={["#EA580C", "#7C3AED"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[V.progressFill, { width: fsProgressW * fsProgressRatio }]}
+                />
+                <View
+                  style={[V.progressThumb, { left: Math.max(0, fsProgressW * fsProgressRatio - 7) }]}
+                />
+              </View>
+            </View>
+          </Animated.View>
+        </Animated.View>
+      </GestureDetector>
+    </Modal>
+  );
+}
+
 // ─── Main screen ─────────────────────────────────────────────────────────────
 
 export default function PostDetailScreen() {
@@ -174,6 +401,7 @@ export default function PostDetailScreen() {
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoPosition, setVideoPosition] = useState(0);
   const [progressTrackW, setProgressTrackW] = useState(0);
+  const [showVideoFullscreen, setShowVideoFullscreen] = useState(false);
   const videoRef = useRef<Video>(null);
   const controlsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -434,6 +662,22 @@ export default function PostDetailScreen() {
     showControlsTemporarily();
   }, [handleDoubleTap, showControlsTemporarily]);
 
+  // ── Fullscreen video handlers ─────────────────────────────────────────────
+  const handleOpenFullscreen = useCallback(() => {
+    // Pause inline player and capture position before handing off to the modal
+    videoRef.current?.pauseAsync().catch(() => {});
+    setVideoPlaying(false);
+    setShowVideoFullscreen(true);
+  }, []);
+
+  const handleCloseFullscreen = useCallback((position: number, playing: boolean) => {
+    setShowVideoFullscreen(false);
+    // Restore the inline player to where the fullscreen player was
+    videoRef.current?.setPositionAsync(position).catch(() => {});
+    setVideoPosition(position);
+    setVideoPlaying(playing);
+  }, []);
+
   // ── Derived ─────────────────────────────────────────────────────────────────
   const username = post?.profiles?.username ?? "user";
   const isVerified = post?.profiles?.is_verified;
@@ -464,12 +708,6 @@ export default function PostDetailScreen() {
   );
   const videoSrc = rawVideoUrl as string | null;
   const progressRatio = videoDuration > 0 ? videoPosition / videoDuration : 0;
-
-  function formatTime(ms: number) {
-    const s = Math.floor(ms / 1000);
-    const m = Math.floor(s / 60);
-    return `${m}:${String(s % 60).padStart(2, "0")}`;
-  }
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
@@ -648,6 +886,18 @@ export default function PostDetailScreen() {
                       />
                     </View>
                   </View>
+
+                  {/* ── Expand button — bottom-right, YouTube-style ─────── */}
+                  <TouchableOpacity
+                    style={V.expandBtn}
+                    onPress={() => {
+                      showControlsTemporarily();
+                      handleOpenFullscreen();
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="expand" size={16} color="#fff" />
+                  </TouchableOpacity>
                 </Animated.View>
 
                 {/* 3 ── Heart burst (purely decorative, never blocks touches) */}
@@ -996,6 +1246,16 @@ export default function PostDetailScreen() {
         visible={showViewer}
         onClose={() => setShowViewer(false)}
       />
+      {isVideoPost && videoSrc && showVideoFullscreen && (
+        <FullscreenVideoViewer
+          src={videoSrc}
+          initialPosition={videoPosition}
+          initialPlaying={videoPlaying}
+          isMuted={isMuted}
+          onMuteToggle={() => setIsMuted((m) => !m)}
+          onClose={handleCloseFullscreen}
+        />
+      )}
     </View>
   );
 }
@@ -1256,5 +1516,16 @@ const V = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 3,
     elevation: 4,
+  },
+  expandBtn: {
+    position: "absolute",
+    bottom: 14,
+    right: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
