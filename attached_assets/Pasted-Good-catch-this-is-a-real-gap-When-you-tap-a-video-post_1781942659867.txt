@@ -1,0 +1,23 @@
+Good catch — this is a real gap. When you tap a video post in the feed, it opens the post detail screen, but that screen only renders an <Image> — so a video post shows a static frame, not a playable video. The post detail screen needs a proper video player for video posts. And yes, let's make it premium. Here's the prompt:
+
+Prompt for Replit AI:
+On the post detail screen (app/post/[id].tsx), video posts don't play — the screen only renders an <Image>, so tapping a video post from the feed opens the post but shows a static frame instead of a playable video. Add a proper, premium video player for video posts.
+1. Detect video vs photo posts and render accordingly:
+
+Photo post → <Image> (as now).
+Video post → a <Video> (expo-av) player. Detect via the post's video flag / media_type / file extension (.mp4/.mov/.m4v/.webm).
+
+2. Premium video player UI (make it look high-end, matching Gundruk's dark + gradient brand):
+
+The video fills the same image card area (rounded corners 18px, margins, shadow — consistent with the redesigned post screen).
+Autoplay + loop when the post detail screen is focused; pause when the screen loses focus (use useFocusEffect/useIsFocused so audio doesn't keep playing after leaving).
+Tap-to-play/pause with a smooth fade-in play/pause icon overlay (centered, semi-transparent circle).
+Progress bar at the bottom of the video — a thin gradient (orange→purple) scrubber showing playback position, draggable to seek.
+Mute/unmute toggle (speaker icon, top corner of the video) — start muted or unmuted, user can toggle. Show current state.
+Current time / duration label (small, e.g. "0:12 / 0:45") near the progress bar.
+Smooth, subtle controls that fade out during playback and reappear on tap (like Instagram/TikTok) — not cluttered.
+
+3. Keep double-tap-to-like on the video (heart burst), and all other post-detail features (like, save, comments, follow, "More from" grid) working with video posts.
+4. Lifecycle: pause/reset the video when navigating away; only one video plays at a time; audio stops when the screen isn't focused.
+Implementation: use expo-av <Video> with onPlaybackStatusUpdate to drive the progress bar and time labels; overlay the controls (play/pause, progress, mute) on top of the video with pointerEvents managed so the double-tap-like still works. Use Reanimated for smooth control fade animations.
+Please report which file(s) were edited, how video detection works, the player controls added, and confirm video posts now play (with progress bar, mute toggle, tap-to-pause, autoplay-on-focus/pause-on-blur) while photo posts still show as images and all post features keep working.

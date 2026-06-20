@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  GestureResponderEvent,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import Animated, {
   withSequence,
 } from "react-native-reanimated";
 import { Image } from "expo-image";
+import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
@@ -166,10 +168,20 @@ export default function PostDetailScreen() {
     posts_count: number;
   } | null>(null);
 
-  // Reanimated — like heart pop + double-tap burst
+  // ── Video player state ───────────────────────────────────────────────────────
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoPosition, setVideoPosition] = useState(0);
+  const [progressTrackW, setProgressTrackW] = useState(0);
+  const videoRef = useRef<Video>(null);
+  const controlsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reanimated — like heart pop + double-tap burst + video controls fade
   const likeScale = useSharedValue(1);
   const heartBurstOpacity = useSharedValue(0);
   const heartBurstScale = useSharedValue(0);
+  const controlsOpacity = useSharedValue(1);
 
   const likeAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: likeScale.value }],
@@ -177,6 +189,9 @@ export default function PostDetailScreen() {
   const heartBurstStyle = useAnimatedStyle(() => ({
     opacity: heartBurstOpacity.value,
     transform: [{ scale: heartBurstScale.value }],
+  }));
+  const videoControlsStyle = useAnimatedStyle(() => ({
+    opacity: controlsOpacity.value,
   }));
 
   const lastTapRef = useRef(0);
@@ -251,10 +266,38 @@ export default function PostDetailScreen() {
       .catch(() => {});
   }, [id]);
 
-  // ── Reset aspect ratio when navigating to a different post ─────────────────
+  // ── Reset aspect ratio + video state when navigating to a different post ────
   useEffect(() => {
     setMediaAspectRatio(1);
+    setVideoPlaying(false);
+    setVideoPosition(0);
+    setVideoDuration(0);
   }, [id]);
+
+  // ── Video: auto-play once the post loads and is confirmed as a video ─────────
+  useEffect(() => {
+    const isVid = !!(
+      (post as any)?.is_video ||
+      (post as any)?.video_url ||
+      ((post as any)?.media_url || (post as any)?.image_url || "").match(/\.(mp4|mov|webm|m4v)(\?|$)/i)
+    );
+    if (isVid) {
+      setVideoPlaying(true);
+      controlsOpacity.value = withTiming(1, { duration: 200 });
+    }
+  }, [post]);
+
+  // ── Pause video when navigating away, clean up controls timer ───────────────
+  useFocusEffect(useCallback(() => {
+    return () => {
+      setVideoPlaying(false);
+      videoRef.current?.pauseAsync().catch(() => {});
+      if (controlsHideTimer.current) {
+        clearTimeout(controlsHideTimer.current);
+        controlsHideTimer.current = null;
+      }
+    };
+  }, []));
 
   // ── Like handler ────────────────────────────────────────────────────────────
   const handleLike = async () => {
@@ -335,6 +378,54 @@ export default function PostDetailScreen() {
     );
   };
 
+  // ── Video helpers ────────────────────────────────────────────────────────────
+  const showControlsTemporarily = useCallback(() => {
+    controlsOpacity.value = withTiming(1, { duration: 180 });
+    if (controlsHideTimer.current) clearTimeout(controlsHideTimer.current);
+    controlsHideTimer.current = setTimeout(() => {
+      controlsHideTimer.current = null;
+      controlsOpacity.value = withTiming(0, { duration: 600 });
+    }, 3000);
+  }, []);
+
+  const handlePlaybackStatus = useCallback((status: AVPlaybackStatus) => {
+    if (!status.isLoaded) return;
+    setVideoPosition(status.positionMillis ?? 0);
+    setVideoDuration(status.durationMillis ?? 0);
+    setVideoPlaying(status.isPlaying ?? false);
+  }, []);
+
+  const seekToRatio = useCallback((ratio: number) => {
+    if (!videoDuration) return;
+    const ms = Math.max(0, Math.min(1, ratio)) * videoDuration;
+    videoRef.current?.setPositionAsync(ms).catch(() => {});
+    setVideoPosition(ms);
+  }, [videoDuration]);
+
+  const handleSeekGesture = useCallback((e: GestureResponderEvent) => {
+    if (!progressTrackW) return;
+    seekToRatio(e.nativeEvent.locationX / progressTrackW);
+  }, [progressTrackW, seekToRatio]);
+
+  const handleVideoTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      if (singleTapTimerRef.current) {
+        clearTimeout(singleTapTimerRef.current);
+        singleTapTimerRef.current = null;
+      }
+      handleDoubleTap();
+    } else {
+      singleTapTimerRef.current = setTimeout(() => {
+        singleTapTimerRef.current = null;
+        setVideoPlaying((p) => !p);
+        showControlsTemporarily();
+      }, 280);
+    }
+    lastTapRef.current = now;
+    showControlsTemporarily();
+  }, [handleDoubleTap, showControlsTemporarily]);
+
   // ── Derived ─────────────────────────────────────────────────────────────────
   const username = post?.profiles?.username ?? "user";
   const isVerified = post?.profiles?.is_verified;
@@ -351,6 +442,26 @@ export default function PostDetailScreen() {
   const captionParts = displayCaption.split(/([@#]\w+)/g);
   const commentsCount = post?.comments_count ?? 0;
   const imgH = IMG_W / mediaAspectRatio;
+
+  // ── Video detection ─────────────────────────────────────────────────────────
+  const rawVideoUrl =
+    (post as any)?.video_url ||
+    ((post as any)?.media_url || "").match(/\.(mp4|mov|webm|m4v)(\?|$)/i)
+      ? ((post as any)?.media_url ?? "")
+      : ((post as any)?.image_url || "").match(/\.(mp4|mov|webm|m4v)(\?|$)/i)
+      ? ((post as any)?.image_url ?? "")
+      : null;
+  const isVideoPost = !!(
+    (post as any)?.is_video || (post as any)?.video_url || rawVideoUrl
+  );
+  const videoSrc = rawVideoUrl as string | null;
+  const progressRatio = videoDuration > 0 ? videoPosition / videoDuration : 0;
+
+  function formatTime(ms: number) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, "0")}`;
+  }
 
   // ── Loading ─────────────────────────────────────────────────────────────────
   if (loading) {
@@ -419,10 +530,104 @@ export default function PostDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.scroll}
       >
-        {/* ── Full image — clean, generous margins, rounded, natural ratio ── */}
+        {/* ── Media card — video player or photo ──────────────────────────── */}
         <View style={S.imageShadow}>
           <View style={[S.imageCard, { height: imgH }]}>
-            {images.length > 1 ? (
+
+            {isVideoPost && videoSrc ? (
+              /* ── Premium video player ────────────────────────────────────── */
+              <View style={{ flex: 1 }}>
+                <Video
+                  ref={videoRef}
+                  source={{ uri: videoSrc }}
+                  style={{ width: IMG_W, height: imgH }}
+                  resizeMode={ResizeMode.CONTAIN}
+                  isLooping
+                  shouldPlay={videoPlaying}
+                  isMuted={isMuted}
+                  onPlaybackStatusUpdate={handlePlaybackStatus}
+                  onReadyForDisplay={(s: any) => {
+                    if (s.naturalSize?.width && s.naturalSize?.height) {
+                      setMediaAspectRatio(s.naturalSize.width / s.naturalSize.height);
+                    }
+                  }}
+                />
+
+                {/* Controls overlay — fades in/out */}
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, V.controls, videoControlsStyle]}
+                  pointerEvents="box-none"
+                >
+                  {/* Top row: mute button */}
+                  <View style={V.topRow} pointerEvents="box-none">
+                    <TouchableOpacity
+                      style={V.muteBtn}
+                      onPress={() => setIsMuted((m) => !m)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons
+                        name={isMuted ? "volume-mute" : "volume-high"}
+                        size={18}
+                        color="#fff"
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Center: play/pause circle */}
+                  <View style={V.centerRow} pointerEvents="none">
+                    <View style={V.playPauseCircle}>
+                      <Ionicons
+                        name={videoPlaying ? "pause" : "play"}
+                        size={34}
+                        color="#fff"
+                        style={videoPlaying ? {} : { marginLeft: 4 }}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Bottom: time + gradient progress bar */}
+                  <View style={V.bottomRow} pointerEvents="box-none">
+                    <Text style={V.timeText}>
+                      {formatTime(videoPosition)} / {formatTime(videoDuration)}
+                    </Text>
+                    <View
+                      style={V.progressTrack}
+                      onLayout={(e) => setProgressTrackW(e.nativeEvent.layout.width)}
+                      onStartShouldSetResponder={() => true}
+                      onResponderGrant={handleSeekGesture}
+                      onResponderMove={handleSeekGesture}
+                    >
+                      <LinearGradient
+                        colors={["#EA580C", "#7C3AED"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[V.progressFill, { width: progressTrackW * progressRatio }]}
+                      />
+                      <View
+                        style={[V.progressThumb, { left: Math.max(0, progressTrackW * progressRatio - 7) }]}
+                      />
+                    </View>
+                  </View>
+                </Animated.View>
+
+                {/* Transparent full-area tap handler (single = play/pause, double = like) */}
+                <TouchableOpacity
+                  activeOpacity={1}
+                  style={StyleSheet.absoluteFill}
+                  onPress={handleVideoTap}
+                />
+
+                {/* Heart burst over video */}
+                <Animated.View
+                  style={[StyleSheet.absoluteFill, S.heartBurstOverlay, heartBurstStyle]}
+                  pointerEvents="none"
+                >
+                  <Ionicons name="heart" size={100} color="#EC4899" />
+                </Animated.View>
+              </View>
+
+            ) : images.length > 1 ? (
+              /* ── Multi-image carousel ────────────────────────────────────── */
               <ScrollView
                 horizontal
                 pagingEnabled
@@ -456,6 +661,7 @@ export default function PostDetailScreen() {
                 ))}
               </ScrollView>
             ) : (
+              /* ── Single photo ────────────────────────────────────────────── */
               <TouchableOpacity
                 activeOpacity={1}
                 onPress={() => handleMediaTap(0)}
@@ -473,16 +679,18 @@ export default function PostDetailScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Double-tap heart burst overlay */}
-            <Animated.View
-              style={[StyleSheet.absoluteFill, S.heartBurstOverlay, heartBurstStyle]}
-              pointerEvents="none"
-            >
-              <Ionicons name="heart" size={100} color="#EC4899" />
-            </Animated.View>
+            {/* Double-tap heart burst — photo only (video has its own above) */}
+            {!isVideoPost && (
+              <Animated.View
+                style={[StyleSheet.absoluteFill, S.heartBurstOverlay, heartBurstStyle]}
+                pointerEvents="none"
+              >
+                <Ionicons name="heart" size={100} color="#EC4899" />
+              </Animated.View>
+            )}
 
-            {/* Carousel dot indicators */}
-            {images.length > 1 && (
+            {/* Carousel dot indicators — photo only */}
+            {!isVideoPost && images.length > 1 && (
               <View style={S.dotsRow} pointerEvents="none">
                 {images.map((_, i) => (
                   <View
@@ -943,5 +1151,77 @@ const S = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",
+  },
+});
+
+// ─── Video player controls styles ─────────────────────────────────────────────
+const V = StyleSheet.create({
+  controls: {
+    justifyContent: "space-between",
+  },
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    padding: 12,
+  },
+  muteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  centerRow: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playPauseCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  bottomRow: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    gap: 8,
+  },
+  timeText: {
+    color: "rgba(255,255,255,0.85)",
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    letterSpacing: 0.3,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: 2,
+    position: "relative",
+    overflow: "visible",
+  },
+  progressFill: {
+    height: 4,
+    borderRadius: 2,
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+  progressThumb: {
+    position: "absolute",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#fff",
+    top: -5,
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 3,
+    elevation: 4,
   },
 });
