@@ -475,33 +475,22 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         return (
         <View style={[styles.imageContainer, { height: imgH }]}>
         {isVideoPost ? (
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{ flex: 1 }}
-            onPress={() => {
-              if (videoPlaying) {
-                videoRef.current?.pauseAsync();
-                setVideoPlaying(false);
-              } else {
-                videoRef.current?.playAsync();
-                setVideoPlaying(true);
-              }
-            }}
-          >
+          <View style={{ flex: 1 }}>
             <Video
               ref={videoRef}
               source={{ uri: videoUrl! }}
               style={{ width: CARD_W, height: imgH }}
               resizeMode={ResizeMode.COVER}
               isLooping
+              shouldPlay
               isMuted={false}
               onPlaybackStatusUpdate={(s) => {
                 if (s.isLoaded) setVideoPlaying(s.isPlaying);
               }}
             />
-            {/* Play/pause overlay */}
+            {/* Play/pause indicator — visual only, no touch handling */}
             {!videoPlaying && (
-              <View style={styles.videoPlayOverlay}>
+              <View style={styles.videoPlayOverlay} pointerEvents="none">
                 <View style={styles.videoPlayBtn}>
                   <Ionicons name="play" size={28} color="#fff" style={{ marginLeft: 4 }} />
                 </View>
@@ -511,7 +500,17 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 </View>
               </View>
             )}
-          </TouchableOpacity>
+            {/* Heart burst — double-tap like animation over video */}
+            <Animated.View style={[styles.heartBurst, heartBurstStyle]} pointerEvents="none">
+              <Ionicons name="heart" size={100} color="#EC4899" />
+            </Animated.View>
+            {/* Transparent tap-catcher — same dispatcher as photo posts (single→open, double→like) */}
+            <TouchableOpacity
+              activeOpacity={1}
+              style={StyleSheet.absoluteFill}
+              onPress={() => handleMediaTap(0)}
+            />
+          </View>
         ) : (
           <>
             <FlatList
