@@ -251,6 +251,43 @@ router.get("/settings/:userId", async (req, res) => {
   res.json({ settings: data ?? null });
 });
 
+// GET /api/users/stats?userId=
+// Returns live posts / followers / following counts via COUNT(*) with service-role key.
+// Called from the profile screen instead of relying on denormalized counter columns
+// (which are never maintained) or a username-based lookup (which requires a valid username).
+router.get("/stats", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
+      sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", userId),
+      sb.from("reels").select("*", { count: "exact", head: true }).eq("user_id", userId),
+      sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", userId),
+      sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("follower_id", userId),
+    ]);
+
+    if (postsRes.status === "rejected") req.log.error({ err: (postsRes as any).reason?.message }, "[profile-stats] posts COUNT failed");
+    if (reelsRes.status === "rejected") req.log.error({ err: (reelsRes as any).reason?.message }, "[profile-stats] reels COUNT failed");
+    if (followersRes.status === "rejected") req.log.error({ err: (followersRes as any).reason?.message }, "[profile-stats] followers COUNT failed");
+    if (followingRes.status === "rejected") req.log.error({ err: (followingRes as any).reason?.message }, "[profile-stats] following COUNT failed");
+
+    const posts_count =
+      (postsRes.status === "fulfilled" ? (postsRes.value.count ?? 0) : 0) +
+      (reelsRes.status === "fulfilled" ? (reelsRes.value.count ?? 0) : 0);
+    const followers_count = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : 0;
+    const following_count = followingRes.status === "fulfilled" ? (followingRes.value.count ?? 0) : 0;
+
+    res.json({ posts_count, followers_count, following_count });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "[profile-stats] exception");
+    res.status(500).json({ error: "Failed" });
+  }
+});
+
 // GET /api/users/photos?userId=...
 // Returns the list of media URLs from the user's posts plus their avatar.
 // Used by the Find Vibe Settings photo picker so users can select which

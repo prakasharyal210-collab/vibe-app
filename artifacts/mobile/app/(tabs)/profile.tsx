@@ -598,29 +598,47 @@ export default function ProfileScreen() {
   }, [activeTab, session?.user?.id]);
 
   const loadProfile = useCallback(async (uid: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", uid).single();
-    if (!data) return;
-    // Fetch live counts via API server (uses service-role key, bypasses RLS +
-    // avoids the Android Supabase-client hang on COUNT queries).
+    // Run Supabase profile fetch and API stats lookup in parallel.
+    // The API stats endpoint uses the service-role key, so it bypasses RLS and
+    // returns accurate COUNT(*) values — never relies on denormalized counter columns.
     const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const [supabaseResult, statsResult] = await Promise.allSettled([
+      supabase.from("profiles").select("*").eq("id", uid).single(),
+      fetch(`${apiBase}/users/stats?userId=${encodeURIComponent(uid)}`),
+    ]);
+
+    const profileData =
+      supabaseResult.status === "fulfilled" ? supabaseResult.value.data : null;
+    if (!profileData) return;
+
     let liveCounts = {
-      posts_count: data.posts_count ?? 0,
-      followers_count: data.followers_count ?? 0,
-      following_count: data.following_count ?? 0,
+      posts_count: profileData.posts_count ?? 0,
+      followers_count: profileData.followers_count ?? 0,
+      following_count: profileData.following_count ?? 0,
     };
-    try {
-      const apiRes = await fetch(`${apiBase}/users/profile/${encodeURIComponent(data.username)}`);
-      if (apiRes.ok) {
-        const json = await apiRes.json();
-        const p = json.profile ?? json;
-        liveCounts = {
-          posts_count: p.posts_count ?? liveCounts.posts_count,
-          followers_count: p.followers_count ?? liveCounts.followers_count,
-          following_count: p.following_count ?? liveCounts.following_count,
+
+    if (statsResult.status === "fulfilled" && statsResult.value.ok) {
+      try {
+        const stats = await statsResult.value.json() as {
+          posts_count?: number;
+          followers_count?: number;
+          following_count?: number;
         };
+        liveCounts = {
+          posts_count: stats.posts_count ?? liveCounts.posts_count,
+          followers_count: stats.followers_count ?? liveCounts.followers_count,
+          following_count: stats.following_count ?? liveCounts.following_count,
+        };
+      } catch (e) {
+        console.error("[profile-stats] parse error", e);
       }
-    } catch {}
-    setProfile({ ...(data as Profile), ...liveCounts });
+    } else if (statsResult.status === "rejected") {
+      console.error("[profile-stats] fetch error", statsResult.reason);
+    } else if (statsResult.status === "fulfilled" && !statsResult.value.ok) {
+      console.error("[profile-stats] non-ok response", statsResult.value.status);
+    }
+
+    setProfile({ ...(profileData as Profile), ...liveCounts });
   }, []);
 
   useEffect(() => {
