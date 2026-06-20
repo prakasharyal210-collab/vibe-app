@@ -1,0 +1,11 @@
+Fix the feed PostCard image sizing properly so there's NEITHER black gaps NOR cropping — size the image container to each image's actual height.
+The previous two attempts traded one problem for the other: contain left black letterbox gaps (container taller than image), then cover cropped images (image taller than container). Both were caused by the container height not matching the image. The correct fix: make the container height exactly match the image's displayed height, so cover/contain look identical (the box fits the image — nothing to letterbox, nothing to crop).
+
+On image onLoad / via Image.getSize, get the real aspect ratio and set the container height to CARD_W / aspectRatio so it exactly fits the image. Use contentFit="contain" (or cover — identical once the box fits) so the full image shows with no crop and no gaps.
+Handle the async loading gracefully: before the real dimensions resolve, don't show a big square placeholder that causes a layout jump or a wrong-sized box. Either keep the row collapsed/at a neutral small height until onLoad resolves, or use a brief shimmer placeholder, then expand to the exact image height. Avoid the flash-then-resize that made cropping seem necessary.
+Cap only extreme portraits: for very tall images (taller than ~1.25× the card width), cap the container at CARD_W * 1.25 and use cover for THOSE ONLY (Instagram does this so one post doesn't span multiple screens). All normal/landscape/square/mild-portrait images show fully with no crop.
+Keep the tight spacing from the last change (small margins, compact action bar + caption) — that part was good.
+Keep: per-post aspect ratio keyed to post id (no bleed between recycled FlatList rows), double-tap-like, single-tap-open.
+
+Result: feed images show FULLY (no crop) AND with no black gaps — the post height adapts to each image, tight and clean like Instagram. Only genuinely huge portraits are capped.
+Please report how you handled the async sizing without gaps or crop, and confirm normal images now show fully with no empty space.

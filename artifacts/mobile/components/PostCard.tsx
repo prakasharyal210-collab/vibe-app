@@ -49,6 +49,12 @@ import { usePostRealtime } from "@/context/RealtimeContext";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_MARGIN = 12;
 const CARD_W = SCREEN_WIDTH - CARD_MARGIN * 2;
+const MAX_PORTRAIT_H = CARD_W * 1.25; // cap for very tall portraits only
+
+// Module-level cache — survives component remounts.
+// Image.getSize is synchronous for images already in RN's decode cache, so
+// returning the stored ratio on re-render eliminates the "flash-then-resize".
+const _ratioCache = new Map<string, number>();
 
 interface PostCardProps {
   post: Post;
@@ -79,9 +85,13 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
-  // Default to 4:3 landscape — a realistic mid-point that avoids a large
-  // square flash while Image.getSize resolves async.
-  const [mediaAspectRatio, setMediaAspectRatio] = useState(4 / 3);
+  // null = dimensions not yet known → show shimmer placeholder.
+  // Initialise from module-level cache so already-seen posts render at the
+  // correct height immediately (no layout jump on scroll-back).
+  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(() => {
+    const url = (post.images && post.images.length > 0 ? post.images[0] : post.image_url) ?? null;
+    return url ? (_ratioCache.get(url) ?? null) : null;
+  });
   const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
   const heartBurstOpacity = useSharedValue(0);
@@ -89,17 +99,27 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const lastTapRef = useRef(0);
   const singleTapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Pre-fetch the first image's intrinsic dimensions before the first render.
-  // Image.getSize is reliable for network URIs; onLoad (inside FlatList) fires
-  // too late — FlatList has already locked in the height by then.
+  // Resolve the image's real aspect ratio so the container height = CARD_W / ratio
+  // (no black gaps, no crop). Uses a module-level cache — synchronous for images
+  // already in RN's decode cache, eliminating the flash-then-resize on scroll-back.
   useEffect(() => {
-    setMediaAspectRatio(4 / 3); // reset to sensible default, not 1:1 square
     const url = images[0];
-    if (!url) return;
+    if (!url) { setMediaAspectRatio(1); return; }
+    // Serve from cache immediately — no state update needed if already correct
+    const cached = _ratioCache.get(url);
+    if (cached) { setMediaAspectRatio(cached); return; }
+    // Unknown image: show shimmer (null) while we fetch dimensions
+    setMediaAspectRatio(null);
     Image.getSize(
       url,
-      (w, h) => { if (w && h) setMediaAspectRatio(w / h); },
-      () => {}
+      (w, h) => {
+        if (w && h) {
+          const r = w / h;
+          _ratioCache.set(url, r);
+          setMediaAspectRatio(r);
+        }
+      },
+      () => { setMediaAspectRatio(4 / 3); } // fallback on error
     );
   }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -404,10 +424,20 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
       </View>
 
       {/* Media area — video or image carousel.
-          Container is sized to the image's natural aspect ratio (capped at 1.25× width
-          for portrait images, matching Instagram). resizeMode="cover" fills the box
-          completely with no letterbox black bands. */}
-      <View style={[styles.imageContainer, { height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }]}>
+          Container height = CARD_W / realAspectRatio (exact fit, no gaps, no crop).
+          Extreme portraits (taller than 1.25× width) are capped + use cover.
+          While dimensions are loading, a thin shimmer placeholder avoids a large
+          wrong-size box flashing before the real height is known. */}
+      {mediaAspectRatio === null ? (
+        // Shimmer — shown only for truly first-load images not yet in _ratioCache.
+        // Height is a neutral 56vw so the card isn't massively tall or collapsed.
+        <View style={[styles.imageContainer, styles.shimmer, { height: CARD_W * 0.56 }]} />
+      ) : (() => {
+        const isExtremePortrait = (CARD_W / mediaAspectRatio) > MAX_PORTRAIT_H;
+        const imgH = isExtremePortrait ? MAX_PORTRAIT_H : CARD_W / mediaAspectRatio;
+        const imgResizeMode = isExtremePortrait ? "cover" as const : "contain" as const;
+        return (
+        <View style={[styles.imageContainer, { height: imgH }]}>
         {isVideoPost ? (
           <TouchableOpacity
             activeOpacity={1}
@@ -425,8 +455,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             <Video
               ref={videoRef}
               source={{ uri: videoUrl! }}
-              style={{ width: CARD_W, height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }}
-              resizeMode={ResizeMode.COVER}
+              style={{ width: CARD_W, height: imgH }}
+              resizeMode={isExtremePortrait ? ResizeMode.COVER : ResizeMode.CONTAIN}
               isLooping
               isMuted={false}
               onPlaybackStatusUpdate={(s) => {
@@ -457,7 +487,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               onScroll={onScroll}
               scrollEventThrottle={16}
               extraData={mediaAspectRatio}
-              style={{ height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }}
+              style={{ height: imgH }}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   activeOpacity={0.9}
@@ -465,8 +495,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 >
                   <Image
                     source={{ uri: item }}
-                    style={{ width: CARD_W, height: Math.min(CARD_W / mediaAspectRatio, CARD_W * 1.25) }}
-                    resizeMode="cover"
+                    style={{ width: CARD_W, height: imgH }}
+                    resizeMode={imgResizeMode}
                   />
                 </TouchableOpacity>
               )}
@@ -496,7 +526,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             )}
           </>
         )}
-      </View>
+        </View>
+        );
+      })()}
 
       {/* Music credit */}
       {post.music_title && (
@@ -687,6 +719,10 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: CARD_W,
     position: "relative",
+    overflow: "hidden",
+  },
+  shimmer: {
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   image: { width: CARD_W },
   dotsContainer: {
