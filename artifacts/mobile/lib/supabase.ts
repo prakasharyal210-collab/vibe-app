@@ -256,10 +256,20 @@ export const MOCK_NEARBY_USERS: Profile[] = [
   { id: "n4", username: "sofia_near", bio: "Fitness & lifestyle", location: "2.1 km away" },
 ];
 
+// Supabase timestamptz columns sometimes come back without a timezone suffix
+// (e.g. "2026-06-20T02:00:00" instead of "2026-06-20T02:00:00+00:00").
+// JS treats tz-naive strings as LOCAL time on iOS/Android, causing an offset
+// error equal to the user's UTC offset (e.g. +10h in Sydney).
+// Fix: always force UTC interpretation when no tz info is present.
+function parseUTCMs(dateStr: string): number {
+  let s = dateStr.replace(" ", "T"); // PostgreSQL space separator → ISO T
+  if (!s.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+  return new Date(s).getTime();
+}
+
 export function timeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = Math.floor((now - then) / 1000);
+  const diff = Math.floor((Date.now() - parseUTCMs(dateStr)) / 1000);
+  if (diff < 5) return "just now";
   if (diff < 60) return `${diff}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;

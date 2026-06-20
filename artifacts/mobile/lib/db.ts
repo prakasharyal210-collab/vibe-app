@@ -33,8 +33,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function parseUTCMs(dateStr: string): number {
+  let s = dateStr.replace(" ", "T");
+  if (!s.endsWith("Z") && !/[+-]\d{2}:\d{2}$/.test(s)) s += "Z";
+  return new Date(s).getTime();
+}
+
 function timeAgoShort(dateStr: string): string {
-  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  const diff = Math.floor((Date.now() - parseUTCMs(dateStr)) / 1000);
+  if (diff < 5) return "just now";
   if (diff < 60) return `${diff}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
