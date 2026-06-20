@@ -91,6 +91,55 @@ router.post("/like", async (req, res) => {
   });
 });
 
+// ─── POST /api/reels/like-only ─────────────────────────────────────────────────
+// Idempotent like-only: never unlikes, never double-counts.
+// Used by double-tap. Returns { liked: true, likes: number }.
+router.post("/like-only", async (req, res) => {
+  const { userId, reelId } = req.body as { userId?: string; reelId?: string };
+  if (!userId || !reelId) {
+    res.status(400).json({ error: "userId and reelId required" });
+    return;
+  }
+  const sb = makeSupabase();
+
+  // Check if already liked — early-out without touching the count
+  const { data: existing } = await sb
+    .from("reel_likes")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("reel_id", reelId)
+    .maybeSingle();
+
+  if (existing) {
+    const { data: reel } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
+    res.json({ liked: true, likes: (reel as any)?.likes_count ?? 0 });
+    return;
+  }
+
+  // Insert new like row; catch duplicate (race condition / no UNIQUE constraint yet)
+  const { error: insertError } = await sb
+    .from("reel_likes")
+    .insert({ user_id: userId, reel_id: reelId });
+
+  if (insertError) {
+    // Concurrent duplicate — return current count without incrementing
+    const { data: reel } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
+    res.json({ liked: true, likes: (reel as any)?.likes_count ?? 0 });
+    return;
+  }
+
+  // Only increment when a genuinely new row was inserted
+  const { error: rpcError } = await sb.rpc("increment_reel_likes", { p_reel_id: reelId });
+  if (rpcError) {
+    const { data: reel } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
+    const current = (reel as any)?.likes_count ?? 0;
+    await sb.from("reels").update({ likes_count: current + 1 }).eq("id", reelId);
+  }
+
+  const { data: updated } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
+  res.json({ liked: true, likes: (updated as any)?.likes_count ?? 0 });
+});
+
 // GET /api/reels/:reelId — fetch a single reel by ID, bypassing RLS.
 router.get("/:reelId", async (req, res) => {
   const { reelId } = req.params;

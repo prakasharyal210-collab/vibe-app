@@ -325,6 +325,17 @@ export async function checkReelLiked(reelId: string, userId: string): Promise<bo
   }
 }
 
+// Like-only (idempotent): never unlikes, never double-counts. Used by double-tap.
+export async function likeReelOnly(reelId: string, userId: string): Promise<{ liked: boolean; likes: number }> {
+  const res = await fetch(`${REELS_API}/like-only`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, reelId }),
+  });
+  if (!res.ok) throw new Error("likeReelOnly failed");
+  return res.json() as Promise<{ liked: boolean; likes: number }>;
+}
+
 // Returns { liked: boolean, likes: number } — the server-side toggled state.
 export async function toggleReelLike(reelId: string, userId: string): Promise<{ liked: boolean; likes: number }> {
   const res = await fetch(`${REELS_API}/like`, {

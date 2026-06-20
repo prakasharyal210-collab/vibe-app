@@ -44,7 +44,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
-import { checkReelLiked, toggleReelLike, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
+import { checkReelLiked, likeReelOnly, toggleReelLike, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -180,7 +180,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
   // animations
   const progress = useSharedValue(0);
-  const heartScale = useSharedValue(0);
+  const heartBurstOpacity = useSharedValue(0);
+  const heartBurstScale = useSharedValue(0);
   const pauseOpacity = useSharedValue(0);
   const marqueeX = useSharedValue(0);
 
@@ -255,26 +256,32 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   }, [isActive]);
   const marqueeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: marqueeX.value }] }));
 
-  const heartStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: heartScale.value }],
-    opacity: heartScale.value > 0 ? 1 : 0,
+  const heartBurstStyle = useAnimatedStyle(() => ({
+    opacity: heartBurstOpacity.value,
+    transform: [{ scale: heartBurstScale.value }],
   }));
   const pauseStyle = useAnimatedStyle(() => ({ opacity: pauseOpacity.value }));
 
   const doLike = useCallback(() => {
-    // Double-tap always likes (never unlikes) — like Instagram.
-    // If already liked, still play the heart animation but don't re-send the request.
+    // Double-tap always likes (never unlikes) — like Instagram/TikTok.
+    // Burst animation fires even if already liked (visual feedback), but API only called once.
     if (!isLoggedIn) { onRequireLogin(); return; }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    heartScale.value = withSequence(
-      withTiming(1.5, { duration: 150 }),
-      withTiming(0, { duration: 600 })
-    );
-    if (liked) return; // already liked — animate heart but don't double-count
+    // Burst animation — explicit opacity + scale, same pattern as PostCard
+    heartBurstOpacity.value = 0;
+    heartBurstScale.value = 0.3;
+    heartBurstOpacity.value = withTiming(1, { duration: 80 });
+    heartBurstScale.value = withSpring(1, { damping: 7, stiffness: 200 });
+    setTimeout(() => {
+      heartBurstOpacity.value = withTiming(0, { duration: 450 });
+      heartBurstScale.value = withTiming(1.3, { duration: 450 });
+    }, 650);
+    if (liked) return; // already liked — animate but don't re-call API
     setLiked(true);
     setLikes((l) => l + 1);
     if (userId) {
-      toggleReelLike(reel.id, userId)
+      // like-only endpoint: idempotent, never unlikes, never double-counts
+      likeReelOnly(reel.id, userId)
         .then((result) => { setLiked(result.liked); setLikes(result.likes); })
         .catch(() => { setLiked(false); setLikes((l) => l - 1); });
     }
@@ -379,9 +386,9 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       <LinearGradient colors={["rgba(0,0,0,0.55)", "transparent"]} style={[S.topGrad, { height: topPad + 100 }]} />
       <LinearGradient colors={["transparent", "rgba(0,0,0,0.92)"]} style={[S.bottomGrad, { height: bottomPad + 260 }]} />
 
-      {/* Floating heart on double tap */}
-      <Animated.View style={[S.floatingHeart, heartStyle]} pointerEvents="none">
-        <Ionicons name="heart" size={100} color="rgba(255,255,255,0.92)" />
+      {/* Floating heart on double tap — burst animation, same pattern as PostCard */}
+      <Animated.View style={[S.floatingHeart, heartBurstStyle]} pointerEvents="none">
+        <Ionicons name="heart" size={100} color="#EC4899" />
       </Animated.View>
 
       {/* Pause indicator */}
