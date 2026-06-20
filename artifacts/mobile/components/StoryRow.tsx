@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -192,9 +193,13 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
           </>
         ) : (
           <>
+            {/* Blurred background — same image scaled to fill, then diffused */}
             <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+            {/* Sharp foreground — full image, no cropping */}
+            <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="contain" />
             <LinearGradient
-              colors={["rgba(0,0,0,0.65)", "transparent", "transparent", "rgba(0,0,0,0.75)"]}
+              colors={["rgba(0,0,0,0.55)", "transparent", "transparent", "rgba(0,0,0,0.65)"]}
               style={StyleSheet.absoluteFill}
             />
           </>

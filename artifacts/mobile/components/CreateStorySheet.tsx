@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -199,8 +200,12 @@ function MediaEditScreen({
 
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Image source={{ uri }} style={[StyleSheet.absoluteFill, { resizeMode: "cover" }]} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.15)" }]} />
+      {/* Blurred background — fills frame with diffused version of the image */}
+      <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+      {/* Sharp foreground — full image contained, no cropping */}
+      <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.12)" }]} />
 
       {/* Top bar */}
       <View style={[meStyles.topBar, { paddingTop: topPad }]}>
@@ -353,7 +358,11 @@ function ShareOptionsScreen({
               ) : null}
             </LinearGradient>
           ) : pending.mediaUri ? (
-            <Image source={{ uri: pending.mediaUri }} style={[StyleSheet.absoluteFill, { resizeMode: "cover" }]} />
+            <>
+              <Image source={{ uri: pending.mediaUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+              <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+              <Image source={{ uri: pending.mediaUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+            </>
           ) : null}
           {/* Story label overlay */}
           <View style={soStyles.previewOverlay}>
@@ -464,8 +473,10 @@ export function PostedStoryViewer({
         <LinearGradient colors={bgColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       ) : pending.mediaUri ? (
         <>
-          <Image source={{ uri: pending.mediaUri }} style={[StyleSheet.absoluteFill, { resizeMode: "cover" }]} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.18)" }]} />
+          <Image source={{ uri: pending.mediaUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+          <Image source={{ uri: pending.mediaUri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.14)" }]} />
         </>
       ) : null}
 

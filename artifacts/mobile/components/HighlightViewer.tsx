@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -164,14 +165,16 @@ export function HighlightViewer({ highlight, visible, onClose }: Props) {
     <Modal visible={visible} transparent={false} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.container}>
         {story && (
-          <Image
-            source={{ uri: story.image }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-          />
+          <>
+            {/* Blurred background fill */}
+            <Image source={{ uri: story.image }} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
+            {/* Sharp foreground — full image, no cropping */}
+            <Image source={{ uri: story.image }} style={StyleSheet.absoluteFill} contentFit="contain" />
+          </>
         )}
 
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.18)" }]} pointerEvents="none" />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.14)" }]} pointerEvents="none" />
 
         {/* Progress bars */}
         <View style={[styles.progressRow, { top: topInset + 8 }]}>
