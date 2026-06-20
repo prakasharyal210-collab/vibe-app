@@ -168,91 +168,6 @@ function StoryRingAvatar({
   );
 }
 
-// ─── SwipeableRow ─────────────────────────────────────────────────────────────
-
-function SwipeableRow({
-  children, onDelete, onArchive, onMute,
-}: {
-  children: React.ReactNode;
-  onDelete?: () => void;
-  onArchive?: () => void;
-  onMute?: () => void;
-}) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  // Compute reveal distance from the ACTUAL number of visible buttons so the
-  // camera icon in SnapConvoItemRow never overlaps the action area, and so
-  // single-button (Snaps/Delete) rows don't over-reveal.
-  const ACTION_W = 80;
-  const numActions = [onMute, onArchive, onDelete].filter(Boolean).length;
-  const OPEN_X = -(ACTION_W * numActions);
-
-  const panResponder = useRef(
-    PanResponder.create({
-      // Stricter ratio (0.5 vs 0.9): horizontal movement must be 2× the vertical
-      // movement before we claim the gesture — prevents diagonal FlatList scrolls
-      // from accidentally triggering the swipe action.
-      onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 8 && Math.abs(gs.dy) < Math.abs(gs.dx) * 0.5,
-      onPanResponderGrant: () => { translateX.stopAnimation(); },
-      onPanResponderMove: (_, gs) => {
-        const x = Math.max(Math.min(gs.dx, 0), OPEN_X - 20);
-        translateX.setValue(x);
-      },
-      onPanResponderRelease: (_, gs) => {
-        if (gs.dx < OPEN_X / 2) {
-          Animated.spring(translateX, { toValue: OPEN_X, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
-        } else {
-          Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
-        }
-      },
-      // If another responder (e.g. FlatList scroll) steals the gesture mid-swipe,
-      // always snap the row back to closed so it never stays stuck partially open.
-      onPanResponderTerminate: () => {
-        Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
-      },
-    })
-  ).current;
-
-  const close = () =>
-    Animated.spring(translateX, { toValue: 0, useNativeDriver: false, damping: 22, stiffness: 200 }).start();
-
-  return (
-    <View style={{ overflow: "hidden" }}>
-      <View style={[StyleSheet.absoluteFill, { flexDirection: "row", justifyContent: "flex-end" }]}>
-        {onMute && (
-          <TouchableOpacity onPress={() => { close(); onMute(); }}
-            style={[swipeSt.action, { backgroundColor: "#6B7280", width: ACTION_W }]}>
-            <Ionicons name="notifications-off-outline" size={19} color="#fff" />
-            <Text style={swipeSt.actionLabel} numberOfLines={1}>Mute</Text>
-          </TouchableOpacity>
-        )}
-        {onArchive && (
-          <TouchableOpacity onPress={() => { close(); onArchive(); }}
-            style={[swipeSt.action, { backgroundColor: "#374151", width: ACTION_W }]}>
-            <Ionicons name="archive-outline" size={19} color="#fff" />
-            <Text style={swipeSt.actionLabel} numberOfLines={1}>Archive</Text>
-          </TouchableOpacity>
-        )}
-        {onDelete && (
-          <TouchableOpacity onPress={() => { close(); onDelete(); }}
-            style={[swipeSt.action, { backgroundColor: "#EF4444", width: ACTION_W }]}>
-            <Ionicons name="trash-outline" size={19} color="#fff" />
-            <Text style={swipeSt.actionLabel} numberOfLines={1}>Delete</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-      <Animated.View {...panResponder.panHandlers} style={{ transform: [{ translateX }] }}>
-        {children}
-      </Animated.View>
-    </View>
-  );
-}
-
-const swipeSt = StyleSheet.create({
-  action: { alignItems: "center", justifyContent: "center", gap: 4 },
-  actionLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 11, textAlign: "center" },
-});
-
 // ─── ConvoContextMenu ──────────────────────────────────────────────────────────
 
 type ContextMenuAction = {
@@ -462,12 +377,10 @@ const msgSt = StyleSheet.create({
 // ─── MessageConvoItem ─────────────────────────────────────────────────────────
 
 function MessageConvoItem({
-  convo, isPinned, isMuted, isFavorite, hasStory,
-  onLongPress, onDelete, onMute, onArchive,
+  convo, isPinned, isMuted, isFavorite, hasStory, onLongPress,
 }: {
   convo: Conversation; isPinned: boolean; isMuted: boolean; isFavorite: boolean; hasStory: boolean;
-  onCamera?: () => void; onLongPress: () => void;
-  onDelete: () => void; onMute: () => void; onArchive: () => void;
+  onLongPress: () => void;
 }) {
   const colors = useColors();
   const hasUnread = convo.unread_count > 0;
@@ -476,65 +389,63 @@ function MessageConvoItem({
   const nameStyle = isMuted ? msgSt.nameMuted : hasUnread ? msgSt.nameUnread : { color: colors.mutedForeground as string, fontFamily: "Poppins_500Medium" as const, fontSize: 14.5 };
 
   return (
-    <SwipeableRow onDelete={onDelete} onArchive={onArchive} onMute={onMute}>
-      <Pressable
+    <Pressable
+      onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
+      onLongPress={onLongPress}
+      delayLongPress={400}
+      style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.05)" : colors.background }]}
+    >
+      <StoryRingAvatar
+        username={convo.other_user.username}
+        url={convo.other_user.avatar_url}
+        size={50}
+        hasStory={hasStory}
         onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
-        onLongPress={onLongPress}
-        delayLongPress={400}
-        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.05)" : colors.background }]}
-      >
-        <StoryRingAvatar
-          username={convo.other_user.username}
-          url={convo.other_user.avatar_url}
-          size={50}
-          hasStory={hasStory}
-          onPress={() => router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
-        />
-        <View style={msgSt.rowBody}>
-          <View style={msgSt.rowTop}>
-            <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 4 }}>
-              {isPinned && <Text style={{ fontSize: 11 }}>📌</Text>}
-              {isMuted && <Ionicons name="notifications-off" size={12} color="rgba(255,255,255,0.3)" style={msgSt.mutedIcon} />}
-              <Text style={[nameStyle, { flex: 1 }]} numberOfLines={1}>{convo.other_user.username}</Text>
-            </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-              {!hasUnread && (
-                <Ionicons
-                  name="checkmark-done"
-                  size={14}
-                  color="rgba(139,92,246,0.7)"
-                  style={msgSt.tick}
-                />
-              )}
-              <Text style={msgSt.timeText}>{timeAgo(convo.last_message_at)}</Text>
-            </View>
+      />
+      <View style={msgSt.rowBody}>
+        <View style={msgSt.rowTop}>
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 4 }}>
+            {isPinned && <Text style={{ fontSize: 11 }}>📌</Text>}
+            {isMuted && <Ionicons name="notifications-off" size={12} color="rgba(255,255,255,0.3)" style={msgSt.mutedIcon} />}
+            <Text style={[nameStyle, { flex: 1 }]} numberOfLines={1}>{convo.other_user.username}</Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Text
-              style={[hasUnread ? msgSt.previewUnread : msgSt.previewText, { flex: 1 }]}
-              numberOfLines={1}
-            >
-              {isSnapMsg ? "📷 Photo" : previewText(convo.last_message ?? "")}
-            </Text>
-            {hasUnread && (
-              <View style={msgSt.unreadBadge}>
-                <Text style={msgSt.unreadBadgeText}>{convo.unread_count > 99 ? "99+" : convo.unread_count}</Text>
-              </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+            {!hasUnread && (
+              <Ionicons
+                name="checkmark-done"
+                size={14}
+                color="rgba(139,92,246,0.7)"
+                style={msgSt.tick}
+              />
             )}
+            <Text style={msgSt.timeText}>{timeAgo(convo.last_message_at)}</Text>
           </View>
         </View>
-      </Pressable>
-    </SwipeableRow>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <Text
+            style={[hasUnread ? msgSt.previewUnread : msgSt.previewText, { flex: 1 }]}
+            numberOfLines={1}
+          >
+            {isSnapMsg ? "📷 Photo" : previewText(convo.last_message ?? "")}
+          </Text>
+          {hasUnread && (
+            <View style={msgSt.unreadBadge}>
+              <Text style={msgSt.unreadBadgeText}>{convo.unread_count > 99 ? "99+" : convo.unread_count}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
 // ─── SnapConvoItem ────────────────────────────────────────────────────────────
 
 function SnapConvoItemRow({
-  convo, isPinned, hasStory, streak, onView, onCamera, onLongPress, onDelete,
+  convo, isPinned, hasStory, streak, onView, onCamera, onLongPress,
 }: {
   convo: SnapConversation; isPinned: boolean; hasStory: boolean; streak: number;
-  onView: () => void; onCamera: () => void; onLongPress: () => void; onDelete: () => void;
+  onView: () => void; onCamera: () => void; onLongPress: () => void;
 }) {
   const colors = useColors();
   const snap = parseSnap(convo.message_text);
@@ -548,42 +459,40 @@ function SnapConvoItemRow({
   }
 
   return (
-    <SwipeableRow onDelete={onDelete}>
-      <Pressable
-        onPress={() => isUnviewedIncoming
-          ? onView()
+    <Pressable
+      onPress={() => isUnviewedIncoming
+        ? onView()
+        : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
+      onLongPress={onLongPress}
+      delayLongPress={400}
+      style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.05)" : colors.background }]}
+    >
+      <StoryRingAvatar
+        username={convo.other_user.username}
+        url={convo.other_user.avatar_url}
+        size={50}
+        hasStory={hasStory}
+        onPress={() => hasStory
+          ? router.push(`/profile/${convo.other_user.username}` as any)
           : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
-        onLongPress={onLongPress}
-        delayLongPress={400}
-        style={({ pressed }) => [msgSt.row, { borderBottomColor: colors.border, backgroundColor: pressed ? "rgba(255,255,255,0.05)" : colors.background }]}
-      >
-        <StoryRingAvatar
-          username={convo.other_user.username}
-          url={convo.other_user.avatar_url}
-          size={50}
-          hasStory={hasStory}
-          onPress={() => hasStory
-            ? router.push(`/profile/${convo.other_user.username}` as any)
-            : router.push({ pathname: "/chat/[userId]", params: { userId: convo.other_user.id, username: convo.other_user.username } })}
-        />
-        <View style={msgSt.rowBody}>
-          <View style={msgSt.rowTop}>
-            <Text
-              style={[isUnviewedIncoming ? msgSt.nameUnread : { color: colors.mutedForeground as string, fontFamily: "Poppins_500Medium" as const, fontSize: 14.5 }, { flex: 1 }]}
-              numberOfLines={1}
-            >
-              {isPinned ? "📌 " : ""}{convo.other_user.username}
-            </Text>
-            {streak > 0 && (
-              <View style={snapRowSt.streakBadge}>
-                <Text style={snapRowSt.streakText}>🔥 {streak}</Text>
-              </View>
-            )}
-          </View>
-          <StatusBox status={status} time={timeAgo(convo.created_at)} />
+      />
+      <View style={msgSt.rowBody}>
+        <View style={msgSt.rowTop}>
+          <Text
+            style={[isUnviewedIncoming ? msgSt.nameUnread : { color: colors.mutedForeground as string, fontFamily: "Poppins_500Medium" as const, fontSize: 14.5 }, { flex: 1 }]}
+            numberOfLines={1}
+          >
+            {isPinned ? "📌 " : ""}{convo.other_user.username}
+          </Text>
+          {streak > 0 && (
+            <View style={snapRowSt.streakBadge}>
+              <Text style={snapRowSt.streakText}>🔥 {streak}</Text>
+            </View>
+          )}
         </View>
-      </Pressable>
-    </SwipeableRow>
+        <StatusBox status={status} time={timeAgo(convo.created_at)} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -970,17 +879,7 @@ function ChatsTab({
                   isMuted={isMuted}
                   isFavorite={isFav}
                   hasStory={item.hasStory}
-                  onCamera={() => onSnapCamera(c.other_user.username)}
                   onLongPress={() => handleLongPress(c.id, c.other_user.id, c.other_user.username, item.isPinned, isFav)}
-                  onDelete={() => Alert.alert("Delete?", `Delete conversation with @${c.other_user.username}?`, [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Delete", style: "destructive", onPress: () => show("Conversation deleted") },
-                  ])}
-                  onMute={() => {
-                    setMutedIds((p) => { const n = new Set(p); p.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; });
-                    show(mutedIds.has(c.id) ? `@${c.other_user.username} unmuted` : `@${c.other_user.username} muted`);
-                  }}
-                  onArchive={() => show(`@${c.other_user.username} archived`)}
                 />
               );
             } else {
@@ -994,7 +893,6 @@ function ChatsTab({
                   onView={() => onSnapView(c)}
                   onCamera={() => onSnapCamera(c.other_user.username)}
                   onLongPress={() => handleLongPress(c.message_id, c.other_user.id, c.other_user.username, item.isPinned, false)}
-                  onDelete={() => show("Snap deleted")}
                 />
               );
             }
@@ -1176,7 +1074,6 @@ function SnapsTab({
               username: c.other_user.username,
               isPinned: pinnedIds.has(c.message_id),
             })}
-            onDelete={() => show("Snap deleted")}
           />
         )}
         contentContainerStyle={{ paddingBottom: 100 }}
