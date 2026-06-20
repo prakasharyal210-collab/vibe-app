@@ -507,7 +507,7 @@ router.post("/like", async (req, res) => {
       res.json({ liked: !!d.liked, likesCount: d.likes_count ?? 0 });
       return;
     }
-    // Fallback: manual toggle via post_likes table (DB trigger maintains likes_count)
+    // Fallback: manual toggle via post_likes table
     const { data: existing } = await sb
       .from("post_likes")
       .select("id")
@@ -525,8 +525,17 @@ router.post("/like", async (req, res) => {
       );
       liked = true;
     }
-    const { data: post } = await sb.from("posts").select("likes_count").eq("id", postId).single();
-    res.json({ liked, likesCount: post?.likes_count ?? 0 });
+    // Live COUNT — never reads a stale denormalized column. Works regardless of
+    // whether the DB trigger on post_likes has been deployed. We also write the
+    // result back to posts.likes_count so the Supabase realtime channel fires and
+    // any PostCard with usePostRealtime subscribed picks up the new count instantly.
+    const { count } = await sb
+      .from("post_likes")
+      .select("*", { count: "exact", head: true })
+      .eq("post_id", postId);
+    const liveLikesCount = count ?? 0;
+    await sb.from("posts").update({ likes_count: liveLikesCount }).eq("id", postId);
+    res.json({ liked, likesCount: liveLikesCount });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "post like toggle exception");
     res.status(500).json({ error: "Failed" });

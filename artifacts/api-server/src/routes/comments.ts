@@ -313,6 +313,19 @@ router.post("/", async (req, res) => {
 
     const c = inserted as Record<string, any>;
 
+    // Keep posts.comments_count accurate — live COUNT so this works even if the
+    // DB trigger on comments hasn't been deployed yet. The UPDATE also fires the
+    // Supabase realtime event so PostCard.usePostRealtime updates live.
+    void (async () => {
+      try {
+        const { count } = await sb
+          .from("comments")
+          .select("*", { count: "exact", head: true })
+          .eq("post_id", postId);
+        await sb.from("posts").update({ comments_count: count ?? 0 }).eq("id", postId as string);
+      } catch {}
+    })();
+
     // Notify post owner (non-blocking, skip if commenting on own post)
     if (userId !== ownerId) {
       const preview = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");

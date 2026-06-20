@@ -277,14 +277,17 @@ export async function getStreakInfo(userId: string): Promise<StreakInfo> {
 // ─── Likes ────────────────────────────────────────────────────────────────────
 
 export async function checkLiked(postId: string, userId: string): Promise<boolean> {
+  // Reads from post_likes via the API server (service-role key bypasses RLS).
+  // The old direct-to-supabase path read from the "likes" table which is a
+  // different table than what the API server writes to — always returned false.
   try {
-    const { data } = await supabase
-      .from("likes")
-      .select("id")
-      .eq("post_id", postId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    return !!data;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(
+      `${apiUrl}/posts/like-status?postId=${encodeURIComponent(postId)}&userId=${encodeURIComponent(userId)}`
+    );
+    if (!res.ok) return false;
+    const json = await res.json() as { liked?: boolean };
+    return !!json.liked;
   } catch {
     return false;
   }
@@ -295,18 +298,31 @@ export async function toggleLike(
   userId: string,
   nowLiked: boolean,
   creatorId?: string,
-): Promise<void> {
+): Promise<{ liked: boolean; likesCount: number }> {
+  // Routes through the API server (service-role key, bypasses RLS) so the like
+  // is reliably written to post_likes and posts.likes_count is updated atomically.
+  // The old path wrote directly to the "likes" table via anon key — blocked by RLS.
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    if (nowLiked) {
-      await supabase.from("likes").insert({ post_id: postId, user_id: userId });
-    } else {
-      await supabase.from("likes").delete().eq("post_id", postId).eq("user_id", userId);
+    const res = await fetch(`${apiUrl}/posts/like`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId, userId }),
+    });
+    if (res.ok) {
+      const json = await res.json() as { liked: boolean; likesCount: number };
+      if (creatorId && creatorId !== userId) {
+        recordEngagement(userId, creatorId, json.liked ? "like" : "unlike", postId, "post").catch(() => {});
+      }
+      return json;
     }
   } catch {}
-  // Fire-and-forget affinity update — non-blocking (passes postId for category tracking)
+  // Fallback if the API server is unreachable — return best-guess state so the
+  // caller can keep the optimistic value (likesCount: -1 = "don't overwrite").
   if (creatorId && creatorId !== userId) {
     recordEngagement(userId, creatorId, nowLiked ? "like" : "unlike", postId, "post").catch(() => {});
   }
+  return { liked: nowLiked, likesCount: -1 };
 }
 
 // ─── Reel Likes — routed through API server (service-role key bypasses RLS) ──

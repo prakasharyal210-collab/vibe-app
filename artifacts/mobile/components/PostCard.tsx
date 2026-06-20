@@ -167,15 +167,26 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
   const extractHashtags = (text: string) => (text?.match(/#(\w+)/g) ?? []).map((t) => t.slice(1));
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (requireAuth()) return;
     const nowLiked = !liked;
+    // Optimistic update — instant feedback; server result confirms or rolls back.
     setLiked(nowLiked);
-    setLikesCount((c) => (nowLiked ? c + 1 : c - 1));
+    setLikesCount((c) => (nowLiked ? c + 1 : Math.max(0, c - 1)));
     heartScale.value = withSequence(withSpring(1.5, { damping: 5 }), withSpring(1));
     if (nowLiked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (userId) {
-      toggleLike(post.id, userId, nowLiked, post.user_id ?? undefined);
+      try {
+        const result = await toggleLike(post.id, userId, nowLiked, post.user_id ?? undefined);
+        // Confirm with server-accurate state. likesCount === -1 means the API was
+        // unreachable — keep the optimistic value in that case.
+        setLiked(result.liked);
+        if (result.likesCount >= 0) setLikesCount(result.likesCount);
+      } catch {
+        // Rollback on unexpected error
+        setLiked(!nowLiked);
+        setLikesCount((c) => (nowLiked ? Math.max(0, c - 1) : c + 1));
+      }
       if (nowLiked) {
         const hashtags = extractHashtags(post.caption ?? "");
         hashtags.forEach((tag) => trackUserInterest(userId, tag, "like").catch(() => {}));
