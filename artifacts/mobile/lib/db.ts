@@ -1682,11 +1682,11 @@ export async function uploadPostMedia(
   try {
     const info = await getInfoAsync(uri);
     const sizeMB = ((info as any).size ?? 0) / (1024 * 1024);
-    const limitMB = isVideo ? 45 : 30;
+    const limitMB = isVideo ? 100 : 30;
     if (sizeMB > limitMB) {
       throw new Error(
         `${isVideo ? 'Video' : 'Photo'} is too large (${sizeMB.toFixed(0)} MB). ` +
-        `Please choose a ${isVideo ? 'shorter clip (under ~2 min)' : 'smaller photo'}.`
+        `Please choose a ${isVideo ? `shorter clip (under ${limitMB} MB)` : 'smaller photo'}.`
       );
     }
   } catch (sizeErr: any) {

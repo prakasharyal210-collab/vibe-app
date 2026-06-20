@@ -749,18 +749,9 @@ export default function ProfileScreen() {
     setViewerOpen(true);
   };
 
-  if (!isLoggedIn) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
-        <GuestProfile />
-        <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
-      </View>
-    );
-  }
-
-  const emailUsername = session?.user?.email?.split("@")[0] ?? "your_vibe";
-  const displayUsername = profile.username === "your_vibe" ? emailUsername : profile.username;
-
+  // ── Derived values — declared before the early return so that useCallback
+  //    (a hook) is always called regardless of login state. React requires hooks
+  //    to be called the same number of times on every render.
   const reelsOnly = myPosts.filter((p) => p.isReel);
 
   const gridData: GridItem[] =
@@ -862,6 +853,18 @@ export default function ProfileScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [gridData, session?.user?.id]
   );
+
+  if (!isLoggedIn) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
+        <GuestProfile />
+        <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
+      </View>
+    );
+  }
+
+  const emailUsername = session?.user?.email?.split("@")[0] ?? "your_vibe";
+  const displayUsername = profile.username === "your_vibe" ? emailUsername : profile.username;
 
   const ListHeader = (
     <View>

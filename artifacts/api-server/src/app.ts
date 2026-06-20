@@ -26,8 +26,8 @@ app.use(
   }),
 );
 app.use(cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "150mb" }));
+app.use(express.urlencoded({ extended: true, limit: "150mb" }));
 
 // Response-time header — intercepts res.end() so the header is set before flush
 app.use((_req, res, next) => {
