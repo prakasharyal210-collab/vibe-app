@@ -206,33 +206,19 @@ export interface StreakInfo {
 }
 
 export async function claimDailyReward(userId: string): Promise<DailyRewardResult> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    const { data, error } = await supabase.rpc("claim_daily_reward", { p_user_id: userId });
-    if (!error && data) return data as DailyRewardResult;
-  } catch {}
-  try {
-    const { data: rows } = await supabase
-      .from("daily_rewards")
-      .select("claimed_at")
-      .eq("user_id", userId)
-      .order("claimed_at", { ascending: false })
-      .limit(30);
-    const today = new Date();
-    const alreadyClaimed = rows && rows.length > 0 &&
-      new Date(rows[0].claimed_at).toDateString() === today.toDateString();
-    if (alreadyClaimed) {
-      const streak = _calcStreak(rows ?? []);
-      return { claimed: false, coins_awarded: 0, new_balance: 0, message: "Already claimed today!", streak };
+    const res = await fetch(`${apiUrl}/rewards/claim-daily`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data) return json.data as DailyRewardResult;
     }
-    await supabase.from("daily_rewards").insert({ user_id: userId, coins_awarded: 50 });
-    await supabase.from("wallet").upsert(
-      { user_id: userId, coins: 50 },
-      { onConflict: "user_id" },
-    );
-    const streak = _calcStreak([{ claimed_at: today.toISOString() }, ...(rows ?? [])]);
-    return { claimed: true, coins_awarded: 50, new_balance: 50, message: "🎉 +50 coins claimed!", streak };
   } catch {}
-  return { claimed: true, coins_awarded: 50, new_balance: 0, message: "🎉 +50 coins!", streak: 1 };
+  return { claimed: false, coins_awarded: 0, new_balance: 0, message: "Could not reach server", streak: 0 };
 }
 
 function _calcStreak(rows: { claimed_at: string }[]): number {
@@ -1212,20 +1198,15 @@ export function subscribeToNotifications(
 // ─── Supabase RPC Functions ────────────────────────────────────────────────────
 
 export async function getPersonalizedFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    const { data, error } = await supabase.rpc('get_personalized_feed', {
-      p_user_id: userId,
-      p_limit: limit,
-      p_offset: offset,
-    });
-    if (!error && data && data.length > 0) return data as Post[];
+    const res = await fetch(`${apiUrl}/feed/personalized?userId=${encodeURIComponent(userId)}&limit=${limit}&offset=${offset}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.data) && json.data.length > 0) return json.data as Post[];
+    }
   } catch {}
-  const { data: fallback } = await supabase
-    .from('posts')
-    .select('*, profiles!user_id(*)')
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-  return (fallback as Post[]) ?? [];
+  return [];
 }
 
 export async function trackUserInterest(
@@ -1233,21 +1214,23 @@ export async function trackUserInterest(
   hashtag: string,
   interactionType: 'like' | 'comment' | 'share' | 'view'
 ): Promise<void> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    await supabase.rpc('track_user_interest', {
-      p_user_id: userId,
-      p_hashtag: hashtag,
-      p_interaction_type: interactionType,
+    await fetch(`${apiUrl}/analytics/track-interest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, hashtag, interactionType }),
     });
   } catch {}
 }
 
 export async function updateVibeScore(userId: string, points: number, reason: string): Promise<void> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    await supabase.rpc('update_vibe_score', {
-      p_user_id: userId,
-      p_points: points,
-      p_reason: reason,
+    await fetch(`${apiUrl}/analytics/vibe-score`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, points, reason }),
     });
   } catch {}
 }
@@ -1261,24 +1244,37 @@ export interface Achievement {
 }
 
 export async function checkAchievements(userId: string): Promise<Achievement[]> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    const { data, error } = await supabase.rpc('check_achievements', { p_user_id: userId });
-    if (!error && Array.isArray(data) && data.length > 0) return data as Achievement[];
+    const res = await fetch(`${apiUrl}/rewards/achievements?userId=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.achievements)) return json.achievements as Achievement[];
+    }
   } catch {}
   return [];
 }
 
 export async function detectSpam(userId: string): Promise<boolean> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    const { data, error } = await supabase.rpc('detect_spam', { p_user_id: userId });
-    if (!error) return !!data;
+    const res = await fetch(`${apiUrl}/analytics/spam-check?userId=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      return !!json.isSpam;
+    }
   } catch {}
   return false;
 }
 
 export async function updateCreatorAnalytics(userId: string): Promise<void> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    await supabase.rpc('update_creator_analytics', { p_user_id: userId });
+    await fetch(`${apiUrl}/analytics/creator`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
   } catch {}
 }
 
@@ -1307,18 +1303,24 @@ export async function fetchLeaderboard(period = 'weekly'): Promise<LeaderboardEn
 // ─── Onboarding & Feed Tab RPCs ───────────────────────────────────────────────
 
 export async function needsOnboarding(userId: string): Promise<boolean> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    const { data, error } = await supabase.rpc('needs_onboarding', { p_user_id: userId });
-    if (!error) return !!data;
+    const res = await fetch(`${apiUrl}/users/needs-onboarding?userId=${encodeURIComponent(userId)}`);
+    if (res.ok) {
+      const json = await res.json();
+      return !!json.needsOnboarding;
+    }
   } catch {}
   return false;
 }
 
 export async function saveOnboardingInterests(userId: string, interests: string[]): Promise<void> {
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    await supabase.rpc('save_onboarding_interests', {
-      p_user_id: userId,
-      p_interests: interests,
+    await fetch(`${apiUrl}/users/onboarding-interests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, interests }),
     });
   } catch {}
 }
@@ -2444,21 +2446,17 @@ export async function findUsersByEmails(
   myUserId: string,
 ): Promise<SocialMatchUser[]> {
   if (!emails.length) return [];
+  const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
   try {
-    const { data, error } = await supabase.rpc("find_users_by_contacts", {
-      p_emails: emails.slice(0, 100),
-      p_user_id: myUserId,
+    const res = await fetch(`${apiUrl}/users/find-by-contacts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emails, userId: myUserId }),
     });
-    if (!error && data?.length) return data as SocialMatchUser[];
-  } catch {}
-  try {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username, avatar_url, bio, followers_count, is_verified")
-      .in("email", emails.slice(0, 50))
-      .neq("id", myUserId)
-      .limit(30);
-    if (data?.length) return data as SocialMatchUser[];
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.users)) return json.users as SocialMatchUser[];
+    }
   } catch {}
   return [];
 }

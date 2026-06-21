@@ -26,6 +26,10 @@ import vibeRouter from "./vibe";
 import vibeRequestsRouter from "./vibe-requests";
 import vibeRoomsRouter from "./vibe-rooms";
 import snapsRouter from "./snaps";
+import rewardsRouter from "./rewards";
+import analyticsRouter from "./analytics";
+import usersOnboardingRouter from "./users/onboarding";
+import usersContactsRouter from "./users/contacts";
 
 const router: IRouter = Router();
 
@@ -47,6 +51,8 @@ router.use("/users/notifications", usersNotificationsRouter);
 router.use("/engage", engageRouter);
 router.use("/messages", messagesRouter);
 router.use("/users", usersSetupRouter);
+router.use("/users", usersOnboardingRouter);
+router.use("/users", usersContactsRouter);
 router.use("/moderation", moderationRouter);
 router.use("/stories", storiesRouter);
 router.use("/comments", commentsRouter);
@@ -56,5 +62,7 @@ router.use("/vibe", vibeRouter);
 router.use("/vibe-requests", vibeRequestsRouter);
 router.use("/vibe-rooms", vibeRoomsRouter);
 router.use("/snaps", snapsRouter);
+router.use("/rewards", rewardsRouter);
+router.use("/analytics", analyticsRouter);
 
 export default router;

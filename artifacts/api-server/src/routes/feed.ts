@@ -452,6 +452,43 @@ router.get("/vibes", async (req, res) => {
   res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
 });
 
+// ─── GET /api/feed/personalized ──────────────────────────────────────────────
+// ?userId=...&limit=20&offset=0
+// Calls get_personalized_feed RPC with service-role key (bypasses RLS).
+router.get("/personalized", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
+  const offset = parseInt((req.query["offset"] as string) ?? "0", 10);
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const supabase = makeSupabase();
+  try {
+    const { data, error } = await supabase.rpc("get_personalized_feed", {
+      p_user_id: userId,
+      p_limit: limit,
+      p_offset: offset,
+    });
+    if (!error && Array.isArray(data) && data.length > 0) {
+      res.json({ data, source: "rpc" });
+      return;
+    }
+    if (error) req.log.warn({ error: error.message }, "get_personalized_feed RPC warn");
+    const { data: fallback } = await supabase
+      .from("posts")
+      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+      .or("visibility.eq.public,visibility.is.null")
+      .or("is_archived.eq.false,is_archived.is.null")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    res.json({ data: fallback ?? [], source: "fresh" });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "personalized feed error");
+    res.json({ data: [], source: "error" });
+  }
+});
+
 // ─── POST /api/feed/seen ──────────────────────────────────────────────────────
 // Body: { userId, postId }
 // Fire-and-forget seen tracking so the anon-key RPC never blocks the UI thread.
