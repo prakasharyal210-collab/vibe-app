@@ -31,6 +31,7 @@ import { useColors } from "@/hooks/useColors";
 import { Track, formatDuration } from "@/lib/music";
 import { supabase } from "@/lib/supabase";
 import { searchProfiles } from "@/lib/db";
+import { POST_CATEGORIES } from "@/lib/categories";
 
 const { width: W } = Dimensions.get("window");
 
@@ -126,6 +127,7 @@ export interface PostData {
   taggedUsers?: string[];
   commentsEnabled?: boolean;
   downloadsEnabled?: boolean;
+  category?: string;
 }
 
 interface TaggedUser { id: string; username: string; avatar_url?: string | null; full_name?: string | null; }
@@ -270,6 +272,9 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
   const [aiHashtags, setAiHashtags] = useState<string[]>([]);
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
 
+  const [category, setCategory] = useState<string | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+
   const [location, setLocation] = useState("");
   const [locationLoading, setLocationLoading] = useState(false);
   const [taggedUsers, setTaggedUsers] = useState<TaggedUser[]>([]);
@@ -405,6 +410,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
         taggedUsers: taggedUsers.map((u) => u.id),
         commentsEnabled: allowComments,
         downloadsEnabled: allowDownloads,
+        category: category ?? undefined,
       });
     } finally {
       setPosting(false);
@@ -794,6 +800,27 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
               </TouchableOpacity>
 
+              {/* Category — photo captures only */}
+              {isPhoto && (
+                <TouchableOpacity
+                  style={[styles.postOptionRow, { borderBottomColor: colors.border }]}
+                  onPress={() => setShowCategoryModal(true)}
+                >
+                  <Text style={{ fontSize: 18, lineHeight: 24 }}>
+                    {category ? (POST_CATEGORIES.find((c) => c.id === category)?.emoji ?? "🏷️") : "🏷️"}
+                  </Text>
+                  <Text style={[styles.postOptionText, { color: category ? "#A78BFA" : colors.foreground }]}>
+                    {category ? (POST_CATEGORIES.find((c) => c.id === category)?.label ?? category) : "Add Category"}
+                  </Text>
+                  {category
+                    ? <TouchableOpacity onPress={() => setCategory(null)} hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}>
+                        <Icon name="close-circle" size={18} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                    : <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
+                  }
+                </TouchableOpacity>
+              )}
+
               {/* Allow Comments */}
               <View style={[styles.postOptionRow, { borderBottomColor: colors.border }]}>
                 <Icon name="chatbubbles-outline" size={18} color="#10B981" />
@@ -830,6 +857,58 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
       {/* ── PICKERS / MODALS ── */}
       <MusicPickerSheet visible={showMusicPicker} onClose={() => setShowMusicPicker(false)} onSelect={(t) => setMusic(t)} selectedTrack={music} />
       <AICaptionSheet visible={showAISheet} loading={aiLoading} captions={aiCaptions} hashtags={aiHashtags} selectedHashtags={selectedHashtags} onSelectCaption={handleSelectCaption} onToggleHashtag={(tag) => setSelectedHashtags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])} onClose={() => setShowAISheet(false)} />
+
+      {/* ── CATEGORY PICKER MODAL (photo captures only) ── */}
+      <Modal visible={showCategoryModal} transparent animationType="slide" onRequestClose={() => setShowCategoryModal(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" }}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowCategoryModal(false)} />
+          <View style={{ backgroundColor: "#0F0F1A", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 36 }}>
+            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.18)", alignSelf: "center", marginBottom: 16 }} />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 }}>Choose a Category</Text>
+              <TouchableOpacity onPress={() => setShowCategoryModal(false)} style={{ paddingHorizontal: 14, paddingVertical: 7, backgroundColor: "rgba(124,58,237,0.28)", borderRadius: 14 }}>
+                <Text style={{ color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {category && (
+              <TouchableOpacity
+                onPress={() => { setCategory(null); setShowCategoryModal(false); }}
+                style={{ alignSelf: "flex-start", marginBottom: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12 }}
+              >
+                <Text style={{ color: "#FCA5A5", fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>Clear category</Text>
+              </TouchableOpacity>
+            )}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 4, paddingBottom: 8 }}>
+              {POST_CATEGORIES.map((cat) => {
+                const isActive = category === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => { setCategory(cat.id); setShowCategoryModal(false); }}
+                    activeOpacity={0.75}
+                    style={{
+                      width: "30%",
+                      margin: "1.65%" as any,
+                      alignItems: "center",
+                      paddingVertical: 14,
+                      borderRadius: 16,
+                      backgroundColor: isActive ? "rgba(124,58,237,0.25)" : "#16162A",
+                      borderWidth: 1,
+                      borderColor: isActive ? "#7C3AED" : "rgba(255,255,255,0.06)",
+                      gap: 4,
+                    }}
+                  >
+                    <Text style={{ fontSize: 24 }}>{cat.emoji}</Text>
+                    <Text style={{ color: isActive ? "#A78BFA" : "rgba(255,255,255,0.5)", fontFamily: "Poppins_500Medium", fontSize: 11, textAlign: "center" }} numberOfLines={1}>
+                      {cat.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── TAG PEOPLE MODAL ── */}
       <Modal

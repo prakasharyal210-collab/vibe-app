@@ -1374,6 +1374,7 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                       commentsEnabled: data.commentsEnabled,
                       downloadsEnabled: data.downloadsEnabled,
                       visibility,
+                      category: (data as any).category,
                     });
                   } else {
                     await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility);

@@ -29,6 +29,7 @@ import { CAMERA_FILTERS, type CameraFilter } from "@/components/camera/CameraFil
 import { searchVibeUsers, type SocialMatchUser, uploadPostMedia } from "@/lib/db";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import type { Track } from "@/lib/music";
+import { POST_CATEGORIES, type CategoryId } from "@/lib/categories";
 
 const { width: W } = Dimensions.get("window");
 const PREVIEW_W = W - 32;
@@ -98,26 +99,6 @@ async function cropToRatio(uri: string, imgW: number, imgH: number, ratio: CropR
   const result = await manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.92, format: SaveFormat.JPEG });
   return result.uri;
 }
-
-// ── Post categories ───────────────────────────────────────────────────────────
-const POST_CATEGORIES = [
-  { id: "music",       emoji: "🎵", label: "Music" },
-  { id: "dance",       emoji: "💃", label: "Dance" },
-  { id: "comedy",      emoji: "😂", label: "Comedy" },
-  { id: "travel",      emoji: "✈️", label: "Travel" },
-  { id: "food",        emoji: "🍕", label: "Food" },
-  { id: "fitness",     emoji: "💪", label: "Fitness" },
-  { id: "gaming",      emoji: "🎮", label: "Gaming" },
-  { id: "photography", emoji: "📸", label: "Photo" },
-  { id: "art",         emoji: "🎨", label: "Art" },
-  { id: "fashion",     emoji: "💄", label: "Fashion" },
-  { id: "pets",        emoji: "🐾", label: "Pets" },
-  { id: "sports",      emoji: "⚽", label: "Sports" },
-  { id: "tech",        emoji: "💻", label: "Tech" },
-  { id: "education",   emoji: "📚", label: "Education" },
-  { id: "nature",      emoji: "🌿", label: "Nature" },
-] as const;
-type CategoryId = typeof POST_CATEGORIES[number]["id"];
 
 // ── Module-scope sub-components ───────────────────────────────────────────────
 // Must stay at module scope so React doesn't remount them on every render,
