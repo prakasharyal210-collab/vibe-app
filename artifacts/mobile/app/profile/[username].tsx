@@ -11,6 +11,7 @@ import {
   Linking,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -88,7 +89,6 @@ async function getVibeCompatibility(userId: string, targetId: string): Promise<n
 
 const { width: W } = Dimensions.get("window");
 const GRID_SIZE = (W - 3) / 3;
-const COVER_H = 210;
 const AVATAR_SIZE = 88;
 const RING_SIZE = AVATAR_SIZE + 12;
 const VIBE_RING_SIZE = RING_SIZE + 28;
@@ -525,19 +525,11 @@ export default function UserProfileScreen() {
   const [vibeScore, setVibeScore] = useState<number | null>(null);
 
   // Animations
-  const scrollY = useRef(new Animated.Value(0)).current;
   const tabAnim = useRef(new Animated.Value(0)).current;
 
   const u = username ?? "";
   const topPad = Platform.OS === "web" ? 16 : insets.top;
   const floatingBarBottom = Platform.OS === "web" ? 84 : Math.max(insets.bottom, 0) + 10 + 68 + 8;
-
-  // Parallax: cover translates up at 0.5x scroll speed (native driver = 60fps)
-  const coverParallax = scrollY.interpolate({
-    inputRange: [0, COVER_H],
-    outputRange: [0, -COVER_H * 0.5],
-    extrapolate: "clamp",
-  });
 
   useEffect(() => {
     if (!u) return;
@@ -687,31 +679,11 @@ export default function UserProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Scrollable body */}
-      <Animated.ScrollView
+      <ScrollView
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 120, paddingTop: topPad + 50 }}
       >
-        {/* 1 ── Parallax cover */}
-        <View style={styles.coverClip}>
-          <Animated.View style={{ transform: [{ translateY: coverParallax }] }}>
-            <Image
-              source={{ uri: `https://picsum.photos/seed/${u}cover/800/500` }}
-              style={styles.coverPhoto}
-              resizeMode="cover"
-            />
-            <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.5)"]}
-              style={StyleSheet.absoluteFill}
-            />
-          </Animated.View>
-        </View>
-
-        {/* 2-4 ── Profile card */}
+        {/* Profile card */}
         <View style={[styles.profileCard, { backgroundColor: colors.background }]}>
           {isBlocked && (
             <View style={styles.blockedBanner}>
@@ -823,13 +795,13 @@ export default function UserProfileScreen() {
             </View>
           </>
         )}
-      </Animated.ScrollView>
+      </ScrollView>
 
-      {/* Top bar — absolute, floats over cover */}
+      {/* Top bar — absolute, sits over the dark background */}
       <View style={[styles.topBarAbsolute, { paddingTop: topPad }]} pointerEvents="box-none">
         <View style={styles.topBarInner}>
           <TouchableOpacity onPress={() => router.back()} style={styles.topBarBtn}>
-            <Ionicons name="arrow-back" size={22} color="#fff" />
+            <Ionicons name="chevron-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.topBarTitle} numberOfLines={1}>@{u}</Text>
           <TouchableOpacity onPress={() => setShowMenu(true)} style={styles.topBarBtn}>
@@ -943,10 +915,6 @@ const vpStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
-  // Cover
-  coverClip: { height: COVER_H, overflow: "hidden" },
-  coverPhoto: { width: "100%", height: COVER_H + COVER_H * 0.5 },
-
   // Top bar (absolute)
   topBarAbsolute: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 20 },
   topBarInner: {
@@ -955,9 +923,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 8,
     paddingBottom: 8,
-    backgroundColor: "rgba(0,0,0,0.28)",
   },
-  topBarBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, backgroundColor: "rgba(0,0,0,0.32)" },
+  topBarBtn: { width: 38, height: 38, alignItems: "center", justifyContent: "center" },
   topBarTitle: { flex: 1, textAlign: "center", fontFamily: "Poppins_600SemiBold", fontSize: 15, color: "#fff" },
 
   // Static top bar (for error screens)
