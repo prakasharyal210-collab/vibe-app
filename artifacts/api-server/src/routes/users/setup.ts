@@ -119,6 +119,7 @@ router.patch("/profile", async (req, res) => {
     "vibe_open_to",
     "vibe_languages",
     "relationship_goals",
+    "vibe_profile_photo_url",
   ]);
   const safe = Object.fromEntries(
     Object.entries(patch).filter(([k]) => ALLOWED_PROFILE_KEYS.has(k))
@@ -213,7 +214,7 @@ router.get("/vibe-profile/:userId", async (req, res) => {
     .from("profiles")
     .select([
       "show_in_matching","find_gundruk_mode","vibe_request_privacy","vibe_goal_filter",
-      "vibe_bio","vibe_photos","vibe_filter_min_photos","vibe_filter_requires_bio",
+      "vibe_bio","vibe_photos","vibe_profile_photo_url","vibe_filter_min_photos","vibe_filter_requires_bio",
       "vibe_zodiac","vibe_education","vibe_family_plans","vibe_communication",
       "vibe_love_style","vibe_pets","vibe_drinking","vibe_smoking","vibe_cannabis",
       "vibe_workout","vibe_social_media","vibe_open_to","vibe_languages",

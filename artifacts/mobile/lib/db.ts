@@ -695,6 +695,7 @@ export interface GundrukProfile {
   vibe_goal_filter: string[] | null;          // NULL = open to all goals (default)
   vibe_bio: string | null;                    // shown only on match card, separate from main bio
   vibe_photos: string[] | null;               // URL refs from existing storage
+  vibe_profile_photo_url: string | null;      // dedicated primary Find Vibe card photo (replaces gallery[0] as hero)
   vibe_filter_min_photos: number;             // deck filter: only show candidates with ≥ N photos
   vibe_filter_requires_bio: boolean;          // deck filter: exclude candidates with no bio
   vibe_zodiac: string | null;
@@ -715,7 +716,7 @@ export interface GundrukProfile {
 
 const GUNDRUK_PROFILE_DEFAULTS: GundrukProfile = {
   show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone",
-  vibe_goal_filter: null, vibe_bio: null, vibe_photos: null,
+  vibe_goal_filter: null, vibe_bio: null, vibe_photos: null, vibe_profile_photo_url: null,
   vibe_filter_min_photos: 0, vibe_filter_requires_bio: false,
   vibe_zodiac: null, vibe_education: null, vibe_family_plans: null,
   vibe_communication: null, vibe_love_style: null, vibe_pets: null,
@@ -740,6 +741,7 @@ export async function getGundrukProfile(userId: string): Promise<GundrukProfile>
       vibe_goal_filter:          arr(r.vibe_goal_filter),
       vibe_bio:                  r.vibe_bio                  ?? null,
       vibe_photos:               arr(r.vibe_photos),
+      vibe_profile_photo_url:    r.vibe_profile_photo_url    ?? null,
       vibe_filter_min_photos:    r.vibe_filter_min_photos    ?? 0,
       vibe_filter_requires_bio:  r.vibe_filter_requires_bio  ?? false,
       vibe_zodiac:               r.vibe_zodiac               ?? null,
@@ -2597,8 +2599,8 @@ export async function getNearbyUsers(
           id: row.id ?? row.user_id,
           name: row.full_name ?? row.username ?? "Vibe User",
           age: row.age ?? 24,
-          // Use first vibe_photo as primary card image if available, fall back to avatar
-          image: (vibePhotos?.[0]) ?? row.avatar_url ?? `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
+          // vibe_profile_photo_url takes priority; fall back to first gallery photo, then avatar
+          image: row.vibe_profile_photo_url ?? (vibePhotos?.[0]) ?? row.avatar_url ?? `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
           bio: row.bio ?? "",
           vibe_bio: row.vibe_bio ?? null,
           vibe_photos: vibePhotos,

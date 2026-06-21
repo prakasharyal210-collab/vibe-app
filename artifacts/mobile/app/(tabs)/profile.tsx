@@ -415,6 +415,23 @@ function PhotoViewer({
     } catch {}
   };
 
+  const pvHandleSetVibePhoto = async () => {
+    setShowSheet(false);
+    const imageUrl = photo?.image_url;
+    if (!imageUrl || !userId) return;
+    try {
+      const res = await fetch(`${PV_API_BASE}/users/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, vibe_profile_photo_url: imageUrl }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      Alert.alert("Vibe Profile Photo Set ✓", "This photo is now your primary Find Vibe card photo.");
+    } catch {
+      Alert.alert("Error", "Could not update your Vibe profile photo. Try again.");
+    }
+  };
+
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={[pvStyles.container]}>
@@ -550,6 +567,13 @@ function PhotoViewer({
                     label={allowComments ? "Turn off commenting" : "Turn on commenting"}
                     onPress={pvHandleAllowCommentsToggle}
                   />
+                  {!photo?.isReel && (
+                    <PVSheetRow
+                      icon="person-circle-outline"
+                      label="Set as Vibe Profile Photo"
+                      onPress={pvHandleSetVibePhoto}
+                    />
+                  )}
                   {!photo?.isReel && (
                     <PVSheetRow
                       icon="create-outline"

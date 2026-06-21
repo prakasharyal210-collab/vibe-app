@@ -278,7 +278,7 @@ router.get("/deck", async (req, res) => {
       const ids = profiles.map((p: any) => p.id as string);
       const [distRes, richRes] = await Promise.all([
         sb.from("user_settings").select("user_id, vibe_show_distance").in("user_id", ids),
-        sb.from("profiles").select("id, vibe_bio, vibe_photos, relationship_goals").in("id", ids),
+        sb.from("profiles").select("id, vibe_bio, vibe_photos, vibe_profile_photo_url, relationship_goals").in("id", ids),
       ]);
 
       const hideSet = new Set<string>(
@@ -293,7 +293,7 @@ router.get("/deck", async (req, res) => {
       profiles = profiles.map((p: any) => {
         const rich = richMap.get(p.id as string);
         const enriched = rich
-          ? { ...p, vibe_bio: rich.vibe_bio ?? null, vibe_photos: rich.vibe_photos ?? null, relationship_goals: rich.relationship_goals ?? null }
+          ? { ...p, vibe_bio: rich.vibe_bio ?? null, vibe_photos: rich.vibe_photos ?? null, vibe_profile_photo_url: rich.vibe_profile_photo_url ?? null, relationship_goals: rich.relationship_goals ?? null }
           : p;
         if (hideSet.has((enriched as any).id as string)) {
           const { distance_km: _dropped, ...rest } = enriched as any;
@@ -550,7 +550,7 @@ router.get("/by-intention", async (req, res) => {
   { const r = await sb
       .from("profiles")
       .select(
-        "id, username, avatar_url, vibe_photos, bio, age, gender, relationship_goal, relationship_goals, interests, show_in_matching, last_active"
+        "id, username, avatar_url, vibe_photos, vibe_profile_photo_url, bio, age, gender, relationship_goal, relationship_goals, interests, show_in_matching, last_active"
       )
       .or(orFilter)
       .eq("show_in_matching", true)
@@ -570,7 +570,7 @@ router.get("/by-intention", async (req, res) => {
     const r2 = await sb
       .from("profiles")
       .select(
-        "id, username, avatar_url, vibe_photos, bio, age, gender, relationship_goal, interests, show_in_matching, last_active"
+        "id, username, avatar_url, vibe_photos, vibe_profile_photo_url, bio, age, gender, relationship_goal, interests, show_in_matching, last_active"
       )
       .eq("relationship_goal", goal)
       .eq("show_in_matching", true)
@@ -599,9 +599,9 @@ router.get("/by-intention", async (req, res) => {
     username: p.username ?? null,
     name: p.full_name ?? p.username ?? "Vibe User",
     age: p.age ?? null,
-    image: (Array.isArray(p.vibe_photos) && (p.vibe_photos as string[]).length > 0
+    image: (p.vibe_profile_photo_url ?? (Array.isArray(p.vibe_photos) && (p.vibe_photos as string[]).length > 0
       ? (p.vibe_photos as string[])[0]
-      : (p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`)),
+      : (p.avatar_url ?? `https://picsum.photos/seed/${p.id}/400/600`))),
     bio: p.bio ?? "",
     gender: p.gender ?? null,
     goal: p.relationship_goal ?? null,

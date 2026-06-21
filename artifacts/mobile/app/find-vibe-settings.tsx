@@ -660,8 +660,9 @@ export default function FindVibeSettings() {
   const [filterRequiresBio,    setFilterRequiresBio]    = useState(false);
 
   // Vibe profile
-  const [vibeBio,    setVibeBio]    = useState("");
-  const [vibePhotos, setVibePhotos] = useState<string[] | null>(null);
+  const [vibeBio,          setVibeBio]          = useState("");
+  const [vibePhotos,       setVibePhotos]       = useState<string[] | null>(null);
+  const [vibeProfilePhoto, setVibeProfilePhoto] = useState<string | null>(null);
 
   // About Me
   const [vibeZodiac,        setVibeZodiac]        = useState<string | null>(null);
@@ -714,6 +715,7 @@ export default function FindVibeSettings() {
           vibe_goal_filter:         vibeGoalFilter,
           vibe_bio:                 vibeBio || null,
           vibe_photos:              vibePhotos,
+          vibe_profile_photo_url:   vibeProfilePhoto,
           vibe_filter_min_photos:   filterMinPhotos,
           vibe_filter_requires_bio: filterRequiresBio,
           vibe_zodiac:              vibeZodiac,
@@ -747,7 +749,7 @@ export default function FindVibeSettings() {
     }
   }, [
     userId, saving, showInMatching, findGundrukMode, vibeRequestPrivacy, vibeGoalFilter,
-    vibeBio, vibePhotos, filterMinPhotos, filterRequiresBio, vibeZodiac, vibeEducation,
+    vibeBio, vibePhotos, vibeProfilePhoto, filterMinPhotos, filterRequiresBio, vibeZodiac, vibeEducation,
     vibeFamilyPlans, vibeCommunication, vibeLoveStyle, vibePets, vibeDrinking, vibeSmoking,
     vibeCannabis, vibeWorkout, vibeSocialMedia, vibeOpenTo, vibeLanguages, vibeMyGoals,
     vibeAgeMin, vibeAgeMax, vibeMaxDistanceKm, vibeShowDistance, vibeExcludeConns,
@@ -773,6 +775,7 @@ export default function FindVibeSettings() {
       setFilterRequiresBio(p.vibe_filter_requires_bio);
       setVibeBio(p.vibe_bio ?? "");
       setVibePhotos(p.vibe_photos);
+      setVibeProfilePhoto(p.vibe_profile_photo_url ?? null);
       setVibeZodiac(p.vibe_zodiac);
       setVibeEducation(p.vibe_education);
       setVibeFamilyPlans(p.vibe_family_plans);
@@ -854,6 +857,27 @@ export default function FindVibeSettings() {
         <View style={fvsStyles.section}>
           <SecLabel label="Vibe Profile" />
           <Card>
+            {vibeProfilePhoto ? (
+              <Row
+                icon="person-circle-outline"
+                iconBg="#7C3AED"
+                label="Primary Vibe Photo"
+                sub="Shown first on your match card · Set from your posts"
+                rightEl={
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Image source={{ uri: vibeProfilePhoto }} style={{ width: 38, height: 38, borderRadius: 8, borderWidth: 1.5, borderColor: "#7C3AED" }} />
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => {
+                        setVibeProfilePhoto(null);
+                        saveProfile({ vibe_profile_photo_url: null });
+                      }}>
+                      <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.35)" />
+                    </TouchableOpacity>
+                  </View>
+                }
+              />
+            ) : null}
             <Row
               icon="images-outline"
               iconBg="#7C3AED"
