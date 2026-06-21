@@ -423,6 +423,9 @@ export default function PostDetailScreen() {
   const [previewTimeMs, setPreviewTimeMs] = useState(0);
   const [previewThumb, setPreviewThumb] = useState<string | null>(null);
   const [savingPreview, setSavingPreview] = useState(false);
+  const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [hideShareCount, setHideShareCount] = useState(false);
   const [authorStats, setAuthorStats] = useState<{
     followers_count: number;
     posts_count: number;
@@ -483,7 +486,9 @@ export default function PostDetailScreen() {
             setLikesCount(data.likes_count ?? 0);
             setIsArchived((data as any).is_archived ?? false);
             setHideLikeCount((data as any).hide_like_count ?? false);
+            setHideShareCount((data as any).hide_share_count ?? false);
             setAllowComments((data as any).allow_comments ?? true);
+            setIsPinned((data as any).is_pinned ?? false);
           }
         }
       } catch {}
@@ -740,6 +745,51 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleHideShareCountToggle = async () => {
+    if (!post || !session?.user?.id) return;
+    const newHide = !hideShareCount;
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, hide_share_count: newHide }),
+      });
+      if (res.ok) setHideShareCount(newHide);
+      else Alert.alert("Error", "Could not update this post. Please try again.");
+    } catch {
+      Alert.alert("Error", "Could not update this post. Please try again.");
+    }
+  };
+
+  const handlePinToggle = async () => {
+    if (!post || !session?.user?.id) return;
+    const newPinned = !isPinned;
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, is_pinned: newPinned }),
+      });
+      if (res.ok) {
+        setIsPinned(newPinned);
+        Alert.alert(newPinned ? "Post pinned" : "Post unpinned", newPinned ? "It now appears first on your grid." : "Removed from the top of your grid.");
+      } else {
+        Alert.alert("Error", "Could not update this post. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not update this post. Please try again.");
+    }
+  };
+
+  const handleShareToFindVibes = () => {
+    setShowOptionsSheet(false);
+    if (!post) return;
+    const url = buildVibeUrl("post", { username: post.profiles?.username ?? "user", id: post.id });
+    setTimeout(() => {
+      Share.share({ message: `${post.caption ? post.caption + "\n\n" : ""}${url}`, url });
+    }, 320);
+  };
+
   const handleSaveCaption = async () => {
     if (!post || !session?.user?.id || savingCaption) return;
     const trimmed = editCaptionText.trim();
@@ -809,50 +859,7 @@ export default function PostDetailScreen() {
     }
   };
 
-  const handleMoreOptions = () => {
-    const ownPost = !!(post && session?.user?.id && post.user_id === session.user.id);
-    const items: any[] = [];
-    if (ownPost) {
-      items.push(
-        { text: isArchived ? "Unarchive Post" : "Archive Post", onPress: handleArchiveToggle },
-        { text: hideLikeCount ? "Show like count" : "Hide like count", onPress: handleHideLikeCountToggle },
-        { text: allowComments ? "Turn off commenting" : "Turn on commenting", onPress: handleAllowCommentsToggle },
-        {
-          text: "Edit caption",
-          onPress: () => {
-            setEditCaptionText(post?.caption ?? "");
-            setShowEditCaption(true);
-          },
-        },
-        { text: "QR Code", onPress: () => setShowQRCode(true) },
-      );
-      if (isVideoPost && videoSrc) {
-        items.push({
-          text: "Adjust preview",
-          onPress: () => {
-            setPreviewTimeMs(0);
-            setPreviewThumb(null);
-            setShowAdjustPreview(true);
-          },
-        });
-      }
-      items.push({
-        text: "Delete Post",
-        style: "destructive",
-        onPress: () =>
-          Alert.alert(
-            "Delete Post",
-            "This can't be undone.",
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: handleDeletePost },
-            ],
-          ),
-      });
-    }
-    items.push({ text: "Cancel", style: "cancel" });
-    Alert.alert("Post options", undefined, items);
-  };
+  const handleMoreOptions = () => setShowOptionsSheet(true);
 
   // ── Video helpers ────────────────────────────────────────────────────────────
   const showControlsTemporarily = useCallback(() => {
@@ -1012,16 +1019,14 @@ export default function PostDetailScreen() {
           >
             <Ionicons name="share-social-outline" size={22} color={colors.foreground} />
           </TouchableOpacity>
-          {isOwnPost && (
-            <TouchableOpacity
-              onPress={handleMoreOptions}
-              style={[S.navBtn, { marginLeft: 4 }]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              disabled={deleting}
-            >
-              <Ionicons name="ellipsis-vertical" size={20} color={colors.foreground} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            onPress={handleMoreOptions}
+            style={[S.navBtn, { marginLeft: 4 }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            disabled={deleting}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={colors.foreground} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -1497,6 +1502,124 @@ export default function PostDetailScreen() {
       </ScrollView>
 
       {/* ── Sheets ─────────────────────────────────────────────────────────── */}
+
+      {/* ── Instagram-style Options Bottom Sheet ────────────────────────────── */}
+      <Modal
+        visible={showOptionsSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowOptionsSheet(false)}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowOptionsSheet(false)}
+          />
+          <View style={[optS.sheet, { paddingBottom: insets.bottom + 12 }]}>
+            {/* Drag handle */}
+            <View style={optS.handle} />
+
+            {/* Top icon row: Save + QR Code */}
+            <View style={optS.iconRow}>
+              <TouchableOpacity
+                style={optS.iconBox}
+                activeOpacity={0.7}
+                onPress={() => { handleSave(); }}
+              >
+                <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={26} color="#fff" />
+                <Text style={optS.iconLabel}>{saved ? "Saved" : "Save"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={optS.iconBox}
+                activeOpacity={0.7}
+                onPress={() => { setShowOptionsSheet(false); setTimeout(() => setShowQRCode(true), 320); }}
+              >
+                <Ionicons name="qr-code-outline" size={26} color="#fff" />
+                <Text style={optS.iconLabel}>QR Code</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={optS.divider} />
+
+            {/* Share to Find Vibes — visible to everyone */}
+            <SheetRow
+              icon="compass-outline"
+              label="Share to Find Vibes"
+              onPress={handleShareToFindVibes}
+              accent="#A78BFA"
+            />
+
+            {/* Owner-only options */}
+            {isOwnPost && (
+              <>
+                <View style={optS.divider} />
+                <SheetRow
+                  icon="archive-outline"
+                  label={isArchived ? "Unarchive" : "Archive"}
+                  onPress={() => { setShowOptionsSheet(false); setTimeout(handleArchiveToggle, 320); }}
+                />
+                <SheetRow
+                  icon="heart-dislike-outline"
+                  label={hideLikeCount ? "Show like count" : "Hide like count"}
+                  onPress={() => { setShowOptionsSheet(false); setTimeout(handleHideLikeCountToggle, 320); }}
+                />
+                <SheetRow
+                  icon="arrow-redo-circle-outline"
+                  label={hideShareCount ? "Show share count" : "Hide share count"}
+                  onPress={() => { setShowOptionsSheet(false); setTimeout(handleHideShareCountToggle, 320); }}
+                />
+                <SheetRow
+                  icon="chatbubble-ellipses-outline"
+                  label={allowComments ? "Turn off commenting" : "Turn on commenting"}
+                  onPress={() => { setShowOptionsSheet(false); setTimeout(handleAllowCommentsToggle, 320); }}
+                />
+                <SheetRow
+                  icon="pencil-outline"
+                  label="Edit"
+                  onPress={() => {
+                    setShowOptionsSheet(false);
+                    setEditCaptionText(post?.caption ?? "");
+                    setTimeout(() => setShowEditCaption(true), 320);
+                  }}
+                />
+                {isVideoPost && videoSrc && (
+                  <SheetRow
+                    icon="crop-outline"
+                    label="Adjust preview"
+                    onPress={() => {
+                      setShowOptionsSheet(false);
+                      setPreviewTimeMs(0);
+                      setPreviewThumb(null);
+                      setTimeout(() => setShowAdjustPreview(true), 320);
+                    }}
+                  />
+                )}
+                <SheetRow
+                  icon="pin-outline"
+                  label={isPinned ? "Unpin from grid" : "Pin to your main grid"}
+                  onPress={() => { setShowOptionsSheet(false); setTimeout(handlePinToggle, 320); }}
+                />
+                <View style={optS.divider} />
+                <SheetRow
+                  icon="trash-outline"
+                  label="Delete"
+                  destructive
+                  onPress={() => {
+                    setShowOptionsSheet(false);
+                    setTimeout(() =>
+                      Alert.alert("Delete Post", "This can't be undone.", [
+                        { text: "Cancel", style: "cancel" },
+                        { text: "Delete", style: "destructive", onPress: handleDeletePost },
+                      ]),
+                    320);
+                  }}
+                />
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Edit Caption modal */}
       <Modal
@@ -1997,3 +2120,96 @@ const V = StyleSheet.create({
     justifyContent: "center",
   },
 });
+
+// ─── Options bottom sheet (Instagram-style) ───────────────────────────────────
+
+const optS = StyleSheet.create({
+  sheet: {
+    backgroundColor: "#1c1c1e",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingTop: 10,
+    paddingHorizontal: 16,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 22,
+  },
+  iconRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 18,
+  },
+  iconBox: {
+    flex: 1,
+    backgroundColor: "#2c2c2e",
+    borderRadius: 14,
+    paddingVertical: 18,
+    alignItems: "center",
+    gap: 8,
+  },
+  iconLabel: {
+    color: "#fff",
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    marginVertical: 2,
+    marginHorizontal: 4,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    gap: 14,
+  },
+  rowIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#2c2c2e",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowLabel: {
+    fontFamily: "Poppins_400Regular",
+    fontSize: 15,
+    flex: 1,
+  },
+});
+
+function SheetRow({
+  icon,
+  label,
+  onPress,
+  destructive,
+  accent,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  label: string;
+  onPress: () => void;
+  destructive?: boolean;
+  accent?: string;
+}) {
+  const textColor = destructive ? "#EF4444" : accent ?? "#fff";
+  return (
+    <TouchableOpacity onPress={onPress} style={optS.row} activeOpacity={0.6}>
+      <View
+        style={[
+          optS.rowIconWrap,
+          destructive && { backgroundColor: "rgba(239,68,68,0.12)" },
+          accent && !destructive && { backgroundColor: "rgba(167,139,250,0.12)" },
+        ]}
+      >
+        <Ionicons name={icon} size={21} color={textColor} />
+      </View>
+      <Text style={[optS.rowLabel, { color: textColor }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
