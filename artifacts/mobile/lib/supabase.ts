@@ -68,6 +68,8 @@ export interface Reel {
   comments_count: number;
   created_at: string;
   profiles?: Profile;
+  original_sound_post_id?: string | null;
+  original_sound_username?: string | null;
 }
 
 export interface Comment {

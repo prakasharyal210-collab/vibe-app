@@ -178,6 +178,17 @@ export default function ReelDetailScreen() {
         {reel.caption ? (
           <Text style={styles.caption} numberOfLines={3}>{reel.caption}</Text>
         ) : null}
+        {reel.original_sound_post_id ? (
+          <TouchableOpacity
+            style={styles.soundRow}
+            onPress={() => router.push(`/post/${reel.original_sound_post_id}` as any)}
+          >
+            <Ionicons name="musical-notes" size={12} color="#A78BFA" />
+            <Text style={styles.soundText} numberOfLines={1}>
+              Original sound · @{reel.original_sound_username ?? "user"}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {/* Play/pause indicator — shown briefly when toggling, or always if no video */}
@@ -216,5 +227,7 @@ const styles = StyleSheet.create({
   caption: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 19 },
   linkRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   linkText: { color: "#A78BFA", fontSize: 11, fontFamily: "Poppins_500Medium" },
+  soundRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 },
+  soundText: { color: "#A78BFA", fontSize: 12, fontFamily: "Poppins_500Medium", flex: 1 },
   playOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 5 },
 });

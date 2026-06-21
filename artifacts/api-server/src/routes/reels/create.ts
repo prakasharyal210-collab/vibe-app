@@ -18,6 +18,8 @@ router.post("/create", async (req, res) => {
     caption = "",
     duration,
     visibility,
+    originalSoundPostId,
+    originalSoundUsername,
   } = req.body as {
     userId: string;
     videoBase64?: string;
@@ -27,6 +29,8 @@ router.post("/create", async (req, res) => {
     caption?: string;
     duration?: number;
     visibility?: string;
+    originalSoundPostId?: string | null;
+    originalSoundUsername?: string | null;
   };
 
   if (!userId) {
@@ -110,6 +114,8 @@ router.post("/create", async (req, res) => {
     comments_count: 0,
     views_count: 0,
     created_at: new Date().toISOString(),
+    ...(originalSoundPostId ? { original_sound_post_id: originalSoundPostId } : {}),
+    ...(originalSoundUsername ? { original_sound_username: originalSoundUsername } : {}),
   };
 
   const rr1 = await sb.from("reels").insert(reelPayload).select("id").single();
@@ -122,6 +128,15 @@ router.post("/create", async (req, res) => {
     const rr2 = await sb.from("reels").insert(payloadNoVis).select("id").single();
     data = rr2.data;
     error = rr2.error;
+  }
+  // Graceful fallback: if sound columns haven't been migrated yet, retry without them
+  if (error?.message?.includes("original_sound")) {
+    const payloadNoSound = { ...reelPayload };
+    delete payloadNoSound.original_sound_post_id;
+    delete payloadNoSound.original_sound_username;
+    const rr3 = await sb.from("reels").insert(payloadNoSound).select("id").single();
+    data = rr3.data;
+    error = rr3.error;
   }
 
   if (error) {

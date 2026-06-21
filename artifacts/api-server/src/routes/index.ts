@@ -30,6 +30,7 @@ import rewardsRouter from "./rewards";
 import analyticsRouter from "./analytics";
 import usersOnboardingRouter from "./users/onboarding";
 import usersContactsRouter from "./users/contacts";
+import soundsRouter from "./sounds";
 
 const router: IRouter = Router();
 
@@ -64,5 +65,6 @@ router.use("/vibe-rooms", vibeRoomsRouter);
 router.use("/snaps", snapsRouter);
 router.use("/rewards", rewardsRouter);
 router.use("/analytics", analyticsRouter);
+router.use("/sounds", soundsRouter);
 
 export default router;

@@ -36,6 +36,7 @@ import RAnimated, {
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
+import { TrendingSoundsSheet, type TrendingSound } from "@/components/TrendingSoundsSheet";
 import { StickerPickerModal } from "@/components/StickerPickerModal";
 import { EffectsPickerSheet, FilterConfig, FILTERS, TimerValue } from "@/components/EffectsPickerSheet";
 import { VideoEditorSheet } from "@/components/VideoEditorSheet";
@@ -510,14 +511,16 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
   const banubaPhotoResolverRef = useRef<(() => void) | null>(null);
   const banubaVideoResolverRef = useRef<(() => void) | null>(null);
 
-  // ── Overlays / music ──────────────────────────────────────────────────────
+  // ── Overlays / music / sounds ─────────────────────────────────────────────
   const [selectedMusic, setSelectedMusic] = useState<Track | null>(null);
+  const [selectedSound, setSelectedSound] = useState<TrendingSound | null>(null);
   const [textOverlays, setTextOverlays] = useState<TextOverlayItem[]>([]);
   const [stickers, setStickers] = useState<StickerItem[]>([]);
   const [speed, setSpeed] = useState("normal");
 
   // ── Sheets ────────────────────────────────────────────────────────────────
   const [showMusicPicker, setShowMusicPicker] = useState(false);
+  const [showSoundsPicker, setShowSoundsPicker] = useState(false);
   const [showEffectsPicker, setShowEffectsPicker] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
   const [showStickerModal, setShowStickerModal] = useState(false);
@@ -1014,6 +1017,12 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
             <Text style={s.musicBadgeText} numberOfLines={1}>{selectedMusic.title} · {selectedMusic.artist}</Text>
           </View>
         )}
+        {!selectedMusic && selectedSound && (
+          <View style={[s.musicBadge, s.soundBadge, { top: tabBarHeight + (recording ? 52 : 10) }]} pointerEvents="none">
+            <CI name="radio-outline" size={11} color="#fff" />
+            <Text style={s.musicBadgeText} numberOfLines={1}>🎵 {selectedSound.title} · @{selectedSound.username}</Text>
+          </View>
+        )}
 
         {/* ── TEXT OVERLAYS (draggable) ── */}
         {textOverlays.map((t) => (
@@ -1134,6 +1143,16 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                 <CI name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
               </View>
               <Text style={[s.sideLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={s.sideTool} onPress={() => setShowSoundsPicker(true)}>
+              <View style={[s.sideCircle, selectedSound && { backgroundColor: "#06B6D430" }]}>
+                <CI name="radio-outline" size={22} color={selectedSound ? "#06B6D4" : "#fff"} />
+                {selectedSound && (
+                  <View style={s.soundDot} />
+                )}
+              </View>
+              <Text style={[s.sideLabel, selectedSound && { color: "#06B6D4" }]}>Sounds</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={s.sideTool} onPress={() => setShowTextModal(true)}>
@@ -1327,6 +1346,7 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
 
         {/* ── PICKERS ── */}
         <MusicPickerSheet visible={showMusicPicker} onClose={() => setShowMusicPicker(false)} onSelect={setSelectedMusic} selectedTrack={selectedMusic} />
+        <TrendingSoundsSheet visible={showSoundsPicker} onClose={() => setShowSoundsPicker(false)} onSelect={setSelectedSound} selectedSound={selectedSound} />
         <EffectsPickerSheet
           visible={showEffectsPicker}
           onClose={() => setShowEffectsPicker(false)}
@@ -1377,10 +1397,10 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                       category: (data as any).category,
                     });
                   } else {
-                    await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility);
+                    await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility, selectedSound?.postId ?? null, selectedSound?.username ?? null);
                   }
                 }
-                setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null);
+                setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null); setSelectedSound(null);
                 setShowCelebration(true);
               } catch (err: unknown) {
                 const msg = err instanceof Error ? err.message : "Unknown error";
@@ -1535,6 +1555,8 @@ const s = StyleSheet.create({
 
   musicBadge: { position: "absolute", alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   musicBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Poppins_500Medium", maxWidth: W * 0.55 },
+  soundBadge: { backgroundColor: "rgba(6,182,212,0.25)", borderWidth: 1, borderColor: "rgba(6,182,212,0.5)" },
+  soundDot: { position: "absolute", top: 0, right: 0, width: 8, height: 8, borderRadius: 4, backgroundColor: "#06B6D4", borderWidth: 1.5, borderColor: "#000" },
 
   portraitBadge: { position: "absolute", top: 60, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(139,92,246,0.2)", borderWidth: 1, borderColor: "rgba(139,92,246,0.5)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20 },
   portraitBadgeText: { color: "#A78BFA", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
