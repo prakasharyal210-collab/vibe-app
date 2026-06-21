@@ -1,0 +1,11 @@
+Fix in this order, verify each stage live before moving to the next:
+Stage 1 — the three highest-impact items, fix and prove each works:
+
+messages.ts route collision — reorder/rename so PATCH /read is actually reachable. Test: open a conversation with unread messages, confirm read_at actually gets set in the DB.
+The full sendVibeRequest write path (db.ts 2048–2072) plus getOrCreateConversation (2223) — route all of these through the API server with the service-role key, like everything else in this app should be. Test: swipe right on a real account, confirm a real row lands in vibe_requests/vibe_matches, and confirm a real conversation gets created on a mutual match — not just that the UI shows a success state.
+posts/update.ts / posts/create.ts route collision — first find every caller of GET /api/posts/:id expecting the full post object (not just the PhotoViewer's toggle-flag use), then fix the collision (rename one route, e.g. move the toggle-flags endpoint to its own path) so both are reachable. Confirm both endpoints work for their respective callers afterward.
+
+Stage 2 — remaining Group 1 (confirmed hangs/empty returns), fix all 12 remaining call sites: route each through the API server. This includes the for-you/following/nearby/vibes feed RPCs, profile stats fallback counts, and the rest of the confirmed-broken list. Test each feed tab actually loads real data afterward.
+Stage 3 — Group 2 (probable silent failures, 25 call sites): fix systematically, but these are lower user-facing urgency (analytics, achievements, onboarding interests, etc.) — group by feature area and report back in batches rather than one at a time.
+Specifically resolve the one flagged uncertainty: confirm whether toggle_reel_like is SECURITY DEFINER — if not, reel likes from the detail page are currently fake (UI-only, never written to DB), which would be a Stage 1-level bug, not Stage 2.
+Report back after Stage 1 only, before starting Stage 2 — given what Stage 1 just turned out to contain, I want to see it actually proven working before anything else moves forward.

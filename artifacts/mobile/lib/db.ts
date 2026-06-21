@@ -2045,35 +2045,18 @@ export async function sendVibeRequest(
   receiverId: string
 ): Promise<VibeRequestResult> {
   try {
-    const { data: existing } = await supabase
-      .from('vibe_requests')
-      .select('id')
-      .eq('sender_id', receiverId)
-      .eq('receiver_id', senderId)
-      .eq('status', 'pending')
-      .maybeSingle();
-
-    if (existing) {
-      await supabase
-        .from('vibe_requests')
-        .update({ status: 'matched', matched_at: new Date().toISOString() })
-        .eq('id', (existing as any).id);
-      // vibe_matches uses sender_id / receiver_id (not user_id / matched_user_id)
-      await supabase.from('vibe_matches').upsert(
-        { sender_id: senderId, receiver_id: receiverId, status: 'matched' },
-        { onConflict: 'sender_id,receiver_id' }
-      );
-      return 'matched';
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiBase}/vibe-requests/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ senderId, receiverId }),
+    });
+    if (res.ok) {
+      const body = await res.json() as { result?: string };
+      return (body.result === "matched" ? "matched" : "pending") as VibeRequestResult;
     }
-
-    await supabase.from('vibe_requests').upsert(
-      { sender_id: senderId, receiver_id: receiverId, status: 'pending', created_at: new Date().toISOString() },
-      { onConflict: 'sender_id,receiver_id' }
-    );
-    return 'pending';
-  } catch {
-    return Math.random() < 0.3 ? 'matched' : 'pending';
-  }
+  } catch {}
+  return "pending";
 }
 
 // ─── Vibe Match Profiles ───────────────────────────────────────────────────────
@@ -2220,15 +2203,18 @@ export async function getMyVibeMatches(userId: string): Promise<VibeMatchProfile
 
 export async function getOrCreateConversation(userId: string, otherId: string): Promise<string | null> {
   try {
-    const { data } = await supabase.rpc('get_or_create_conversation', {
-      p_user1_id: userId,
-      p_user2_id: otherId,
-      p_is_match: true,
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiBase}/users/social/conversation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, otherId }),
     });
-    return data as string | null;
-  } catch {
-    return null;
-  }
+    if (res.ok) {
+      const body = await res.json() as { conversationId?: string };
+      return body.conversationId ?? null;
+    }
+  } catch {}
+  return null;
 }
 
 // ─── Block / Report ───────────────────────────────────────────────────────────

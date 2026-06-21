@@ -89,7 +89,6 @@ router.post("/", async (req, res) => {
     return;
   }
   if (msgPerm === "followers") {
-    // Sender must follow the receiver
     const { data: followRow } = await sb
       .from("follows")
       .select("follower_id")
@@ -102,7 +101,6 @@ router.post("/", async (req, res) => {
     }
   }
   if (msgPerm === "friends") {
-    // Legacy mutual follow check
     const [f1, f2] = await Promise.all([
       sb.from("follows").select("follower_id").eq("follower_id", senderId).eq("following_id", receiverId).maybeSingle(),
       sb.from("follows").select("follower_id").eq("follower_id", receiverId).eq("following_id", senderId).maybeSingle(),
@@ -146,6 +144,31 @@ router.post("/", async (req, res) => {
   })();
 
   res.json({ message: normalise(data) });
+});
+
+// PATCH /api/messages/read
+// Mark all messages from sender to receiver as read (sets read_at = now).
+// Registered BEFORE /:id so the literal path wins over the param route.
+// body: { myId, otherId }
+router.patch("/read", async (req, res) => {
+  const { myId, otherId } = req.body as { myId?: string; otherId?: string };
+  if (!myId || !otherId) {
+    res.status(400).json({ error: "myId and otherId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("sender_id", otherId)
+      .eq("receiver_id", myId)
+      .is("read_at", null);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "mark-read exception");
+    res.status(500).json({ error: "Failed" });
+  }
 });
 
 // PATCH /api/messages/:id
@@ -273,7 +296,6 @@ router.get("/conversations", async (req, res) => {
       msg.sender_id === userId ? msg.receiver : msg.sender;
     if (!seen.has(otherId) && otherUser) {
       seen.add(otherId);
-      // Use content (DB column name) with fallback to text for normalisation
       const lastMsg = msg.content ?? msg.text ?? "";
       convos.push({
         id: `conv_${otherId}`,
@@ -289,30 +311,6 @@ router.get("/conversations", async (req, res) => {
     }
   }
   res.json({ conversations: convos });
-});
-
-// PATCH /api/messages/read
-// Mark all messages from sender to receiver as read (sets read_at = now)
-// body: { myId, otherId }
-router.patch("/read", async (req, res) => {
-  const { myId, otherId } = req.body as { myId?: string; otherId?: string };
-  if (!myId || !otherId) {
-    res.status(400).json({ error: "myId and otherId required" });
-    return;
-  }
-  const sb = makeSupabase();
-  try {
-    await sb
-      .from("messages")
-      .update({ read_at: new Date().toISOString() })
-      .eq("sender_id", otherId)
-      .eq("receiver_id", myId)
-      .is("read_at", null);
-    res.json({ ok: true });
-  } catch (err: any) {
-    req.log.error({ err: err?.message }, "mark-read exception");
-    res.status(500).json({ error: "Failed" });
-  }
 });
 
 // POST /api/messages/react

@@ -24,8 +24,9 @@ function makeSupabase() {
 //   thumbnail_url    string    — custom grid thumbnail for video posts
 //   is_pinned        boolean   — pin / unpin on profile grid
 //
-// GET /api/posts/:id — return post fields needed for the options sheet
-router.get("/:id", async (req, res) => {
+// GET /api/posts/toggle-state/:id — return post fields needed for the options sheet.
+// Uses a distinct path so it does not shadow create.ts GET /:postId (full post).
+router.get("/toggle-state/:id", async (req, res) => {
   const { id } = req.params as { id: string };
   const supabase = makeSupabase();
   const { data, error } = await supabase

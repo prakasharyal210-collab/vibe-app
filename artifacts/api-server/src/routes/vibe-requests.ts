@@ -13,6 +13,10 @@ const BLOCKED_STATUSES = ["Married", "Engaged", "Widowed"];
 
 // POST /api/vibe-requests/send
 // Body: { senderId, receiverId }
+// Returns: { success: true, result: 'matched' | 'pending', requestId? }
+// Handles mutual-match detection: if the receiver already has a pending request
+// to the sender, this call creates vibe_matches in both directions and returns
+// result='matched'. All writes go through the service-role key.
 router.post("/send", async (req, res) => {
   const { senderId, receiverId } = req.body as { senderId?: string; receiverId?: string };
   if (!senderId || !receiverId) {
@@ -37,6 +41,66 @@ router.post("/send", async (req, res) => {
     return;
   }
 
+  // Check for mutual request: has the receiver already sent one to the sender?
+  const { data: mutual } = await sb
+    .from("vibe_requests")
+    .select("id")
+    .eq("sender_id", receiverId)
+    .eq("receiver_id", senderId)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (mutual) {
+    const now = new Date().toISOString();
+
+    // Mark their existing request as matched
+    await sb
+      .from("vibe_requests")
+      .update({ status: "matched", updated_at: now })
+      .eq("id", (mutual as any).id);
+
+    // Upsert vibe_matches in both directions (same pattern as POST /api/vibe/swipe)
+    await sb.from("vibe_matches").upsert(
+      [
+        { sender_id: senderId, receiver_id: receiverId, status: "matched", created_at: now },
+        { sender_id: receiverId, receiver_id: senderId, status: "matched", created_at: now },
+      ],
+      { onConflict: "sender_id,receiver_id" },
+    );
+
+    // Fetch sender username for notification text
+    const { data: senderProfile } = await sb
+      .from("profiles")
+      .select("username")
+      .eq("id", senderId)
+      .maybeSingle();
+    const senderName = (senderProfile as any)?.username ?? "Someone";
+    const receiverName = receiver?.username ?? "Someone";
+
+    await sb.from("notifications").insert([
+      {
+        recipient_id: senderId,
+        sender_id: receiverId,
+        type: "vibe_match",
+        message: `It's a match! You and ${receiverName} can now message each other 💜`,
+        is_read: false,
+        created_at: now,
+      },
+      {
+        recipient_id: receiverId,
+        sender_id: senderId,
+        type: "vibe_match",
+        message: `It's a match! You and ${senderName} can now message each other 💜`,
+        is_read: false,
+        created_at: now,
+      },
+    ]);
+
+    res.json({ success: true, result: "matched" });
+    return;
+  }
+
+  // Check for existing forward-direction request
   const { data: existing } = await sb
     .from("vibe_requests")
     .select("id, status")
@@ -86,7 +150,7 @@ router.post("/send", async (req, res) => {
     created_at: new Date().toISOString(),
   });
 
-  res.json({ success: true, requestId });
+  res.json({ success: true, result: "pending", requestId });
 });
 
 // POST /api/vibe-requests/respond
@@ -171,7 +235,6 @@ router.get("/inbox", async (req, res) => {
 
   const sb = makeSupabase();
 
-  // Step 1: fetch pending requests (no FK registered for profiles join in schema cache)
   const { data, error } = await sb
     .from("vibe_requests")
     .select("id, sender_id, created_at")
@@ -188,7 +251,6 @@ router.get("/inbox", async (req, res) => {
 
   const rows = data ?? [];
 
-  // Step 2: batch-fetch sender profiles in one round-trip
   const senderIds = [...new Set(rows.map((r: any) => r.sender_id as string))];
   const profileMap: Record<string, any> = {};
   if (senderIds.length > 0) {
