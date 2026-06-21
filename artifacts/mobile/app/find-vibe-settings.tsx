@@ -28,7 +28,11 @@ import {
   RELATIONSHIP_GOALS,
   saveGundrukProfile,
   saveUserSettings,
+  VibeMatchProfile,
 } from "@/lib/db";
+import { VibeCardDisplay } from "@/components/VibeCardDisplay";
+import { LinearGradient } from "expo-linear-gradient";
+import { supabase } from "@/lib/supabase";
 
 const { width: SW } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
@@ -680,6 +684,15 @@ export default function FindVibeSettings() {
   const [vibeLanguages,     setVibeLanguages]     = useState<string[] | null>(null);
   const [vibeMyGoals,       setVibeMyGoals]       = useState<string[] | null>(null);
 
+  // Card preview
+  const [showPreview,          setShowPreview]          = useState(false);
+  const [previewProfile, setPreviewProfile] = useState<{
+    name: string;
+    age: number;
+    interests: string[];
+    avatar_url: string | null;
+  } | null>(null);
+
   // Modal visibility
   const [showModePicker,       setShowModePicker]       = useState(false);
   const [showPrivacyPicker,    setShowPrivacyPicker]    = useState(false);
@@ -765,6 +778,23 @@ export default function FindVibeSettings() {
       setVibeShowDistance(s.vibe_show_distance);
       setVibeExcludeConns(s.vibe_exclude_connections);
     }).catch(() => {});
+
+    (async () => {
+      try {
+        const { data } = await supabase.from("profiles")
+          .select("full_name, username, age, interests, avatar_url")
+          .eq("id", userId)
+          .maybeSingle();
+        if (data) {
+          setPreviewProfile({
+            name:       (data.full_name as string | null) || (data.username as string | null) || "You",
+            age:        (data.age as number | null) ?? 0,
+            interests:  Array.isArray(data.interests) ? (data.interests as string[]) : [],
+            avatar_url: (data.avatar_url as string | null) ?? null,
+          });
+        }
+      } catch {}
+    })();
 
     getGundrukProfile(userId).then((p) => {
       setShowInMatching(p.show_in_matching);
@@ -896,6 +926,31 @@ export default function FindVibeSettings() {
               isLast
             />
           </Card>
+        </View>
+
+        {/* Preview My Card */}
+        <View style={fvsStyles.section}>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            onPress={() => setShowPreview(true)}
+            style={pvStyles.previewBtn}
+          >
+            <LinearGradient
+              colors={["rgba(124,58,237,0.18)", "rgba(236,72,153,0.18)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={pvStyles.previewGrad}
+            >
+              <Ionicons name="eye-outline" size={22} color="#A78BFA" />
+              <View style={{ flex: 1 }}>
+                <Text style={[pvStyles.previewLabel, { color: colors.foreground }]}>Preview My Card</Text>
+                <Text style={[pvStyles.previewSub, { color: colors.mutedForeground }]}>
+                  See exactly how others see your Find Vibe card
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
 
         {/* ══════════════════════════════════════
@@ -1110,6 +1165,56 @@ export default function FindVibeSettings() {
           onClose={() => setShowPhotoPicker(false)} />
       ) : null}
 
+      {/* Preview My Card Modal */}
+      <Modal
+        visible={showPreview}
+        animationType="slide"
+        transparent={false}
+        statusBarTranslucent
+        onRequestClose={() => setShowPreview(false)}
+      >
+        {(() => {
+          const card: VibeMatchProfile = {
+            id:        userId ?? "preview",
+            name:      previewProfile?.name ?? "You",
+            age:       previewProfile?.age ?? 0,
+            image:     vibeProfilePhoto ?? vibePhotos?.[0] ?? previewProfile?.avatar_url ?? `https://picsum.photos/seed/${userId}/400/600`,
+            bio:       vibeBio || "",
+            interests: previewProfile?.interests ?? [],
+            goal:      vibeMyGoals?.[0] ?? findGundrukMode,
+          };
+          return (
+            <View style={pvStyles.modalRoot}>
+              <View style={[pvStyles.modalHeader, { paddingTop: insets.top + 12 }]}>
+                <TouchableOpacity
+                  onPress={() => setShowPreview(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={pvStyles.closeBtn}
+                >
+                  <Ionicons name="close" size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text style={pvStyles.modalTitle}>My Vibe Card</Text>
+                <View style={{ width: 40 }} />
+              </View>
+
+              <View style={pvStyles.modalBody}>
+                <Text style={pvStyles.modalHint}>This is exactly how others see your card</Text>
+
+                <View style={pvStyles.cardWrapper}>
+                  <VibeCardDisplay card={card} previewMode />
+                </View>
+
+                {(card.image === `https://picsum.photos/seed/${userId}/400/600` || !card.image) && (
+                  <Text style={pvStyles.noPhotoHint}>
+                    Add a Vibe Photo above to personalise your card
+                  </Text>
+                )}
+              </View>
+            </View>
+          );
+        })()}
+      </Modal>
+
       {/* Vibe Bio edit */}
       <Modal visible={editingBio} animationType="slide" transparent onRequestClose={() => setEditingBio(false)}>
         <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setEditingBio(false)} />
@@ -1155,6 +1260,87 @@ const bioStyles = StyleSheet.create({
   charCount: { fontSize: 12, fontFamily: "Poppins_400Regular", textAlign: "right", marginTop: 6, marginBottom: 14 },
   saveBtn:   { backgroundColor: "#EC4899", borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   saveTxt:   { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
+});
+
+const { height: SH } = Dimensions.get("window");
+
+const pvStyles = StyleSheet.create({
+  previewBtn: {
+    borderRadius:  16,
+    overflow:      "hidden",
+    borderWidth:   1,
+    borderColor:   "rgba(139,92,246,0.35)",
+  },
+  previewGrad: {
+    flexDirection:   "row",
+    alignItems:      "center",
+    gap:             14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  previewLabel: {
+    fontSize:   15,
+    fontFamily: "Poppins_600SemiBold",
+    marginBottom: 2,
+  },
+  previewSub: {
+    fontSize:   12,
+    fontFamily: "Poppins_400Regular",
+    lineHeight: 17,
+  },
+  modalRoot: {
+    flex:            1,
+    backgroundColor: "#080810",
+  },
+  modalHeader: {
+    flexDirection:   "row",
+    alignItems:      "center",
+    justifyContent:  "space-between",
+    paddingHorizontal: 16,
+    paddingBottom:   16,
+  },
+  closeBtn: {
+    width:           40,
+    height:          40,
+    justifyContent:  "center",
+    alignItems:      "center",
+  },
+  modalTitle: {
+    color:      "#fff",
+    fontSize:   17,
+    fontFamily: "Poppins_700Bold",
+  },
+  modalBody: {
+    flex:            1,
+    alignItems:      "center",
+    paddingHorizontal: 16,
+  },
+  modalHint: {
+    color:        "rgba(255,255,255,0.45)",
+    fontSize:     13,
+    fontFamily:   "Poppins_400Regular",
+    marginBottom: 20,
+    textAlign:    "center",
+  },
+  cardWrapper: {
+    width:        SW - 32,
+    height:       SH * 0.62,
+    borderRadius: 28,
+    overflow:     "hidden",
+    shadowColor:  "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.55,
+    shadowRadius: 28,
+    elevation:    20,
+  },
+  noPhotoHint: {
+    marginTop:  20,
+    color:      "rgba(255,255,255,0.38)",
+    fontSize:   13,
+    fontFamily: "Poppins_400Regular",
+    textAlign:  "center",
+    paddingHorizontal: 24,
+  },
 });
 
 const fvsStyles = StyleSheet.create({

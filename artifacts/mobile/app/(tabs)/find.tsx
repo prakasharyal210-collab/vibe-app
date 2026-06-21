@@ -70,6 +70,7 @@ import {
   VibePrefsRow,
 } from "@/lib/db";
 import { AchievementModal } from "@/components/AchievementModal";
+import { VibeCardDisplay } from "@/components/VibeCardDisplay";
 import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { SpeedVibeModal } from "@/components/SpeedVibeModal";
@@ -1203,65 +1204,18 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       {topCard && (
         <GestureDetector gesture={panGesture}>
           <Animated.View style={[styles.card, { height: CARD_H, zIndex: 10 }, topCardStyle]}>
-            <Image source={{ uri: topCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-            <LinearGradient colors={["transparent", "transparent", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.96)"]} locations={[0, 0.38, 0.7, 1]} style={StyleSheet.absoluteFill} />
-
-            <TouchableOpacity onPress={() => setProfileCard(topCard)} style={styles.expandBtn}>
-              <Ionicons name="expand-outline" size={20} color="#fff" />
-            </TouchableOpacity>
-
+            <VibeCardDisplay
+              card={topCard}
+              matchPct={match}
+              myGoals={myGoals}
+              onExpand={() => setProfileCard(topCard)}
+            />
             <Animated.View style={[styles.overlayVibe, vibeOverlay]} pointerEvents="none">
               <Text style={styles.overlayVibeText}>VIBE ✨</Text>
             </Animated.View>
             <Animated.View style={[styles.overlaySkip, skipOverlay]} pointerEvents="none">
               <Text style={styles.overlaySkipText}>SKIP</Text>
             </Animated.View>
-
-            {topCard.vibeScore !== undefined && (
-              <View style={styles.scoreBadge}>
-                <Text style={styles.scoreText}>⚡ {topCard.vibeScore}</Text>
-              </View>
-            )}
-
-            <View style={styles.matchBadge}>
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.matchGrad}>
-                <Text style={styles.matchText}>{match}% Match</Text>
-              </LinearGradient>
-            </View>
-
-            <View style={styles.cardBottom}>
-              <View style={styles.cardNameRow}>
-                <Text style={styles.cardName}>{topCard.name}, {topCard.age}</Text>
-                {topCard.distance ? (
-                  <View style={styles.distancePill}>
-                    <Ionicons name="location" size={11} color="#7C3AED" />
-                    <Text style={styles.distanceText}>{topCard.distance}</Text>
-                  </View>
-                ) : topCard.vibe ? (
-                  <View style={[styles.distancePill, { backgroundColor: "rgba(124,58,237,0.3)" }]}>
-                    <Text style={[styles.distanceText, { color: "#A78BFA" }]}>{topCard.vibe}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={styles.cardGoalRow}>
-                {topCard.goal && <GoalPill goal={topCard.goal} />}
-                {!!myGoals?.length && topCard.goal && myGoals.includes(topCard.goal) && (
-                  <View style={styles.sameGoalBadge}>
-                    <Text style={styles.sameGoalText}>🎯 Same goals</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.cardBio} numberOfLines={2}>{topCard.bio}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.interestRow}>
-                  {topCard.interests.map((int) => (
-                    <View key={int} style={[styles.interestTag, (topCard.matchInterests ?? []).includes(int) && styles.interestTagMatch]}>
-                      <Text style={styles.interestText}>{int}</Text>
-                    </View>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
           </Animated.View>
         </GestureDetector>
       )}
