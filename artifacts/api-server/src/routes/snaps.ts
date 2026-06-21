@@ -136,6 +136,8 @@ router.get("/", async (req, res) => {
 
 // PATCH /api/snaps/:id
 // Mark a snap as viewed — sets viewed_at = NOW() on the real column.
+// Returns 404 if the id doesn't exist in the snaps table so the client
+// can fall back to the legacy messages-table path.
 router.patch("/:id", async (req, res) => {
   const { id } = req.params;
   if (!id) {
@@ -144,12 +146,19 @@ router.patch("/:id", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    const { error } = await sb
+    const { data, error } = await sb
       .from("snaps")
       .update({ viewed_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error) {
       res.status(500).json({ error: error.message });
+      return;
+    }
+    if (!data || (data as unknown[]).length === 0) {
+      // Zero rows updated — this ID belongs to the legacy messages table.
+      // Return 404 so the caller can fall back to PATCH /api/messages/:id.
+      res.status(404).json({ error: "snap not found in snaps table" });
       return;
     }
     res.json({ ok: true });
