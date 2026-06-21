@@ -1565,11 +1565,6 @@ export default function PostDetailScreen() {
                   onPress={() => { setShowOptionsSheet(false); setTimeout(handleHideLikeCountToggle, 320); }}
                 />
                 <SheetRow
-                  icon="arrow-redo-circle-outline"
-                  label={hideShareCount ? "Show share count" : "Hide share count"}
-                  onPress={() => { setShowOptionsSheet(false); setTimeout(handleHideShareCountToggle, 320); }}
-                />
-                <SheetRow
                   icon="chatbubble-ellipses-outline"
                   label={allowComments ? "Turn off commenting" : "Turn on commenting"}
                   onPress={() => { setShowOptionsSheet(false); setTimeout(handleAllowCommentsToggle, 320); }}
