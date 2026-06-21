@@ -800,6 +800,38 @@ export default function FeedScreen() {
       >
         <View style={styles.headerTop}>
           <VibeLogo />
+          {/* Photo/Video + sort controls — only when For You tab is active */}
+          {activeTabIndex === 0 && (
+            <View style={feedControlStyles.headerControls}>
+              <View style={feedControlStyles.pillRow}>
+                <TouchableOpacity
+                  onPress={() => setContentType((p) => p === "photo" ? "all" : "photo")}
+                  style={[feedControlStyles.pill, contentType === "photo" && feedControlStyles.pillActive]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={feedControlStyles.pillIcon}>📷</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setContentType((p) => p === "video" ? "all" : "video")}
+                  style={[feedControlStyles.pill, contentType === "video" && feedControlStyles.pillActive]}
+                  activeOpacity={0.7}
+                >
+                  <Text style={feedControlStyles.pillIcon}>🎥</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSortMenu((v) => !v)}
+                style={[feedControlStyles.sortBtn, sortOrder !== "newest" && feedControlStyles.sortBtnActive]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="swap-vertical"
+                  size={13}
+                  color={sortOrder !== "newest" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.iconBtn}
@@ -835,53 +867,16 @@ export default function FeedScreen() {
 
         {/* Tab Bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-          {/* For You half: label + controls when active */}
-          <View style={styles.tabBtn}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <TouchableOpacity onPress={() => switchToIndex(0)} activeOpacity={0.7}>
-                <Text style={[
-                  styles.tabText,
-                  { color: activeTabIndex === 0 ? colors.foreground : colors.mutedForeground },
-                  activeTabIndex === 0 && styles.tabTextActive,
-                ]}>For You</Text>
-              </TouchableOpacity>
-              {activeTabIndex === 0 && (
-                <>
-                  {/* Photo / Video segmented pills */}
-                  <View style={feedControlStyles.pillRow}>
-                    <TouchableOpacity
-                      onPress={() => setContentType((p) => p === "photo" ? "all" : "photo")}
-                      style={[feedControlStyles.pill, contentType === "photo" && feedControlStyles.pillActive]}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={feedControlStyles.pillIcon}>📷</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setContentType((p) => p === "video" ? "all" : "video")}
-                      style={[feedControlStyles.pill, contentType === "video" && feedControlStyles.pillActive]}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={feedControlStyles.pillIcon}>🎥</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {/* Sort button — purple when non-default */}
-                  <TouchableOpacity
-                    onPress={() => setShowSortMenu((v) => !v)}
-                    style={[feedControlStyles.sortBtn, sortOrder !== "newest" && feedControlStyles.sortBtnActive]}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name="swap-vertical"
-                      size={13}
-                      color={sortOrder !== "newest" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
-                    />
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-          </View>
+          {/* For You tab */}
+          <TouchableOpacity style={styles.tabBtn} onPress={() => switchToIndex(0)} activeOpacity={0.7}>
+            <Text style={[
+              styles.tabText,
+              { color: activeTabIndex === 0 ? colors.foreground : colors.mutedForeground },
+              activeTabIndex === 0 && styles.tabTextActive,
+            ]}>For You</Text>
+          </TouchableOpacity>
 
-          {/* Friends half */}
+          {/* Friends tab */}
           <TouchableOpacity style={styles.tabBtn} onPress={() => switchToIndex(1)} activeOpacity={0.7}>
             <Text style={[
               styles.tabText,
@@ -1054,6 +1049,12 @@ export default function FeedScreen() {
 }
 
 const feedControlStyles = StyleSheet.create({
+  headerControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginLeft: 8,
+  },
   pillRow: {
     flexDirection: "row",
     gap: 3,
