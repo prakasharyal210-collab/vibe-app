@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { callAI, parseAIJson } from "@/lib/ai";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -2271,8 +2271,18 @@ function FindVibeContent() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [dailyProfileCard, setDailyProfileCard] = useState<VibeCard | null>(null);
-  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [isAnonymous] = useState(false);
   const [showSpeedVibe, setShowSpeedVibe] = useState(false);
+  const [pendingVibeCount, setPendingVibeCount] = useState(0);
+
+  useFocusEffect(useCallback(() => {
+    if (!userId) return;
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    fetch(`${apiBase}/vibe-requests/inbox?userId=${encodeURIComponent(userId)}`)
+      .then((r) => r.ok ? r.json() : { requests: [] })
+      .then((j) => setPendingVibeCount((j.requests ?? []).length))
+      .catch(() => {});
+  }, [userId]));
 
   const [vibePrivacy, setVibePrivacy] = useState("everyone");
   const [goalSheet, setGoalSheet] = useState<string | null>(null);
@@ -2471,10 +2481,15 @@ function FindVibeContent() {
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            onPress={() => { setIsAnonymous((a) => !a); Alert.alert(isAnonymous ? "👤 Visible" : "👻 Anonymous", isAnonymous ? "You are now visible to others" : "You are now hidden — shown as a silhouette"); }}
-            style={[styles.iconBtn, { backgroundColor: isAnonymous ? "rgba(124,58,237,0.3)" : colors.muted, borderColor: isAnonymous ? "#7C3AED" : colors.border }]}
+            onPress={() => router.push("/notifications" as any)}
+            style={[styles.iconBtn, { backgroundColor: pendingVibeCount > 0 ? "rgba(124,58,237,0.2)" : colors.muted, borderColor: pendingVibeCount > 0 ? "#7C3AED" : colors.border }]}
           >
-            <Text style={{ fontSize: 16 }}>{isAnonymous ? "👻" : "👤"}</Text>
+            <Ionicons name="flash" size={18} color={pendingVibeCount > 0 ? "#A78BFA" : colors.mutedForeground} />
+            {pendingVibeCount > 0 && (
+              <View style={styles.vibeBadge}>
+                <Text style={styles.vibeBadgeText}>{pendingVibeCount > 9 ? "9+" : pendingVibeCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setShowSpeedVibe(true)}
@@ -2488,12 +2503,6 @@ function FindVibeContent() {
           </TouchableOpacity>
         </View>
       </View>
-
-      {isAnonymous && (
-        <View style={styles.anonBanner}>
-          <Text style={styles.anonText}>👻 Anonymous mode — you appear as a silhouette</Text>
-        </View>
-      )}
 
       {vibePrivacy === "nobody" && (
         <TouchableOpacity onPress={() => router.push("/settings" as any)} style={styles.pauseBanner}>
@@ -2698,7 +2707,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14 },
   headerTitle: { fontSize: 26, fontFamily: "Poppins_700Bold" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  iconBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  iconBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1, position: "relative" },
   speedText: { fontFamily: "Poppins_700Bold", fontSize: 13 },
   updateBanner: { marginHorizontal: 12, marginBottom: 6, borderRadius: 14, overflow: "hidden" },
   updateBannerGrad: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
@@ -2706,8 +2715,8 @@ const styles = StyleSheet.create({
   updateBannerTitle: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
   updateBannerSub: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_400Regular", fontSize: 11 },
   updateBannerClose: { padding: 4 },
-  anonBanner: { backgroundColor: "rgba(124,58,237,0.2)", marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  anonText: { color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12, textAlign: "center" },
+  vibeBadge: { position: "absolute", top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: "#EC4899", alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  vibeBadgeText: { color: "#fff", fontSize: 9, fontFamily: "Poppins_700Bold", lineHeight: 14 },
   pauseBanner: { backgroundColor: "rgba(249,115,22,0.13)", marginHorizontal: 16, marginBottom: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: "rgba(249,115,22,0.28)" },
   pauseText: { color: "#F97316", fontFamily: "Poppins_600SemiBold", fontSize: 12, textAlign: "center" },
   filterBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
