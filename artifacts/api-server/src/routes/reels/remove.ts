@@ -45,7 +45,8 @@ router.delete("/:reelId", async (req, res) => {
   }
 
   // ── 2. Child-row cleanup ──────────────────────────────────────────────────
-  const dependents = ["reel_likes", "reel_watches"] as const;
+  // Tables confirmed to exist in production (reel_watches/reel_bookmarks do not exist).
+  const dependents = ["reel_likes", "reel_saves", "reel_views", "reel_comments", "reel_shares"] as const;
   for (const table of dependents) {
     try {
       await (sb as any).from(table).delete().eq("reel_id", reelId);
