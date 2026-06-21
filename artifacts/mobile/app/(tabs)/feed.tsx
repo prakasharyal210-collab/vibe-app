@@ -695,7 +695,8 @@ export default function FeedScreen() {
       (async () => {
         try {
           // Route through API server — direct anon-key reads on posts hang under RLS
-          const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9`);
+          const ctParam = contentTypeRef.current !== "all" ? `&content_type=${contentTypeRef.current}` : "";
+          const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9${ctParam}`);
           if (res.ok) {
             const json = await res.json();
             const posts = json.posts ?? json.data ?? [];

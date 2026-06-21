@@ -279,23 +279,49 @@ router.get("/following-reels", async (req, res) => {
 });
 
 // ─── GET /api/feed/trending ───────────────────────────────────────────────────
-// Returns top posts by likes_count for the trending grid.
+// Returns top posts ranked by combined score: views_count + likes_count.
+// ?limit=9  ?content_type=photo|video
 // Uses service-role key so RLS never blocks the read.
 router.get("/trending", async (req, res) => {
   const limit = Math.min(Number(req.query["limit"] ?? 9), 50);
+  const contentType = req.query["content_type"] as "photo" | "video" | undefined;
   const supabase = makeSupabase();
   try {
-    const { data, error } = await supabase
+    // PostgREST can't ORDER BY a computed expression (views_count + likes_count),
+    // so fetch a larger pool ordered by views_count (the higher-magnitude signal),
+    // compute the combined score in Node, sort, then slice to the requested limit.
+    const pool = Math.min(limit * 5, 200);
+    let query = supabase
       .from("posts")
-      .select("id, media_url, likes_count, thumbnail_url")
-      .order("likes_count", { ascending: false })
-      .limit(limit);
+      .select("id, media_url, thumbnail_url, likes_count, views_count, is_video")
+      .or("is_archived.eq.false,is_archived.is.null")
+      .order("views_count", { ascending: false })
+      .limit(pool);
+
+    // Apply content-type filter at DB level when requested
+    if (contentType === "video") {
+      query = query.eq("is_video", true) as typeof query;
+    } else if (contentType === "photo") {
+      query = query.or("is_video.eq.false,is_video.is.null") as typeof query;
+    }
+
+    const { data, error } = await query;
     if (error) {
       req.log.warn({ error: error.message }, "trending fetch error");
       res.json({ posts: [] });
       return;
     }
-    res.json({ posts: data ?? [] });
+
+    // Rank by combined score: views_count + likes_count, highest first
+    const ranked = (data ?? [])
+      .map((p: any) => ({
+        ...p,
+        trending_score: (p.views_count ?? 0) + (p.likes_count ?? 0),
+      }))
+      .sort((a: any, b: any) => b.trending_score - a.trending_score)
+      .slice(0, limit);
+
+    res.json({ posts: ranked });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "trending exception");
     res.json({ posts: [] });
