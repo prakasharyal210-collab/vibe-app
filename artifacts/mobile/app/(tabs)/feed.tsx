@@ -203,6 +203,12 @@ const SORT_OPTIONS: { id: SortOrder; label: string; icon: string }[] = [
   { id: "most_viewed", label: "Most Viewed", icon: "eye-outline" },
 ];
 
+const CONTENT_OPTIONS: { id: ContentType; label: string; icon: string }[] = [
+  { id: "all",   label: "All",   icon: "albums-outline" },
+  { id: "photo", label: "Photo", icon: "image-outline" },
+  { id: "video", label: "Video", icon: "videocam-outline" },
+];
+
 const WHY_REASONS = [
   "Based on your interest in #travel",
   "Popular in your area",
@@ -423,6 +429,7 @@ export default function FeedScreen() {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const contentTypeRef = useRef<ContentType>("all");
   const sortOrderRef = useRef<SortOrder>("newest");
+  const [showContentMenu, setShowContentMenu] = useState(false);
   const [tabStates, setTabStates] = useState<Record<FeedTabId, TabState>>({
     foryou: { ...INIT_TAB },
     friends: { ...INIT_TAB, loading: false },
@@ -803,29 +810,26 @@ export default function FeedScreen() {
           {/* Photo/Video + sort controls — only when For You tab is active */}
           {activeTabIndex === 0 && (
             <View style={feedControlStyles.headerControls}>
-              <View style={feedControlStyles.pillRow}>
-                <TouchableOpacity
-                  onPress={() => setContentType((p) => p === "photo" ? "all" : "photo")}
-                  style={[feedControlStyles.pill, contentType === "photo" && feedControlStyles.pillActive]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={feedControlStyles.pillIcon}>📷</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setContentType((p) => p === "video" ? "all" : "video")}
-                  style={[feedControlStyles.pill, contentType === "video" && feedControlStyles.pillActive]}
-                  activeOpacity={0.7}
-                >
-                  <Text style={feedControlStyles.pillIcon}>🎥</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Content-type button — single icon, opens All/Photo/Video menu */}
+              <TouchableOpacity
+                onPress={() => setShowContentMenu((v) => !v)}
+                style={[feedControlStyles.sortBtn, contentType !== "all" && feedControlStyles.sortBtnActive]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="camera-outline"
+                  size={13}
+                  color={contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
+                />
+              </TouchableOpacity>
+              {/* Sort button — purple when non-default */}
               <TouchableOpacity
                 onPress={() => setShowSortMenu((v) => !v)}
                 style={[feedControlStyles.sortBtn, sortOrder !== "newest" && feedControlStyles.sortBtnActive]}
                 activeOpacity={0.7}
               >
                 <Ionicons
-                  name="swap-vertical"
+                  name="swap-vertical-outline"
                   size={13}
                   color={sortOrder !== "newest" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
                 />
@@ -1011,7 +1015,40 @@ export default function FeedScreen() {
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
 
-      {/* Sort menu — small dropdown below the For You tab bar */}
+      {/* Content-type menu */}
+      {showContentMenu && (
+        <Modal transparent animationType="fade" onRequestClose={() => setShowContentMenu(false)}>
+          <TouchableOpacity
+            style={sortMenuStyles.overlay}
+            onPress={() => setShowContentMenu(false)}
+            activeOpacity={1}
+          >
+            <View style={[sortMenuStyles.card, { top: topInset + 92 }]}>
+              {CONTENT_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={sortMenuStyles.option}
+                  onPress={() => { setContentType(opt.id); setShowContentMenu(false); }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name={opt.icon as any}
+                    size={14}
+                    color={contentType === opt.id ? "#8B5CF6" : "rgba(255,255,255,0.6)"}
+                  />
+                  <Text style={[sortMenuStyles.optionText, contentType === opt.id && sortMenuStyles.optionTextActive]}>
+                    {opt.label}
+                  </Text>
+                  {contentType === opt.id && (
+                    <Ionicons name="checkmark" size={12} color="#8B5CF6" style={{ marginLeft: "auto" }} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
+
       {showSortMenu && (
         <Modal transparent animationType="fade" onRequestClose={() => setShowSortMenu(false)}>
           <TouchableOpacity
@@ -1055,24 +1092,6 @@ const feedControlStyles = StyleSheet.create({
     gap: 6,
     marginLeft: 8,
   },
-  pillRow: {
-    flexDirection: "row",
-    gap: 3,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderRadius: 8,
-    padding: 2,
-  },
-  pill: {
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 6,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pillActive: {
-    backgroundColor: "rgba(139,92,246,0.35)",
-  },
-  pillIcon: { fontSize: 11 },
   sortBtn: {
     width: 24,
     height: 24,
