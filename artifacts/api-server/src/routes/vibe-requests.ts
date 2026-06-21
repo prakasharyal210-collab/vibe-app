@@ -96,6 +96,15 @@ router.post("/send", async (req, res) => {
       },
     ]);
 
+    // Create a conversation between the matched users.
+    // Lexicographic UUID ordering ensures the same pair always maps to the same row,
+    // preventing duplicate conversations if the endpoint is called more than once.
+    const [user1Id, user2Id] = [senderId, receiverId].sort();
+    await sb.from("conversations").upsert(
+      { user1_id: user1Id, user2_id: user2Id, is_request: false, unread_count_1: 0, unread_count_2: 0 },
+      { onConflict: "user1_id,user2_id" },
+    );
+
     res.json({ success: true, result: "matched" });
     return;
   }
