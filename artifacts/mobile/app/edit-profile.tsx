@@ -16,9 +16,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as FileSystem from "expo-file-system";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 import { callAI } from "@/lib/ai";
 
 import { ALL_STATUSES, getStatusConfig } from "@/components/RelationshipStatusBadge";
@@ -109,20 +109,23 @@ export default function EditProfileScreen() {
   };
 
   const uploadAvatar = async (userId: string, uri: string): Promise<string> => {
-    const ext = uri.split(".").pop()?.split("?")[0] || "jpg";
-    const contentType = ext === "png" ? "image/png" : "image/jpeg";
-    const path = `${userId}/avatar.${ext}`;
-
-    const response = await fetch(uri);
-    const blob = await response.blob();
-
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(path, blob, { upsert: true, contentType });
-    if (error) throw error;
-
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return `${data.publicUrl}?t=${Date.now()}`;
+    const mimeType = uri.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+    // Read as base64 via expo-file-system — avoids "Network request failed" on Android
+    // where fetch() cannot handle content:// or file:// URIs from ImagePicker.
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: "base64" as any,
+    });
+    const res = await fetch(`${API_BASE}/storage/avatar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base64, userId, mimeType }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error((body as any).error ?? `Upload failed (HTTP ${res.status})`);
+    }
+    const { url } = await res.json() as { url: string };
+    return url;
   };
 
   const handleSave = async () => {

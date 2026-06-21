@@ -48,4 +48,37 @@ router.post("/snap", async (req, res) => {
   return res.json({ url: urlData.publicUrl });
 });
 
+// POST /api/storage/avatar
+// Accepts base64-encoded image from mobile, uploads to Supabase "avatars" bucket
+// using service role key (bypasses RLS + avoids Android content:// URI fetch failure).
+// Body: { base64: string, userId: string, mimeType?: string }
+router.post("/avatar", async (req, res) => {
+  const { base64, userId, mimeType = "image/jpeg" } = req.body as {
+    base64?: string;
+    userId?: string;
+    mimeType?: string;
+  };
+
+  if (!base64 || !userId) {
+    return res.status(400).json({ error: "base64 and userId are required" });
+  }
+
+  const sb = makeSupabase();
+  const ext = mimeType.includes("png") ? "png" : "jpg";
+  const path = `${userId}/avatar.${ext}`;
+  const buffer = Buffer.from(base64, "base64");
+
+  const { error } = await sb.storage
+    .from("avatars")
+    .upload(path, buffer, { contentType: mimeType, upsert: true });
+
+  if (error) {
+    req.log.warn({ err: error.message }, "Avatar upload failed");
+    return res.status(500).json({ error: error.message });
+  }
+
+  const { data: urlData } = sb.storage.from("avatars").getPublicUrl(path);
+  return res.json({ url: `${urlData.publicUrl}?t=${Date.now()}` });
+});
+
 export default router;
