@@ -1281,6 +1281,11 @@ export default function ProfileScreen() {
             {(profile as any).zodiac_sign ? (
               <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
             ) : null}
+            {(profile as any).pronouns ? (
+              <View style={styles.pronounsBadge}>
+                <Text style={styles.pronounsText}>{(profile as any).pronouns}</Text>
+              </View>
+            ) : null}
             <TouchableOpacity style={styles.shareLinkBtn} onPress={() => Alert.alert("Link copied!", `${BASE_URL}/${displayUsername}`)}>
               <Ionicons name="link-outline" size={13} color="#8B5CF6" />
               <Text style={[styles.shareLinkText, { color: "#8B5CF6" }]}>{BASE_URL.replace("https://", "")}/{displayUsername}</Text>
@@ -1612,6 +1617,8 @@ const styles = StyleSheet.create({
   bio: { fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18 },
   shareLinkBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
   shareLinkText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
+  pronounsBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, backgroundColor: "rgba(80,50,150,0.15)", borderColor: "rgba(140,100,230,0.35)" },
+  pronounsText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#c4b5fd" },
   statsPanel: { borderRadius: 16, marginBottom: 14, overflow: "hidden" },
   statsPanelRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4 },
   statsPanelSep: { height: 0.5, marginHorizontal: 12 },

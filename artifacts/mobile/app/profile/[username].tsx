@@ -704,10 +704,10 @@ export default function UserProfileScreen() {
 
             {/* Stats */}
             <View style={styles.statsRow}>
-              <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/followers/${u}?type=followers` as any)}>
+              <View style={styles.statBox}>
                 <Text style={[styles.statValue, { color: colors.foreground }]}>{formatCount(profile?.posts_count ?? posts.length)}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Posts</Text>
-              </TouchableOpacity>
+              </View>
               <TouchableOpacity style={styles.statBox} onPress={() => router.push(`/followers/${u}?type=followers` as any)}>
                 <Text style={[styles.statValue, { color: colors.foreground }]}>{formatCount(followersCount)}</Text>
                 <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Followers</Text>
@@ -734,6 +734,11 @@ export default function UserProfileScreen() {
             ) : null}
             {(profile as any)?.zodiac_sign ? (
               <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
+            ) : null}
+            {(profile as any)?.pronouns ? (
+              <View style={styles.pronounsBadge}>
+                <Text style={styles.pronounsText}>{(profile as any).pronouns}</Text>
+              </View>
             ) : null}
 
             {profile?.location ? (
@@ -951,6 +956,8 @@ const styles = StyleSheet.create({
   handle: { fontFamily: "Poppins_400Regular", fontSize: 13 },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   locationText: { fontFamily: "Poppins_400Regular", fontSize: 12 },
+  pronounsBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, backgroundColor: "rgba(80,50,150,0.15)", borderColor: "rgba(140,100,230,0.35)" },
+  pronounsText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#c4b5fd" },
   bio: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
   mutuals: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18 },
   websiteRow: { flexDirection: "row", alignItems: "center", gap: 4 },
