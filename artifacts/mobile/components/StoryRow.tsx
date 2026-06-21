@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { timeAgo } from "@/lib/supabase";
 import { CreateStorySheet, PendingStory, PostedStoryViewer } from "./CreateStorySheet";
 import {
   Dimensions,
@@ -52,6 +53,7 @@ export interface Story {
   textContent?: string;
   bgGradient?: string;
   caption?: string;
+  created_at?: string;
   mentions?: Array<{ userId: string; username: string; x: number; y: number }>;
 }
 
@@ -252,7 +254,7 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
             </View>
             <View>
               <Text style={viewerStyles.username}>{story.username}</Text>
-              <Text style={viewerStyles.timeAgo}>2h ago</Text>
+              <Text style={viewerStyles.timeAgo}>{story?.created_at ? timeAgo(story.created_at) : ""}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClose} style={viewerStyles.closeBtn}>

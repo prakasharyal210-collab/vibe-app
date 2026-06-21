@@ -919,6 +919,7 @@ export type StoryEntry = {
   textContent?: string;
   bgGradient?: string;
   caption?: string;
+  created_at?: string;
 };
 
 const MOCK_FRIEND_STORIES: StoryEntry[] = [
@@ -989,6 +990,7 @@ export async function fetchFriendStories(
       textContent: myStory?.text_content ?? undefined,
       bgGradient: myStory?.bg_gradient ?? undefined,
       caption: myStory?.caption ?? undefined,
+      created_at: myStory?.created_at ?? undefined,
     };
 
     // Followed accounts — one entry per user, deduplicated
@@ -1010,6 +1012,7 @@ export async function fetchFriendStories(
         textContent: s.text_content ?? undefined,
         bgGradient: s.bg_gradient ?? undefined,
         caption: s.caption ?? undefined,
+        created_at: s.created_at ?? undefined,
       });
     }
 
