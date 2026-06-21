@@ -17,6 +17,7 @@ import {
   FlatList,
   GestureResponderEvent,
   Image,
+  Modal,
   PanResponder,
   PanResponderGestureState,
   Platform,
@@ -191,6 +192,15 @@ const INIT_TAB: TabState = {
 const TABS: { id: FeedTabId; label: string }[] = [
   { id: "foryou", label: "For You" },
   { id: "friends", label: "Friends" },
+];
+
+type ContentType = "all" | "photo" | "video";
+type SortOrder = "newest" | "most_liked" | "most_viewed";
+
+const SORT_OPTIONS: { id: SortOrder; label: string; icon: string }[] = [
+  { id: "newest",     label: "Newest",     icon: "time-outline" },
+  { id: "most_liked", label: "Most Liked", icon: "heart-outline" },
+  { id: "most_viewed", label: "Most Viewed", icon: "eye-outline" },
 ];
 
 const WHY_REASONS = [
@@ -407,12 +417,30 @@ export default function FeedScreen() {
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState("explore");
   const isTrending = activeCategory === "trending";
+
+  const [contentType, setContentType] = useState<ContentType>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const contentTypeRef = useRef<ContentType>("all");
+  const sortOrderRef = useRef<SortOrder>("newest");
   const [tabStates, setTabStates] = useState<Record<FeedTabId, TabState>>({
     foryou: { ...INIT_TAB },
     friends: { ...INIT_TAB, loading: false },
   });
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
+
+  // Keep content-type and sort refs in sync so loadTabData (stable callback) reads current values
+  useEffect(() => { contentTypeRef.current = contentType; }, [contentType]);
+  useEffect(() => { sortOrderRef.current = sortOrder; }, [sortOrder]);
+
+  // Re-fetch For You when content type or sort changes (skip first mount — userId effect handles that)
+  const filterInitRef = useRef(false);
+  useEffect(() => {
+    if (!filterInitRef.current) { filterInitRef.current = true; return; }
+    if (userId) loadTabData("foryou", true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contentType, sortOrder]);
 
   // Remove a deleted post from all cached tab states immediately so it doesn't
   // appear stale before the next pull-to-refresh.
@@ -518,7 +546,7 @@ export default function FeedScreen() {
     try {
       let data: Post[] = [];
       if (tab === "foryou") {
-        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset) : MOCK_FOR_YOU;
+        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current) : MOCK_FOR_YOU;
         if (!userId) { console.log('[loadTabData] no userId, showing mock'); updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
@@ -807,25 +835,60 @@ export default function FeedScreen() {
 
         {/* Tab Bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-          {TABS.map((tab, i) => {
-            const isActive = i === activeTabIndex;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                style={styles.tabBtn}
-                onPress={() => switchToIndex(i)}
-                activeOpacity={0.7}
-              >
+          {/* For You half: label + controls when active */}
+          <View style={styles.tabBtn}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <TouchableOpacity onPress={() => switchToIndex(0)} activeOpacity={0.7}>
                 <Text style={[
                   styles.tabText,
-                  { color: isActive ? colors.foreground : colors.mutedForeground },
-                  isActive && styles.tabTextActive,
-                ]}>
-                  {tab.label}
-                </Text>
+                  { color: activeTabIndex === 0 ? colors.foreground : colors.mutedForeground },
+                  activeTabIndex === 0 && styles.tabTextActive,
+                ]}>For You</Text>
               </TouchableOpacity>
-            );
-          })}
+              {activeTabIndex === 0 && (
+                <>
+                  {/* Photo / Video segmented pills */}
+                  <View style={feedControlStyles.pillRow}>
+                    <TouchableOpacity
+                      onPress={() => setContentType((p) => p === "photo" ? "all" : "photo")}
+                      style={[feedControlStyles.pill, contentType === "photo" && feedControlStyles.pillActive]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={feedControlStyles.pillIcon}>📷</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setContentType((p) => p === "video" ? "all" : "video")}
+                      style={[feedControlStyles.pill, contentType === "video" && feedControlStyles.pillActive]}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={feedControlStyles.pillIcon}>🎥</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {/* Sort button — purple when non-default */}
+                  <TouchableOpacity
+                    onPress={() => setShowSortMenu((v) => !v)}
+                    style={[feedControlStyles.sortBtn, sortOrder !== "newest" && feedControlStyles.sortBtnActive]}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="swap-vertical"
+                      size={13}
+                      color={sortOrder !== "newest" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
+                    />
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+
+          {/* Friends half */}
+          <TouchableOpacity style={styles.tabBtn} onPress={() => switchToIndex(1)} activeOpacity={0.7}>
+            <Text style={[
+              styles.tabText,
+              { color: activeTabIndex === 1 ? colors.foreground : colors.mutedForeground },
+              activeTabIndex === 1 && styles.tabTextActive,
+            ]}>Friends</Text>
+          </TouchableOpacity>
 
           {/* Sliding indicator */}
           <Animated.View style={[styles.indicator, { left: indicatorLeft }]}>
@@ -952,9 +1015,113 @@ export default function FeedScreen() {
       </Animated.ScrollView>
 
       <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
+
+      {/* Sort menu — small dropdown below the For You tab bar */}
+      {showSortMenu && (
+        <Modal transparent animationType="fade" onRequestClose={() => setShowSortMenu(false)}>
+          <TouchableOpacity
+            style={sortMenuStyles.overlay}
+            onPress={() => setShowSortMenu(false)}
+            activeOpacity={1}
+          >
+            <View style={[sortMenuStyles.card, { top: topInset + 92 }]}>
+              {SORT_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt.id}
+                  style={sortMenuStyles.option}
+                  onPress={() => { setSortOrder(opt.id); setShowSortMenu(false); }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons
+                    name={opt.icon as any}
+                    size={14}
+                    color={sortOrder === opt.id ? "#8B5CF6" : "rgba(255,255,255,0.6)"}
+                  />
+                  <Text style={[sortMenuStyles.optionText, sortOrder === opt.id && sortMenuStyles.optionTextActive]}>
+                    {opt.label}
+                  </Text>
+                  {sortOrder === opt.id && (
+                    <Ionicons name="checkmark" size={12} color="#8B5CF6" style={{ marginLeft: "auto" }} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </View>
   );
 }
+
+const feedControlStyles = StyleSheet.create({
+  pillRow: {
+    flexDirection: "row",
+    gap: 3,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 8,
+    padding: 2,
+  },
+  pill: {
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pillActive: {
+    backgroundColor: "rgba(139,92,246,0.35)",
+  },
+  pillIcon: { fontSize: 11 },
+  sortBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sortBtnActive: {
+    backgroundColor: "rgba(139,92,246,0.2)",
+  },
+});
+
+const sortMenuStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+  },
+  card: {
+    position: "absolute",
+    left: 16,
+    backgroundColor: "#1A1025",
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: "rgba(139,92,246,0.25)",
+    minWidth: 160,
+    paddingVertical: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  option: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  optionText: {
+    fontSize: 13,
+    fontFamily: "Poppins_500Medium",
+    color: "rgba(255,255,255,0.7)",
+  },
+  optionTextActive: {
+    color: "#8B5CF6",
+    fontFamily: "Poppins_600SemiBold",
+  },
+});
 
 const emptyStyles = StyleSheet.create({
   wrap: { alignItems: "center", paddingTop: 60, paddingHorizontal: 32, gap: 10 },

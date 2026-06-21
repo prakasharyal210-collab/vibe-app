@@ -62,11 +62,31 @@ function normaliseFriendsRow(row: any): any {
 }
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
-// ?userId=...&limit=20&offset=0
+// ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed
 router.get("/foryou", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
   const offset = parseInt((req.query["offset"] as string) ?? "0", 10);
+  const contentType = req.query["content_type"] as "photo" | "video" | undefined;
+  const sort = (req.query["sort"] as string) ?? "newest";
+
+  // Column to order by in the direct fallback query
+  const sortCol = sort === "most_liked" ? "likes_count" : sort === "most_viewed" ? "views_count" : "created_at";
+
+  // Post-filter RPC results by content type (RPCs don't accept content_type params)
+  function filterByContentType(rows: any[]): any[] {
+    if (!contentType || contentType === ("all" as any)) return rows;
+    return rows.filter((r) =>
+      contentType === "video" ? r.is_video === true : r.is_video !== true,
+    );
+  }
+
+  // Re-sort RPC results when caller requests non-default ordering
+  function sortRows(rows: any[]): any[] {
+    if (sort === "most_liked") return [...rows].sort((a, b) => ((b.likes_count ?? 0) - (a.likes_count ?? 0)));
+    if (sort === "most_viewed") return [...rows].sort((a, b) => ((b.views_count ?? 0) - (a.views_count ?? 0)));
+    return rows; // "newest" — personalised RPC order is already recency-weighted
+  }
 
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -83,7 +103,8 @@ router.get("/foryou", async (req, res) => {
   );
   if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
     const enriched = await enrichWithProfiles(supabase, v2Data);
-    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "v2" });
+    const out = sortRows(filterByContentType(enriched.filter((p: any) => p.is_archived !== true)));
+    res.json({ data: out, source: "v2" });
     return;
   }
 
@@ -94,18 +115,28 @@ router.get("/foryou", async (req, res) => {
   );
   if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
     const enriched = await enrichWithProfiles(supabase, v1Data);
-    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "v1" });
+    const out = sortRows(filterByContentType(enriched.filter((p: any) => p.is_archived !== true)));
+    res.json({ data: out, source: "v1" });
     return;
   }
 
   // Final fallback: direct posts query — service role bypasses RLS, profile
   // join uses explicit FK hint to avoid "multiple relationships" ambiguity.
-  const { data: freshData } = await supabase
+  // content_type and sort are applied directly to this query.
+  let freshQuery = supabase
     .from("posts")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
     .or("visibility.eq.public,visibility.is.null")
-    .or("is_archived.eq.false,is_archived.is.null")
-    .order("created_at", { ascending: false })
+    .or("is_archived.eq.false,is_archived.is.null");
+
+  if (contentType === "photo") {
+    freshQuery = freshQuery.or("is_video.eq.false,is_video.is.null") as typeof freshQuery;
+  } else if (contentType === "video") {
+    freshQuery = freshQuery.eq("is_video", true) as typeof freshQuery;
+  }
+
+  const { data: freshData } = await freshQuery
+    .order(sortCol, { ascending: false })
     .limit(limit)
     .range(offset, offset + limit - 1);
 

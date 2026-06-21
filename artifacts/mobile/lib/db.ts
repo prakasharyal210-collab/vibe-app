@@ -1460,14 +1460,22 @@ function applyDiversity(posts: Post[], maxPerCreator = 2): Post[] {
   return [...primary, ...overflow];
 }
 
-export async function getForYouFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset);
+export async function getForYouFeed(
+  userId: string,
+  limit = 20,
+  offset = 0,
+  contentType: "all" | "photo" | "video" = "all",
+  sortOrder: "newest" | "most_liked" | "most_viewed" = "newest",
+): Promise<Post[]> {
+  console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset, 'contentType:', contentType, 'sort:', sortOrder);
   try {
     const params = new URLSearchParams({
       userId,
       limit: String(limit),
       offset: String(offset),
     });
+    if (contentType !== "all") params.set("content_type", contentType);
+    if (sortOrder !== "newest") params.set("sort", sortOrder);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 25_000);
     let res: Response;
