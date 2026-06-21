@@ -426,7 +426,6 @@ export default function FeedScreen() {
 
   const [contentType, setContentType] = useState<ContentType>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
-  const [showSortMenu, setShowSortMenu] = useState(false);
   const contentTypeRef = useRef<ContentType>("all");
   const sortOrderRef = useRef<SortOrder>("newest");
   const [showContentMenu, setShowContentMenu] = useState(false);
@@ -822,18 +821,6 @@ export default function FeedScreen() {
                   color={contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
                 />
               </TouchableOpacity>
-              {/* Sort button — purple when non-default */}
-              <TouchableOpacity
-                onPress={() => setShowSortMenu((v) => !v)}
-                style={[feedControlStyles.sortBtn, sortOrder !== "newest" && feedControlStyles.sortBtnActive]}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="swap-vertical-outline"
-                  size={13}
-                  color={sortOrder !== "newest" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
-                />
-              </TouchableOpacity>
             </View>
           )}
           <View style={styles.headerRight}>
@@ -1049,38 +1036,6 @@ export default function FeedScreen() {
         </Modal>
       )}
 
-      {showSortMenu && (
-        <Modal transparent animationType="fade" onRequestClose={() => setShowSortMenu(false)}>
-          <TouchableOpacity
-            style={sortMenuStyles.overlay}
-            onPress={() => setShowSortMenu(false)}
-            activeOpacity={1}
-          >
-            <View style={[sortMenuStyles.card, { top: topInset + 92 }]}>
-              {SORT_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt.id}
-                  style={sortMenuStyles.option}
-                  onPress={() => { setSortOrder(opt.id); setShowSortMenu(false); }}
-                  activeOpacity={0.75}
-                >
-                  <Ionicons
-                    name={opt.icon as any}
-                    size={14}
-                    color={sortOrder === opt.id ? "#8B5CF6" : "rgba(255,255,255,0.6)"}
-                  />
-                  <Text style={[sortMenuStyles.optionText, sortOrder === opt.id && sortMenuStyles.optionTextActive]}>
-                    {opt.label}
-                  </Text>
-                  {sortOrder === opt.id && (
-                    <Ionicons name="checkmark" size={12} color="#8B5CF6" style={{ marginLeft: "auto" }} />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-      )}
     </View>
   );
 }
