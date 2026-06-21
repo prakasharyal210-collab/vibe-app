@@ -520,6 +520,10 @@ export default function FeedScreen() {
   // Per-tab drag-start index for ±1 clamping (same pattern as Reels feed)
   const dragStartIndexRefs = useRef<number[]>([0, 0]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
+  // Generation counter — incremented on every reset load for a tab.
+  // Before committing fetched data we verify the generation still matches,
+  // which prevents a slow unfiltered load from overwriting a faster filtered one.
+  const tabLoadGen = useRef<Record<FeedTabId, number>>({ foryou: 0, friends: 0 });
   const isScrollingPager = useRef(false);
   const [headerHeight, setHeaderHeight] = useState(120);
   // Tab bar: 68px height + 10px bottom offset = 78px from screen bottom.
@@ -549,6 +553,12 @@ export default function FeedScreen() {
     const offset = reset ? 0 : state.offset;
 
     if (!reset && (state.loadingMore || !state.hasMore)) return;
+
+    // Stamp this call with a generation number so stale (slower) reset responses
+    // can't overwrite results from a newer reset (e.g. filter change races
+    // against the initial unfiltered load).
+    const gen = reset ? ++tabLoadGen.current[tab] : tabLoadGen.current[tab];
+
     if (reset) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
     else updateTab(tab, { loadingMore: true });
 
@@ -564,7 +574,13 @@ export default function FeedScreen() {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
       }
 
-      console.log('[loadTabData] tab:', tab, 'data.length:', data.length, 'reset:', reset);
+      console.log('[loadTabData] tab:', tab, 'data.length:', data.length, 'reset:', reset, 'gen:', gen);
+
+      // If a newer reset already started for this tab, discard our stale result.
+      if (reset && gen !== tabLoadGen.current[tab]) {
+        console.log('[loadTabData] stale reset discarded tab:', tab, 'gen:', gen, 'current:', tabLoadGen.current[tab]);
+        return;
+      }
 
       // Keep existing accumulated posts; only wipe on an explicit reset.
       // Previously a cycle-wrap (offset===0 on pagination) cleared prev which
@@ -821,11 +837,7 @@ export default function FeedScreen() {
                 style={[feedControlStyles.sortBtn, contentType !== "all" && feedControlStyles.sortBtnActive]}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name="camera-outline"
-                  size={14}
-                  color={contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
-                />
+                <Text style={{ fontSize: 13, color: contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)", lineHeight: 18 }}>▼</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -108,33 +108,41 @@ router.get("/foryou", async (req, res) => {
 
   const supabase = makeSupabase();
 
-  // Try v2 first (personalised + ranked). RPC returns no profile info, so we
-  // enrich with a secondary profiles batch lookup.
-  const { data: v2Data, error: v2Err } = await supabase.rpc(
-    "get_for_you_feed_v2",
-    { p_user_id: userId, p_limit: limit, p_offset: offset },
-  );
-  if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
-    const enriched = await enrichWithProfiles(supabase, v2Data);
-    const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
-    res.json({ data: out, source: "v2" });
-    return;
+  // When a content-type filter is active the personalised RPCs don't support it
+  // at the DB level.  We would have to post-filter a fixed-size page and could
+  // end up with far fewer results than requested (or zero), making the filter
+  // appear broken to the user.  Jump straight to the direct query which applies
+  // the is_video predicate at the database level.
+  if (!contentType) {
+    // Try v2 first (personalised + ranked). RPC returns no profile info, so we
+    // enrich with a secondary profiles batch lookup.
+    const { data: v2Data, error: v2Err } = await supabase.rpc(
+      "get_for_you_feed_v2",
+      { p_user_id: userId, p_limit: limit, p_offset: offset },
+    );
+    if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
+      const enriched = await enrichWithProfiles(supabase, v2Data);
+      const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
+      res.json({ data: out, source: "v2" });
+      return;
+    }
+
+    // Fallback to v1
+    const { data: v1Data, error: v1Err } = await supabase.rpc(
+      "get_for_you_feed",
+      { p_user_id: userId, p_limit: limit, p_offset: offset },
+    );
+    if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
+      const enriched = await enrichWithProfiles(supabase, v1Data);
+      const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
+      res.json({ data: out, source: "v1" });
+      return;
+    }
   }
 
-  // Fallback to v1
-  const { data: v1Data, error: v1Err } = await supabase.rpc(
-    "get_for_you_feed",
-    { p_user_id: userId, p_limit: limit, p_offset: offset },
-  );
-  if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
-    const enriched = await enrichWithProfiles(supabase, v1Data);
-    const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
-    res.json({ data: out, source: "v1" });
-    return;
-  }
-
-  // Final fallback: direct posts query — service role bypasses RLS, profile
-  // join uses explicit FK hint to avoid "multiple relationships" ambiguity.
+  // Direct posts query — service role bypasses RLS, profile join uses explicit
+  // FK hint to avoid "multiple relationships" ambiguity.  When contentType is
+  // set this is the primary path; otherwise it is the final RPC fallback.
   // content_type, category and sort are applied directly to this query.
   let freshQuery = supabase
     .from("posts")

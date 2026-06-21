@@ -1491,8 +1491,12 @@ export async function getForYouFeed(
     }
     if (res.ok) {
       const body = await res.json();
-      const posts = (body.data ?? []) as Post[];
-      console.log('[getForYouFeed] api server ok, source:', body.source, 'rows:', posts.length);
+      let posts = (body.data ?? []) as Post[];
+      // Belt-and-suspenders: enforce content-type contract on the client so a
+      // misconfigured DB row (is_video null/wrong) can never leak through.
+      if (contentType === "video") posts = posts.filter((p: any) => p.is_video === true);
+      else if (contentType === "photo") posts = posts.filter((p: any) => p.is_video !== true);
+      console.log('[getForYouFeed] api server ok, source:', body.source, 'rows after client filter:', posts.length);
       if (posts.length > 0) {
         return applyDiversity(posts);
       }
