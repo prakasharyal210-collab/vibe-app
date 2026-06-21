@@ -14,6 +14,7 @@ import {
   PanResponder,
   Platform,
   ScrollView,
+  Share,
   StyleSheet,
   Switch,
   Text,
@@ -24,7 +25,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { StoryInteractionSheet, InteractionConfig } from "@/components/StoryInteractionSheet";
-import { createStory, uploadStoryMedia, createFeedPost } from "@/lib/db";
+import { createStory, uploadStoryMedia, createFeedPost, uploadPostMedia, sendMessageToUser } from "@/lib/db";
 import { UserAvatar } from "@/components/UserAvatar";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import { Track } from "@/lib/music";
@@ -620,6 +621,213 @@ function fmtAgo(isoString: string): string {
   return `${Math.floor(hrs / 24)}d`;
 }
 
+// ─── Story Share Sheet (module-scope to avoid Ionicons remount / empty-box) ──
+
+type FollowingUser = { id: string; username: string; avatar_url?: string | null; full_name?: string | null };
+
+const API_BASE_SS = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+function StoryShareSheetRow({
+  user, sent, sending, onSend,
+}: { user: FollowingUser; sent: boolean; sending: boolean; onSend: () => void }) {
+  const colors = useColors();
+  return (
+    <TouchableOpacity
+      style={[ssStyles.row, { borderBottomColor: colors.border }]}
+      onPress={onSend}
+      disabled={sent || sending}
+      activeOpacity={0.75}
+    >
+      <UserAvatar url={user.avatar_url ?? undefined} username={user.username} size={40} />
+      <View style={ssStyles.rowBody}>
+        <Text style={[ssStyles.rowName, { color: colors.foreground }]} numberOfLines={1}>
+          {user.full_name || user.username}
+        </Text>
+        <Text style={[ssStyles.rowHandle, { color: colors.mutedForeground }]} numberOfLines={1}>
+          @{user.username}
+        </Text>
+      </View>
+      <View style={[ssStyles.sendBtn, sent ? ssStyles.sentBtn : {}]}>
+        <Ionicons
+          name={sent ? "checkmark" : sending ? "ellipsis-horizontal" : "paper-plane-outline"}
+          size={15}
+          color={sent ? "#10B981" : "#fff"}
+        />
+        <Text style={[ssStyles.sendBtnText, sent ? ssStyles.sentBtnText : {}]}>
+          {sent ? "Sent" : sending ? "…" : "Send"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function StoryShareSheet({
+  visible, onClose, username, userId, pending,
+}: {
+  visible: boolean; onClose: () => void;
+  username: string; userId?: string; pending: PendingStory;
+}) {
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const translateY = useRef(new Animated.Value(420)).current;
+
+  const [profiles, setProfiles] = useState<FollowingUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      Animated.timing(translateY, { toValue: 420, duration: 220, useNativeDriver: true }).start();
+      return;
+    }
+    setSearch("");
+    setSentIds(new Set());
+    Animated.spring(translateY, { toValue: 0, damping: 20, stiffness: 150, useNativeDriver: true }).start();
+    if (!username) return;
+    setLoading(true);
+    fetch(`${API_BASE_SS}/users/social/following/${encodeURIComponent(username)}`)
+      .then((r) => r.json())
+      .then((d: any) => setProfiles(Array.isArray(d.users) ? d.users : []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [visible, username]);
+
+  const filtered = search.trim()
+    ? profiles.filter(
+        (p) =>
+          p.username.toLowerCase().includes(search.toLowerCase()) ||
+          (p.full_name ?? "").toLowerCase().includes(search.toLowerCase()),
+      )
+    : profiles;
+
+  const handleSend = async (user: FollowingUser) => {
+    if (!userId || sendingId) return;
+    setSendingId(user.id);
+    const caption = pending.caption ? `"${pending.caption}"` : "";
+    const msg = caption
+      ? `📸 @${username} shared a story: ${caption}`
+      : `📸 @${username} shared a story with you`;
+    await sendMessageToUser(userId, user.id, msg).catch(() => {});
+    setSentIds((prev) => new Set([...prev, user.id]));
+    setSendingId(null);
+  };
+
+  const handleSystemShare = async () => {
+    const caption = pending.caption ? pending.caption + "\n\n" : "";
+    await Share.share({
+      message: `${caption}Check out @${username}'s story on Gundruk!`,
+      ...(pending.mediaUri ? { url: pending.mediaUri } : {}),
+    }).catch(() => {});
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <TouchableOpacity style={ssStyles.overlay} activeOpacity={1} onPress={onClose} />
+      <Animated.View
+        style={[
+          ssStyles.sheet,
+          { backgroundColor: colors.card, borderTopColor: colors.border, paddingBottom: insets.bottom + 12 },
+          { transform: [{ translateY }] },
+        ]}
+      >
+        <View style={[ssStyles.handle, { backgroundColor: colors.border }]} />
+        <Text style={[ssStyles.title, { color: colors.foreground }]}>Send story to…</Text>
+
+        <View style={[ssStyles.searchWrap, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <Ionicons name="search-outline" size={15} color={colors.mutedForeground} />
+          <TextInput
+            style={[ssStyles.searchInput, { color: colors.foreground }]}
+            placeholder="Search friends…"
+            placeholderTextColor={colors.mutedForeground}
+            value={search}
+            onChangeText={setSearch}
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+
+        <ScrollView style={ssStyles.list} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          {loading ? (
+            <Text style={[ssStyles.emptyText, { color: colors.mutedForeground }]}>Loading…</Text>
+          ) : filtered.length === 0 ? (
+            <Text style={[ssStyles.emptyText, { color: colors.mutedForeground }]}>
+              {search.trim() ? "No matches" : "No one to share with yet"}
+            </Text>
+          ) : (
+            filtered.map((u) => (
+              <StoryShareSheetRow
+                key={u.id}
+                user={u}
+                sent={sentIds.has(u.id)}
+                sending={sendingId === u.id}
+                onSend={() => handleSend(u)}
+              />
+            ))
+          )}
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[ssStyles.systemShareRow, { borderTopColor: colors.border }]}
+          onPress={handleSystemShare}
+          activeOpacity={0.75}
+        >
+          <View style={ssStyles.systemShareIcon}>
+            <Ionicons name="share-social-outline" size={20} color="#F97316" />
+          </View>
+          <Text style={[ssStyles.systemShareText, { color: colors.foreground }]}>Share via…</Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+}
+
+const ssStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.65)" },
+  sheet: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    maxHeight: "75%", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopWidth: 0.5, paddingTop: 10,
+  },
+  handle: { width: 36, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: 14 },
+  title: { fontFamily: "Poppins_700Bold", fontSize: 17, paddingHorizontal: 18, marginBottom: 12 },
+  searchWrap: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    marginHorizontal: 16, borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 4,
+  },
+  searchInput: { flex: 1, fontFamily: "Poppins_400Regular", fontSize: 14, paddingVertical: 0 },
+  list: { maxHeight: 280 },
+  emptyText: { fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", paddingVertical: 24 },
+  row: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingVertical: 11, gap: 12, borderBottomWidth: 0.5,
+  },
+  rowBody: { flex: 1 },
+  rowName: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  rowHandle: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  sendBtn: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: "#7C3AED", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6,
+  },
+  sentBtn: { backgroundColor: "transparent", borderWidth: 1, borderColor: "#10B981" },
+  sendBtnText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  sentBtnText: { color: "#10B981" },
+  systemShareRow: {
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 18, paddingVertical: 14, gap: 14, borderTopWidth: 0.5, marginTop: 4,
+  },
+  systemShareIcon: {
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: "rgba(249,115,22,0.15)", alignItems: "center", justifyContent: "center",
+  },
+  systemShareText: { flex: 1, fontFamily: "Poppins_500Medium", fontSize: 15 },
+});
+
 // ─── Posted Story Viewer ──────────────────────────────────────────────────────
 
 export function PostedStoryViewer({
@@ -661,6 +869,30 @@ export function PostedStoryViewer({
   const [viewers, setViewers] = useState<ViewerEntry[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const API_BASE_PV = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+  // ── Share/Post state ──────────────────────────────────────────────────────
+  const [sharingPost, setSharingPost] = useState(false);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2800);
+  };
+
+  const handleShareAsPost = async () => {
+    if (!userId) { Alert.alert("Sign in required", "You must be logged in to post."); return; }
+    if (!pending.mediaUri) { Alert.alert("Can't repost", "Text-only stories can't be shared as feed posts."); return; }
+    setSharingPost(true);
+    try {
+      await uploadPostMedia(userId, pending.mediaUri, pending.caption ?? "");
+      showToast("Posted to your feed ✓");
+    } catch (e: any) {
+      Alert.alert("Failed to post", e?.message ?? "Please try again.");
+    } finally {
+      setSharingPost(false);
+    }
+  };
 
   useEffect(() => {
     if (!storyId || !userId) return;
@@ -790,20 +1022,43 @@ export function PostedStoryViewer({
             </View>
             <Text style={pvStyles.actionLabel}>Add</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert("Share", "Coming soon ✨")} style={pvStyles.actionBtn}>
+
+          <TouchableOpacity onPress={() => setShareSheetOpen(true)} style={pvStyles.actionBtn}>
             <View style={pvStyles.actionIconWrap}>
               <Ionicons name="paper-plane-outline" size={18} color="#fff" />
             </View>
             <Text style={pvStyles.actionLabel}>Share</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => Alert.alert("Share as post", "Coming soon ✨")} style={pvStyles.actionBtn}>
+
+          <TouchableOpacity
+            onPress={handleShareAsPost}
+            disabled={sharingPost}
+            style={[pvStyles.actionBtn, sharingPost ? { opacity: 0.55 } : {}]}
+          >
             <View style={pvStyles.actionIconWrap}>
-              <Ionicons name="grid-outline" size={18} color="#fff" />
+              <Ionicons name={sharingPost ? "cloud-upload-outline" : "grid-outline"} size={18} color="#fff" />
             </View>
-            <Text style={pvStyles.actionLabel}>Post</Text>
+            <Text style={pvStyles.actionLabel}>{sharingPost ? "Posting…" : "Post"}</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Success toast */}
+      {toast ? (
+        <View style={pvStyles.toast} pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={15} color="#fff" />
+          <Text style={pvStyles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
+
+      {/* Friend share sheet */}
+      <StoryShareSheet
+        visible={shareSheetOpen}
+        onClose={() => setShareSheetOpen(false)}
+        username={username}
+        userId={userId}
+        pending={pending}
+      />
     </View>
   );
 }
@@ -1191,6 +1446,15 @@ const pvStyles = StyleSheet.create({
   actionBtn: { alignItems: "center", gap: 3, paddingHorizontal: 10 },
   actionIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" },
   actionLabel: { color: "rgba(255,255,255,0.8)", fontFamily: "Poppins_500Medium", fontSize: 11 },
+  // Toast
+  toast: {
+    position: "absolute", top: 68, alignSelf: "center",
+    flexDirection: "row", alignItems: "center", gap: 7,
+    backgroundColor: "rgba(16,185,129,0.92)", borderRadius: 22,
+    paddingHorizontal: 18, paddingVertical: 9, zIndex: 50,
+    shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
+  },
+  toastText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
 });
 
 const uploadStyles = StyleSheet.create({
