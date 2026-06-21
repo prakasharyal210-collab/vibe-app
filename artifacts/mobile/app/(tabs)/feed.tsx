@@ -250,11 +250,6 @@ const MOCK_FOR_YOU: Post[] = [
   },
 ];
 
-const MOCK_TRENDING_GRID = Array.from({ length: 9 }, (_, i) => ({
-  id: `tr${i}`,
-  image_url: `https://picsum.photos/seed/trend${i + 1}/300/300`,
-  likes_count: Math.floor(Math.random() * 80000 + 5000),
-}));
 
 function WhyThisButton({ index }: { index: number }) {
   const reason = WHY_REASONS[index % WHY_REASONS.length];
@@ -275,44 +270,78 @@ const whyStyles = StyleSheet.create({
 });
 
 
-function TrendingGrid({ posts, colors, title = "Trending on the web" }: { posts: { id: string; image_url?: string; media_url?: string; likes_count: number }[]; colors: any; title?: string }) {
-  const ITEM = (W - 4) / 3;
+type TrendingPost = {
+  id: string;
+  image_url?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  likes_count: number;
+  views_count?: number;
+  trending_score?: number;
+  is_video?: boolean;
+};
+
+function TrendingFeed({ posts, colors }: { posts: TrendingPost[]; colors: any }) {
   function fmt(n: number) {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
     if (n >= 1000) return (n / 1000).toFixed(1) + "k";
     return String(n);
   }
+  if (posts.length === 0) {
+    return (
+      <View style={{ paddingTop: 60, alignItems: "center", gap: 8 }}>
+        <Text style={{ fontSize: 32 }}>🔥</Text>
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 14 }}>Loading trending posts…</Text>
+      </View>
+    );
+  }
   return (
-    <View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 20, paddingBottom: 4 }}>
+    <View style={{ paddingBottom: 32 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 20, paddingBottom: 16 }}>
         <LinearGradient colors={["#7C3AED", "#F97316"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: 3, height: 16, borderRadius: 2 }} />
-        <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 15 }}>{title}</Text>
+        <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 15 }}>🔥 Trending</Text>
       </View>
-      <Text style={{ color: "rgba(255,255,255,0.28)", fontFamily: "Poppins_400Regular", fontSize: 11, paddingHorizontal: 14, paddingBottom: 10 }}>
-        Popular content from around the web — not Gundruk user posts
-      </Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 2 }}>
-        {posts.map((p) => (
-          <TouchableOpacity
-            key={p.id}
-            activeOpacity={0.85}
-            onPress={() => router.push(`/post/${p.id}` as any)}
-            style={{ position: "relative" }}
-          >
-            <Image source={{ uri: p.media_url ?? p.image_url }} style={{ width: ITEM, height: ITEM }} resizeMode="cover" />
-            <View style={{ position: "absolute", bottom: 4, left: 5, flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                <Text style={{ fontSize: 9 }}>❤️</Text>
-                <Text style={{ color: "#fff", fontSize: 10, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.8)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{fmt(p.likes_count)}</Text>
-              </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                <Text style={{ fontSize: 9 }}>👁️</Text>
-                <Text style={{ color: "#fff", fontSize: 10, fontFamily: "Poppins_600SemiBold", textShadowColor: "rgba(0,0,0,0.8)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 }}>{fmt(p.likes_count * 8)}</Text>
-              </View>
+      {posts.map((p, index) => (
+        <TouchableOpacity
+          key={p.id}
+          activeOpacity={0.85}
+          onPress={() => router.push(`/post/${p.id}` as any)}
+          style={{ marginHorizontal: 14, marginBottom: 14, borderRadius: 18, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.04)" }}
+        >
+          <View style={{ position: "relative" }}>
+            <Image
+              source={{ uri: p.thumbnail_url ?? p.media_url ?? p.image_url }}
+              style={{ width: "100%", aspectRatio: 4 / 3 }}
+              resizeMode="cover"
+            />
+            <View style={{ position: "absolute", top: 10, left: 10, backgroundColor: "#7C3AED", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 12 }}>#{index + 1}</Text>
             </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+            {p.is_video && (
+              <View style={{ position: "absolute", top: 10, right: 10, backgroundColor: "rgba(0,0,0,0.55)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                <Text style={{ color: "#fff", fontSize: 11, fontFamily: "Poppins_600SemiBold" }}>▶ Video</Text>
+              </View>
+            )}
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 20 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <Text style={{ fontSize: 14 }}>❤️</Text>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>{fmt(p.likes_count)}</Text>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <Text style={{ fontSize: 14 }}>👁️</Text>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>{fmt(p.views_count ?? 0)}</Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Text style={{ fontSize: 12 }}>🔥</Text>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12 }}>
+                {fmt(p.trending_score ?? ((p.views_count ?? 0) + p.likes_count))} score
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
@@ -370,25 +399,19 @@ function SuggestedCTA({ colors }: { colors: any }) {
 
 type ForYouHeaderProps = {
   isTrending: boolean;
-  trendingPosts: { id: string; image_url?: string; media_url?: string; likes_count: number }[];
+  trendingPosts: TrendingPost[];
   colors: any;
 };
 function ForYouListHeader({ isTrending, trendingPosts, colors }: ForYouHeaderProps) {
   if (isTrending) {
-    return (
-      <TrendingGrid
-        posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
-        colors={colors}
-        title="🔥 Trending on the web"
-      />
-    );
+    return <TrendingFeed posts={trendingPosts} colors={colors} />;
   }
   return null;
 }
 
 type FriendsHeaderProps = {
   isTrending: boolean;
-  trendingPosts: { id: string; image_url?: string; media_url?: string; likes_count: number }[];
+  trendingPosts: TrendingPost[];
   colors: any;
   stories: StoryEntry[];
   userId?: string;
@@ -402,11 +425,7 @@ function FriendsListHeader({ isTrending, trendingPosts, colors, stories, userId,
         <FriendsStoriesBar stories={stories} colors={colors} userId={userId} onStoryCreated={onStoryCreated} />
       )}
       {isTrending && (
-        <TrendingGrid
-          posts={trendingPosts.length > 0 ? trendingPosts : MOCK_TRENDING_GRID}
-          colors={colors}
-          title="🔥 Trending on the web"
-        />
+        <TrendingFeed posts={trendingPosts} colors={colors} />
       )}
     </>
   );
@@ -490,7 +509,7 @@ export default function FeedScreen() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { notifCount: rtNotifCount, messageCount: rtMsgCount, clearNotifBadge, clearMessageBadge } = useRealtime();
-  const [trendingPosts, setTrendingPosts] = useState<{ id: string; image_url?: string; media_url?: string; likes_count: number }[]>([]);
+  const [trendingPosts, setTrendingPosts] = useState<TrendingPost[]>([]);
 
   // ── Video playback lifecycle ────────────────────────────────────────────────
   // Track whether this screen is focused (no video should play while off-screen)
@@ -688,28 +707,25 @@ export default function FeedScreen() {
     fetchUnreadCount(userId).then(setUnreadCount).catch(() => {});
   }, [userId]);
 
-  // Load trending posts when for you tab is empty
+  // Load trending posts whenever the Trending category is active
   useEffect(() => {
-    const fyState = tabStates.foryou;
-    if (!fyState.loading && fyState.posts.length === 0) {
-      (async () => {
-        try {
-          // Route through API server — direct anon-key reads on posts hang under RLS
-          const ctParam = contentTypeRef.current !== "all" ? `&content_type=${contentTypeRef.current}` : "";
-          const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9${ctParam}`);
-          if (res.ok) {
-            const json = await res.json();
-            const posts = json.posts ?? json.data ?? [];
-            setTrendingPosts(posts.length ? posts : MOCK_TRENDING_GRID);
-          } else {
-            setTrendingPosts(MOCK_TRENDING_GRID);
-          }
-        } catch {
-          setTrendingPosts(MOCK_TRENDING_GRID);
+    if (activeCategory !== "trending") return;
+    setTrendingPosts([]);
+    (async () => {
+      try {
+        // Route through API server — direct anon-key reads on posts hang under RLS
+        const ctParam = contentTypeRef.current !== "all" ? `&content_type=${contentTypeRef.current}` : "";
+        const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9${ctParam}`);
+        if (res.ok) {
+          const json = await res.json();
+          const posts = json.posts ?? json.data ?? [];
+          setTrendingPosts(posts);
         }
-      })();
-    }
-  }, [tabStates.foryou.loading, tabStates.foryou.posts.length]);
+      } catch {
+        // leave empty — TrendingFeed shows loading state
+      }
+    })();
+  }, [activeCategory]);
 
   // Animate pills in/out when tab switches
   useEffect(() => {
