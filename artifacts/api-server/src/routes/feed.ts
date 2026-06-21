@@ -167,8 +167,6 @@ router.get("/foryou", async (req, res) => {
   res.json({
     data: freshData ?? [],
     source: "fresh",
-    v2Error: v2Err?.message,
-    v1Error: v1Err?.message,
   });
 });
 
