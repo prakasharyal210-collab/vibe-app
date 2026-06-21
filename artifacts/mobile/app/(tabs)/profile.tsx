@@ -1303,34 +1303,34 @@ export default function ProfileScreen() {
         {/* ── Stats panel ─────────────────────────────────────────────── */}
         <View style={[styles.statsPanel, { backgroundColor: "#141414", borderWidth: 1, borderColor: "rgba(212,175,55,0.28)" }]}>
           <View style={styles.statsPanelRow}>
-            <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} valueColor="#D4AF37" />
+            <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} valueColor="#fff" />
             <View style={[styles.statDivider, { backgroundColor: "rgba(212,175,55,0.18)" }]} />
             <StatBlock
               label="Followers"
               value={rtProfile.followers_count ?? profile.followers_count ?? 0}
               onPress={() => router.push(`/followers/${displayUsername}?type=followers` as any)}
-              valueColor="#D4AF37"
+              valueColor="#fff"
             />
             <View style={[styles.statDivider, { backgroundColor: "rgba(212,175,55,0.18)" }]} />
             <StatBlock
               label="Following"
               value={rtProfile.following_count ?? profile.following_count ?? 0}
               onPress={() => router.push(`/followers/${displayUsername}?type=following` as any)}
-              valueColor="#D4AF37"
+              valueColor="#fff"
             />
           </View>
         </View>
 
         <View style={styles.actionButtons}>
           <TouchableOpacity onPress={() => router.push("/edit-profile" as any)} style={[styles.editBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}>
-            <Text style={[styles.editBtnText, { color: "#D4AF37" }]}>Edit Profile</Text>
+            <Text style={[styles.editBtnText, { color: "#fff" }]}>Edit Profile</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => router.push("/analytics" as any)}
             style={[styles.analyticsBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}
           >
-            <Ionicons name="bar-chart-outline" size={15} color="#D4AF37" />
-            <Text style={[styles.analyticsBtnText, { color: "#D4AF37" }]}>Analytics</Text>
+            <Ionicons name="bar-chart-outline" size={15} color="#fff" />
+            <Text style={[styles.analyticsBtnText, { color: "#fff" }]}>Analytics</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() =>
@@ -1350,12 +1350,12 @@ export default function ProfileScreen() {
             }
             style={[styles.moreBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}
           >
-            <Ionicons name="ellipsis-horizontal" size={16} color="#D4AF37" />
-            <Text style={[styles.moreBtnText, { color: "#D4AF37" }]}>More</Text>
+            <Ionicons name="ellipsis-horizontal" size={16} color="#fff" />
+            <Text style={[styles.moreBtnText, { color: "#fff" }]}>More</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push("/wallet")} style={[styles.walletChip, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}>
             <Text style={styles.walletEmoji}>🪙</Text>
-            <Text style={[styles.walletChipText, { color: "#D4AF37" }]}>Wallet</Text>
+            <Text style={[styles.walletChipText, { color: "#fff" }]}>Wallet</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
