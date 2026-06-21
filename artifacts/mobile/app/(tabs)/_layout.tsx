@@ -24,71 +24,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
-import { claimDailyReward, getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
+import { getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
 import { useTheme } from "@/context/ThemeContext";
 
 const INACTIVE = "#6B7280";
 
 // Fired by settings.tsx when "Show me in Find Vibe" toggle changes.
 export const FIND_VIBE_LOCK_EVENT = "findVibeLockChanged";
-
-// ── RewardToast ───────────────────────────────────────────────────────────────
-function RewardToast({ coins, visible }: { coins: number; visible: boolean }) {
-  const insets = useSafeAreaInsets();
-  const translateY = useSharedValue(80);
-  const opacity = useSharedValue(0);
-  const bottomPad = Platform.OS === "web" ? 100 : insets.bottom + 92;
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!visible || coins <= 0) return;
-    translateY.value = 80;
-    opacity.value = 0;
-    translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
-    opacity.value = withTiming(1, { duration: 220 });
-    timerRef.current = setTimeout(() => {
-      translateY.value = withTiming(80, { duration: 280 });
-      opacity.value = withTiming(0, { duration: 250 });
-    }, 3000);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [visible, coins]);
-
-  const toastAnim = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  if (!visible || coins <= 0) return null;
-
-  return (
-    <RAnimated.View
-      style={[toastStyles.wrap, { bottom: bottomPad }, toastAnim]}
-      pointerEvents="none"
-    >
-      <View style={toastStyles.pill}>
-        <Text style={toastStyles.text}>🎁 +{coins} coins daily reward claimed!</Text>
-      </View>
-    </RAnimated.View>
-  );
-}
-
-const toastStyles = StyleSheet.create({
-  wrap: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 9999 },
-  pill: {
-    backgroundColor: "rgba(8,8,16,0.96)",
-    borderRadius: 30,
-    paddingHorizontal: 20,
-    paddingVertical: 11,
-    borderWidth: 1,
-    borderColor: "rgba(139,92,246,0.4)",
-    shadowColor: "#8B5CF6",
-    shadowOpacity: 0.4,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 8,
-  },
-  text: { color: "#fff", fontSize: 14, fontFamily: "Poppins_600SemiBold" },
-});
 
 // ── FindVibeLockedSheet ───────────────────────────────────────────────────────
 function FindVibeLockedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -404,14 +346,11 @@ export default function TabLayout() {
   const { session } = useAuth();
   const userId = session?.user?.id;
   const isLoggedIn = !!userId;
-  const [rewardCoins, setRewardCoins] = useState(0);
-  const [showToast, setShowToast] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   // Default to locked until we read the stored preference
   const [findVibeLocked, setFindVibeLocked] = useState(true);
   const [showLockedSheet, setShowLockedSheet] = useState(false);
   const [showGuestSheet, setShowGuestSheet] = useState(false);
-  const claimedRef = useRef(false);
   const onboardingRef = useRef(false);
 
   // Load lock state: AsyncStorage first (instant, written by settings on toggle),
@@ -446,23 +385,6 @@ export default function TabLayout() {
   }, []);
 
   useEffect(() => {
-    if (!userId || claimedRef.current) return;
-    claimedRef.current = true;
-    claimDailyReward(userId).then((result) => {
-      if (result.claimed && result.coins_awarded > 0) {
-        AsyncStorage.setItem(
-          `dailyReward:${userId}`,
-          JSON.stringify({ coins: result.coins_awarded, streak: result.streak, ts: Date.now() }),
-        ).catch(() => {});
-        setTimeout(() => {
-          setRewardCoins(result.coins_awarded);
-          setShowToast(true);
-        }, 1400);
-      }
-    }).catch(() => {});
-  }, [userId]);
-
-  useEffect(() => {
     if (!userId || onboardingRef.current) return;
     onboardingRef.current = true;
     (async () => {
@@ -495,7 +417,6 @@ export default function TabLayout() {
         isLoggedIn={isLoggedIn}
         onGuestTabPress={() => setShowGuestSheet(true)}
       />
-      <RewardToast coins={rewardCoins} visible={showToast} />
       <OnboardingInterestPicker visible={showOnboarding} onComplete={handleOnboardingComplete} />
       <FindVibeLockedSheet
         visible={showLockedSheet}
