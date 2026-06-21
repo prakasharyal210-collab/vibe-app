@@ -633,10 +633,16 @@ export default function ChatScreen() {
         </TouchableOpacity>
 
         <View style={chatStyles.headerRight}>
-          <TouchableOpacity style={chatStyles.iconBtn}>
+          <TouchableOpacity
+            style={chatStyles.iconBtn}
+            onPress={() => Alert.alert("Voice Call", "Coming soon ✨", [{ text: "OK" }])}
+          >
             <Ionicons name="call-outline" size={22} color={colors.foreground} />
           </TouchableOpacity>
-          <TouchableOpacity style={chatStyles.iconBtn}>
+          <TouchableOpacity
+            style={chatStyles.iconBtn}
+            onPress={() => Alert.alert("Video Call", "Coming soon ✨", [{ text: "OK" }])}
+          >
             <Ionicons
               name="videocam-outline"
               size={22}
