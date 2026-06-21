@@ -181,6 +181,16 @@ router.post("/swipe", async (req, res) => {
       await sb.from("notifications").insert(notifRows);
     }
 
+    // 8. Create a conversation for the matched pair.
+    // Lexicographic UUID ordering means the same pair always maps to the same row.
+    // The conversations table has a unique constraint on (user1_id, user2_id) so
+    // concurrent upserts from this path and vibe-requests/send are both safe.
+    const [user1Id, user2Id] = [swiperId, targetId].sort();
+    await sb.from("conversations").upsert(
+      { user1_id: user1Id, user2_id: user2Id, is_request: false, unread_count_1: 0, unread_count_2: 0 },
+      { onConflict: "user1_id,user2_id" },
+    );
+
     res.json({ recorded: true, match: true });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "vibe-swipe exception");
