@@ -5,17 +5,25 @@ import { router } from "expo-router";
 import { Video, ResizeMode } from "expo-av";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Dimensions,
   FlatList,
   Image,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
+import { captureRef } from "react-native-view-shot";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { buildVibeUrl } from "@/lib/share";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -51,6 +59,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_MARGIN = 12;
 const CARD_W = SCREEN_WIDTH - CARD_MARGIN * 2;
 const MAX_PORTRAIT_H = CARD_W * 1.25; // cap for very tall portraits only
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL ?? "") + "/api";
 
 // Module-level cache — survives component remounts.
 // Image.getSize is synchronous for images already in RN's decode cache, so
@@ -121,6 +130,17 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [showEditCaption, setShowEditCaption] = useState(false);
+  const [editCaptionText, setEditCaptionText] = useState(post.caption ?? "");
+  const [savingCaption, setSavingCaption] = useState(false);
+  const [isArchived, setIsArchived] = useState((post as any).is_archived ?? false);
+  const [hideLikeCount, setHideLikeCount] = useState((post as any).hide_like_count ?? false);
+  const [allowComments, setAllowComments] = useState((post as any).allow_comments !== false);
+  const [isPinned, setIsPinned] = useState((post as any).is_pinned ?? false);
+  const insets = useSafeAreaInsets();
+  const qrViewRef = useRef<View>(null);
   // null = dimensions not yet known → show shimmer placeholder.
   // Initialise from module-level cache so already-seen posts render at the
   // correct height immediately (no layout jump on scroll-back).
@@ -298,6 +318,103 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   // Full-screen derived dimensions
   const fsImageH = itemHeight ? itemHeight - 62 - 50 : 0;
 
+  const isOwn = !!(userId && post.user_id && userId === post.user_id);
+
+  const patchPost = async (fields: Record<string, unknown>) => {
+    try {
+      const res = await fetch(`${API_BASE}/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+      if (!res.ok) throw new Error("patch failed");
+    } catch {
+      // silently swallow — UI already has optimistic state
+    }
+  };
+
+  const handleNotInterested = () => {
+    setShowOptionsSheet(false);
+    setHidden(true);
+    if (userId && post.user_id && post.user_id !== userId) {
+      recordEngagement(userId, post.user_id, "hide", post.id, "post").catch(() => {});
+    }
+  };
+
+  const handleSaveFromSheet = () => {
+    setShowOptionsSheet(false);
+    if (!isLoggedIn) { onRequireLogin?.(); return; }
+    const nowB = !bookmarked;
+    setBookmarked(nowB);
+    if (userId) {
+      toggleFavourite(post.id, userId, nowB);
+      if (nowB && post.user_id && post.user_id !== userId) {
+        recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {});
+      }
+    }
+  };
+
+  const handleShareToFindVibes = async () => {
+    setShowOptionsSheet(false);
+    try {
+      const url = buildVibeUrl("post", { id: post.id, username: post.profiles?.username ?? "" });
+      await Share.share({ message: url, url });
+    } catch { /* user cancelled */ }
+  };
+
+  const handleArchiveToggle = () => {
+    setShowOptionsSheet(false);
+    const next = !isArchived;
+    setIsArchived(next);
+    patchPost({ is_archived: next });
+  };
+
+  const handleHideLikeCountToggle = () => {
+    const next = !hideLikeCount;
+    setHideLikeCount(next);
+    patchPost({ hide_like_count: next });
+  };
+
+  const handleAllowCommentsToggle = () => {
+    const next = !allowComments;
+    setAllowComments(next);
+    patchPost({ allow_comments: next });
+  };
+
+  const handlePinToggle = () => {
+    setShowOptionsSheet(false);
+    const next = !isPinned;
+    setIsPinned(next);
+    patchPost({ is_pinned: next });
+  };
+
+  const handleDeletePost = () => {
+    setShowOptionsSheet(false);
+    Alert.alert("Delete post", "This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await fetch(`${API_BASE}/posts/${post.id}`, { method: "DELETE" });
+            setHidden(true);
+          } catch { /* ignore */ }
+        },
+      },
+    ]);
+  };
+
+  const handleSaveCaptionEdit = async () => {
+    setSavingCaption(true);
+    try {
+      await patchPost({ caption: editCaptionText.trim() });
+    } finally {
+      setSavingCaption(false);
+      setShowEditCaption(false);
+    }
+  };
+
   if (hidden) return null;
 
   if (fullScreen && itemHeight) {
@@ -469,8 +586,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
           )}
         </View>
         <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
-        <TouchableOpacity onPress={() => { setHidden(true); if (userId && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "hide", post.id, "post").catch(() => {}); }} style={styles.moreBtn}>
-          <Ionicons name="ellipsis-horizontal" size={18} color={colors.mutedForeground} />
+        <TouchableOpacity onPress={() => setShowOptionsSheet(true)} style={styles.moreBtn}>
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
       </View>
 
@@ -717,9 +834,169 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         visible={showViewer}
         onClose={() => setShowViewer(false)}
       />
+
+      {/* ── Options bottom sheet ───────────────────────────────────────────── */}
+      <Modal visible={showOptionsSheet} transparent animationType="slide" onRequestClose={() => setShowOptionsSheet(false)}>
+        <TouchableOpacity style={cardOptS.backdrop} activeOpacity={1} onPress={() => setShowOptionsSheet(false)} />
+        <View style={[cardOptS.sheet, { paddingBottom: insets.bottom + 12 }]}>
+          <View style={cardOptS.handle} />
+
+          {/* QR / Save / Share icon row */}
+          <View style={cardOptS.iconRow}>
+            <TouchableOpacity style={cardOptS.iconItem} onPress={() => { setShowOptionsSheet(false); setShowQRCode(true); }}>
+              <View style={cardOptS.iconCircle}><Ionicons name="qr-code-outline" size={22} color="#fff" /></View>
+              <Text style={cardOptS.iconLabel}>QR Code</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={cardOptS.iconItem} onPress={handleSaveFromSheet}>
+              <View style={cardOptS.iconCircle}><Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={22} color={bookmarked ? "#8B5CF6" : "#fff"} /></View>
+              <Text style={cardOptS.iconLabel}>{bookmarked ? "Saved" : "Save"}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={cardOptS.iconItem} onPress={handleShareToFindVibes}>
+              <View style={cardOptS.iconCircle}><Ionicons name="share-social-outline" size={22} color="#fff" /></View>
+              <Text style={cardOptS.iconLabel}>Share</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isOwn ? (
+            <>
+              <CardSheetRow icon="archive-outline" label={isArchived ? "Unarchive" : "Archive"} onPress={handleArchiveToggle} />
+              <CardSheetRow icon={hideLikeCount ? "heart" : "heart-outline"} label={hideLikeCount ? "Show like count" : "Hide like count"} onPress={handleHideLikeCountToggle} />
+              <CardSheetRow icon={allowComments ? "chatbubble-outline" : "chatbubble"} label={allowComments ? "Turn off commenting" : "Turn on commenting"} onPress={handleAllowCommentsToggle} />
+              <CardSheetRow icon="create-outline" label="Edit caption" onPress={() => { setShowOptionsSheet(false); setEditCaptionText(post.caption ?? ""); setShowEditCaption(true); }} />
+              <CardSheetRow icon={isPinned ? "pin" : "pin-outline"} label={isPinned ? "Unpin from grid" : "Pin to grid"} onPress={handlePinToggle} />
+              <CardSheetRow icon="trash-outline" label="Delete" onPress={handleDeletePost} color="#EF4444" />
+            </>
+          ) : (
+            <CardSheetRow icon="eye-off-outline" label="Not interested" onPress={handleNotInterested} />
+          )}
+        </View>
+      </Modal>
+
+      {/* ── QR Code modal ─────────────────────────────────────────────────── */}
+      <Modal visible={showQRCode} transparent animationType="fade" onRequestClose={() => setShowQRCode(false)}>
+        <TouchableOpacity style={cardOptS.qrBackdrop} activeOpacity={1} onPress={() => setShowQRCode(false)}>
+          <View style={cardOptS.qrBox}>
+            <View ref={qrViewRef} style={cardOptS.qrInner} collapsable={false}>
+              <QRCode value={buildVibeUrl("post", { id: post.id, username: post.profiles?.username ?? "" })} size={200} backgroundColor="#fff" color="#000" />
+            </View>
+            <TouchableOpacity
+              style={cardOptS.qrShareBtn}
+              onPress={async () => {
+                try {
+                  const uri = await captureRef(qrViewRef, { format: "png", quality: 1 });
+                  const postUrl = buildVibeUrl("post", { id: post.id, username: post.profiles?.username ?? "" });
+                  await Share.share({ url: uri, message: postUrl });
+                } catch { /* cancelled */ }
+              }}
+            >
+              <Ionicons name="share-outline" size={18} color="#fff" />
+              <Text style={cardOptS.qrShareText}>Share QR</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Edit caption modal ────────────────────────────────────────────── */}
+      <Modal visible={showEditCaption} transparent animationType="slide" onRequestClose={() => setShowEditCaption(false)}>
+        <TouchableOpacity style={cardOptS.backdrop} activeOpacity={1} onPress={() => setShowEditCaption(false)} />
+        <View style={[cardOptS.editSheet, { paddingBottom: insets.bottom + 12 }]}>
+          <View style={cardOptS.handle} />
+          <Text style={cardOptS.editTitle}>Edit caption</Text>
+          <TextInput
+            style={cardOptS.editInput}
+            value={editCaptionText}
+            onChangeText={setEditCaptionText}
+            multiline
+            placeholder="Write a caption…"
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            autoFocus
+          />
+          <TouchableOpacity style={[cardOptS.editSaveBtn, savingCaption && { opacity: 0.5 }]} disabled={savingCaption} onPress={handleSaveCaptionEdit}>
+            <Text style={cardOptS.editSaveTxt}>{savingCaption ? "Saving…" : "Save"}</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
+
+// ── Module-scope CardSheetRow — stable reference prevents Ionicons glyph reset ─
+function CardSheetRow({ icon, label, onPress, color }: { icon: string; label: string; onPress: () => void; color?: string }) {
+  const clr = color ?? "#fff";
+  return (
+    <TouchableOpacity style={cardOptS.row} onPress={onPress} activeOpacity={0.7}>
+      <View style={cardOptS.rowIcon}><Ionicons name={icon as any} size={22} color={clr} /></View>
+      <Text style={[cardOptS.rowLabel, { color: clr }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const cardOptS = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
+  sheet: {
+    backgroundColor: "#1A1A2E",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 14,
+    paddingHorizontal: 0,
+    borderTopWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  handle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    alignSelf: "center", marginBottom: 18,
+  },
+  iconRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    marginBottom: 8,
+  },
+  iconItem: { alignItems: "center", gap: 6 },
+  iconCircle: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    alignItems: "center", justifyContent: "center",
+  },
+  iconLabel: { fontSize: 11, fontFamily: "Poppins_400Regular", color: "rgba(255,255,255,0.75)" },
+  row: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 22 },
+  rowIcon: { width: 36, alignItems: "center" },
+  rowLabel: { fontSize: 15, fontFamily: "Poppins_400Regular", flex: 1, marginLeft: 10 },
+  qrBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center" },
+  qrBox: { backgroundColor: "#1A1A2E", borderRadius: 20, padding: 28, alignItems: "center", gap: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  qrInner: { backgroundColor: "#fff", borderRadius: 12, padding: 12 },
+  qrShareBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "rgba(139,92,246,0.18)", borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10 },
+  qrShareText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  editSheet: {
+    backgroundColor: "#1A1A2E",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 14,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  editTitle: { fontSize: 16, fontFamily: "Poppins_700Bold", color: "#fff", marginBottom: 14, textAlign: "center" },
+  editInput: {
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    color: "#fff",
+    fontFamily: "Poppins_400Regular",
+    fontSize: 14,
+    minHeight: 100,
+    padding: 14,
+    textAlignVertical: "top",
+    marginBottom: 14,
+  },
+  editSaveBtn: { backgroundColor: "#7C3AED", borderRadius: 12, paddingVertical: 13, alignItems: "center" },
+  editSaveTxt: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+});
 
 const musicCreditStyles = StyleSheet.create({
   bar: {
