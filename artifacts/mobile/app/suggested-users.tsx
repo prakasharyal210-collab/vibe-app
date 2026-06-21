@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 interface SuggestedUser {
   id: string;
@@ -54,32 +53,44 @@ export default function SuggestedUsersScreen() {
   const [loading, setLoading] = useState(true);
   const [followed, setFollowed] = useState<Set<string>>(new Set());
 
+  const uid = session?.user?.id;
+  const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
   useEffect(() => {
+    if (!uid) { setLoading(false); return; }
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     (async () => {
       setLoading(true);
       try {
-        if (!session?.user?.id) throw new Error("no session");
-        const { data } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url, bio, followers_count, is_verified")
-          .neq("id", session.user.id)
-          .order("followers_count", { ascending: false })
-          .limit(20);
-        if (data?.length) {
-          setUsers(data.map((u: any, i: number) => ({
-            ...u,
-            reason: MOCK_SUGGESTED[i % MOCK_SUGGESTED.length]?.reason ?? "Suggested for you",
-          })));
-        } else {
+        // Route through API server (service-role key) to bypass RLS on profiles table.
+        const res = await fetch(
+          `${API_BASE}/users/search?q=&viewer_id=${encodeURIComponent(uid)}&limit=20`,
+          { signal: controller.signal },
+        );
+        if (res.ok && !cancelled) {
+          const json = await res.json();
+          const profiles: SuggestedUser[] = (json.profiles ?? []).slice(0, 20);
+          if (profiles.length) {
+            setUsers(profiles.map((u, i) => ({
+              ...u,
+              reason: MOCK_SUGGESTED[i % MOCK_SUGGESTED.length]?.reason ?? "Suggested for you",
+            })));
+          } else {
+            setUsers(MOCK_SUGGESTED);
+          }
+        } else if (!cancelled) {
           setUsers(MOCK_SUGGESTED);
         }
       } catch {
-        setUsers(MOCK_SUGGESTED);
-      } finally {
-        setLoading(false);
+        if (!cancelled) setUsers(MOCK_SUGGESTED);
       }
+      clearTimeout(timeout);
+      if (!cancelled) setLoading(false);
     })();
-  }, [session?.user?.id]);
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
+  }, [uid]);
 
   const toggleFollow = async (userId: string) => {
     const uid = session?.user?.id;
