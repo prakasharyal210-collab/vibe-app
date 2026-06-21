@@ -805,11 +805,11 @@ export default function FeedScreen() {
         onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
       >
         <View style={styles.headerTop}>
-          <VibeLogo />
-          {/* Photo/Video + sort controls — only when For You tab is active */}
-          {activeTabIndex === 0 && (
-            <View style={feedControlStyles.headerControls}>
-              {/* Content-type button — single icon, opens All/Photo/Video menu */}
+          {/* Left group: logo + content-type button sit adjacent */}
+          <View style={feedControlStyles.logoGroup}>
+            <VibeLogo />
+            {/* Always mounted — hide via display to avoid Ionicons remount on tab switch */}
+            <View style={[feedControlStyles.headerControls, { display: activeTabIndex === 0 ? "flex" : "none" }]}>
               <TouchableOpacity
                 onPress={() => setShowContentMenu((v) => !v)}
                 style={[feedControlStyles.sortBtn, contentType !== "all" && feedControlStyles.sortBtnActive]}
@@ -817,12 +817,12 @@ export default function FeedScreen() {
               >
                 <Ionicons
                   name="camera-outline"
-                  size={13}
+                  size={14}
                   color={contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)"}
                 />
               </TouchableOpacity>
             </View>
-          )}
+          </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
               style={styles.iconBtn}
@@ -1041,11 +1041,15 @@ export default function FeedScreen() {
 }
 
 const feedControlStyles = StyleSheet.create({
+  logoGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   headerControls: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   sortBtn: {
     width: 24,
