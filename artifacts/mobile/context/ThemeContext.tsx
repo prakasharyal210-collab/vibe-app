@@ -136,14 +136,14 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  themeId: "classic",
-  theme: THEMES.classic,
-  colors: buildColorsFromTheme(THEMES.classic),
+  themeId: "ocean",
+  theme: THEMES.ocean,
+  colors: buildColorsFromTheme(THEMES.ocean),
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeId, setThemeId] = useState<ThemeId>("classic");
+  const [themeId, setThemeId] = useState<ThemeId>("ocean");
   const userIdRef = useRef<string | null>(null);
 
   // ── Boot: local first, then Supabase sync ──────────────────────────────────
