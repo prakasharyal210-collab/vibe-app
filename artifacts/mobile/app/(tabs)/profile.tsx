@@ -38,12 +38,17 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { fetchProfilePosts, getProfileStats, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight, fetchMyStories, addStoryToHighlight, HighlightStory } from "@/lib/db";
+import QRCode from "react-native-qrcode-svg";
+import { captureRef } from "react-native-view-shot";
+import { buildVibeUrl } from "@/lib/share";
+
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useColors } from "@/hooks/useColors";
 import { Profile, supabase } from "@/lib/supabase";
 import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
 import { BASE_URL, shareContent } from "@/lib/share";
 
+const PV_API_BASE = (process.env.EXPO_PUBLIC_API_URL ?? "") + "/api";
 const { width: W, height: H } = Dimensions.get("window");
 const GRID_ITEM = (W - 3) / 3;
 
@@ -90,6 +95,7 @@ interface GridItem {
   created_at?: string;
   visibility?: string;
   thumbnail_url?: string;
+  isOwn?: boolean;
 }
 
 function isVideoUrl(url: string): boolean {
@@ -273,15 +279,24 @@ function PhotoViewer({
   photos,
   initialIndex,
   onClose,
+  userId,
 }: {
   photos: GridItem[];
   initialIndex: number;
   onClose: () => void;
+  userId?: string;
 }) {
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const [idx, setIdx] = useState(initialIndex);
   const scrollRef = useRef<ScrollView>(null);
+  const qrRef = useRef<View>(null);
+  const [showSheet, setShowSheet] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
+  const [hideLikeCount, setHideLikeCount] = useState(false);
+  const [allowComments, setAllowComments] = useState(true);
+  const [isPinned, setIsPinned] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -290,12 +305,103 @@ function PhotoViewer({
     return () => clearTimeout(t);
   }, [initialIndex]);
 
+  // Reset overlay state when the user swipes to a different photo
+  useEffect(() => {
+    setShowSheet(false);
+    setShowQRCode(false);
+    setIsArchived(false);
+    setHideLikeCount(false);
+    setAllowComments(true);
+    setIsPinned(false);
+  }, [idx]);
+
+  // Lazy-fetch own-post state when the options sheet opens
+  useEffect(() => {
+    const postId = photos[idx]?.id;
+    const own = photos[idx]?.isOwn;
+    if (!showSheet || !own || !postId) return;
+    fetch(`${PV_API_BASE}/posts/${postId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: any) => {
+        if (!data?.post) return;
+        const p = data.post;
+        setIsArchived(p.is_archived ?? false);
+        setHideLikeCount(p.hide_like_count ?? false);
+        setAllowComments(p.allow_comments !== false);
+        setIsPinned(p.is_pinned ?? false);
+      })
+      .catch(() => {});
+  }, [showSheet, idx]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const photo = photos[idx];
+  const isOwn = photo?.isOwn ?? false;
 
   const go = (newIdx: number) => {
     if (newIdx < 0 || newIdx >= photos.length) return;
     scrollRef.current?.scrollTo({ x: newIdx * W, animated: true });
     setIdx(newIdx);
+  };
+
+  const pvPatchPost = async (fields: Record<string, unknown>) => {
+    if (!photo?.id) return;
+    try {
+      await fetch(`${PV_API_BASE}/posts/${photo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+    } catch {}
+  };
+
+  const pvHandleArchiveToggle = () => {
+    setShowSheet(false);
+    const next = !isArchived;
+    setIsArchived(next);
+    pvPatchPost({ is_archived: next });
+  };
+
+  const pvHandleHideLikeCountToggle = () => {
+    const next = !hideLikeCount;
+    setHideLikeCount(next);
+    pvPatchPost({ hide_like_count: next });
+  };
+
+  const pvHandleAllowCommentsToggle = () => {
+    const next = !allowComments;
+    setAllowComments(next);
+    pvPatchPost({ allow_comments: next });
+  };
+
+  const pvHandlePinToggle = () => {
+    setShowSheet(false);
+    const next = !isPinned;
+    setIsPinned(next);
+    pvPatchPost({ is_pinned: next });
+  };
+
+  const pvHandleDeletePost = () => {
+    setShowSheet(false);
+    Alert.alert("Delete post", "This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await fetch(`${PV_API_BASE}/posts/${photo.id}`, { method: "DELETE" });
+            onClose();
+          } catch {}
+        },
+      },
+    ]);
+  };
+
+  const pvHandleShareToFindVibes = async () => {
+    setShowSheet(false);
+    try {
+      const url = `${BASE_URL}/post/${photo?.id ?? ""}`;
+      await Share.share({ message: url, url });
+    } catch {}
   };
 
   return (
@@ -307,8 +413,8 @@ function PhotoViewer({
             <Ionicons name="close" size={26} color="#fff" />
           </TouchableOpacity>
           <Text style={pvStyles.counter}>{idx + 1} / {photos.length}</Text>
-          <TouchableOpacity style={pvStyles.topBtn} onPress={() => Alert.alert("Share", "Share this post")}>
-            <Ionicons name="share" size={22} color="#fff" />
+          <TouchableOpacity style={pvStyles.topBtn} onPress={() => setShowSheet(true)}>
+            <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
 
@@ -387,6 +493,105 @@ function PhotoViewer({
             </View>
           )}
         </View>
+
+        {/* Options bottom-sheet overlay (inside the viewer modal, absolute positioned) */}
+        {showSheet && (
+          <>
+            <TouchableOpacity
+              style={pvSheetS.backdrop}
+              activeOpacity={1}
+              onPress={() => setShowSheet(false)}
+            />
+            <View style={[pvSheetS.sheet, { paddingBottom: insets.bottom + 12 }]}>
+              <View style={pvSheetS.handle} />
+              {/* Icon row */}
+              <View style={pvSheetS.iconRow}>
+                <TouchableOpacity
+                  style={pvSheetS.iconItem}
+                  onPress={() => { setShowSheet(false); setShowQRCode(true); }}
+                >
+                  <View style={pvSheetS.iconCircle}>
+                    <Ionicons name="qr-code-outline" size={22} color="#fff" />
+                  </View>
+                  <Text style={pvSheetS.iconLabel}>QR Code</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={pvSheetS.iconItem} onPress={pvHandleShareToFindVibes}>
+                  <View style={pvSheetS.iconCircle}>
+                    <Ionicons name="share-social-outline" size={22} color="#fff" />
+                  </View>
+                  <Text style={pvSheetS.iconLabel}>Share</Text>
+                </TouchableOpacity>
+              </View>
+              {isOwn && (
+                <>
+                  <PVSheetRow
+                    icon="archive-outline"
+                    label={isArchived ? "Unarchive" : "Archive"}
+                    onPress={pvHandleArchiveToggle}
+                  />
+                  <PVSheetRow
+                    icon={hideLikeCount ? "heart" : "heart-outline"}
+                    label={hideLikeCount ? "Show like count" : "Hide like count"}
+                    onPress={pvHandleHideLikeCountToggle}
+                  />
+                  <PVSheetRow
+                    icon={allowComments ? "chatbubble-outline" : "chatbubble"}
+                    label={allowComments ? "Turn off commenting" : "Turn on commenting"}
+                    onPress={pvHandleAllowCommentsToggle}
+                  />
+                  <PVSheetRow
+                    icon="create-outline"
+                    label="Edit caption"
+                    onPress={() => { setShowSheet(false); onClose(); router.push(`/post/${photo?.id}` as any); }}
+                  />
+                  <PVSheetRow
+                    icon={isPinned ? "pin" : "pin-outline"}
+                    label={isPinned ? "Unpin from grid" : "Pin to grid"}
+                    onPress={pvHandlePinToggle}
+                  />
+                  <PVSheetRow
+                    icon="trash-outline"
+                    label="Delete"
+                    onPress={pvHandleDeletePost}
+                    color="#EF4444"
+                  />
+                </>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* QR Code overlay */}
+        {showQRCode && (
+          <TouchableOpacity
+            style={pvSheetS.qrBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowQRCode(false)}
+          >
+            <View style={pvSheetS.qrBox}>
+              <View ref={qrRef} style={pvSheetS.qrInner} collapsable={false}>
+                <QRCode
+                  value={`${BASE_URL}/post/${photo?.id ?? ""}`}
+                  size={200}
+                  backgroundColor="#fff"
+                  color="#000"
+                />
+              </View>
+              <TouchableOpacity
+                style={pvSheetS.qrShareBtn}
+                onPress={async () => {
+                  try {
+                    const uri = await captureRef(qrRef, { format: "png", quality: 1 });
+                    await Share.share({ url: uri, message: `${BASE_URL}/post/${photo?.id ?? ""}` });
+                  } catch {}
+                }}
+              >
+                <Ionicons name="share-outline" size={18} color="#fff" />
+                <Text style={pvSheetS.qrShareText}>Share QR</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
     </Modal>
   );
@@ -433,6 +638,40 @@ const pvStyles = StyleSheet.create({
   ctrlBtn: { padding: 6 },
   playPauseBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(124,58,237,0.75)", alignItems: "center", justifyContent: "center" },
 });
+
+const pvSheetS = StyleSheet.create({
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)", zIndex: 20 },
+  sheet: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    backgroundColor: "#12122A", borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    zIndex: 21, paddingTop: 12, paddingHorizontal: 0,
+  },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)", alignSelf: "center", marginBottom: 14 },
+  iconRow: { flexDirection: "row", paddingHorizontal: 20, paddingBottom: 16, gap: 20 },
+  iconItem: { alignItems: "center", gap: 6 },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: "rgba(255,255,255,0.1)", alignItems: "center", justifyContent: "center" },
+  iconLabel: { color: "#e5e5ea", fontSize: 11, fontFamily: "Poppins_400Regular" },
+  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, gap: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.08)" },
+  rowIcon: { width: 28, alignItems: "center" },
+  rowLabel: { fontSize: 15, fontFamily: "Poppins_400Regular", color: "#fff" },
+  qrBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.85)", alignItems: "center", justifyContent: "center", zIndex: 20 },
+  qrBox: { backgroundColor: "#1A1A2E", borderRadius: 20, padding: 24, alignItems: "center", gap: 16 },
+  qrInner: { borderRadius: 12, overflow: "hidden", padding: 12, backgroundColor: "#fff" },
+  qrShareBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "rgba(124,58,237,0.85)", borderRadius: 20 },
+  qrShareText: { color: "#fff", fontSize: 14, fontFamily: "Poppins_600SemiBold" },
+});
+
+function PVSheetRow({ icon, label, onPress, color }: { icon: string; label: string; onPress: () => void; color?: string }) {
+  const c = color ?? "#fff";
+  return (
+    <TouchableOpacity style={pvSheetS.row} onPress={onPress} activeOpacity={0.7}>
+      <View style={pvSheetS.rowIcon}>
+        <Ionicons name={icon as any} size={22} color={c} />
+      </View>
+      <Text style={[pvSheetS.rowLabel, { color: c }]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
 
 function SkeletonGrid() {
   const pulse = useSharedValue(0.35);
@@ -586,6 +825,7 @@ export default function ProfileScreen() {
               likes: p.likes ?? 0,
               comments: p.comments ?? 0,
               caption: p.caption ?? "",
+              isOwn: false,
             }))
           );
         }
@@ -611,6 +851,7 @@ export default function ProfileScreen() {
               comments: p.comments_count ?? 0,
               caption: p.caption ?? "",
               created_at: p.created_at,
+              isOwn: true,
             }))
           );
         }
@@ -640,6 +881,7 @@ export default function ProfileScreen() {
                 likes: p.likes_count ?? 0,
                 comments: p.comments_count ?? 0,
                 caption: p.caption ?? "",
+                isOwn: false,
               }))
           );
         }
@@ -718,7 +960,7 @@ export default function ProfileScreen() {
 
   const loadMyPosts = useCallback(async (uid: string) => {
     const results = await fetchProfilePosts(uid, uid);
-    setMyPosts(results);
+    setMyPosts(results.map(p => ({ ...p, isOwn: true })));
   }, []);
 
   useEffect(() => {
@@ -749,14 +991,14 @@ export default function ProfileScreen() {
             const p = payload.new as any;
             const mediaUrl = p.media_url ?? p.image_url ?? '';
             const isVid = isVideoUrl(mediaUrl);
-            setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at }, ...prev]);
+            setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at, isOwn: true }, ...prev]);
             setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
           } catch { /* never crash on realtime payload */ }
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reels', filter: `user_id=eq.${uid}` }, (payload) => {
           try {
             const r = payload.new as any;
-            setMyPosts((prev) => [{ id: `reel_${r.id}`, image_url: r.thumbnail_url ?? '', video_url: r.video_url, isReel: true, likes: 0, comments: 0, caption: r.caption ?? '', duration: r.duration, created_at: r.created_at }, ...prev]);
+            setMyPosts((prev) => [{ id: `reel_${r.id}`, image_url: r.thumbnail_url ?? '', video_url: r.video_url, isReel: true, likes: 0, comments: 0, caption: r.caption ?? '', duration: r.duration, created_at: r.created_at, isOwn: true }, ...prev]);
             setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
           } catch { /* never crash on realtime payload */ }
         })
@@ -1172,6 +1414,7 @@ export default function ProfileScreen() {
           photos={viewerPhotos}
           initialIndex={viewerIndex}
           onClose={() => setViewerOpen(false)}
+          userId={session?.user?.id}
         />
       )}
 

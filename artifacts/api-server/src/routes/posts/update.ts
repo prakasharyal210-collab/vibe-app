@@ -24,6 +24,22 @@ function makeSupabase() {
 //   thumbnail_url    string    — custom grid thumbnail for video posts
 //   is_pinned        boolean   — pin / unpin on profile grid
 //
+// GET /api/posts/:id — return post fields needed for the options sheet
+router.get("/:id", async (req, res) => {
+  const { id } = req.params as { id: string };
+  const supabase = makeSupabase();
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id, user_id, is_archived, hide_like_count, allow_comments, is_pinned, caption")
+    .eq("id", id)
+    .single();
+  if (error || !data) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json({ post: data });
+});
+
 // Only fields explicitly provided in the body are updated.
 router.patch("/:id", async (req, res) => {
   const { id } = req.params as { id: string };
