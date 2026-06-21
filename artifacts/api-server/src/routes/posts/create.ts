@@ -260,6 +260,7 @@ router.post("/create", async (req, res) => {
       commentsEnabled?: boolean;
       downloadsEnabled?: boolean;
       visibility?: string;
+      category?: string;
     };
   };
 
@@ -340,6 +341,7 @@ router.post("/create", async (req, res) => {
     ...(thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {}),
     ...(options.filterId ? { filter_id: options.filterId } : {}),
     ...(options.location ? { location: options.location } : {}),
+    ...(options.category ? { category: options.category } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
@@ -371,6 +373,14 @@ router.post("/create", async (req, res) => {
     const r3 = await sb.from("posts").insert(payloadNoVideo).select("id").single();
     insertData = r3.data as { id: string } | null;
     insertErr = r3.error;
+  }
+  if (insertErr?.message?.includes("category") || insertErr?.message?.includes("'category'")) {
+    // category column not migrated yet — strip and retry
+    const payloadNoCat = { ...payload };
+    delete payloadNoCat.category;
+    const r4 = await sb.from("posts").insert(payloadNoCat).select("id").single();
+    insertData = r4.data as { id: string } | null;
+    insertErr = r4.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");

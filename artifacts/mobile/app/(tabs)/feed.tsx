@@ -436,17 +436,20 @@ export default function FeedScreen() {
   const tabStatesRef = useRef(tabStates);
   useEffect(() => { tabStatesRef.current = tabStates; }, [tabStates]);
 
-  // Keep content-type and sort refs in sync so loadTabData (stable callback) reads current values
+  // Keep content-type, sort, and category refs in sync so loadTabData (stable callback) reads current values
   useEffect(() => { contentTypeRef.current = contentType; }, [contentType]);
   useEffect(() => { sortOrderRef.current = sortOrder; }, [sortOrder]);
+  const activeCategoryRef = useRef("explore");
+  useEffect(() => { activeCategoryRef.current = activeCategory; }, [activeCategory]);
 
-  // Re-fetch For You when content type or sort changes (skip first mount — userId effect handles that)
+  // Re-fetch For You when content type, sort, or category changes (skip first mount — userId effect handles that)
   const filterInitRef = useRef(false);
   useEffect(() => {
     if (!filterInitRef.current) { filterInitRef.current = true; return; }
+    if (activeCategory === "trending") return; // trending tab uses its own data, no foryou reload needed
     if (userId) loadTabData("foryou", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contentType, sortOrder]);
+  }, [contentType, sortOrder, activeCategory]);
 
   // Remove a deleted post from all cached tab states immediately so it doesn't
   // appear stale before the next pull-to-refresh.
@@ -552,7 +555,10 @@ export default function FeedScreen() {
     try {
       let data: Post[] = [];
       if (tab === "foryou") {
-        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current) : MOCK_FOR_YOU;
+        const catParam = activeCategoryRef.current !== "explore" && activeCategoryRef.current !== "trending"
+          ? activeCategoryRef.current
+          : undefined;
+        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam) : MOCK_FOR_YOU;
         if (!userId) { console.log('[loadTabData] no userId, showing mock'); updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
@@ -920,13 +926,7 @@ export default function FeedScreen() {
       >
         {TABS.map((tab, tabIndex) => {
           const state = tabStates[tab.id];
-          const catDef = CATEGORIES.find((c) => c.id === activeCategory);
-          const filteredPosts = (catDef && catDef.keywords.length > 0 && !state.loading)
-            ? state.posts.filter((p) => {
-                const haystack = (p.caption ?? "").toLowerCase();
-                return catDef.keywords.some((kw) => haystack.includes(kw));
-              })
-            : state.posts;
+          const filteredPosts = state.posts; // category is now filtered server-side
           return (
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList

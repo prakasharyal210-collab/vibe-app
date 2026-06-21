@@ -99,6 +99,26 @@ async function cropToRatio(uri: string, imgW: number, imgH: number, ratio: CropR
   return result.uri;
 }
 
+// ── Post categories ───────────────────────────────────────────────────────────
+const POST_CATEGORIES = [
+  { id: "music",       emoji: "🎵", label: "Music" },
+  { id: "dance",       emoji: "💃", label: "Dance" },
+  { id: "comedy",      emoji: "😂", label: "Comedy" },
+  { id: "travel",      emoji: "✈️", label: "Travel" },
+  { id: "food",        emoji: "🍕", label: "Food" },
+  { id: "fitness",     emoji: "💪", label: "Fitness" },
+  { id: "gaming",      emoji: "🎮", label: "Gaming" },
+  { id: "photography", emoji: "📸", label: "Photo" },
+  { id: "art",         emoji: "🎨", label: "Art" },
+  { id: "fashion",     emoji: "💄", label: "Fashion" },
+  { id: "pets",        emoji: "🐾", label: "Pets" },
+  { id: "sports",      emoji: "⚽", label: "Sports" },
+  { id: "tech",        emoji: "💻", label: "Tech" },
+  { id: "education",   emoji: "📚", label: "Education" },
+  { id: "nature",      emoji: "🌿", label: "Nature" },
+] as const;
+type CategoryId = typeof POST_CATEGORIES[number]["id"];
+
 // ── Module-scope sub-components ───────────────────────────────────────────────
 // Must stay at module scope so React doesn't remount them on every render,
 // which would cause Ionicons to lose their font reference (□ tofu glyphs).
@@ -210,6 +230,10 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   // Feeling
   const [feeling, setFeeling] = useState<{ emoji: string; label: string } | null>(null);
   const [showFeelingModal, setShowFeelingModal] = useState(false);
+
+  // Category
+  const [category, setCategory] = useState<CategoryId | null>(null);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   // Camera
   const cameraRef = useRef<CameraView>(null);
@@ -342,6 +366,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               taggedUsers: taggedUsers.length ? taggedUsers.map((t) => t.id) : undefined,
               filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
               visibility,
+              category: category ?? undefined,
             });
           }
         })(),
@@ -356,7 +381,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       setCaption(""); setLocation(""); setTaggedUsers([]);
       setRawMedia([]); setPreviewIdx(0); setCropRatio("original");
       setActiveFilter(CAMERA_FILTERS[0]!); setVisibility("public");
-      setSelectedMusic(null); setFeeling(null);
+      setSelectedMusic(null); setFeeling(null); setCategory(null);
       setPhase("idle");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -377,12 +402,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       // so this setState is a no-op.
       setPhase((current) => (current === "uploading" ? "compose" : current));
     }
-  }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling]);
+  }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling, category]);
 
   const discard = useCallback(() => {
     setRawMedia([]); setCaption(""); setLocation("");
     setTaggedUsers([]); setPreviewIdx(0); setCropRatio("original");
-    setActiveFilter(CAMERA_FILTERS[0]!); setSelectedMusic(null); setFeeling(null);
+    setActiveFilter(CAMERA_FILTERS[0]!); setSelectedMusic(null); setFeeling(null); setCategory(null);
     setPhase("idle");
   }, []);
 
@@ -504,7 +529,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   }
 
   // ── Compose ──────────────────────────────────────────────────────────────
-  const hasActiveAddons = !!(selectedMusic || location.trim() || feeling || taggedUsers.length);
+  const hasActiveAddons = !!(selectedMusic || location.trim() || feeling || taggedUsers.length || category);
 
   return (
     <View style={p.fill}>
@@ -729,6 +754,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               active={false}
               onPress={() => Alert.alert("Effects", "AR effects and stickers are coming soon! ✨")}
             />
+            <AddPostBtn
+              iconName="pricetag-outline"
+              label="Category"
+              active={!!category}
+              onPress={() => setShowCategoryModal(true)}
+            />
           </ScrollView>
 
           {/* Active selection chips */}
@@ -761,6 +792,19 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                   <Text style={[p.chipText, { color: "#93C5FD" }]}>
                     {taggedUsers.length === 1 ? `@${taggedUsers[0]!.username}` : `${taggedUsers.length} people`}
                   </Text>
+                </TouchableOpacity>
+              )}
+              {category && (
+                <TouchableOpacity style={p.chip} onPress={() => setShowCategoryModal(true)}>
+                  <Text style={{ fontSize: 12 }}>
+                    {POST_CATEGORIES.find((c) => c.id === category)?.emoji ?? "🏷️"}
+                  </Text>
+                  <Text style={[p.chipText, { color: "#A78BFA" }]}>
+                    {POST_CATEGORIES.find((c) => c.id === category)?.label ?? category}
+                  </Text>
+                  <TouchableOpacity onPress={() => setCategory(null)} hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}>
+                    <Ionicons name="close" size={12} color="rgba(167,139,250,0.6)" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
               )}
             </View>
@@ -957,6 +1001,43 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                 </TouchableOpacity>
               )}
             />
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Category Picker ───────────────────────────────────────────── */}
+      <Modal visible={showCategoryModal} transparent animationType="slide" onRequestClose={() => setShowCategoryModal(false)}>
+        <View style={p.modalOverlay}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowCategoryModal(false)} />
+          <View style={[p.sheet, { paddingBottom: bottomInset + 24 }]}>
+            <View style={p.sheetHandle} />
+            <View style={p.sheetHeader}>
+              <Text style={p.sheetTitle}>Choose a Category</Text>
+              <TouchableOpacity onPress={() => setShowCategoryModal(false)} style={p.sheetDoneBtn}>
+                <Text style={p.sheetDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {category && (
+              <TouchableOpacity style={p.feelingClearBtn} onPress={() => { setCategory(null); setShowCategoryModal(false); }}>
+                <Text style={p.feelingClearText}>Clear category</Text>
+              </TouchableOpacity>
+            )}
+            <View style={p.catGrid}>
+              {POST_CATEGORIES.map((cat) => {
+                const isActive = category === cat.id;
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[p.catCell, isActive && p.catCellActive]}
+                    onPress={() => { setCategory(cat.id); setShowCategoryModal(false); }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={p.catEmoji}>{cat.emoji}</Text>
+                    <Text style={[p.catLabel, isActive && p.catLabelActive]} numberOfLines={1}>{cat.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
         </View>
       </Modal>
@@ -1213,4 +1294,12 @@ const p = StyleSheet.create({
   feelingEmoji: { fontSize: 26 },
   feelingLabel: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_500Medium", fontSize: 10, textAlign: "center" },
   feelingLabelActive: { color: "#A78BFA" },
+
+  // Category picker
+  catGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 4, paddingBottom: 8 },
+  catCell: { width: "30%", margin: "1.65%" as any, alignItems: "center", paddingVertical: 14, borderRadius: 16, backgroundColor: "#16162A", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", gap: 4 },
+  catCellActive: { backgroundColor: "rgba(124,58,237,0.25)", borderColor: "#7C3AED" },
+  catEmoji: { fontSize: 24 },
+  catLabel: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_500Medium", fontSize: 11, textAlign: "center" },
+  catLabelActive: { color: "#A78BFA" },
 });

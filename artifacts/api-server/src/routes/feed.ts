@@ -61,24 +61,37 @@ function normaliseFriendsRow(row: any): any {
   };
 }
 
+const VALID_FEED_CATEGORIES = new Set([
+  "music","dance","comedy","travel","food","fitness",
+  "gaming","photography","art","fashion","pets","sports",
+  "tech","education","nature",
+]);
+
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
-// ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed
+// ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed&category=music|...
 router.get("/foryou", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
   const offset = parseInt((req.query["offset"] as string) ?? "0", 10);
   const contentType = req.query["content_type"] as "photo" | "video" | undefined;
   const sort = (req.query["sort"] as string) ?? "newest";
+  const rawCategory = req.query["category"] as string | undefined;
+  const category = rawCategory && VALID_FEED_CATEGORIES.has(rawCategory) ? rawCategory : undefined;
 
   // Column to order by in the direct fallback query
   const sortCol = sort === "most_liked" ? "likes_count" : sort === "most_viewed" ? "views_count" : "created_at";
 
-  // Post-filter RPC results by content type (RPCs don't accept content_type params)
+  // Post-filter RPC results by content type and category (RPCs don't accept these params)
   function filterByContentType(rows: any[]): any[] {
     if (!contentType || contentType === ("all" as any)) return rows;
     return rows.filter((r) =>
       contentType === "video" ? r.is_video === true : r.is_video !== true,
     );
+  }
+
+  function filterByCategory(rows: any[]): any[] {
+    if (!category) return rows;
+    return rows.filter((r) => r.category === category);
   }
 
   // Re-sort RPC results when caller requests non-default ordering
@@ -103,7 +116,7 @@ router.get("/foryou", async (req, res) => {
   );
   if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
     const enriched = await enrichWithProfiles(supabase, v2Data);
-    const out = sortRows(filterByContentType(enriched.filter((p: any) => p.is_archived !== true)));
+    const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
     res.json({ data: out, source: "v2" });
     return;
   }
@@ -115,14 +128,14 @@ router.get("/foryou", async (req, res) => {
   );
   if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
     const enriched = await enrichWithProfiles(supabase, v1Data);
-    const out = sortRows(filterByContentType(enriched.filter((p: any) => p.is_archived !== true)));
+    const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
     res.json({ data: out, source: "v1" });
     return;
   }
 
   // Final fallback: direct posts query — service role bypasses RLS, profile
   // join uses explicit FK hint to avoid "multiple relationships" ambiguity.
-  // content_type and sort are applied directly to this query.
+  // content_type, category and sort are applied directly to this query.
   let freshQuery = supabase
     .from("posts")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
@@ -133,6 +146,9 @@ router.get("/foryou", async (req, res) => {
     freshQuery = freshQuery.or("is_video.eq.false,is_video.is.null") as typeof freshQuery;
   } else if (contentType === "video") {
     freshQuery = freshQuery.eq("is_video", true) as typeof freshQuery;
+  }
+  if (category) {
+    freshQuery = freshQuery.eq("category", category) as typeof freshQuery;
   }
 
   const { data: freshData } = await freshQuery
