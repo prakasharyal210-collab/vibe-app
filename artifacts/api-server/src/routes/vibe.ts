@@ -654,4 +654,43 @@ router.post("/reset-deck", async (req, res) => {
   }
 });
 
+// ─── GET /api/vibe/discover ───────────────────────────────────────────────────
+// ?userId=...&interestedIn=a,b&lookingFor=...&ageMin=18&ageMax=99&maxDistanceKm=100
+// Vibe discovery candidates via get_vibe_matches RPC (service-role key, no RLS hang).
+router.get("/discover", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const interestedInStr = (req.query["interestedIn"] as string) ?? "";
+  const interestedIn = interestedInStr ? interestedInStr.split(",").filter(Boolean) : [];
+  const lookingFor = (req.query["lookingFor"] as string) || null;
+  const ageMin = parseInt((req.query["ageMin"] as string) ?? "18", 10);
+  const ageMax = parseInt((req.query["ageMax"] as string) ?? "99", 10);
+  const maxDistanceKm = parseFloat((req.query["maxDistanceKm"] as string) ?? "100");
+
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb.rpc("get_vibe_matches", {
+      p_user_id: userId,
+      p_interested_in: interestedIn,
+      p_looking_for: lookingFor,
+      p_age_min: ageMin,
+      p_age_max: ageMax,
+      p_max_distance_km: maxDistanceKm,
+    });
+    if (!error && Array.isArray(data)) {
+      res.json({ profiles: data });
+      return;
+    }
+    req.log.warn({ error: error?.message }, "vibe/discover rpc error");
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/discover exception");
+  }
+  res.json({ profiles: [] });
+});
+
 export default router;
+

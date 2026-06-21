@@ -130,7 +130,8 @@ router.get("/block-status", async (req, res) => {
 });
 
 // POST /api/users/social/conversation  body: { userId, otherId }
-// Get or create a conversation between two users
+// Get or create a conversation between two users.
+// conversations table uses user1_id / user2_id (not user_id / other_user_id).
 router.post("/conversation", async (req, res) => {
   const { userId, otherId } = req.body as { userId?: string; otherId?: string };
   if (!userId || !otherId) {
@@ -145,7 +146,7 @@ router.post("/conversation", async (req, res) => {
       .from("conversations")
       .select("id")
       .or(
-        `and(user_id.eq.${userId},other_user_id.eq.${otherId}),and(user_id.eq.${otherId},other_user_id.eq.${userId})`
+        `and(user1_id.eq.${userId},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${userId})`
       )
       .limit(1);
 
@@ -159,12 +160,13 @@ router.post("/conversation", async (req, res) => {
     const { data: created, error } = await sb
       .from("conversations")
       .insert({
-        user_id: userId,
-        other_user_id: otherId,
+        user1_id: userId,
+        user2_id: otherId,
         is_request: true,
         last_message: "",
         last_message_at: new Date().toISOString(),
-        unread_count: 0,
+        unread_count_1: 0,
+        unread_count_2: 0,
       })
       .select("id")
       .single();
@@ -176,18 +178,23 @@ router.post("/conversation", async (req, res) => {
         .from("conversations")
         .select("id")
         .or(
-          `and(user_id.eq.${userId},other_user_id.eq.${otherId}),and(user_id.eq.${otherId},other_user_id.eq.${userId})`
+          `and(user1_id.eq.${userId},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${userId})`
         )
         .limit(1);
       const found = retry?.[0];
-      res.json({ conversationId: found?.id ?? otherId });
+      if (found?.id) {
+        res.json({ conversationId: found.id });
+      } else {
+        req.log.error({ error: error.message }, "conversation insert failed with no fallback");
+        res.status(500).json({ error: "Failed to create conversation", detail: error.message });
+      }
       return;
     }
 
     res.json({ conversationId: created.id });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "conversation exception");
-    res.json({ conversationId: otherId });
+    res.status(500).json({ error: "Failed to create conversation" });
   }
 });
 

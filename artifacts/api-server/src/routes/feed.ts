@@ -249,4 +249,145 @@ router.get("/trending", async (req, res) => {
   }
 });
 
+// ─── GET /api/feed/following ──────────────────────────────────────────────────
+// ?userId=...&limit=20&offset=0
+// Calls get_following_feed RPC via service-role key (bypasses RLS).
+router.get("/following", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
+  const offset = parseInt((req.query["offset"] as string) ?? "0", 10);
+
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+
+  const { data, error } = await supabase.rpc("get_following_feed", {
+    p_user_id: userId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    const needsEnrich = !data[0].username && !data[0].profiles;
+    const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
+    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    return;
+  }
+
+  const { data: freshData } = await supabase
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .range(offset, offset + limit - 1);
+
+  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+});
+
+// ─── GET /api/feed/nearby ─────────────────────────────────────────────────────
+// ?userId=...&lat=...&lng=...&limit=20&offset=0
+// Calls get_nearby_feed RPC via service-role key, falls back to recency sort.
+router.get("/nearby", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  const lat = parseFloat((req.query["lat"] as string) || "0");
+  const lng = parseFloat((req.query["lng"] as string) || "0");
+  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
+  const offset = parseInt((req.query["offset"] as string) ?? "0", 10);
+
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+
+  const { data, error } = await supabase.rpc("get_nearby_feed", {
+    p_lat: lat,
+    p_lng: lng,
+    p_user_id: userId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    const needsEnrich = !data[0].username && !data[0].profiles;
+    const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
+    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    return;
+  }
+
+  const { data: freshData } = await supabase
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .range(offset, offset + limit - 1);
+
+  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+});
+
+// ─── GET /api/feed/vibes ──────────────────────────────────────────────────────
+// ?userId=...&limit=20&offset=0
+// Calls get_vibes_feed RPC (trending/liked content), falls back to top likes_count.
+router.get("/vibes", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
+  const offset = parseInt((req.query["offset"] as string) ?? "0", 10);
+
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+
+  const supabase = makeSupabase();
+
+  const { data, error } = await supabase.rpc("get_vibes_feed", {
+    p_user_id: userId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (!error && Array.isArray(data) && data.length > 0) {
+    const needsEnrich = !data[0].username && !data[0].profiles;
+    const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
+    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    return;
+  }
+
+  const { data: freshData } = await supabase
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
+    .order("likes_count", { ascending: false })
+    .limit(limit)
+    .range(offset, offset + limit - 1);
+
+  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+});
+
+// ─── POST /api/feed/seen ──────────────────────────────────────────────────────
+// Body: { userId, postId }
+// Fire-and-forget seen tracking so the anon-key RPC never blocks the UI thread.
+router.post("/seen", async (req, res) => {
+  const { userId, postId } = req.body as { userId?: string; postId?: string };
+  if (!userId || !postId) {
+    res.status(204).end();
+    return;
+  }
+  const supabase = makeSupabase();
+  try {
+    await supabase.rpc("mark_post_seen", { p_user_id: userId, p_post_id: postId });
+  } catch {}
+  res.status(204).end();
+});
+
 export default router;
+

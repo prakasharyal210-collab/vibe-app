@@ -1495,10 +1495,19 @@ export async function getForYouFeed(userId: string, limit = 20, offset = 0): Pro
 
 export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   try {
-    const { data, error } = await supabase.rpc('get_following_feed', {
-      p_user_id: userId, p_limit: limit, p_offset: offset,
-    });
-    if (!error && data && data.length > 0) return data as Post[];
+    const params = new URLSearchParams({ userId, limit: String(limit), offset: String(offset) });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/feed/following?${params}`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.ok) {
+      const body = await res.json();
+      return (body.data ?? []) as Post[];
+    }
   } catch {}
   return [];
 }
@@ -1534,33 +1543,51 @@ export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Pr
 
 export async function getNearbyFeed(lat: number, lng: number, userId: string, limit = 20, offset = 0): Promise<Post[]> {
   try {
-    const { data, error } = await supabase.rpc('get_nearby_feed', {
-      p_lat: lat, p_lng: lng, p_user_id: userId, p_limit: limit, p_offset: offset,
+    const params = new URLSearchParams({
+      userId, lat: String(lat), lng: String(lng), limit: String(limit), offset: String(offset),
     });
-    if (!error && data && data.length > 0) return data as Post[];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/feed/nearby?${params}`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.ok) {
+      const body = await res.json();
+      return (body.data ?? []) as Post[];
+    }
   } catch {}
-  const { data: nd, error: ne } = await supabase.from('posts').select('*, profiles!user_id(*)').or('visibility.eq.public,visibility.is.null').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-  if (!ne) return (nd as Post[]) ?? [];
-  const { data: nf } = await supabase.from('posts').select('*, profiles!user_id(*)').order('created_at', { ascending: false }).range(offset, offset + limit - 1);
-  return (nf as Post[]) ?? [];
+  return [];
 }
 
 export async function getVibesFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   try {
-    const { data, error } = await supabase.rpc('get_vibes_feed', {
-      p_user_id: userId, p_limit: limit, p_offset: offset,
-    });
-    if (!error && data && data.length > 0) return data as Post[];
+    const params = new URLSearchParams({ userId, limit: String(limit), offset: String(offset) });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/feed/vibes?${params}`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.ok) {
+      const body = await res.json();
+      return (body.data ?? []) as Post[];
+    }
   } catch {}
-  const { data: vd, error: ve } = await supabase.from('posts').select('*, profiles!user_id(*)').or('visibility.eq.public,visibility.is.null').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
-  if (!ve) return (vd as Post[]) ?? [];
-  const { data: vf } = await supabase.from('posts').select('*, profiles!user_id(*)').order('likes_count', { ascending: false }).range(offset, offset + limit - 1);
-  return (vf as Post[]) ?? [];
+  return [];
 }
 
 export async function markPostSeen(userId: string, postId: string): Promise<void> {
   try {
-    await supabase.rpc('mark_post_seen', { p_user_id: userId, p_post_id: postId });
+    fetch(`${API_BASE}/feed/seen`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, postId }),
+    }).catch(() => {});
   } catch {}
 }
 
@@ -2101,16 +2128,25 @@ export async function getVibeMatches(
   filters?: { interestedIn?: string[]; lookingFor?: string; ageMin?: number; ageMax?: number; maxDistanceKm?: number }
 ): Promise<VibeMatchProfile[]> {
   try {
-    const { data, error } = await supabase.rpc('get_vibe_matches', {
-      p_user_id: userId,
-      p_interested_in: filters?.interestedIn ?? [],
-      p_looking_for: filters?.lookingFor ?? null,
-      p_age_min: filters?.ageMin ?? 18,
-      p_age_max: filters?.ageMax ?? 99,
-      p_max_distance_km: filters?.maxDistanceKm ?? 100,
+    const params = new URLSearchParams({
+      userId,
+      interestedIn: (filters?.interestedIn ?? []).join(","),
+      lookingFor: filters?.lookingFor ?? "",
+      ageMin: String(filters?.ageMin ?? 18),
+      ageMax: String(filters?.ageMax ?? 99),
+      maxDistanceKm: String(filters?.maxDistanceKm ?? 100),
     });
-    if (error || !data) return [];
-    return (data as any[]).map((p: any) => ({
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/vibe/discover?${params}`, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (json.profiles ?? []).map((p: any) => ({
       id: p.user_id ?? p.id,
       name: p.full_name ?? p.username ?? 'Vibe User',
       age: p.age ?? 25,
@@ -2342,24 +2378,26 @@ export interface ProfileStats {
 
 export async function getProfileStats(userId: string): Promise<ProfileStats> {
   try {
-    const { data, error } = await supabase.rpc("get_profile_stats", { p_user_id: userId });
-    if (!error && data) return data as ProfileStats;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15_000);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/users/stats?userId=${encodeURIComponent(userId)}`, {
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        posts_count: data.posts_count ?? 0,
+        followers_count: data.followers_count ?? 0,
+        following_count: data.following_count ?? 0,
+      };
+    }
   } catch {}
-  try {
-    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.all([
-      supabase.from("posts").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabase.from("reels").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", userId),
-      supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", userId),
-    ]);
-    return {
-      posts_count: (postsRes.count ?? 0) + (reelsRes.count ?? 0),
-      followers_count: followersRes.count ?? 0,
-      following_count: followingRes.count ?? 0,
-    };
-  } catch {
-    return { posts_count: 0, followers_count: 0, following_count: 0 };
-  }
+  return { posts_count: 0, followers_count: 0, following_count: 0 };
 }
 
 // ─── Social Connections / Find Friends ────────────────────────────────────────
