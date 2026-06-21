@@ -190,30 +190,45 @@ router.post("/respond", async (req, res) => {
   if (!request) { res.status(404).json({ error: "Request not found" }); return; }
   if (request.receiver_id !== userId) { res.status(403).json({ error: "Not authorized" }); return; }
 
-  const newStatus = action === "accept" ? "accepted" : "declined";
+  // Constraint: vibe_requests.status IN ('pending','matched','rejected') — no 'accepted'/'declined'
+  const newStatus = action === "accept" ? "matched" : "rejected";
+  // vibe_requests has no updated_at column — only update status
   const { error } = await sb
     .from("vibe_requests")
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .update({ status: newStatus })
     .eq("id", requestId);
 
   if (error) { res.status(500).json({ error: error.message }); return; }
 
   if (action === "accept") {
+    const now = new Date().toISOString();
+    const senderId = request.sender_id;
+    const receiverId = userId;
+
+    // Create match rows in both directions so either user can query their matches
+    await sb.from("vibe_matches").upsert(
+      [
+        { sender_id: senderId, receiver_id: receiverId, status: "matched", created_at: now },
+        { sender_id: receiverId, receiver_id: senderId, status: "matched", created_at: now },
+      ],
+      { onConflict: "sender_id,receiver_id" },
+    );
+
     const { data: receiverProfile } = await sb
       .from("profiles")
       .select("username")
-      .eq("id", userId)
+      .eq("id", receiverId)
       .maybeSingle();
     const receiverName = receiverProfile?.username ?? "someone";
 
     await sb.from("notifications").insert({
-      recipient_id: request.sender_id,
-      sender_id: userId,
+      recipient_id: senderId,
+      sender_id: receiverId,
       type: "vibe_accepted",
       message: `@${receiverName} accepted your vibe request 💜`,
       reference_id: requestId,
       is_read: false,
-      created_at: new Date().toISOString(),
+      created_at: now,
     });
   }
 
