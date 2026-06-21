@@ -280,11 +280,13 @@ function PhotoViewer({
   initialIndex,
   onClose,
   userId,
+  onItemRemoved,
 }: {
   photos: GridItem[];
   initialIndex: number;
   onClose: () => void;
   userId?: string;
+  onItemRemoved?: (id: string) => void;
 }) {
   const insets = useSafeAreaInsets();
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -358,6 +360,9 @@ function PhotoViewer({
     const next = !isArchived;
     setIsArchived(next);
     pvPatchPost({ is_archived: next });
+    // Remove from current grid view regardless of direction (post moves to/from archived tab)
+    if (photo?.id) onItemRemoved?.(photo.id);
+    onClose();
   };
 
   const pvHandleHideLikeCountToggle = () => {
@@ -388,7 +393,13 @@ function PhotoViewer({
         style: "destructive",
         onPress: async () => {
           try {
-            await fetch(`${PV_API_BASE}/posts/${photo.id}`, { method: "DELETE" });
+            if (photo.isReel) {
+              const reelId = photo.id.replace(/^reel_/, "");
+              await fetch(`${PV_API_BASE}/reels/${reelId}`, { method: "DELETE" });
+            } else {
+              await fetch(`${PV_API_BASE}/posts/${photo.id}`, { method: "DELETE" });
+            }
+            onItemRemoved?.(photo.id);
             onClose();
           } catch {}
         },
@@ -539,11 +550,18 @@ function PhotoViewer({
                     label={allowComments ? "Turn off commenting" : "Turn on commenting"}
                     onPress={pvHandleAllowCommentsToggle}
                   />
-                  <PVSheetRow
-                    icon="create-outline"
-                    label="Edit caption"
-                    onPress={() => { setShowSheet(false); onClose(); router.push(`/post/${photo?.id}` as any); }}
-                  />
+                  {!photo?.isReel && (
+                    <PVSheetRow
+                      icon="create-outline"
+                      label="Edit caption"
+                      onPress={() => {
+                        setShowSheet(false);
+                        onClose();
+                        const postId = photo?.id;
+                        setTimeout(() => { if (postId) router.push(`/post/${postId}` as any); }, 250);
+                      }}
+                    />
+                  )}
                   <PVSheetRow
                     icon={isPinned ? "pin" : "pin-outline"}
                     label={isPinned ? "Unpin from grid" : "Pin to grid"}
@@ -1415,6 +1433,11 @@ export default function ProfileScreen() {
           initialIndex={viewerIndex}
           onClose={() => setViewerOpen(false)}
           userId={session?.user?.id}
+          onItemRemoved={(id) => {
+            setMyPosts(prev => prev.filter(p => p.id !== id));
+            setArchivedPosts(prev => prev.filter(p => p.id !== id));
+            setSavedPosts(prev => prev.filter(p => p.id !== id));
+          }}
         />
       )}
 
