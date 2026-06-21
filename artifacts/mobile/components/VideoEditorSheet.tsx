@@ -1,5 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Location from "expo-location";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {

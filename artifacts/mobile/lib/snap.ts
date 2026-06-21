@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { Message } from "./supabase";
 
 const API_BASE = `${process.env["EXPO_PUBLIC_API_URL"] ?? ""}/api`;
