@@ -510,7 +510,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   }
 
   // ── Compose ──────────────────────────────────────────────────────────────
-  const hasActiveAddons = !!(selectedMusic || location.trim() || feeling || taggedUsers.length || category);
+  const hasActiveAddons = !!(selectedMusic || location.trim() || feeling || taggedUsers.length);
 
   return (
     <View style={p.fill}>
@@ -573,6 +573,35 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           />
           <Text style={p.charCount}>{caption.length} / 500</Text>
         </View>
+
+        {/* ── Category selector (required) ────────────────────────────── */}
+        <TouchableOpacity
+          style={[p.categoryRow, category && p.categoryRowActive]}
+          onPress={() => setShowCategoryModal(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={p.categoryEmoji}>
+            {category ? (POST_CATEGORIES.find((c) => c.id === category)?.emoji ?? "🏷️") : "🏷️"}
+          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[p.categoryName, !category && { color: "rgba(255,255,255,0.4)" }]}>
+              {category ? (POST_CATEGORIES.find((c) => c.id === category)?.label ?? category) : "Choose a category"}
+            </Text>
+            {!category && (
+              <Text style={p.categoryRequired}>Required before sharing</Text>
+            )}
+          </View>
+          {category ? (
+            <TouchableOpacity onPress={() => setCategory(null)} hitSlop={{ top: 10, left: 10, bottom: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.3)" />
+            </TouchableOpacity>
+          ) : null}
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={category ? "#A78BFA" : "rgba(255,255,255,0.3)"}
+          />
+        </TouchableOpacity>
 
         {/* ── Crop ratio selector ─────────────────────────────────────── */}
         <View style={p.ratioRow}>
@@ -735,12 +764,6 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               active={false}
               onPress={() => Alert.alert("Effects", "AR effects and stickers are coming soon! ✨")}
             />
-            <AddPostBtn
-              iconName="pricetag-outline"
-              label="Category"
-              active={!!category}
-              onPress={() => setShowCategoryModal(true)}
-            />
           </ScrollView>
 
           {/* Active selection chips */}
@@ -775,19 +798,6 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                   </Text>
                 </TouchableOpacity>
               )}
-              {category && (
-                <TouchableOpacity style={p.chip} onPress={() => setShowCategoryModal(true)}>
-                  <Text style={{ fontSize: 12 }}>
-                    {POST_CATEGORIES.find((c) => c.id === category)?.emoji ?? "🏷️"}
-                  </Text>
-                  <Text style={[p.chipText, { color: "#A78BFA" }]}>
-                    {POST_CATEGORIES.find((c) => c.id === category)?.label ?? category}
-                  </Text>
-                  <TouchableOpacity onPress={() => setCategory(null)} hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}>
-                    <Ionicons name="close" size={12} color="rgba(167,139,250,0.6)" />
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              )}
             </View>
           )}
         </View>
@@ -798,7 +808,18 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           <Text style={p.changeMediaText}>Change selection</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handlePost} activeOpacity={0.85} style={p.postBtnWrap}>
+        {!category && (
+          <View style={p.categoryHint}>
+            <Ionicons name="information-circle-outline" size={14} color="#F59E0B" />
+            <Text style={p.categoryHintText}>Pick a category above to enable sharing</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          onPress={handlePost}
+          activeOpacity={0.85}
+          style={[p.postBtnWrap, !category && { opacity: 0.42 }]}
+          disabled={!category}
+        >
           <LinearGradient
             colors={["#EA580C", "#7C3AED"]}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -1266,6 +1287,17 @@ const p = StyleSheet.create({
   tagCheckCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: "rgba(255,255,255,0.25)", alignItems: "center", justifyContent: "center" },
   tagCheckCircleActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
   tagEmptyText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center", marginTop: 24, paddingHorizontal: 16 },
+
+  // Category selector (required, sits below caption card)
+  categoryRow: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 13, borderRadius: 16, backgroundColor: "#0F0F1E", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  categoryRowActive: { borderColor: "#7C3AED", backgroundColor: "rgba(124,58,237,0.1)" },
+  categoryEmoji: { fontSize: 22, lineHeight: 28 },
+  categoryName: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  categoryRequired: { color: "#F59E0B", fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
+
+  // Hint shown above share button when no category
+  categoryHint: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 16, marginBottom: 8 },
+  categoryHintText: { color: "#F59E0B", fontFamily: "Poppins_400Regular", fontSize: 12 },
 
   // Feeling modal
   feelingClearBtn: { alignSelf: "flex-start", marginBottom: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12 },

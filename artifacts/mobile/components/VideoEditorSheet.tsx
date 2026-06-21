@@ -757,6 +757,51 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               </Animated.View>
             </View>
 
+            {/* ── Category selector (required for photo captures) ── */}
+            {isPhoto && (
+              <View>
+                <Text style={[styles.sectionLabel, { color: colors.foreground }]}>
+                  Category <Text style={{ color: "#F59E0B", fontSize: 11 }}>required</Text>
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowCategoryModal(true)}
+                  activeOpacity={0.8}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 12,
+                    paddingHorizontal: 14,
+                    paddingVertical: 13,
+                    borderRadius: 14,
+                    backgroundColor: category ? "rgba(124,58,237,0.14)" : colors.muted,
+                    borderWidth: 1,
+                    borderColor: category ? "#7C3AED" : colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 20, lineHeight: 26 }}>
+                    {category ? (POST_CATEGORIES.find((c) => c.id === category)?.emoji ?? "🏷️") : "🏷️"}
+                  </Text>
+                  <Text style={{ flex: 1, fontFamily: "Poppins_500Medium", fontSize: 14, color: category ? "#A78BFA" : colors.mutedForeground }}>
+                    {category ? (POST_CATEGORIES.find((c) => c.id === category)?.label ?? category) : "Choose a category to share"}
+                  </Text>
+                  {category
+                    ? <TouchableOpacity onPress={() => setCategory(null)} hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}>
+                        <Icon name="close-circle" size={18} color={colors.mutedForeground} />
+                      </TouchableOpacity>
+                    : <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
+                  }
+                </TouchableOpacity>
+                {!category && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 6 }}>
+                    <Text style={{ fontSize: 13 }}>⚠️</Text>
+                    <Text style={{ color: "#F59E0B", fontFamily: "Poppins_400Regular", fontSize: 12 }}>
+                      Pick a category to enable the Post button
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             <View>
               <Text style={[styles.sectionLabel, { color: colors.foreground }]}>Audience</Text>
               <View style={styles.audienceRow}>
@@ -800,27 +845,6 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                 <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
               </TouchableOpacity>
 
-              {/* Category — photo captures only */}
-              {isPhoto && (
-                <TouchableOpacity
-                  style={[styles.postOptionRow, { borderBottomColor: colors.border }]}
-                  onPress={() => setShowCategoryModal(true)}
-                >
-                  <Text style={{ fontSize: 18, lineHeight: 24 }}>
-                    {category ? (POST_CATEGORIES.find((c) => c.id === category)?.emoji ?? "🏷️") : "🏷️"}
-                  </Text>
-                  <Text style={[styles.postOptionText, { color: category ? "#A78BFA" : colors.foreground }]}>
-                    {category ? (POST_CATEGORIES.find((c) => c.id === category)?.label ?? category) : "Add Category"}
-                  </Text>
-                  {category
-                    ? <TouchableOpacity onPress={() => setCategory(null)} hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}>
-                        <Icon name="close-circle" size={18} color={colors.mutedForeground} />
-                      </TouchableOpacity>
-                    : <Icon name="chevron-forward" size={16} color={colors.mutedForeground} />
-                  }
-                </TouchableOpacity>
-              )}
-
               {/* Allow Comments */}
               <View style={[styles.postOptionRow, { borderBottomColor: colors.border }]}>
                 <Icon name="chatbubbles-outline" size={18} color="#10B981" />
@@ -846,7 +870,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               </View>
             </View>
 
-            <GradientButton onPress={handlePost} title="Post to Gundruk 🔥" loading={posting} />
+            <GradientButton onPress={handlePost} title="Post to Gundruk 🔥" loading={posting} disabled={isPhoto && !category} />
             <TouchableOpacity onPress={onDiscard} style={styles.discardBtn}>
               <Text style={[styles.discardText, { color: colors.mutedForeground }]}>Discard & Retake</Text>
             </TouchableOpacity>
