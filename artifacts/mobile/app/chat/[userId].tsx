@@ -50,97 +50,97 @@ function SnapBubble({
   const snap = parseSnap(msg.text);
   if (!snap) return null;
   const isTemp = msg.id.startsWith("temp_");
+  const opened = snap.viewed;
 
-  if (isMe) {
-    const opened = snap.viewed;
+  // Receiver — already opened: dim ghost pill
+  if (!isMe && opened) {
     return (
-      <LinearGradient
-        colors={opened ? ["#374151", "#4B5563"] : ["#EA580C", "#DC2626"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={snapStyles.pill}
-      >
-        <Ionicons
-          name={opened ? "camera-outline" : "camera"}
-          size={17}
-          color={opened ? "rgba(255,255,255,0.45)" : "#fff"}
-        />
-        <View>
-          <Text
-            style={[
-              snapStyles.label,
-              opened && { color: "rgba(255,255,255,0.45)" },
-            ]}
-          >
-            {isTemp ? "Sending snap…" : opened ? "Opened 👁" : "Photo sent 📷"}
-          </Text>
-          {!opened && !isTemp && (
-            <Text style={snapStyles.sublabel}>Disappears after viewing</Text>
-          )}
-        </View>
-      </LinearGradient>
-    );
-  }
-
-  if (snap.viewed) {
-    return (
-      <View
-        style={[
-          snapStyles.pill,
-          { backgroundColor: "rgba(255,255,255,0.06)" },
-        ]}
-      >
-        <Ionicons
-          name="camera-outline"
-          size={17}
-          color="rgba(255,255,255,0.3)"
-        />
-        <Text
-          style={[snapStyles.label, { color: "rgba(255,255,255,0.3)" }]}
-        >
-          Opened
-        </Text>
+      <View style={snapStyles.pill}>
+        <Ionicons name="camera-outline" size={15} color="rgba(255,255,255,0.25)" />
+        <Text style={snapStyles.labelOpened}>Opened</Text>
       </View>
     );
   }
 
-  return (
-    <TouchableOpacity onPress={onView} activeOpacity={0.82}>
-      <LinearGradient
-        colors={["#EA580C", "#DC2626"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[snapStyles.pill, snapStyles.pillTappable]}
+  // Receiver — new snap: tappable pill with purple accent border
+  if (!isMe) {
+    return (
+      <TouchableOpacity
+        onPress={onView}
+        activeOpacity={0.78}
+        style={[snapStyles.pill, snapStyles.pillNew]}
       >
-        <Ionicons name="camera" size={20} color="#fff" />
-        <View style={{ flex: 1 }}>
-          <Text style={snapStyles.label}>Tap to view · Photo 📷</Text>
-          <Text style={snapStyles.sublabel}>Disappears after viewing once</Text>
+        <Ionicons name="camera-outline" size={16} color="#A78BFA" />
+        <View style={snapStyles.textCol}>
+          <Text style={snapStyles.label}>Tap to view</Text>
+          <Text style={snapStyles.sublabel}>Disappears after viewing</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.7)" />
-      </LinearGradient>
-    </TouchableOpacity>
+        <Ionicons name="chevron-forward" size={14} color="rgba(167,139,250,0.55)" />
+      </TouchableOpacity>
+    );
+  }
+
+  // Sender — opened: ghost
+  if (opened) {
+    return (
+      <View style={snapStyles.pill}>
+        <Ionicons name="camera-outline" size={15} color="rgba(255,255,255,0.25)" />
+        <Text style={snapStyles.labelOpened}>{isTemp ? "Sending…" : "Opened"}</Text>
+      </View>
+    );
+  }
+
+  // Sender — delivered, not yet opened
+  return (
+    <View style={[snapStyles.pill, snapStyles.pillSent]}>
+      <Ionicons name="camera-outline" size={15} color="rgba(255,255,255,0.65)" />
+      <View style={snapStyles.textCol}>
+        <Text style={snapStyles.label}>{isTemp ? "Sending…" : "Photo sent"}</Text>
+        {!isTemp && <Text style={snapStyles.sublabel}>Waiting to be viewed</Text>}
+      </View>
+    </View>
   );
 }
 
 const snapStyles = StyleSheet.create({
+  // Base pill — dark charcoal, matches chat dark theme
   pill: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 14,
+    gap: 9,
+    paddingHorizontal: 13,
     paddingVertical: 10,
-    borderRadius: 18,
-    maxWidth: 260,
+    borderRadius: 16,
+    maxWidth: 240,
+    backgroundColor: "rgba(28,28,40,0.92)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
-  pillTappable: { paddingVertical: 13, paddingHorizontal: 16 },
+  // Receiver unviewed: purple accent border
+  pillNew: {
+    borderColor: "rgba(139,92,246,0.55)",
+    backgroundColor: "rgba(28,24,45,0.95)",
+  },
+  // Sender delivered: slightly brighter border
+  pillSent: {
+    borderColor: "rgba(255,255,255,0.13)",
+  },
+  textCol: {
+    flexShrink: 1,
+  },
   label: {
-    color: "#fff",
+    color: "rgba(255,255,255,0.88)",
     fontFamily: "Poppins_600SemiBold",
     fontSize: 13,
   },
+  labelOpened: {
+    color: "rgba(255,255,255,0.28)",
+    fontFamily: "Poppins_400Regular",
+    fontSize: 13,
+  },
   sublabel: {
-    color: "rgba(255,255,255,0.65)",
+    color: "rgba(255,255,255,0.38)",
     fontFamily: "Poppins_400Regular",
     fontSize: 11,
     marginTop: 1,
