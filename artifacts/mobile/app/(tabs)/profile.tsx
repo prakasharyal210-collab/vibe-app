@@ -944,14 +944,17 @@ export default function ProfileScreen() {
 
     const profileData =
       supabaseResult.status === "fulfilled" ? supabaseResult.value.data : null;
-    if (!profileData) return;
 
+    // Start from Supabase profile data if available, otherwise use current state.
     let liveCounts = {
-      posts_count: profileData.posts_count ?? 0,
-      followers_count: profileData.followers_count ?? 0,
-      following_count: profileData.following_count ?? 0,
+      posts_count: profileData?.posts_count ?? 0,
+      followers_count: profileData?.followers_count ?? 0,
+      following_count: profileData?.following_count ?? 0,
     };
 
+    // Always apply API stats when available — the service-role key bypasses RLS
+    // and returns accurate COUNT(*) values. This also handles the case where the
+    // direct Supabase read returned null (e.g. RLS blocking anon reads).
     if (statsResult.status === "fulfilled" && statsResult.value.ok) {
       try {
         const stats = await statsResult.value.json() as {
@@ -981,7 +984,10 @@ export default function ProfileScreen() {
       console.error("[profile-stats] non-ok response", statsResult.value.status);
     }
 
-    setProfile({ ...(profileData as Profile), ...liveCounts });
+    // If we have no profile data at all (both sources failed), bail.
+    if (!profileData && liveCounts.posts_count === 0 && liveCounts.followers_count === 0) return;
+
+    setProfile((prev) => ({ ...prev, ...(profileData as Profile ?? {}), ...liveCounts }));
   }, []);
 
   useEffect(() => {

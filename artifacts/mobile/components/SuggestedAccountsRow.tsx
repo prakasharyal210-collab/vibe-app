@@ -12,7 +12,6 @@ import {
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
@@ -47,19 +46,28 @@ export function SuggestedAccountsRow() {
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
+    let cancelled = false;
+    const controller = new AbortController();
+    // 8-second timeout guard — prevents infinite spinner if the request hangs
+    const timeout = setTimeout(() => controller.abort(), 8000);
     (async () => {
       setLoading(true);
       try {
-        const { data } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url, followers_count, is_verified")
-          .neq("id", uid)
-          .order("followers_count", { ascending: false })
-          .limit(20);
-        if (data?.length) setUsers(data as SuggestedUser[]);
+        // Route through API server (service-role key) to bypass RLS on profiles table.
+        const res = await fetch(
+          `${API_BASE}/users/search?q=&viewer_id=${encodeURIComponent(uid)}&limit=20`,
+          { signal: controller.signal },
+        );
+        if (res.ok && !cancelled) {
+          const json = await res.json();
+          const profiles: SuggestedUser[] = (json.profiles ?? []).slice(0, 20);
+          if (profiles.length) setUsers(profiles);
+        }
       } catch {}
-      setLoading(false);
+      clearTimeout(timeout);
+      if (!cancelled) setLoading(false);
     })();
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
   }, [uid]);
 
   const toggleFollow = async (userId: string) => {
