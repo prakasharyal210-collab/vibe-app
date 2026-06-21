@@ -596,7 +596,7 @@ export default function UserProfileScreen() {
     } finally { setOpeningChat(false); }
   };
 
-  const fullName = profile?.display_name ?? (profile as any)?.display_name ?? u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+  const fullName = (profile as any)?.full_name || u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 
   useEffect(() => {
     if (!myId || !profile?.id || myId === profile.id) return;
