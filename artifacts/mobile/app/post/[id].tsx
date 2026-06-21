@@ -14,6 +14,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -407,6 +408,12 @@ export default function PostDetailScreen() {
   const [moreLoading, setMoreLoading] = useState(false);
   const [mediaAspectRatio, setMediaAspectRatio] = useState(1);
   const [deleting, setDeleting] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
+  const [hideLikeCount, setHideLikeCount] = useState(false);
+  const [allowComments, setAllowComments] = useState(true);
+  const [showEditCaption, setShowEditCaption] = useState(false);
+  const [editCaptionText, setEditCaptionText] = useState("");
+  const [savingCaption, setSavingCaption] = useState(false);
   const [authorStats, setAuthorStats] = useState<{
     followers_count: number;
     posts_count: number;
@@ -464,6 +471,9 @@ export default function PostDetailScreen() {
             if (!data.image_url && data.media_url) data.image_url = data.media_url;
             setPost(data as Post);
             setLikesCount(data.likes_count ?? 0);
+            setIsArchived((data as any).is_archived ?? false);
+            setHideLikeCount((data as any).hide_like_count ?? false);
+            setAllowComments((data as any).allow_comments ?? true);
           }
         }
       } catch {}
@@ -654,11 +664,110 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleArchiveToggle = async () => {
+    if (!post || !session?.user?.id) return;
+    const newArchived = !isArchived;
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, is_archived: newArchived }),
+      });
+      if (res.ok) {
+        setIsArchived(newArchived);
+        if (newArchived) {
+          Alert.alert(
+            "Post archived",
+            "It's hidden from your profile and the feed. Find it in your Archived tab.",
+            [{ text: "OK", onPress: () => router.back() }],
+          );
+        } else {
+          Alert.alert("Post unarchived", "It's visible on your profile again.");
+        }
+      } else {
+        Alert.alert("Error", "Could not update this post. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not update this post. Please try again.");
+    }
+  };
+
+  const handleHideLikeCountToggle = async () => {
+    if (!post || !session?.user?.id) return;
+    const newHide = !hideLikeCount;
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, hide_like_count: newHide }),
+      });
+      if (res.ok) {
+        setHideLikeCount(newHide);
+      } else {
+        Alert.alert("Error", "Could not update this post. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not update this post. Please try again.");
+    }
+  };
+
+  const handleAllowCommentsToggle = async () => {
+    if (!post || !session?.user?.id) return;
+    const newAllow = !allowComments;
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, allow_comments: newAllow }),
+      });
+      if (res.ok) {
+        setAllowComments(newAllow);
+      } else {
+        Alert.alert("Error", "Could not update this post. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not update this post. Please try again.");
+    }
+  };
+
+  const handleSaveCaption = async () => {
+    if (!post || !session?.user?.id || savingCaption) return;
+    const trimmed = editCaptionText.trim();
+    setSavingCaption(true);
+    try {
+      const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(post.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, caption: trimmed }),
+      });
+      if (res.ok) {
+        setPost((prev) => (prev ? { ...prev, caption: trimmed } : null));
+        setShowEditCaption(false);
+      } else {
+        Alert.alert("Error", "Could not save caption. Please try again.");
+      }
+    } catch {
+      Alert.alert("Error", "Could not save caption. Please try again.");
+    } finally {
+      setSavingCaption(false);
+    }
+  };
+
   const handleMoreOptions = () => {
-    Alert.alert(
-      "Post options",
-      undefined,
-      [
+    const ownPost = !!(post && session?.user?.id && post.user_id === session.user.id);
+    const items: any[] = [];
+    if (ownPost) {
+      items.push(
+        { text: isArchived ? "Unarchive Post" : "Archive Post", onPress: handleArchiveToggle },
+        { text: hideLikeCount ? "Show like count" : "Hide like count", onPress: handleHideLikeCountToggle },
+        { text: allowComments ? "Turn off commenting" : "Turn on commenting", onPress: handleAllowCommentsToggle },
+        {
+          text: "Edit caption",
+          onPress: () => {
+            setEditCaptionText(post?.caption ?? "");
+            setShowEditCaption(true);
+          },
+        },
         {
           text: "Delete Post",
           style: "destructive",
@@ -672,9 +781,10 @@ export default function PostDetailScreen() {
               ],
             ),
         },
-        { text: "Cancel", style: "cancel" },
-      ],
-    );
+      );
+    }
+    items.push({ text: "Cancel", style: "cancel" });
+    Alert.alert("Post options", undefined, items);
   };
 
   // ── Video helpers ────────────────────────────────────────────────────────────
@@ -1072,18 +1182,30 @@ export default function PostDetailScreen() {
                 color={liked ? "#EF4444" : colors.foreground}
               />
             </Animated.View>
-            <Text style={[S.actionCount, { color: colors.foreground }]}>
-              {formatCount(likesCount)}
-            </Text>
+            {(!hideLikeCount || isOwnPost) ? (
+              <Text style={[S.actionCount, { color: colors.foreground }]}>
+                {formatCount(likesCount)}
+              </Text>
+            ) : null}
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => setShowComments(true)}
+            onPress={() => {
+              if (!allowComments && !isOwnPost) {
+                Alert.alert("Comments turned off", "The author has turned off commenting for this post.");
+                return;
+              }
+              setShowComments(true);
+            }}
             style={S.actionBtn}
             activeOpacity={0.7}
           >
-            <Ionicons name="chatbubble-outline" size={26} color={colors.foreground} />
-            <Text style={[S.actionCount, { color: colors.foreground }]}>
+            <Ionicons
+              name="chatbubble-outline"
+              size={26}
+              color={!allowComments && !isOwnPost ? colors.mutedForeground : colors.foreground}
+            />
+            <Text style={[S.actionCount, { color: !allowComments && !isOwnPost ? colors.mutedForeground : colors.foreground }]}>
               {formatCount(commentsCount)}
             </Text>
           </TouchableOpacity>
@@ -1308,6 +1430,60 @@ export default function PostDetailScreen() {
       </ScrollView>
 
       {/* ── Sheets ─────────────────────────────────────────────────────────── */}
+
+      {/* Edit Caption modal */}
+      <Modal
+        visible={showEditCaption}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditCaption(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#141414", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 44 }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16, marginBottom: 14 }}>
+              Edit caption
+            </Text>
+            <TextInput
+              value={editCaptionText}
+              onChangeText={setEditCaptionText}
+              multiline
+              maxLength={2200}
+              placeholder="Write a caption…"
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              style={{
+                color: "#fff",
+                fontFamily: "Poppins_400Regular",
+                fontSize: 14,
+                minHeight: 110,
+                borderColor: "rgba(255,255,255,0.12)",
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 16,
+                textAlignVertical: "top",
+              }}
+            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => setShowEditCaption(false)}
+                style={{ flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", alignItems: "center" }}
+              >
+                <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold" }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSaveCaption}
+                disabled={savingCaption}
+                style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: "#8B5CF6", alignItems: "center", opacity: savingCaption ? 0.5 : 1 }}
+              >
+                <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold" }}>
+                  {savingCaption ? "Saving…" : "Save"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CommentsSheet
         visible={showComments}
         onClose={() => setShowComments(false)}

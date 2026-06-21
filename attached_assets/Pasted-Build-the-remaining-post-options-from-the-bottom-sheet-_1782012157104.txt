@@ -1,0 +1,10 @@
+Build the remaining post options from the bottom sheet (Phase 2), now that the shell and Phase 1 actions (Save, Pin, Delete, Share to Find Vibes) are working:
+
+Archive — hide a post from the public feed/profile grid without deleting it. Add a status/boolean column to posts (e.g. archived BOOLEAN DEFAULT false), filter archived posts out of feed and profile grid queries, but keep them accessible to the owner somewhere (an "Archived" view, doesn't need to be polished yet — just don't lose access to the data). Tapping "Archive" again should unarchive.
+Hide like count — per-post toggle (hide_like_count BOOLEAN DEFAULT false on posts). When on, other viewers see no like count on that post (owner still sees it on their own view). Toggling the menu option flips it.
+Hide share count — same pattern, check whether post_shares already tracks share counts anywhere in the UI before building the toggle — if share counts aren't actually displayed anywhere yet, this toggle has nothing to hide; report back if that's the case rather than building a no-op toggle.
+Turn off commenting — per-post toggle (comments_disabled BOOLEAN DEFAULT false on posts), distinct from the existing user-level who_can_comment setting. When on, the comment input on that specific post is disabled/hidden for everyone except the owner.
+Edit — let the owner edit an existing post's caption after posting (just caption text for now, not media). Opens a simple edit screen/sheet, saves via an existing or new PATCH /api/posts/:id route.
+Adjust preview / QR code — lowest priority, scope these last. Report back what each would actually involve before building (Adjust preview likely means choosing which frame of a video is the thumbnail; QR code means generating a scannable code linking to the post) rather than guessing.
+
+Build and test each one individually rather than all at once — report back per-item with what changed and a quick confirmation it works (toggle on/off, archive/unarchive, etc.), not just a final summary at the end.

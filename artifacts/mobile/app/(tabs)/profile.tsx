@@ -521,7 +521,7 @@ function GuestProfile() {
   );
 }
 
-type ProfileTab = "posts" | "reels" | "tagged" | "saved";
+type ProfileTab = "posts" | "reels" | "tagged" | "saved" | "archived";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -542,6 +542,7 @@ export default function ProfileScreen() {
   const [myPosts, setMyPosts] = useState<GridItem[]>([]);
   const [taggedPosts, setTaggedPosts] = useState<GridItem[]>([]);
   const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
+  const [archivedPosts, setArchivedPosts] = useState<GridItem[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -582,6 +583,31 @@ export default function ProfileScreen() {
               likes: p.likes ?? 0,
               comments: p.comments ?? 0,
               caption: p.caption ?? "",
+            }))
+          );
+        }
+      } catch {}
+    })();
+  }, [activeTab, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || activeTab !== "archived") return;
+    const uid = session.user.id;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/posts/user/${uid}?viewerId=${uid}&onlyArchived=true`);
+        if (res.ok) {
+          const json = await res.json();
+          setArchivedPosts(
+            (json.posts ?? []).map((p: any) => ({
+              id: p.id,
+              image_url: p.media_url ?? p.image_url ?? "",
+              isReel: false,
+              likes: p.likes_count ?? 0,
+              views: p.views_count ?? 0,
+              comments: p.comments_count ?? 0,
+              caption: p.caption ?? "",
+              created_at: p.created_at,
             }))
           );
         }
@@ -758,6 +784,7 @@ export default function ProfileScreen() {
     activeTab === "posts" ? myPosts :
     activeTab === "reels" ? reelsOnly :
     activeTab === "saved" ? savedPosts :
+    activeTab === "archived" ? archivedPosts :
     taggedPosts;
 
   // ── Derived stats — read from live backend (all posts), not client-side page ─
@@ -1084,6 +1111,7 @@ export default function ProfileScreen() {
             { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
             { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
             { key: "saved" as ProfileTab, icon: "bookmark-outline", label: "Saved" },
+            { key: "archived" as ProfileTab, icon: "archive-outline", label: "Archived" },
           ]).map((tab) => (
             <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
               style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
@@ -1112,6 +1140,12 @@ export default function ProfileScreen() {
                 <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No saved posts</Text>
                 <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Posts you save will appear here</Text>
               </View>
+            : activeTab === "archived"
+              ? <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
+                  <Text style={{ fontSize: 44 }}>🗂️</Text>
+                  <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No archived posts</Text>
+                  <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Posts you archive will appear here</Text>
+                </View>
             : (activeTab === "posts" || activeTab === "reels")
               ? postsLoading
                 ? <SkeletonGrid />

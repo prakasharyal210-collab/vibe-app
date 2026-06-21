@@ -47,6 +47,10 @@ export interface Post {
   music_artist?: string;
   is_video?: boolean;
   video_url?: string;
+  is_archived?: boolean;
+  allow_comments?: boolean;
+  hide_like_count?: boolean;
+  hide_share_count?: boolean;
 }
 
 export interface Reel {

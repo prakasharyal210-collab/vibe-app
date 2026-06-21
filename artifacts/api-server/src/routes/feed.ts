@@ -104,6 +104,7 @@ router.get("/foryou", async (req, res) => {
     .from("posts")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
     .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
     .order("created_at", { ascending: false })
     .limit(limit)
     .range(offset, offset + limit - 1);
@@ -148,6 +149,7 @@ router.get("/friends", async (req, res) => {
     .from("posts")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
     .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
     .order("created_at", { ascending: false })
     .limit(limit)
     .range(offset, offset + limit - 1);

@@ -153,11 +153,13 @@ router.get("/hashtag/:tag", async (req, res) => {
 // Falls back to unfiltered if visibility column not yet added via migration.
 router.get("/user/:userId", async (req, res) => {
   const { userId } = req.params;
-  const { viewerId } = req.query as { viewerId?: string };
+  const { viewerId, onlyArchived: onlyArchivedRaw } = req.query as { viewerId?: string; onlyArchived?: string };
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
   const sb = makeSupabase();
 
   const isOwner = !!viewerId && viewerId === userId;
+  // onlyArchived=true: owner-only — returns only archived posts (Archived profile tab)
+  const onlyArchived = onlyArchivedRaw === "true" && isOwner;
 
   // Check if viewer follows the post owner (determines "friends" visibility)
   let viewerFollows = false;
@@ -180,15 +182,26 @@ router.get("/user/:userId", async (req, res) => {
       ? "visibility.eq.public,visibility.eq.friends,visibility.is.null"
       : "visibility.eq.public,visibility.is.null";
 
-  // Apply filter with graceful fallback if the visibility column doesn't exist yet
+  // Apply filters with graceful fallback if columns don't exist yet
   async function queryTable(table: "posts" | "reels") {
-    const base = sb.from(table).select("*").eq("user_id", userId).order("created_at", { ascending: false });
-    if (visFilter) {
-      const { data, error } = await base.or(visFilter);
-      if (!error) return data ?? [];
-      // Column missing (migration not run yet) — fall back to returning all
+    let q: any = sb.from(table).select("*").eq("user_id", userId);
+
+    // Archive filter: only posts have is_archived; reels are always visible
+    if (table === "posts") {
+      if (onlyArchived) {
+        q = q.eq("is_archived", true);
+      } else {
+        // Treat NULL as not-archived (legacy rows before column was added)
+        q = q.or("is_archived.eq.false,is_archived.is.null");
+      }
     }
-    const { data } = await sb.from(table).select("*").eq("user_id", userId).order("created_at", { ascending: false });
+
+    if (visFilter) {
+      const { data, error } = await q.or(visFilter).order("created_at", { ascending: false });
+      if (!error) return data ?? [];
+      // Visibility column missing — fall back without it, but keep archive filter
+    }
+    const { data } = await q.order("created_at", { ascending: false });
     return data ?? [];
   }
 
