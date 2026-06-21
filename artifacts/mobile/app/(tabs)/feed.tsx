@@ -707,14 +707,14 @@ export default function FeedScreen() {
     fetchUnreadCount(userId).then(setUnreadCount).catch(() => {});
   }, [userId]);
 
-  // Load trending posts whenever the Trending category is active
+  // Load trending posts whenever the Trending category is active OR the content-type filter changes
   useEffect(() => {
     if (activeCategory !== "trending") return;
     setTrendingPosts([]);
     (async () => {
       try {
         // Route through API server — direct anon-key reads on posts hang under RLS
-        const ctParam = contentTypeRef.current !== "all" ? `&content_type=${contentTypeRef.current}` : "";
+        const ctParam = contentType !== "all" ? `&content_type=${contentType}` : "";
         const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9${ctParam}`);
         if (res.ok) {
           const json = await res.json();
@@ -725,7 +725,7 @@ export default function FeedScreen() {
         // leave empty — TrendingFeed shows loading state
       }
     })();
-  }, [activeCategory]);
+  }, [activeCategory, contentType]);
 
   // Animate pills in/out when tab switches
   useEffect(() => {
