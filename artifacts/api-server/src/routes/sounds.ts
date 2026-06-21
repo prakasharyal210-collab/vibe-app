@@ -27,7 +27,7 @@ router.get("/trending", async (req, res) => {
       .select(
         "id, media_url, thumbnail_url, caption, likes_count, user_id, profiles!user_id(username, avatar_url)",
       )
-      .eq("category", "music")
+      .in("category", ["music", "dance"])
       .eq("is_video", true)
       .or("visibility.eq.public,visibility.is.null")
       .order("likes_count", { ascending: false })
