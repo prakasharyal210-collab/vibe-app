@@ -11,6 +11,7 @@ import {
   GestureResponderEvent,
   Modal,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -18,6 +19,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
+import { captureRef } from "react-native-view-shot";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import Animated, {
   runOnJS,
   useSharedValue,
@@ -35,8 +39,8 @@ import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { Post, formatCount, timeAgo } from "@/lib/supabase";
-import { shareContent } from "@/lib/share";
+import { Post, formatCount, timeAgo, supabase } from "@/lib/supabase";
+import { shareContent, buildVibeUrl } from "@/lib/share";
 
 const { width: W } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
@@ -414,6 +418,11 @@ export default function PostDetailScreen() {
   const [showEditCaption, setShowEditCaption] = useState(false);
   const [editCaptionText, setEditCaptionText] = useState("");
   const [savingCaption, setSavingCaption] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [showAdjustPreview, setShowAdjustPreview] = useState(false);
+  const [previewTimeMs, setPreviewTimeMs] = useState(0);
+  const [previewThumb, setPreviewThumb] = useState<string | null>(null);
+  const [savingPreview, setSavingPreview] = useState(false);
   const [authorStats, setAuthorStats] = useState<{
     followers_count: number;
     posts_count: number;
@@ -427,6 +436,7 @@ export default function PostDetailScreen() {
   const [progressTrackW, setProgressTrackW] = useState(0);
   const [showVideoFullscreen, setShowVideoFullscreen] = useState(false);
   const videoRef = useRef<Video>(null);
+  const qrViewRef = useRef<View>(null);
   const controlsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Reanimated — like heart pop + double-tap burst + video controls fade
@@ -753,6 +763,52 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleSaveQR = async () => {
+    if (!qrViewRef.current || !post) return;
+    try {
+      const uri = await captureRef(qrViewRef, { format: "png", quality: 1 });
+      await Share.share({ url: uri, message: buildVibeUrl("post", { username: post.profiles?.username ?? "user", id: post.id }) });
+    } catch {}
+  };
+
+  const capturePreviewFrame = async () => {
+    if (!videoSrc) return;
+    try {
+      const { uri } = await VideoThumbnails.getThumbnailAsync(videoSrc, { time: previewTimeMs });
+      setPreviewThumb(uri);
+    } catch {
+      Alert.alert("Error", "Could not capture this frame. Try a different position.");
+    }
+  };
+
+  const handleSavePreview = async () => {
+    if (!previewThumb || !post || !session?.user?.id) return;
+    setSavingPreview(true);
+    try {
+      const resp = await fetch(previewThumb);
+      const blob = await resp.blob();
+      const fileName = `thumbnail_${post.id}_${Date.now()}.jpg`;
+      const { error: uploadErr } = await supabase.storage
+        .from("posts")
+        .upload(fileName, blob, { contentType: "image/jpeg", upsert: true });
+      if (uploadErr) throw new Error(uploadErr.message);
+      const { data: { publicUrl } } = supabase.storage.from("posts").getPublicUrl(fileName);
+      const patchRes = await fetch(`${API_BASE}/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, thumbnail_url: publicUrl }),
+      });
+      if (!patchRes.ok) throw new Error("PATCH failed");
+      setPost((prev) => prev ? { ...prev, thumbnail_url: publicUrl } : null);
+      setShowAdjustPreview(false);
+      Alert.alert("Cover updated", "Your post cover has been saved.");
+    } catch {
+      Alert.alert("Error", "Could not save cover. Please try again.");
+    } finally {
+      setSavingPreview(false);
+    }
+  };
+
   const handleMoreOptions = () => {
     const ownPost = !!(post && session?.user?.id && post.user_id === session.user.id);
     const items: any[] = [];
@@ -768,20 +824,31 @@ export default function PostDetailScreen() {
             setShowEditCaption(true);
           },
         },
-        {
-          text: "Delete Post",
-          style: "destructive",
-          onPress: () =>
-            Alert.alert(
-              "Delete Post",
-              "This can't be undone.",
-              [
-                { text: "Cancel", style: "cancel" },
-                { text: "Delete", style: "destructive", onPress: handleDeletePost },
-              ],
-            ),
-        },
+        { text: "QR Code", onPress: () => setShowQRCode(true) },
       );
+      if (isVideoPost && videoSrc) {
+        items.push({
+          text: "Adjust preview",
+          onPress: () => {
+            setPreviewTimeMs(0);
+            setPreviewThumb(null);
+            setShowAdjustPreview(true);
+          },
+        });
+      }
+      items.push({
+        text: "Delete Post",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert(
+            "Delete Post",
+            "This can't be undone.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: handleDeletePost },
+            ],
+          ),
+      });
     }
     items.push({ text: "Cancel", style: "cancel" });
     Alert.alert("Post options", undefined, items);
@@ -1483,6 +1550,155 @@ export default function PostDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── QR Code modal ──────────────────────────────────────────────────── */}
+      <Modal
+        visible={showQRCode}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQRCode(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.82)", alignItems: "center", justifyContent: "center" }}>
+          <View style={{ backgroundColor: "#141414", borderRadius: 24, padding: 28, alignItems: "center", gap: 20, width: W - 60 }}>
+            <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 18 }}>QR Code</Text>
+            <View
+              ref={qrViewRef}
+              style={{ backgroundColor: "#fff", padding: 16, borderRadius: 16 }}
+              collapsable={false}
+            >
+              <QRCode
+                value={post ? buildVibeUrl("post", { username: post.profiles?.username ?? "user", id: post.id }) : "https://gundrukapp.com"}
+                size={180}
+                color="#000"
+                backgroundColor="#fff"
+              />
+            </View>
+            <Text
+              style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "center" }}
+              numberOfLines={2}
+            >
+              {post ? buildVibeUrl("post", { username: post.profiles?.username ?? "user", id: post.id }) : ""}
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12, width: "100%" }}>
+              <TouchableOpacity
+                onPress={handleSaveQR}
+                style={{ flex: 1, flexDirection: "row", gap: 6, backgroundColor: "#1e1e1e", borderRadius: 14, paddingVertical: 13, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}
+              >
+                <Ionicons name="download-outline" size={17} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowQRCode(false);
+                  if (post) shareContent("post", { username: post.profiles?.username ?? "user", id: post.id }, post.caption ?? undefined);
+                }}
+                style={{ flex: 1, flexDirection: "row", gap: 6, backgroundColor: "#8B5CF6", borderRadius: 14, paddingVertical: 13, alignItems: "center", justifyContent: "center" }}
+              >
+                <Ionicons name="share-outline" size={17} color="#fff" />
+                <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Share</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => setShowQRCode(false)}>
+              <Text style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 14 }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Adjust Preview modal (video posts only) ─────────────────────────── */}
+      {isVideoPost && (
+        <Modal
+          visible={showAdjustPreview}
+          animationType="slide"
+          onRequestClose={() => setShowAdjustPreview(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: "#0a0a0a" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.08)" }}>
+              <TouchableOpacity onPress={() => setShowAdjustPreview(false)} style={{ width: 70 }}>
+                <Text style={{ color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 16 }}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={{ flex: 1, textAlign: "center", color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>
+                Adjust Preview
+              </Text>
+              <TouchableOpacity
+                onPress={handleSavePreview}
+                disabled={!previewThumb || savingPreview}
+                style={{ width: 70, alignItems: "flex-end" }}
+              >
+                <Text style={{ color: previewThumb && !savingPreview ? "#A78BFA" : "rgba(255,255,255,0.25)", fontFamily: "Poppins_700Bold", fontSize: 16 }}>
+                  {savingPreview ? "…" : "Done"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ alignItems: "center", paddingTop: 32, paddingBottom: 56 }}>
+              <View style={{ width: W * 0.62, height: W * 0.62, borderRadius: 16, overflow: "hidden", backgroundColor: "#1a1a1a", alignItems: "center", justifyContent: "center" }}>
+                {previewThumb ? (
+                  <Image source={{ uri: previewThumb }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+                ) : (
+                  <>
+                    <Ionicons name="image-outline" size={52} color="rgba(255,255,255,0.18)" />
+                    <Text style={{ color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 10, textAlign: "center", paddingHorizontal: 24 }}>
+                      Scrub below, then capture
+                    </Text>
+                  </>
+                )}
+              </View>
+              <Text style={{ color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 24, marginBottom: 10 }}>
+                {formatTime(previewTimeMs)} / {formatTime(videoDuration > 0 ? videoDuration : 0)}
+              </Text>
+              <View
+                style={{ width: W - 48, height: 36, justifyContent: "center", marginBottom: 32 }}
+                onStartShouldSetResponder={() => true}
+                onMoveShouldSetResponder={() => true}
+                onResponderGrant={(e: GestureResponderEvent) => {
+                  const ratio = Math.min(1, Math.max(0, e.nativeEvent.locationX / (W - 48)));
+                  setPreviewTimeMs(Math.round(ratio * Math.max(1, videoDuration)));
+                }}
+                onResponderMove={(e: GestureResponderEvent) => {
+                  const ratio = Math.min(1, Math.max(0, e.nativeEvent.locationX / (W - 48)));
+                  setPreviewTimeMs(Math.round(ratio * Math.max(1, videoDuration)));
+                }}
+              >
+                <View style={{ height: 6, backgroundColor: "rgba(255,255,255,0.14)", borderRadius: 3, position: "relative" }}>
+                  <View
+                    style={{
+                      position: "absolute",
+                      height: 6,
+                      backgroundColor: "#8B5CF6",
+                      borderRadius: 3,
+                      width: Math.max(0, (previewTimeMs / Math.max(1, videoDuration)) * (W - 48)),
+                    }}
+                  />
+                  <View
+                    style={{
+                      position: "absolute",
+                      width: 18,
+                      height: 18,
+                      borderRadius: 9,
+                      backgroundColor: "#fff",
+                      top: -6,
+                      left: Math.max(0, (previewTimeMs / Math.max(1, videoDuration)) * (W - 48)) - 9,
+                      shadowColor: "#000",
+                      shadowOpacity: 0.35,
+                      shadowRadius: 3,
+                      elevation: 4,
+                    }}
+                  />
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={capturePreviewFrame}
+                style={{ width: W - 48, backgroundColor: "#7C3AED", borderRadius: 16, paddingVertical: 15, alignItems: "center", marginBottom: 20 }}
+              >
+                <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Capture This Frame</Text>
+              </TouchableOpacity>
+              <Text style={{ color: "rgba(255,255,255,0.28)", fontFamily: "Poppins_400Regular", fontSize: 12, textAlign: "center", paddingHorizontal: 36 }}>
+                Drag the bar to scrub through the video, tap Capture to preview the frame, then Done to set it as your cover.
+              </Text>
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
 
       <CommentsSheet
         visible={showComments}

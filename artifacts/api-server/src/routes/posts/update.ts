@@ -21,6 +21,7 @@ function makeSupabase() {
 //   hide_like_count  boolean   — hide like count from other viewers
 //   hide_share_count boolean   — hide share count from other viewers
 //   caption          string    — edit caption text
+//   thumbnail_url    string    — custom grid thumbnail for video posts
 //
 // Only fields explicitly provided in the body are updated.
 router.patch("/:id", async (req, res) => {
@@ -32,6 +33,7 @@ router.patch("/:id", async (req, res) => {
     hide_like_count,
     hide_share_count,
     caption,
+    thumbnail_url,
   } = req.body as {
     userId?: string;
     is_archived?: boolean;
@@ -39,6 +41,7 @@ router.patch("/:id", async (req, res) => {
     hide_like_count?: boolean;
     hide_share_count?: boolean;
     caption?: string;
+    thumbnail_url?: string;
   };
 
   if (!id || !userId) {
@@ -72,6 +75,7 @@ router.patch("/:id", async (req, res) => {
   if (hide_like_count !== undefined)  updates["hide_like_count"]  = hide_like_count;
   if (hide_share_count !== undefined) updates["hide_share_count"] = hide_share_count;
   if (caption !== undefined)          updates["caption"]           = caption.trim();
+  if (thumbnail_url !== undefined)    updates["thumbnail_url"]     = thumbnail_url;
 
   if (Object.keys(updates).length === 0) {
     res.status(400).json({ error: "No updatable fields provided" });

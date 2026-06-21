@@ -89,6 +89,7 @@ interface GridItem {
   video_url?: string;
   created_at?: string;
   visibility?: string;
+  thumbnail_url?: string;
 }
 
 function isVideoUrl(url: string): boolean {
@@ -96,9 +97,10 @@ function isVideoUrl(url: string): boolean {
   return u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.endsWith(".m4v");
 }
 
-function VideoGridCell({ videoUri, style }: { videoUri: string; style: any }) {
+function VideoGridCell({ videoUri, thumbUrl, style }: { videoUri: string; thumbUrl?: string; style: any }) {
   const [thumbUri, setThumbUri] = useState<string | null>(null);
   useEffect(() => {
+    if (thumbUrl) return;
     let cancelled = false;
     // Try to get a thumbnail from the local/remote URI.
     // This works reliably for local files; remote URLs may fail on some devices.
@@ -106,8 +108,9 @@ function VideoGridCell({ videoUri, style }: { videoUri: string; style: any }) {
       .then(({ uri }) => { if (!cancelled) setThumbUri(uri); })
       .catch(() => { /* fallback placeholder renders instead */ });
     return () => { cancelled = true; };
-  }, [videoUri]);
+  }, [videoUri, thumbUrl]);
 
+  if (thumbUrl) return <Image source={{ uri: thumbUrl }} style={style} resizeMode="cover" />;
   if (thumbUri) return <Image source={{ uri: thumbUri }} style={style} resizeMode="cover" />;
 
   // Visible video-post placeholder — gradient background + play icon.
@@ -908,7 +911,7 @@ export default function ProfileScreen() {
         }}
       >
         {item.is_video && (item.media_url ?? item.image_url) ? (
-          <VideoGridCell videoUri={(item.media_url ?? item.image_url)!} style={styles.gridImage} />
+          <VideoGridCell videoUri={(item.media_url ?? item.image_url)!} thumbUrl={item.thumbnail_url} style={styles.gridImage} />
         ) : (
           <Image source={{ uri: item.media_url ?? item.image_url ?? undefined }} style={styles.gridImage} resizeMode="cover" />
         )}

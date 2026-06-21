@@ -51,6 +51,7 @@ export interface Post {
   allow_comments?: boolean;
   hide_like_count?: boolean;
   hide_share_count?: boolean;
+  thumbnail_url?: string;
 }
 
 export interface Reel {

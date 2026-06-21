@@ -83,7 +83,7 @@ router.get("/foryou", async (req, res) => {
   );
   if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
     const enriched = await enrichWithProfiles(supabase, v2Data);
-    res.json({ data: enriched, source: "v2" });
+    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "v2" });
     return;
   }
 
@@ -94,7 +94,7 @@ router.get("/foryou", async (req, res) => {
   );
   if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
     const enriched = await enrichWithProfiles(supabase, v1Data);
-    res.json({ data: enriched, source: "v1" });
+    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "v1" });
     return;
   }
 
