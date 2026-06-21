@@ -209,6 +209,35 @@ router.get("/user/:userId", async (req, res) => {
   res.json({ posts, reels });
 });
 
+// GET /api/posts/tagged?userId=<uuid> — posts the user is tagged in (post_tags table), bypassing RLS
+router.get("/tagged", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    // Step 1 — get the post IDs the user is tagged in
+    const { data: tagRows, error: tagErr } = await sb
+      .from("post_tags")
+      .select("post_id")
+      .eq("tagged_user_id", userId)
+      .limit(60);
+    if (tagErr) { res.status(500).json({ error: tagErr.message }); return; }
+    const postIds = (tagRows ?? []).map((r: any) => r.post_id).filter(Boolean);
+    if (postIds.length === 0) { res.json({ posts: [] }); return; }
+
+    // Step 2 — fetch the actual posts by ID
+    const { data: posts, error: postsErr } = await sb
+      .from("posts")
+      .select("id, media_url, caption, likes_count, comments_count, created_at")
+      .in("id", postIds)
+      .order("created_at", { ascending: false });
+    if (postsErr) { res.status(500).json({ error: postsErr.message }); return; }
+    res.json({ posts: posts ?? [] });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message ?? "unknown error" });
+  }
+});
+
 // GET /api/posts/user/:userId/more — other posts by the same user, excluding one post.
 // Used by the "More from this user" grid on the post detail screen.
 router.get("/user/:userId/more", async (req, res) => {

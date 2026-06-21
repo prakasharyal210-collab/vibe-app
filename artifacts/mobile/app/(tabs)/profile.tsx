@@ -905,31 +905,33 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (!session?.user?.id || activeTab !== "tagged") return;
     const uid = session.user.id;
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     (async () => {
       try {
-        const { data } = await supabase
-          .from("post_tags")
-          .select("posts(id, media_url, caption, likes_count, comments_count)")
-          .eq("tagged_user_id", uid)
-          .limit(30);
-        if (data && data.length > 0) {
+        const res = await fetch(
+          `${API_BASE}/posts/tagged?userId=${encodeURIComponent(uid)}`,
+          { signal: controller.signal },
+        );
+        if (res.ok && !cancelled) {
+          const json = await res.json();
           setTaggedPosts(
-            data
-              .map((r: any) => r.posts)
-              .filter(Boolean)
-              .map((p: any) => ({
-                id: p.id,
-                image_url: p.media_url ?? p.image_url ?? null,
-                isReel: false,
-                likes: p.likes_count ?? 0,
-                comments: p.comments_count ?? 0,
-                caption: p.caption ?? "",
-                isOwn: false,
-              }))
+            (json.posts ?? []).map((p: any) => ({
+              id: p.id,
+              image_url: p.media_url ?? p.image_url ?? null,
+              isReel: false,
+              likes: p.likes_count ?? 0,
+              comments: p.comments_count ?? 0,
+              caption: p.caption ?? "",
+              isOwn: false,
+            }))
           );
         }
       } catch {}
+      clearTimeout(timeout);
     })();
+    return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
   }, [activeTab, session?.user?.id]);
 
   const loadProfile = useCallback(async (uid: string) => {
@@ -1072,10 +1074,11 @@ export default function ProfileScreen() {
   // ── Derived values — declared before the early return so that useCallback
   //    (a hook) is always called regardless of login state. React requires hooks
   //    to be called the same number of times on every render.
+  const postsOnly = myPosts.filter((p) => !p.isReel);
   const reelsOnly = myPosts.filter((p) => p.isReel);
 
   const gridData: GridItem[] =
-    activeTab === "posts" ? myPosts :
+    activeTab === "posts" ? postsOnly :
     activeTab === "reels" ? reelsOnly :
     activeTab === "saved" ? savedPosts :
     activeTab === "archived" ? archivedPosts :
@@ -1427,6 +1430,7 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       <FlatList
+        key={activeTab}
         data={gridData}
         keyExtractor={(item) => item.id}
         numColumns={3}
