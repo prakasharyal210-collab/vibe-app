@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { RelationshipStatusBadge } from "@/components/RelationshipStatusBadge";
 import { ZodiacSignBadge } from "@/components/ZodiacSignBadge";
+import { SuggestedAccountsRow } from "@/components/SuggestedAccountsRow";
 import { LinearGradient } from "expo-linear-gradient";
 import { Video, ResizeMode } from "expo-av";
 import * as VideoThumbnails from "expo-video-thumbnails";
@@ -1352,6 +1353,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      <SuggestedAccountsRow />
 
       <View style={[styles.highlightsSection, { borderBottomColor: colors.border }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.highlightsScroll}>

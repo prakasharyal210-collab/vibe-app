@@ -82,6 +82,8 @@ export default function SuggestedUsersScreen() {
   }, [session?.user?.id]);
 
   const toggleFollow = async (userId: string) => {
+    const uid = session?.user?.id;
+    if (!uid) return;
     const nowFollowing = !followed.has(userId);
     setFollowed((prev) => {
       const next = new Set(prev);
@@ -89,16 +91,28 @@ export default function SuggestedUsersScreen() {
       else next.delete(userId);
       return next;
     });
-    if (session?.user?.id) {
-      try {
-        if (nowFollowing) {
-          await supabase.from("follows").insert({ follower_id: session.user.id, following_id: userId });
-        } else {
-          await supabase.from("follows").delete()
-            .eq("follower_id", session.user.id)
-            .eq("following_id", userId);
-        }
-      } catch {}
+    try {
+      const res = await fetch(
+        `${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/users/social/toggle-follow`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ followerId: uid, followingId: userId }),
+        },
+      );
+      if (!res.ok) {
+        setFollowed((prev) => {
+          const next = new Set(prev);
+          if (nowFollowing) next.delete(userId); else next.add(userId);
+          return next;
+        });
+      }
+    } catch {
+      setFollowed((prev) => {
+        const next = new Set(prev);
+        if (nowFollowing) next.delete(userId); else next.add(userId);
+        return next;
+      });
     }
   };
 
