@@ -215,38 +215,36 @@ router.get("/friends", async (req, res) => {
 });
 
 // ─── GET /api/feed/reels ───────────────────────────────────────────────────────
-// ?userId=...&limit=20
+// ?userId=...&limit=20  (userId is optional — omit for guest/unauthenticated)
 router.get("/reels", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
 
-  if (!userId) {
-    res.status(400).json({ error: "userId required" });
-    return;
-  }
-
   const supabase = makeSupabase();
 
-  // v2 RPC returns no profile info — enrich after.
-  const { data: v2Data, error: v2Err } = await supabase.rpc(
-    "get_for_you_reels_v2",
-    { p_user_id: userId, p_limit: limit },
-  );
-  if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
-    const enriched = await enrichWithProfiles(supabase, v2Data);
-    res.json({ data: enriched, source: "v2" });
-    return;
+  // When userId is present, try the personalised v2 RPC first.
+  if (userId) {
+    const { data: v2Data, error: v2Err } = await supabase.rpc(
+      "get_for_you_reels_v2",
+      { p_user_id: userId, p_limit: limit },
+    );
+    if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
+      const enriched = await enrichWithProfiles(supabase, v2Data);
+      res.json({ data: enriched, source: "v2" });
+      return;
+    }
   }
 
-  // Fallback: direct reels query with explicit FK profile join.
+  // Fallback (also used for guests): direct reels query ordered by score.
   const { data: freshReels } = await supabase
     .from("reels")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .or("is_archived.eq.false,is_archived.is.null")
     .order("score", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  res.json({ data: freshReels ?? [], source: "fresh", v2Error: v2Err?.message });
+  res.json({ data: freshReels ?? [], source: "fresh" });
 });
 
 // ─── GET /api/feed/following-reels ────────────────────────────────────────────

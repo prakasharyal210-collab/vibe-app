@@ -679,29 +679,20 @@ export default function ReelsScreen() {
     // All RPC calls go through the API server (service role key, <1 s round
     // trip). Direct supabase.rpc() from mobile hangs indefinitely on this
     // device's network path, so we never call supabase directly for feeds.
-    let fyLoaded = false;
-    if (uid) {
-      try {
-        const res = await fetch(`${API_BASE}/feed/reels?userId=${encodeURIComponent(uid)}&limit=20`);
-        if (res.ok) {
-          const body = await res.json();
-          const fyData: any[] = body.data ?? [];
-          console.log('[loadFeed] fy reels from api server, source:', body.source, 'rows:', fyData.length);
-          if (fyData.length > 0) {
-            fyLoaded = true;
-            const rpcReels = fyData.map(rowToReel);
-            setForYouReels(applyReelDiversity(rpcReels));
-          }
-        } else {
-          console.log('[loadFeed] fy reels api error:', res.status);
+    // userId is optional — the API serves public reels to guests too.
+    try {
+      const uidParam = uid ? `?userId=${encodeURIComponent(uid)}&limit=20` : `?limit=20`;
+      const res = await fetch(`${API_BASE}/feed/reels${uidParam}`);
+      if (res.ok) {
+        const body = await res.json();
+        const fyData: any[] = body.data ?? [];
+        if (fyData.length > 0) {
+          const rpcReels = fyData.map(rowToReel);
+          setForYouReels(applyReelDiversity(rpcReels));
         }
-      } catch (e: any) {
-        console.log('[loadFeed] fy reels fetch threw:', e?.message);
       }
-    }
-
-    if (!fyLoaded) {
-      console.log('[loadFeed] fy: no reels from api server, keeping existing or empty');
+    } catch (_e: any) {
+      // silent — keep existing reels if any
     }
 
     // ── Following reels via API server ───────────────────────────────────────
@@ -726,8 +717,9 @@ export default function ReelsScreen() {
 
   useFocusEffect(useCallback(() => {
     setScreenFocused(true);
+    loadFeed();
     return () => setScreenFocused(false);
-  }, []));
+  }, [loadFeed]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
