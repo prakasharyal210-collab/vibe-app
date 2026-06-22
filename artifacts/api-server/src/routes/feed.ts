@@ -310,8 +310,10 @@ router.get("/trending", async (req, res) => {
       return;
     }
 
-    // Rank by combined score: views_count + likes_count, highest first
+    // Rank by combined score: views_count + likes_count, highest first.
+    // Also drop video posts with no thumbnail — they can't be shown as image cards.
     const ranked = (data ?? [])
+      .filter((p: any) => !(p.is_video && !p.thumbnail_url))
       .map((p: any) => ({
         ...p,
         trending_score: (p.views_count ?? 0) + (p.likes_count ?? 0),

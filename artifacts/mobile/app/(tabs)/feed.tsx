@@ -711,12 +711,17 @@ export default function FeedScreen() {
   useEffect(() => {
     if (activeCategory !== "trending") return;
     setTrendingPosts([]);
+    let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       try {
         // Route through API server — direct anon-key reads on posts hang under RLS
         const ctParam = contentType !== "all" ? `&content_type=${contentType}` : "";
-        const res = await fetch(`${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9${ctParam}`);
-        if (res.ok) {
+        const res = await fetch(
+          `${(process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api"}/feed/trending?limit=9${ctParam}`,
+          { signal: controller.signal },
+        );
+        if (res.ok && !cancelled) {
           const json = await res.json();
           const posts = json.posts ?? json.data ?? [];
           setTrendingPosts(posts);
@@ -725,6 +730,7 @@ export default function FeedScreen() {
         // leave empty — TrendingFeed shows loading state
       }
     })();
+    return () => { cancelled = true; controller.abort(); };
   }, [activeCategory, contentType]);
 
   // Animate pills in/out when tab switches
