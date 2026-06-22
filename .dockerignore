@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.replit-artifact
+**/.git
+artifacts/mobile
+artifacts/mockup-sandbox
+scripts
+.agents
+.local
+attached_assets
