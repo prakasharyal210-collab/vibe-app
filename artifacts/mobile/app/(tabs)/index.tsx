@@ -178,6 +178,10 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const [reporting, setReporting] = useState<string | null>(null);
   const [videoError, setVideoError] = useState(false);
 
+  // Guard: once the user has tapped like/unlike, the async mount-time checkReelLiked
+  // result must NOT overwrite their intent (race condition causes brief flicker + revert).
+  const hasInteracted = useRef(false);
+
   // animations
   const progress = useSharedValue(0);
   const heartBurstOpacity = useSharedValue(0);
@@ -190,10 +194,16 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const pausedAtRef = useRef(0);
   const watchStartRef = useRef<number | null>(null);
 
-  // Load real liked state from API server on mount (service-role key, no RLS hang)
+  // Load real liked state from API server on mount (service-role key, no RLS hang).
+  // Only updates state if the user hasn't already tapped like — prevents the async
+  // response from overwriting an in-flight optimistic update.
   useEffect(() => {
     if (!userId) return;
-    checkReelLiked(reel.id, userId).then(setLiked).catch(() => {});
+    let cancelled = false;
+    checkReelLiked(reel.id, userId)
+      .then((v) => { if (!cancelled && !hasInteracted.current) setLiked(v); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [reel.id, userId]);
 
   // Watch time tracking — log when the reel stops being active
@@ -266,6 +276,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     // Double-tap always likes (never unlikes) — like Instagram/TikTok.
     // Burst animation fires even if already liked (visual feedback), but API only called once.
     if (!isLoggedIn) { onRequireLogin(); return; }
+    hasInteracted.current = true;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Burst animation — explicit opacity + scale, same pattern as PostCard
     heartBurstOpacity.value = 0;
@@ -312,6 +323,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
   const handleLike = useCallback(() => {
     if (!isLoggedIn) { onRequireLogin(); return; }
+    hasInteracted.current = true;
     // Optimistic toggle
     const optimisticLiked = !liked;
     setLiked(optimisticLiked);
