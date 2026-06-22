@@ -322,17 +322,19 @@ export async function fetchRepostedPosts(userId: string): Promise<Post[]> {
   return [];
 }
 
-// ─── Favourites ───────────────────────────────────────────────────────────────
+// ─── Favourites — all calls routed through API server (service-role key bypasses RLS) ──
+// Direct anon-key calls on the favourites table are silently blocked by RLS.
+
+const FAVOURITES_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/posts";
 
 export async function checkFavourited(postId: string, userId: string): Promise<boolean> {
   try {
-    const { data } = await supabase
-      .from("favourites")
-      .select("id")
-      .eq("post_id", postId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    return !!data;
+    const res = await fetch(
+      `${FAVOURITES_API}/like-status?postId=${encodeURIComponent(postId)}&userId=${encodeURIComponent(userId)}`
+    );
+    if (!res.ok) return false;
+    const json = await res.json() as { liked: boolean; saved: boolean };
+    return json.saved ?? false;
   } catch {
     return false;
   }
@@ -341,30 +343,28 @@ export async function checkFavourited(postId: string, userId: string): Promise<b
 export async function toggleFavourite(
   postId: string,
   userId: string,
-  nowFavourited: boolean,
+  _nowFavourited: boolean,
 ): Promise<void> {
+  // The server endpoint is a true toggle (checks current DB state itself),
+  // so we ignore the client-side hint (_nowFavourited) and let the server decide.
   try {
-    if (nowFavourited) {
-      await supabase.from("favourites").insert({ post_id: postId, user_id: userId });
-    } else {
-      await supabase.from("favourites").delete().eq("post_id", postId).eq("user_id", userId);
-    }
+    await fetch(`${FAVOURITES_API}/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ postId, userId }),
+    });
   } catch {}
 }
 
 export async function fetchFavouritedPosts(userId: string): Promise<Post[]> {
   try {
-    const { data, error } = await supabase
-      .from("favourites")
-      .select("posts(*, profiles:user_id(*))")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (!error && data && data.length > 0) {
-      return (data as any[]).map((r) => r.posts).filter(Boolean) as Post[];
-    }
-  } catch {}
-  return [];
+    const res = await fetch(`${FAVOURITES_API}/saved?userId=${encodeURIComponent(userId)}`);
+    if (!res.ok) return [];
+    const json = await res.json() as { posts: any[] };
+    return (json.posts ?? []) as Post[];
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchLikedPosts(userId: string): Promise<Post[]> {
