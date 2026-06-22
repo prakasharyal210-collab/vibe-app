@@ -1,7 +1,7 @@
 **/node_modules
-**/dist
 **/.replit-artifact
 **/.git
+lib/*/dist
 artifacts/mobile
 artifacts/mockup-sandbox
 scripts
