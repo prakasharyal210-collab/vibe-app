@@ -5,6 +5,7 @@
   },
   "build": {
     "preview-banuba": {
+      "config": ".eas/build/android-apk.yml",
       "distribution": "internal",
       "channel": "production",
       "android": {
@@ -12,7 +13,6 @@
       },
       "env": {
         "NODE_ENV": "production",
-        "COREPACK_ENABLE_STRICT": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
@@ -24,6 +24,7 @@
       }
     },
     "preview": {
+      "config": ".eas/build/android-apk.yml",
       "distribution": "internal",
       "channel": "production",
       "android": {
@@ -31,7 +32,6 @@
       },
       "env": {
         "NODE_ENV": "production",
-        "COREPACK_ENABLE_STRICT": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
@@ -43,13 +43,13 @@
       }
     },
     "production": {
+      "config": ".eas/build/android-aab.yml",
       "channel": "production",
       "android": {
         "buildType": "app-bundle"
       },
       "env": {
         "NODE_ENV": "production",
-        "COREPACK_ENABLE_STRICT": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
