@@ -10,9 +10,9 @@
       "android": {
         "buildType": "apk"
       },
-      "installCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "NODE_ENV": "production",
+        "COREPACK_ENABLE_STRICT": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
@@ -29,9 +29,9 @@
       "android": {
         "buildType": "apk"
       },
-      "installCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "NODE_ENV": "production",
+        "COREPACK_ENABLE_STRICT": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
@@ -47,9 +47,9 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "installCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "NODE_ENV": "production",
+        "COREPACK_ENABLE_STRICT": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
