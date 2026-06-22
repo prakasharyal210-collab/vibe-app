@@ -5,7 +5,7 @@
   },
   "build": {
     "preview-banuba": {
-      "config": ".eas/build/android-apk.yml",
+      "config": "android-apk.yml",
       "distribution": "internal",
       "channel": "production",
       "android": {
@@ -24,7 +24,7 @@
       }
     },
     "preview": {
-      "config": ".eas/build/android-apk.yml",
+      "config": "android-apk.yml",
       "distribution": "internal",
       "channel": "production",
       "android": {
@@ -43,7 +43,7 @@
       }
     },
     "production": {
-      "config": ".eas/build/android-aab.yml",
+      "config": "android-aab.yml",
       "channel": "production",
       "android": {
         "buildType": "app-bundle"
