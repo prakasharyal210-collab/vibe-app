@@ -2481,7 +2481,7 @@ function FindVibeContent() {
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            onPress={() => router.push("/notifications" as any)}
+            onPress={() => router.push("/vibe-notifications" as any)}
             style={[styles.iconBtn, { backgroundColor: pendingVibeCount > 0 ? "rgba(124,58,237,0.2)" : colors.muted, borderColor: pendingVibeCount > 0 ? "#7C3AED" : colors.border }]}
           >
             <Ionicons name="flash" size={18} color={pendingVibeCount > 0 ? "#A78BFA" : colors.mutedForeground} />
