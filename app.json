@@ -7,6 +7,12 @@
     },
     "android": {
       "package": "com.prakasharyal.gundruk"
+    },
+    "ios": {
+      "bundleIdentifier": "com.prakasharyal.gundruk",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

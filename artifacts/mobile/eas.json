@@ -10,6 +10,7 @@
       "android": {
         "buildType": "apk"
       },
+      "installCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "NODE_ENV": "production",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
@@ -28,6 +29,7 @@
       "android": {
         "buildType": "apk"
       },
+      "installCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "NODE_ENV": "production",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
@@ -45,6 +47,7 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "installCommand": "pnpm install --no-frozen-lockfile",
       "env": {
         "NODE_ENV": "production",
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
