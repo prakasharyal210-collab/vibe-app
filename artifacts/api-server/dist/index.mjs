@@ -56323,62 +56323,20 @@ function makeSupabase7() {
 }
 router13.get("/search", async (req, res) => {
   const q = (req.query["q"] ?? "").trim();
-  const viewerId = (req.query["viewer_id"] ?? "").trim();
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const sb = makeSupabase7();
-  req.log.info({ q, viewerId: viewerId || "(none)", limit }, "user search");
   try {
-    if (viewerId) {
-      if (!q) {
-        const { data: data2, error: error2 } = await sb.rpc("get_suggested_accounts", {
-          p_user_id: viewerId,
-          p_limit: limit
-        });
-        if (!error2 && data2) {
-          res.json({ profiles: data2 });
-          return;
-        }
-        req.log.warn({ error: error2?.message }, "get_suggested_accounts RPC failed; falling back");
-      } else {
-        const { data: data2, error: error2 } = await sb.rpc("search_accounts_ranked", {
-          p_user_id: viewerId,
-          p_query: q,
-          p_limit: limit
-        });
-        if (!error2 && data2) {
-          res.json({ profiles: data2 });
-          return;
-        }
-        req.log.warn({ error: error2?.message }, "search_accounts_ranked RPC failed; falling back");
-      }
-    }
-    let excludeIds = [];
-    if (viewerId) {
-      const [myBlocks, blockedByMe] = await Promise.all([
-        sb.from("blocks").select("blocked_id").eq("blocker_id", viewerId),
-        sb.from("blocks").select("blocker_id").eq("blocked_id", viewerId)
-      ]);
-      excludeIds = [
-        ...(myBlocks.data ?? []).map((r) => r.blocked_id),
-        ...(blockedByMe.data ?? []).map((r) => r.blocker_id)
-      ];
-    }
-    let query = sb.from("profiles").select("id, username, full_name, bio, avatar_url, followers_count, following_count, is_verified, is_private").order("followers_count", { ascending: false }).limit(limit);
+    let query = sb.from("profiles").select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private").order("followers_count", { ascending: false }).limit(limit);
     if (q) {
       query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
     }
-    if (excludeIds.length > 0) {
-      query = query.not("id", "in", `(${excludeIds.join(",")})`);
-    }
     const { data, error } = await query;
     if (error) {
-      req.log.warn({ error: error.message }, "profiles search fallback error");
       res.status(500).json({ error: error.message });
       return;
     }
     res.json({ profiles: data ?? [] });
   } catch (err) {
-    req.log.error({ err: err?.message }, "user search exception");
     res.status(500).json({ error: "Search failed" });
   }
 });
