@@ -214,7 +214,12 @@ router.get("/status", async (req, res) => {
       .maybeSingle();
 
     if (sent) {
-      res.json({ status: "pending_sent", pending: sent });
+      const { data: receiver } = await sb
+        .from("profiles")
+        .select("id, username, avatar_url, full_name")
+        .eq("id", (sent as any).receiver_id)
+        .maybeSingle();
+      res.json({ status: "pending_sent", pending: sent, receiver });
       return;
     }
 

@@ -38,6 +38,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
+import { useCoupleStatus } from "@/context/CoupleContext";
+import { CoupleLinkModal } from "@/components/CoupleLinkModal";
 
 // ─── SavedAccount ─────────────────────────────────────────────────────────────
 
@@ -756,6 +758,76 @@ export default function SettingsScreen() {
   const userAvatar = session?.user?.user_metadata?.avatar_url;
 
   const { show: showToast, ToastView } = useToast();
+  const { coupleStatus, coupleId, partnerName, partnerAvatar, pendingSent, pendingReceived, refresh: refreshCouple } = useCoupleStatus();
+
+  const [showLinkModal, setShowLinkModal] = useState(false);
+
+  const handleAcceptCouple = async (requestId: string) => {
+    try {
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
+      const res = await fetch(`${apiBase}/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coupleId: requestId, userId }),
+      });
+      const data = await res.json();
+      if (data.error) { Alert.alert("Error", data.error); return; }
+      refreshCouple();
+      showToast("💑 You're now linked!");
+    } catch { Alert.alert("Error", "Failed to accept request"); }
+  };
+
+  const handleDeclineCouple = async (requestId: string) => {
+    try {
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
+      await fetch(`${apiBase}/decline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coupleId: requestId, userId }),
+      });
+      refreshCouple();
+    } catch { Alert.alert("Error", "Failed to decline"); }
+  };
+
+  const handleCancelSentRequest = async () => {
+    if (!pendingSent) return;
+    Alert.alert("Cancel Request?", "Withdraw the couple request?", [
+      { text: "Keep it", style: "cancel" },
+      {
+        text: "Cancel Request", style: "destructive", onPress: async () => {
+          try {
+            const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
+            await fetch(`${apiBase}/decline`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ coupleId: pendingSent.id, userId }),
+            });
+            refreshCouple();
+          } catch { Alert.alert("Error", "Failed to cancel"); }
+        },
+      },
+    ]);
+  };
+
+  const handleUnlink = () => {
+    Alert.alert("Unlink Couple?", "This will remove your couple connection.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Unlink", style: "destructive", onPress: async () => {
+          if (!coupleId) return;
+          try {
+            const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
+            await fetch(`${apiBase}/unlink`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ coupleId, userId }),
+            });
+            refreshCouple();
+          } catch { Alert.alert("Error", "Failed to unlink"); }
+        },
+      },
+    ]);
+  };
 
   // Settings state
   const [privateAccount, setPrivateAccount] = useState(false);
@@ -887,6 +959,115 @@ export default function SettingsScreen() {
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>
+
+        {/* ════════════════════════════════════════════════════
+            RELATIONSHIP MODE
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Relationship Mode" />
+
+          {/* ── Coupled ── */}
+          {coupleStatus === "coupled" && (
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={relStyles.modeRow}>
+                <LinearGradient colors={["rgba(236,72,153,0.2)", "rgba(236,72,153,0.05)"]} style={relStyles.modeCard}>
+                  <Text style={{ fontSize: 28, marginBottom: 6 }}>💑</Text>
+                  <Text style={[relStyles.modeLabel, { color: "#EC4899" }]}>In a Relationship</Text>
+                  <View style={[relStyles.activeDot, { backgroundColor: "#EC4899" }]} />
+                </LinearGradient>
+              </View>
+              <View style={[relStyles.partnerRow, { borderTopColor: colors.border }]}>
+                {partnerAvatar ? (
+                  <Image source={{ uri: partnerAvatar }} style={relStyles.partnerAvatar} />
+                ) : (
+                  <View style={[relStyles.partnerAvatar, relStyles.partnerAvatarFallback]}>
+                    <Text style={{ fontSize: 18 }}>👤</Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[relStyles.partnerName, { color: colors.foreground }]}>{partnerName ?? "Your partner"}</Text>
+                  <Text style={[relStyles.partnerSub, { color: colors.mutedForeground }]}>Linked partner · Couple tab active</Text>
+                </View>
+                <TouchableOpacity onPress={handleUnlink} style={relStyles.unlinkBtn}>
+                  <Text style={relStyles.unlinkText}>Unlink</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* ── Pending sent ── */}
+          {coupleStatus === "pending_sent" && pendingSent && (
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={relStyles.pendingWrap}>
+                <Text style={{ fontSize: 28, marginBottom: 10 }}>⏳</Text>
+                <Text style={[relStyles.pendingTitle, { color: colors.foreground }]}>Request Sent</Text>
+                {pendingSent.receiver && (
+                  <Text style={[relStyles.pendingSub, { color: colors.mutedForeground }]}>
+                    Waiting for @{pendingSent.receiver.username} to accept…
+                  </Text>
+                )}
+                <TouchableOpacity onPress={handleCancelSentRequest} style={relStyles.cancelBtn}>
+                  <Text style={relStyles.cancelText}>Cancel Request</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* ── Pending received ── */}
+          {coupleStatus === "pending_received" && pendingReceived.length > 0 && (
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              {pendingReceived.map((req, i) => (
+                <View
+                  key={req.id}
+                  style={[relStyles.incomingRow, i < pendingReceived.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border }]}
+                >
+                  {req.requester?.avatar_url ? (
+                    <Image source={{ uri: req.requester.avatar_url }} style={relStyles.reqAvatar} />
+                  ) : (
+                    <View style={[relStyles.reqAvatar, relStyles.partnerAvatarFallback]}>
+                      <Text style={{ fontSize: 16 }}>👤</Text>
+                    </View>
+                  )}
+                  <View style={{ flex: 1 }}>
+                    <Text style={[relStyles.reqName, { color: colors.foreground }]}>
+                      💕 {req.requester?.full_name || req.requester?.username || "Someone"} wants to link!
+                    </Text>
+                    <Text style={[relStyles.reqSub, { color: colors.mutedForeground }]}>@{req.requester?.username}</Text>
+                  </View>
+                  <View style={relStyles.reqActions}>
+                    <TouchableOpacity onPress={() => handleAcceptCouple(req.id)} style={relStyles.acceptBtn}>
+                      <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={relStyles.acceptGrad}>
+                        <Text style={relStyles.acceptText}>Accept</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleDeclineCouple(req.id)} style={relStyles.declineBtn}>
+                      <Text style={relStyles.declineText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ── None: two mode cards ── */}
+          {coupleStatus === "none" && (
+            <View style={relStyles.modeRow}>
+              <TouchableOpacity activeOpacity={0.85} style={[relStyles.modeCard, relStyles.modeSingle, { backgroundColor: colors.card, borderColor: "#8B5CF6" }]}>
+                <Text style={{ fontSize: 28, marginBottom: 6 }}>💫</Text>
+                <Text style={[relStyles.modeLabel, { color: "#8B5CF6" }]}>Single</Text>
+                <View style={[relStyles.activeDot, { backgroundColor: "#8B5CF6" }]} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setShowLinkModal(true)}
+                activeOpacity={0.85}
+                style={[relStyles.modeCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+              >
+                <Text style={{ fontSize: 28, marginBottom: 6 }}>💑</Text>
+                <Text style={[relStyles.modeLabel, { color: colors.mutedForeground }]}>In a Relationship</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* ════════════════════════════════════════════════════
             ACCOUNT
@@ -1118,6 +1299,12 @@ export default function SettingsScreen() {
       />
 
       {ToastView}
+      <CoupleLinkModal
+        visible={showLinkModal}
+        userId={userId}
+        onClose={() => setShowLinkModal(false)}
+        onRequestSent={() => { setShowLinkModal(false); refreshCouple(); }}
+      />
     </View>
   );
 }
@@ -1185,4 +1372,61 @@ const styles = StyleSheet.create({
   },
   logoutText: { color: "#EF4444", fontSize: 15, fontFamily: "Poppins_700Bold" },
   versionNote: { textAlign: "center", fontSize: 12, fontFamily: "Poppins_400Regular", paddingBottom: 4 },
+});
+
+const relStyles = StyleSheet.create({
+  modeRow: { flexDirection: "row", gap: 10, padding: 12 },
+  modeCard: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 14,
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "transparent",
+    gap: 2,
+  },
+  modeSingle: { borderColor: "#8B5CF6" },
+  modeLabel: { fontFamily: "Poppins_700Bold", fontSize: 13, textAlign: "center" },
+  activeDot: { width: 6, height: 6, borderRadius: 3, marginTop: 6 },
+  partnerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  partnerAvatar: { width: 44, height: 44, borderRadius: 22 },
+  partnerAvatarFallback: { backgroundColor: "rgba(139,92,246,0.2)", alignItems: "center", justifyContent: "center" },
+  partnerName: { fontFamily: "Poppins_700Bold", fontSize: 15 },
+  partnerSub: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
+  unlinkBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.4)",
+  },
+  unlinkText: { color: "#EF4444", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  pendingWrap: { alignItems: "center", padding: 20 },
+  pendingTitle: { fontFamily: "Poppins_700Bold", fontSize: 17, marginBottom: 6 },
+  pendingSub: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginBottom: 16 },
+  cancelBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(239,68,68,0.4)",
+  },
+  cancelText: { color: "#EF4444", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  incomingRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
+  reqAvatar: { width: 40, height: 40, borderRadius: 20 },
+  reqName: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  reqSub: { fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
+  reqActions: { gap: 6 },
+  acceptBtn: { borderRadius: 10, overflow: "hidden" },
+  acceptGrad: { paddingHorizontal: 14, paddingVertical: 7 },
+  acceptText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 12 },
+  declineBtn: { paddingHorizontal: 14, paddingVertical: 7, alignItems: "center" },
+  declineText: { color: "rgba(255,255,255,0.35)", fontFamily: "Poppins_500Medium", fontSize: 12 },
 });

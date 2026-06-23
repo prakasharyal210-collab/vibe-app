@@ -60186,7 +60186,8 @@ router33.get("/status", async (req, res) => {
     }
     const { data: sent } = await sb.from("couple_links").select("*").eq("requester_id", userId).eq("status", "pending").maybeSingle();
     if (sent) {
-      res.json({ status: "pending_sent", pending: sent });
+      const { data: receiver } = await sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", sent.receiver_id).maybeSingle();
+      res.json({ status: "pending_sent", pending: sent, receiver });
       return;
     }
     res.json({ status: "none" });

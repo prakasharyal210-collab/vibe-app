@@ -1,0 +1,50 @@
+Redesign the Couple linking flow to go through Settings instead of the Find screen.
+
+DESIRED FLOW:
+1. User goes to Settings → "Relationship Mode" section
+2. Two options: 
+   - 💫 "Single" (default) → shows Find Vibe tab
+   - 💑 "In a Relationship" → triggers couple linking flow
+3. When user taps "In a Relationship":
+   - Show a modal/screen to search partner by username
+   - Send couple request to them
+   - Partner gets a notification and sees the request in their Settings → Relationship Mode
+   - Partner taps Accept → both are now linked
+   - Bottom tab switches from Find Vibe to Couple for both users
+
+CHANGES NEEDED:
+
+1. artifacts/mobile/app/settings.tsx:
+   - Add a "Relationship Mode" section with two cards:
+     - 💫 Single (active by default, purple border when selected)
+     - 💑 In a Relationship (pink border when selected)
+   - If isLinked=true, show "In a Relationship" as active + show partner name/avatar + "Unlink" button
+   - If isLinked=false and status=pending (sent request), show "Request sent to [name], waiting..." + Cancel button
+   - If isLinked=false and has incoming request, show "💕 [name] wants to be your couple!" with Accept/Decline buttons
+   - Tapping "In a Relationship" when not linked opens a bottom sheet modal
+
+2. Create artifacts/mobile/components/CoupleLinkModal.tsx:
+   - Bottom sheet modal with search bar
+   - Search users by username: GET /api/users/search?q=username
+   - Show result: avatar + name + "Send Request 💕" button
+   - On send: POST /api/couple/request { receiverId, anniversaryDate: null }
+   - Show success state: "Request sent! 💕"
+
+3. artifacts/mobile/app/(tabs)/find.tsx:
+   - Remove any couple-related UI from this screen entirely
+   - When isLinked=true, the tab shows Couple space (already done)
+   - When isLinked=false, just show Find Vibe normally (no couple banner)
+
+4. Make sure GET /api/couple/status returns:
+   {
+     status: 'none' | 'pending_sent' | 'pending_received' | 'accepted',
+     coupleId?: string,
+     partnerId?: string,
+     partnerUsername?: string,
+     partnerAvatar?: string,
+     requestId?: string
+   }
+
+5. After API changes rebuild: pnpm --filter @workspace/api-server run build and commit dist/
+
+Style: dark theme, purple (#8B5CF6) for Single mode, pink (#EC4899) for Couple mode
