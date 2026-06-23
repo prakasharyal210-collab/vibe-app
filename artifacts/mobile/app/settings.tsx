@@ -2,7 +2,7 @@ import { BASE_URL } from "@/lib/share";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -759,6 +759,8 @@ export default function SettingsScreen() {
 
   const { show: showToast, ToastView } = useToast();
   const { coupleStatus, coupleId, partnerName, partnerAvatar, pendingSent, pendingReceived, refresh: refreshCouple } = useCoupleStatus();
+
+  useFocusEffect(useCallback(() => { refreshCouple(); }, [refreshCouple]));
 
   const [showLinkModal, setShowLinkModal] = useState(false);
 
