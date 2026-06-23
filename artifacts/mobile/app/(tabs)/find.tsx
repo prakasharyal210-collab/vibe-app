@@ -80,6 +80,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 import { CoupleTab } from "@/components/CoupleTab";
+import { useCoupleStatus } from "@/context/CoupleContext";
 
 // ── Error Boundary ──────────────────────────────────────────────────────────
 class FindVibeErrorBoundary extends Component<
@@ -2266,7 +2267,7 @@ function FindVibeContent() {
 
   const mainTabSwipe = useMainTabSwipe("find");
   const [activeTab, setActiveTab] = useState<"nearby" | "astrology" | "daily" | "rooms" | "goals" | "matches">("nearby");
-  const [mainMode, setMainMode] = useState<"vibe" | "couple">("vibe");
+  const { isLinked } = useCoupleStatus();
   const [myGoals, setMyGoals] = useState<string[]>([]);
   const tabScrollRef = useRef<ScrollView>(null);
   const tabBtnLayouts = useRef<{ x: number; width: number }[]>([]);
@@ -2506,25 +2507,7 @@ function FindVibeContent() {
         </View>
       </View>
 
-      {/* ── Mode Toggle: Find Vibe / Couple ── */}
-      <View style={{ flexDirection: "row", marginHorizontal: 16, marginBottom: 10, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 24, padding: 3 }}>
-        <TouchableOpacity
-          onPress={() => setMainMode("vibe")}
-          activeOpacity={0.85}
-          style={{ flex: 1, paddingVertical: 9, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: mainMode === "vibe" ? "#7C3AED" : "transparent" }}
-        >
-          <Text style={{ color: mainMode === "vibe" ? "#fff" : "rgba(255,255,255,0.45)", fontFamily: "Poppins_700Bold", fontSize: 14 }}>💫 Find Vibe</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setMainMode("couple")}
-          activeOpacity={0.85}
-          style={{ flex: 1, paddingVertical: 9, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: mainMode === "couple" ? "#EC4899" : "transparent" }}
-        >
-          <Text style={{ color: mainMode === "couple" ? "#fff" : "rgba(255,255,255,0.45)", fontFamily: "Poppins_700Bold", fontSize: 14 }}>💑 Couple</Text>
-        </TouchableOpacity>
-      </View>
-
-      {mainMode === "couple" ? (
+      {isLinked ? (
         <CoupleTab userId={userId ?? ""} session={session} />
       ) : (
         <>

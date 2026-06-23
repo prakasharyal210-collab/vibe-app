@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
+import { useCoupleStatus } from "@/context/CoupleContext";
 import { getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -113,6 +114,8 @@ const TAB_EMOJI: Record<string, string> = {
   "home-outline": "⌂",
   "heart": "♥",
   "heart-outline": "♥",
+  "couple": "💑",
+  "couple-outline": "💑",
   "person": "◉",
   "person-outline": "○",
 };
@@ -180,6 +183,7 @@ function ClassicTabLayout({
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isLinked } = useCoupleStatus();
   // TikTok-style: bar sits flush at bottom: 0, extends under the system nav bar.
   // Height = visible icon area (58px) + safe-area bottom inset so icons never overlap nav buttons.
   const tabBarHeight = 58 + insets.bottom;
@@ -277,7 +281,7 @@ function ClassicTabLayout({
               onGuestRef.current();
               return;
             }
-            if (lockedRef.current) {
+            if (!isLinked && lockedRef.current) {
               e.preventDefault();
               onLockedRef.current();
             }
@@ -285,13 +289,22 @@ function ClassicTabLayout({
         })}
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              iconName={focused ? "heart" : "heart-outline"}
-              label="Find Vibe"
-              focused={focused && !findVibeLocked}
-              color={findVibeLocked ? INACTIVE : color}
-              locked={findVibeLocked}
-            />
+            isLinked ? (
+              <TabIcon
+                iconName={focused ? "couple" : "couple-outline"}
+                label="Couple"
+                focused={focused}
+                color={focused ? "#EC4899" : INACTIVE}
+              />
+            ) : (
+              <TabIcon
+                iconName={focused ? "heart" : "heart-outline"}
+                label="Find Vibe"
+                focused={focused && !findVibeLocked}
+                color={findVibeLocked ? INACTIVE : color}
+                locked={findVibeLocked}
+              />
+            )
           ),
         }}
       />

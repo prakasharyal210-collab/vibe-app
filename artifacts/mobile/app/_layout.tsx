@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ToastOverlay } from "@/components/ToastNotification";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { CoupleProvider } from "@/context/CoupleContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 
@@ -228,10 +229,12 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <AuthProvider>
-                <RealtimeProvider>
-                  <RootLayoutNav />
-                  <ToastOverlay />
-                </RealtimeProvider>
+                <CoupleProvider>
+                  <RealtimeProvider>
+                    <RootLayoutNav />
+                    <ToastOverlay />
+                  </RealtimeProvider>
+                </CoupleProvider>
               </AuthProvider>
             </GestureHandlerRootView>
           </QueryClientProvider>
