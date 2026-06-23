@@ -60023,8 +60023,10 @@ function makeSupabase27() {
 }
 var router33 = (0, import_express33.Router)();
 router33.post("/request", async (req, res) => {
+  req.log.info({ body: req.body, auth: req.headers["authorization"] ? "present" : "missing" }, "couple/request hit");
   const { requesterId, receiverId, anniversaryDate } = req.body;
   if (!requesterId || !receiverId) {
+    req.log.warn({ requesterId, receiverId }, "couple/request missing fields");
     res.status(400).json({ error: "requesterId and receiverId required" });
     return;
   }
@@ -60038,16 +60040,22 @@ router33.post("/request", async (req, res) => {
       `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
     ).maybeSingle();
     if (existing) {
+      req.log.info({ existing }, "couple/request already exists");
       res.status(409).json({ error: "Request already exists", status: existing.status });
       return;
     }
+    req.log.info({ requesterId, receiverId }, "couple/request inserting");
     const { data, error } = await sb.from("couple_links").insert({
       requester_id: requesterId,
       receiver_id: receiverId,
       anniversary_date: anniversaryDate ?? null,
       status: "pending"
     }).select().single();
-    if (error) throw error;
+    if (error) {
+      req.log.error({ supabaseError: error }, "couple/request insert failed");
+      throw error;
+    }
+    req.log.info({ coupleId: data?.id }, "couple/request inserted OK");
     res.json({ success: true, couple: data });
   } catch (err) {
     req.log.error({ err: err.message }, "couple/request error");

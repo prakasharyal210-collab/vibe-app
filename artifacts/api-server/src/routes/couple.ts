@@ -11,12 +11,14 @@ const router = Router();
 
 // POST /request — send couple request
 router.post("/request", async (req, res) => {
+  req.log.info({ body: req.body, auth: req.headers["authorization"] ? "present" : "missing" }, "couple/request hit");
   const { requesterId, receiverId, anniversaryDate } = req.body as {
     requesterId?: string;
     receiverId?: string;
     anniversaryDate?: string;
   };
   if (!requesterId || !receiverId) {
+    req.log.warn({ requesterId, receiverId }, "couple/request missing fields");
     res.status(400).json({ error: "requesterId and receiverId required" });
     return;
   }
@@ -35,10 +37,12 @@ router.post("/request", async (req, res) => {
       .maybeSingle();
 
     if (existing) {
+      req.log.info({ existing }, "couple/request already exists");
       res.status(409).json({ error: "Request already exists", status: (existing as any).status });
       return;
     }
 
+    req.log.info({ requesterId, receiverId }, "couple/request inserting");
     const { data, error } = await sb
       .from("couple_links")
       .insert({
@@ -50,7 +54,11 @@ router.post("/request", async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      req.log.error({ supabaseError: error }, "couple/request insert failed");
+      throw error;
+    }
+    req.log.info({ coupleId: (data as any)?.id }, "couple/request inserted OK");
     res.json({ success: true, couple: data });
   } catch (err: any) {
     req.log.error({ err: err.message }, "couple/request error");

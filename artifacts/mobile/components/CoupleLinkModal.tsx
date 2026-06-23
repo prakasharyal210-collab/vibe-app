@@ -78,23 +78,35 @@ export function CoupleLinkModal({
 
   const sendRequest = async (receiver: SearchUser) => {
     setSending(true);
+    const url = `${COUPLE_API}/request`;
+    const body = { requesterId: userId, receiverId: receiver.id };
+    console.log("[CoupleLinkModal] sendRequest →", url, JSON.stringify(body));
     try {
-      const res = await fetch(`${COUPLE_API}/request`, {
+      const res = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requesterId: userId, receiverId: receiver.id }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify(body),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      console.log("[CoupleLinkModal] sendRequest ← status:", res.status, "body:", raw);
+      let data: any = {};
+      try { data = JSON.parse(raw); } catch { data = { error: raw }; }
       if (data.error) {
         if (data.error.includes("already exists")) {
           setSuccess(true);
           setTimeout(() => { handleClose(); onRequestSent(); }, 1500);
+          return;
         }
+        console.warn("[CoupleLinkModal] sendRequest error:", data.error);
         return;
       }
       setSuccess(true);
       setTimeout(() => { handleClose(); onRequestSent(); }, 1500);
-    } catch {
+    } catch (e) {
+      console.error("[CoupleLinkModal] sendRequest exception:", e);
     } finally {
       setSending(false);
     }
