@@ -14,8 +14,11 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-const COUPLE_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
-const USERS_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+import { useAuth } from "@/context/AuthContext";
+
+const rawApiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
+const COUPLE_API = rawApiUrl + "/api/couple";
+const USERS_API = rawApiUrl + "/api";
 
 interface SearchUser {
   id: string;
@@ -36,12 +39,15 @@ export function CoupleLinkModal({
   onRequestSent: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchUser[]>([]);
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  console.log("API BASE:", rawApiUrl);
 
   const search = useCallback((q: string) => {
     setQuery(q);
@@ -50,16 +56,25 @@ export function CoupleLinkModal({
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(`${USERS_API}/users/search?q=${encodeURIComponent(q.trim())}&limit=5`);
-        const data = await res.json();
+        const url = `${USERS_API}/users/search?q=${encodeURIComponent(q.trim())}&limit=5`;
+        console.log("Search URL:", url);
+        const res = await fetch(url, {
+          headers: {
+            ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+        });
+        const raw = await res.text();
+        console.log("Search response status:", res.status, "body:", raw);
+        const data = JSON.parse(raw);
         setResults(((data.profiles ?? []) as SearchUser[]).filter((u) => u.id !== userId));
-      } catch {
+      } catch (e) {
+        console.log("Search error:", e);
         setResults([]);
       } finally {
         setSearching(false);
       }
     }, 400);
-  }, [userId]);
+  }, [userId, session]);
 
   const sendRequest = async (receiver: SearchUser) => {
     setSending(true);
