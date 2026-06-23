@@ -1,0 +1,60 @@
+Run these SQL migrations in Supabase for the Couple feature tables. 
+
+Use the Supabase service role key to run this SQL via the Supabase management API or just output the SQL that needs to be run.
+
+Actually - just create a migration file at supabase/migrations/couple_tables.sql with this content and also run it directly using the supabase client in a script:
+
+CREATE TABLE IF NOT EXISTS couple_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  anniversary_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  accepted_at TIMESTAMPTZ,
+  UNIQUE(requester_id, receiver_id)
+);
+
+CREATE TABLE IF NOT EXISTS couple_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  uploaded_by UUID REFERENCES users(id),
+  url TEXT NOT NULL,
+  caption TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS couple_bucketlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS couple_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS couple_nudges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id UUID REFERENCES users(id),
+  receiver_id UUID REFERENCES users(id),
+  sent_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE couple_links DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_photos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_bucketlist DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_notes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_nudges DISABLE ROW LEVEL SECURITY;
+
+Create a script at scripts/run-couple-migration.js that connects to Supabase using the service role key and runs this SQL using the Supabase client's rpc or direct postgres connection. Then run it.
+
+Supabase URL: https://tatroqgcyebuqqkhmvpa.supabase.co
+Use process.env.SUPABASE_SERVICE_ROLE_KEY for the key.
