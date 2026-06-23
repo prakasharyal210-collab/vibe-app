@@ -1,0 +1,85 @@
+Add "Couple of the Month" competition feature inside the existing Couple tab in Gundruk app.
+
+CONTEXT:
+- All DB access through artifacts/api-server (never direct Supabase from mobile)
+- Couple tab already exists at artifacts/mobile/app/couple/index.tsx
+- Dark theme, purple accents (#8B5CF6)
+
+STEP 1 — DATABASE (run in Supabase):
+
+CREATE TABLE couple_competitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  month INT NOT NULL,
+  year INT NOT NULL,
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  couple_name TEXT NOT NULL,
+  cover_photo_url TEXT,
+  vote_count INT DEFAULT 0,
+  entered_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(couple_id, month, year)
+);
+
+CREATE TABLE couple_competition_votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  voter_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  competition_id UUID REFERENCES couple_competitions(id) ON DELETE CASCADE,
+  voted_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(voter_id, competition_id)
+);
+
+CREATE TABLE couple_competition_winners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  month INT NOT NULL,
+  year INT NOT NULL,
+  rank INT NOT NULL CHECK (rank IN (1, 2, 3)),
+  vote_count INT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE couple_competitions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_competition_votes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_competition_winners DISABLE ROW LEVEL SECURITY;
+
+STEP 2 — API ROUTES (in artifacts/api-server/src/routes/couple.ts, add to existing file):
+
+- POST /api/couple/competition/enter — enter this month's competition (body: coupleName, coverPhotoUrl)
+- GET /api/couple/competition/leaderboard — get top 10 couples for current month with vote counts, days together, partner info
+- POST /api/couple/competition/vote/:competitionId — vote for a couple (one vote per user per month)
+- DELETE /api/couple/competition/vote/:competitionId — unvote
+- GET /api/couple/competition/winners — get all time hall of fame winners
+- GET /api/couple/competition/my-entry — get current couple's entry for this month
+
+STEP 3 — MOBILE SCREENS:
+
+1. Update artifacts/mobile/app/couple/index.tsx:
+   - Add a "🏆 Couple of the Month" banner/card at the TOP of the couple home screen (visible to all linked couples)
+   - Tapping it opens the competition screen
+   - If current couple is entered, show their current rank and vote count on the banner
+   - If not entered, show "Enter Competition" CTA
+
+2. Create artifacts/mobile/app/couple/competition.tsx:
+   - Header: "Couple of the Month 🏆" + current month/year
+   - "Enter Competition" button at top (only if linked couple and not yet entered this month)
+     - Opens a modal to set couple name + pick cover photo from shared album
+   - Leaderboard section:
+     - Top 3 with special styling: 🥇🥈🥉 crown icons
+     - Each card shows: both partner avatars side by side, couple name, days together, vote count, ❤️ vote button
+     - Can't vote for yourself
+     - One vote per user per month
+     - Remaining entries (4-10) shown in a simpler list below
+   - "Hall of Fame" section at bottom — past winners by month with rank badges
+   - Share button on your own couple card — generates a shareable image/message
+
+3. Style details:
+   - Winner cards: gold/silver/bronze gradient borders for top 3
+   - Vote button: ❤️ red when voted, outline when not
+   - Competition banner on home: purple gradient with trophy icon
+   - Animated vote count when tapping ❤️
+
+IMPORTANT:
+- After adding routes, rebuild dist: pnpm --filter @workspace/api-server run build
+- Commit the dist/ folder after building
+- All API calls use process.env.EXPO_PUBLIC_API_URL
+- Pass Authorization header with auth token on all requests
+- Use existing auth hooks in the app

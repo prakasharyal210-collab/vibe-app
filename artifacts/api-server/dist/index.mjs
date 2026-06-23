@@ -20618,27 +20618,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router34;
+    module.exports = Router35;
     module.exports.Route = Route;
-    function Router34(options) {
-      if (!(this instanceof Router34)) {
-        return new Router34(options);
+    function Router35(options) {
+      if (!(this instanceof Router35)) {
+        return new Router35(options);
       }
       const opts = options || {};
-      function router34(req, res, next) {
-        router34.handle(req, res, next);
+      function router35(req, res, next) {
+        router35.handle(req, res, next);
       }
-      Object.setPrototypeOf(router34, this);
-      router34.caseSensitive = opts.caseSensitive;
-      router34.mergeParams = opts.mergeParams;
-      router34.params = {};
-      router34.strict = opts.strict;
-      router34.stack = [];
-      return router34;
+      Object.setPrototypeOf(router35, this);
+      router35.caseSensitive = opts.caseSensitive;
+      router35.mergeParams = opts.mergeParams;
+      router35.params = {};
+      router35.strict = opts.strict;
+      router35.stack = [];
+      return router35;
     }
-    Router34.prototype = function() {
+    Router35.prototype = function() {
     };
-    Router34.prototype.param = function param(name, fn) {
+    Router35.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20658,7 +20658,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router34.prototype.handle = function handle(req, res, callback) {
+    Router35.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20785,7 +20785,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router34.prototype.use = function use(handler) {
+    Router35.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -20818,7 +20818,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router34.prototype.route = function route(path) {
+    Router35.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -20833,7 +20833,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router34.prototype[method] = function(path) {
+      Router35.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21016,13 +21016,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router34 = require_router();
+    var Router35 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router34 = null;
+      var router35 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21031,13 +21031,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router34 === null) {
-            router34 = new Router34({
+          if (router35 === null) {
+            router35 = new Router35({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router34;
+          return router35;
         }
       });
     };
@@ -21108,15 +21108,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router34 = this.router;
+      var router35 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router34.use(path, fn2);
+          return router35.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router34.use(path, function mounted_app(req, res, next) {
+        router35.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23689,7 +23689,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router34 = require_router();
+    var Router35 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23711,8 +23711,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router34.Route;
-    exports.Router = Router34;
+    exports.Route = Router35.Route;
+    exports.Router = Router35;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -41591,12 +41591,12 @@ var require_main3 = __commonJS({
 });
 
 // src/app.ts
-var import_express34 = __toESM(require_express2(), 1);
+var import_express35 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express33 = __toESM(require_express2(), 1);
+var import_express34 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -60056,41 +60056,328 @@ router32.get("/trending", async (req, res) => {
 });
 var sounds_default = router32;
 
-// src/routes/index.ts
+// src/routes/couple.ts
+var import_express33 = __toESM(require_express2(), 1);
+function makeSupabase27() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
 var router33 = (0, import_express33.Router)();
-router33.use(health_default);
-router33.use("/ai", caption_default);
-router33.use("/ai", chat_default);
-router33.use("/admin", setup_default);
-router33.use("/music", deezer_default);
-router33.use("/posts", remove_default);
-router33.use("/posts", update_default);
-router33.use("/posts", create_default);
-router33.use("/reels", create_default2);
-router33.use("/reels", remove_default2);
-router33.use("/reels", watch_default);
-router33.use("/reels", like_default);
-router33.use("/users", search_default);
-router33.use("/users/social", social_default);
-router33.use("/users/notifications", notifications_default);
-router33.use("/engage", engage_default);
-router33.use("/messages", messages_default);
-router33.use("/users", setup_default2);
-router33.use("/users", onboarding_default);
-router33.use("/users", contacts_default);
-router33.use("/moderation", moderation_default);
-router33.use("/stories", stories_default);
-router33.use("/comments", comments_default);
-router33.use("/storage", storage_default);
-router33.use("/feed", feed_default);
-router33.use("/vibe", vibe_default);
-router33.use("/vibe-requests", vibe_requests_default);
-router33.use("/vibe-rooms", vibe_rooms_default);
-router33.use("/snaps", snaps_default);
-router33.use("/rewards", rewards_default);
-router33.use("/analytics", analytics_default);
-router33.use("/sounds", sounds_default);
-var routes_default = router33;
+router33.post("/request", async (req, res) => {
+  const { requesterId, receiverId, anniversaryDate } = req.body;
+  if (!requesterId || !receiverId) {
+    res.status(400).json({ error: "requesterId and receiverId required" });
+    return;
+  }
+  if (requesterId === receiverId) {
+    res.status(400).json({ error: "Cannot send request to yourself" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data: existing } = await sb.from("couple_links").select("id, status").or(
+      `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
+    ).maybeSingle();
+    if (existing) {
+      res.status(409).json({ error: "Request already exists", status: existing.status });
+      return;
+    }
+    const { data, error } = await sb.from("couple_links").insert({
+      requester_id: requesterId,
+      receiver_id: receiverId,
+      anniversary_date: anniversaryDate ?? null,
+      status: "pending"
+    }).select().single();
+    if (error) throw error;
+    res.json({ success: true, couple: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/request error");
+    res.status(500).json({ error: "Failed to send couple request" });
+  }
+});
+router33.post("/accept", async (req, res) => {
+  const { coupleId, userId } = req.body;
+  if (!coupleId || !userId) {
+    res.status(400).json({ error: "coupleId and userId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data: link, error: fetchErr } = await sb.from("couple_links").select("*").eq("id", coupleId).eq("receiver_id", userId).eq("status", "pending").single();
+    if (fetchErr || !link) {
+      res.status(404).json({ error: "Couple request not found" });
+      return;
+    }
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const { data, error } = await sb.from("couple_links").update({ status: "accepted", accepted_at: now }).eq("id", coupleId).select().single();
+    if (error) throw error;
+    await sb.from("profiles").update({ show_in_matching: false }).eq("id", link.requester_id);
+    await sb.from("profiles").update({ show_in_matching: false }).eq("id", userId);
+    res.json({ success: true, couple: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/accept error");
+    res.status(500).json({ error: "Failed to accept request" });
+  }
+});
+router33.post("/decline", async (req, res) => {
+  const { coupleId, userId } = req.body;
+  if (!coupleId || !userId) {
+    res.status(400).json({ error: "coupleId and userId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { error } = await sb.from("couple_links").update({ status: "declined" }).eq("id", coupleId).eq("receiver_id", userId);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/decline error");
+    res.status(500).json({ error: "Failed to decline" });
+  }
+});
+router33.delete("/unlink", async (req, res) => {
+  const { coupleId, userId } = req.body;
+  if (!coupleId || !userId) {
+    res.status(400).json({ error: "coupleId and userId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data: link } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", coupleId).maybeSingle();
+    if (!link) {
+      res.status(404).json({ error: "Couple link not found" });
+      return;
+    }
+    await sb.from("couple_links").delete().eq("id", coupleId);
+    await sb.from("profiles").update({ show_in_matching: true }).eq("id", link.requester_id);
+    await sb.from("profiles").update({ show_in_matching: true }).eq("id", link.receiver_id);
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/unlink error");
+    res.status(500).json({ error: "Failed to unlink" });
+  }
+});
+router33.get("/status", async (req, res) => {
+  const userId = req.query["userId"];
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data: link } = await sb.from("couple_links").select("*").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).eq("status", "accepted").order("accepted_at", { ascending: false }).maybeSingle();
+    if (link) {
+      const partnerId = link.requester_id === userId ? link.receiver_id : link.requester_id;
+      const { data: partner } = await sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", partnerId).maybeSingle();
+      res.json({ status: "coupled", couple: link, partner });
+      return;
+    }
+    const { data: pending } = await sb.from("couple_links").select("*").eq("receiver_id", userId).eq("status", "pending").order("created_at", { ascending: false });
+    if (pending && pending.length > 0) {
+      const requesterIds = pending.map((p) => p.requester_id);
+      const { data: requesters } = await sb.from("profiles").select("id, username, avatar_url, full_name").in("id", requesterIds);
+      const requestsWithProfiles = pending.map((req2) => ({
+        ...req2,
+        requester: (requesters ?? []).find((r) => r.id === req2.requester_id)
+      }));
+      res.json({ status: "pending_received", pendingRequests: requestsWithProfiles });
+      return;
+    }
+    const { data: sent } = await sb.from("couple_links").select("*").eq("requester_id", userId).eq("status", "pending").maybeSingle();
+    if (sent) {
+      res.json({ status: "pending_sent", pending: sent });
+      return;
+    }
+    res.json({ status: "none" });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/status error");
+    res.status(500).json({ error: "Failed to fetch status" });
+  }
+});
+router33.get("/stats", async (req, res) => {
+  const coupleId = req.query["coupleId"];
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data: link, error } = await sb.from("couple_links").select("accepted_at, anniversary_date").eq("id", coupleId).single();
+    if (error || !link) {
+      res.status(404).json({ error: "Couple not found" });
+      return;
+    }
+    const start = new Date(link.accepted_at ?? /* @__PURE__ */ new Date());
+    const daysTogether = Math.floor((Date.now() - start.getTime()) / (1e3 * 60 * 60 * 24));
+    res.json({ daysTogether, anniversaryDate: link.anniversary_date });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/stats error");
+    res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+router33.post("/nudge", async (req, res) => {
+  const { senderId, partnerId } = req.body;
+  if (!senderId || !partnerId) {
+    res.status(400).json({ error: "senderId and partnerId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    await sb.from("couple_nudges").insert({ sender_id: senderId, receiver_id: partnerId });
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/nudge error");
+    res.status(500).json({ error: "Failed to send nudge" });
+  }
+});
+router33.get("/photos", async (req, res) => {
+  const coupleId = req.query["coupleId"];
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_photos").select("*").eq("couple_id", coupleId).order("created_at", { ascending: false });
+    if (error) throw error;
+    res.json({ photos: data ?? [] });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/photos GET error");
+    res.status(500).json({ error: "Failed to fetch photos" });
+  }
+});
+router33.post("/photos", async (req, res) => {
+  const { coupleId, uploadedBy, url, caption } = req.body;
+  if (!coupleId || !uploadedBy || !url) {
+    res.status(400).json({ error: "coupleId, uploadedBy, and url required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_photos").insert({ couple_id: coupleId, uploaded_by: uploadedBy, url, caption: caption ?? null }).select().single();
+    if (error) throw error;
+    res.json({ success: true, photo: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/photos POST error");
+    res.status(500).json({ error: "Failed to upload photo" });
+  }
+});
+router33.get("/bucketlist", async (req, res) => {
+  const coupleId = req.query["coupleId"];
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_bucketlist").select("*").eq("couple_id", coupleId).order("created_at", { ascending: true });
+    if (error) throw error;
+    res.json({ items: data ?? [] });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/bucketlist GET error");
+    res.status(500).json({ error: "Failed to fetch bucket list" });
+  }
+});
+router33.post("/bucketlist", async (req, res) => {
+  const { coupleId, title, createdBy } = req.body;
+  if (!coupleId || !title || !createdBy) {
+    res.status(400).json({ error: "coupleId, title, and createdBy required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_bucketlist").insert({ couple_id: coupleId, title, created_by: createdBy, completed: false }).select().single();
+    if (error) throw error;
+    res.json({ success: true, item: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/bucketlist POST error");
+    res.status(500).json({ error: "Failed to add item" });
+  }
+});
+router33.patch("/bucketlist/:id", async (req, res) => {
+  const { id } = req.params;
+  const { completed } = req.body;
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_bucketlist").update({ completed: !!completed }).eq("id", id).select().single();
+    if (error) throw error;
+    res.json({ success: true, item: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/bucketlist PATCH error");
+    res.status(500).json({ error: "Failed to update item" });
+  }
+});
+router33.get("/notes", async (req, res) => {
+  const coupleId = req.query["coupleId"];
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_notes").select("*").eq("couple_id", coupleId).order("created_at", { ascending: true });
+    if (error) throw error;
+    res.json({ notes: data ?? [] });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/notes GET error");
+    res.status(500).json({ error: "Failed to fetch notes" });
+  }
+});
+router33.post("/notes", async (req, res) => {
+  const { coupleId, authorId, content } = req.body;
+  if (!coupleId || !authorId || !content) {
+    res.status(400).json({ error: "coupleId, authorId, and content required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data, error } = await sb.from("couple_notes").insert({ couple_id: coupleId, author_id: authorId, content }).select().single();
+    if (error) throw error;
+    res.json({ success: true, note: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple/notes POST error");
+    res.status(500).json({ error: "Failed to add note" });
+  }
+});
+var couple_default = router33;
+
+// src/routes/index.ts
+var router34 = (0, import_express34.Router)();
+router34.use(health_default);
+router34.use("/ai", caption_default);
+router34.use("/ai", chat_default);
+router34.use("/admin", setup_default);
+router34.use("/music", deezer_default);
+router34.use("/posts", remove_default);
+router34.use("/posts", update_default);
+router34.use("/posts", create_default);
+router34.use("/reels", create_default2);
+router34.use("/reels", remove_default2);
+router34.use("/reels", watch_default);
+router34.use("/reels", like_default);
+router34.use("/users", search_default);
+router34.use("/users/social", social_default);
+router34.use("/users/notifications", notifications_default);
+router34.use("/engage", engage_default);
+router34.use("/messages", messages_default);
+router34.use("/users", setup_default2);
+router34.use("/users", onboarding_default);
+router34.use("/users", contacts_default);
+router34.use("/moderation", moderation_default);
+router34.use("/stories", stories_default);
+router34.use("/comments", comments_default);
+router34.use("/storage", storage_default);
+router34.use("/feed", feed_default);
+router34.use("/vibe", vibe_default);
+router34.use("/vibe-requests", vibe_requests_default);
+router34.use("/vibe-rooms", vibe_rooms_default);
+router34.use("/snaps", snaps_default);
+router34.use("/rewards", rewards_default);
+router34.use("/analytics", analytics_default);
+router34.use("/sounds", sounds_default);
+router34.use("/couple", couple_default);
+var routes_default = router34;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -60111,7 +60398,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express34.default)();
+var app = (0, import_express35.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -60132,8 +60419,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express34.default.json({ limit: "150mb" }));
-app.use(import_express34.default.urlencoded({ extended: true, limit: "150mb" }));
+app.use(import_express35.default.json({ limit: "150mb" }));
+app.use(import_express35.default.urlencoded({ extended: true, limit: "150mb" }));
 app.use((_req, res, next) => {
   const start = Date.now();
   const origEnd = res.end.bind(res);

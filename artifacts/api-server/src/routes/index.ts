@@ -31,6 +31,7 @@ import analyticsRouter from "./analytics";
 import usersOnboardingRouter from "./users/onboarding";
 import usersContactsRouter from "./users/contacts";
 import soundsRouter from "./sounds";
+import coupleRouter from "./couple";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,6 @@ router.use("/snaps", snapsRouter);
 router.use("/rewards", rewardsRouter);
 router.use("/analytics", analyticsRouter);
 router.use("/sounds", soundsRouter);
+router.use("/couple", coupleRouter);
 
 export default router;

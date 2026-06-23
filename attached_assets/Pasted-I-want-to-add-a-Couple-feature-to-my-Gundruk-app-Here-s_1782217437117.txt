@@ -1,0 +1,104 @@
+I want to add a Couple feature to my Gundruk app. Here's exactly what to build:
+
+CONTEXT:
+- App: Expo SDK 54 / React Native, Supabase backend, Express API at artifacts/api-server
+- ALL database access must go through artifacts/api-server (never direct Supabase from mobile)
+- Find Vibe feature already exists for singles
+
+FEATURE: Couple Tab (mutually exclusive with Find Vibe tab)
+
+STEP 1 — DATABASE (run in Supabase):
+Create these tables (all with RLS disabled):
+
+CREATE TABLE couple_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
+  anniversary_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  accepted_at TIMESTAMPTZ,
+  UNIQUE(requester_id, receiver_id)
+);
+
+CREATE TABLE couple_photos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  uploaded_by UUID REFERENCES users(id),
+  url TEXT NOT NULL,
+  caption TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE couple_bucketlist (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  created_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE couple_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES users(id),
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE couple_nudges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id UUID REFERENCES users(id),
+  receiver_id UUID REFERENCES users(id),
+  sent_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE couple_links DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_photos DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_bucketlist DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_notes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_nudges DISABLE ROW LEVEL SECURITY;
+
+STEP 2 — API ROUTES (in artifacts/api-server):
+Add a new file: src/routes/couple.ts with these endpoints:
+- POST /api/couple/request — send couple request (body: receiverId, anniversaryDate)
+- POST /api/couple/accept — accept couple request (body: coupleId). Also sets show_in_matching=false for both users
+- POST /api/couple/decline — decline request (body: coupleId)
+- DELETE /api/couple/unlink — unlink couple. Sets show_in_matching=true for both users
+- GET /api/couple/status — get current user's couple status (pending/accepted/none + partner info)
+- GET /api/couple/stats — days together count based on accepted_at
+- POST /api/couple/nudge — send "thinking of you" nudge (body: partnerId)
+- GET /api/couple/photos — get shared album photos
+- POST /api/couple/photos — upload photo to shared album
+- GET /api/couple/bucketlist — get bucket list items
+- POST /api/couple/bucketlist — add bucket list item
+- PATCH /api/couple/bucketlist/:id — toggle completed
+- GET /api/couple/notes — get shared notes
+- POST /api/couple/notes — add a note
+
+Register the router in the main index file as: app.use('/api/couple', coupleRouter)
+
+STEP 3 — MOBILE SCREENS:
+1. Update artifacts/mobile/app/(tabs)/find.tsx:
+   - Add a toggle at the top: "Find Vibe" | "Couple" (pill toggle)
+   - When "Couple" is selected, show the Couple screen instead of the swipe deck
+   - When "Find Vibe" is selected, show the existing swipe deck
+
+2. Create artifacts/mobile/app/couple/index.tsx — main Couple screen with:
+   - If not linked: Show search bar to find partner by username + send couple request button. Show pending requests received.
+   - If linked: Show partner avatar + name, days together counter, anniversary date. Four cards: 📸 Shared Album, 📝 Notes, 🗺️ Bucket List, 💭 Thinking of You button
+   
+3. Create artifacts/mobile/app/couple/album.tsx — shared photo grid, tap to view full screen, + button to add photo
+
+4. Create artifacts/mobile/app/couple/notes.tsx — scrollable list of notes from both partners, text input at bottom to add new note
+
+5. Create artifacts/mobile/app/couple/bucketlist.tsx — checklist UI, tap to complete, + button to add item
+
+IMPORTANT RULES:
+- All API calls use process.env.EXPO_PUBLIC_API_URL as base URL
+- Pass auth token in Authorization header for all requests
+- Use the existing auth context/hooks already in the app
+- After building API routes, rebuild dist: run "pnpm --filter @workspace/api-server run build" and commit dist/
+- Style everything matching the existing dark theme with purple accents (#8B5CF6)
+- Use existing components like Avatar, etc where they exist
