@@ -14,9 +14,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
-
 const COUPLE_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
+const USERS_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
 interface SearchUser {
   id: string;
@@ -51,14 +50,9 @@ export function CoupleLinkModal({
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url")
-          .or(`username.ilike.%${q.trim()}%,full_name.ilike.%${q.trim()}%`)
-          .order("followers_count", { ascending: false })
-          .limit(5);
-        if (error) { setResults([]); return; }
-        setResults(((data ?? []) as SearchUser[]).filter((u) => u.id !== userId));
+        const res = await fetch(`${USERS_API}/users/search?q=${encodeURIComponent(q.trim())}&limit=5`);
+        const data = await res.json();
+        setResults(((data.profiles ?? []) as SearchUser[]).filter((u) => u.id !== userId));
       } catch {
         setResults([]);
       } finally {
