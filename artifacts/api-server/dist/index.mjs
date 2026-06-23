@@ -60340,6 +60340,159 @@ router33.post("/notes", async (req, res) => {
     res.status(500).json({ error: "Failed to add note" });
   }
 });
+function currentMonthYear() {
+  const now = /* @__PURE__ */ new Date();
+  return { month: now.getMonth() + 1, year: now.getFullYear() };
+}
+router33.post("/competition/enter", async (req, res) => {
+  const { coupleId, coupleName, coverPhotoUrl } = req.body;
+  if (!coupleId || !coupleName) {
+    res.status(400).json({ error: "coupleId and coupleName required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  const { month, year } = currentMonthYear();
+  try {
+    const { data: existing } = await sb.from("couple_competitions").select("id").eq("couple_id", coupleId).eq("month", month).eq("year", year).maybeSingle();
+    if (existing) {
+      res.status(409).json({ error: "Already entered this month" });
+      return;
+    }
+    const { data, error } = await sb.from("couple_competitions").insert({ couple_id: coupleId, couple_name: coupleName, cover_photo_url: coverPhotoUrl ?? null, month, year, vote_count: 0 }).select().single();
+    if (error) throw error;
+    res.json({ success: true, entry: data });
+  } catch (err) {
+    req.log.error({ err: err.message }, "competition/enter error");
+    res.status(500).json({ error: "Failed to enter competition" });
+  }
+});
+router33.get("/competition/leaderboard", async (req, res) => {
+  const sb = makeSupabase27();
+  const { month, year } = currentMonthYear();
+  try {
+    const { data: entries, error } = await sb.from("couple_competitions").select("*").eq("month", month).eq("year", year).order("vote_count", { ascending: false }).limit(10);
+    if (error) throw error;
+    if (!entries || entries.length === 0) {
+      res.json({ leaderboard: [], month, year });
+      return;
+    }
+    const coupleIds = entries.map((e) => e.couple_id);
+    const { data: couples } = await sb.from("couple_links").select("id, requester_id, receiver_id, accepted_at").in("id", coupleIds);
+    const allUserIds = (couples ?? []).flatMap((c) => [c.requester_id, c.receiver_id]);
+    const { data: profiles } = await sb.from("profiles").select("id, username, avatar_url, full_name").in("id", allUserIds);
+    const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
+    const coupleMap = Object.fromEntries((couples ?? []).map((c) => [c.id, c]));
+    const leaderboard = entries.map((e, i) => {
+      const couple = coupleMap[e.couple_id];
+      const daysTogether = couple?.accepted_at ? Math.floor((Date.now() - new Date(couple.accepted_at).getTime()) / 864e5) : 0;
+      return {
+        ...e,
+        rank: i + 1,
+        daysTogether,
+        requester: couple ? profileMap[couple.requester_id] : null,
+        receiver: couple ? profileMap[couple.receiver_id] : null
+      };
+    });
+    res.json({ leaderboard, month, year });
+  } catch (err) {
+    req.log.error({ err: err.message }, "competition/leaderboard error");
+    res.status(500).json({ error: "Failed to fetch leaderboard" });
+  }
+});
+router33.post("/competition/vote/:competitionId", async (req, res) => {
+  const { competitionId } = req.params;
+  const { voterId } = req.body;
+  if (!voterId) {
+    res.status(400).json({ error: "voterId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    const { data: existing } = await sb.from("couple_competition_votes").select("id").eq("voter_id", voterId).eq("competition_id", competitionId).maybeSingle();
+    if (existing) {
+      res.status(409).json({ error: "Already voted" });
+      return;
+    }
+    await sb.from("couple_competition_votes").insert({ voter_id: voterId, competition_id: competitionId });
+    const { data: current } = await sb.from("couple_competitions").select("vote_count").eq("id", competitionId).single();
+    const newCount = (current?.vote_count ?? 0) + 1;
+    await sb.from("couple_competitions").update({ vote_count: newCount }).eq("id", competitionId);
+    res.json({ success: true, voteCount: newCount });
+  } catch (err) {
+    req.log.error({ err: err.message }, "competition/vote error");
+    res.status(500).json({ error: "Failed to vote" });
+  }
+});
+router33.delete("/competition/vote/:competitionId", async (req, res) => {
+  const { competitionId } = req.params;
+  const { voterId } = req.body;
+  if (!voterId) {
+    res.status(400).json({ error: "voterId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  try {
+    await sb.from("couple_competition_votes").delete().eq("voter_id", voterId).eq("competition_id", competitionId);
+    const { data: current } = await sb.from("couple_competitions").select("vote_count").eq("id", competitionId).single();
+    const newCount = Math.max(0, (current?.vote_count ?? 1) - 1);
+    await sb.from("couple_competitions").update({ vote_count: newCount }).eq("id", competitionId);
+    res.json({ success: true, voteCount: newCount });
+  } catch (err) {
+    req.log.error({ err: err.message }, "competition/unvote error");
+    res.status(500).json({ error: "Failed to unvote" });
+  }
+});
+router33.get("/competition/winners", async (req, res) => {
+  const sb = makeSupabase27();
+  try {
+    const { data: winners, error } = await sb.from("couple_competition_winners").select("*").order("year", { ascending: false }).order("month", { ascending: false }).order("rank", { ascending: true }).limit(30);
+    if (error) throw error;
+    if (!winners || winners.length === 0) {
+      res.json({ winners: [] });
+      return;
+    }
+    const coupleIds = [...new Set(winners.map((w) => w.couple_id))];
+    const { data: entries } = await sb.from("couple_competitions").select("couple_id, couple_name, cover_photo_url").in("couple_id", coupleIds);
+    const entryMap = Object.fromEntries((entries ?? []).map((e) => [e.couple_id, e]));
+    const enriched = winners.map((w) => ({
+      ...w,
+      couple_name: entryMap[w.couple_id]?.couple_name ?? "Unknown",
+      cover_photo_url: entryMap[w.couple_id]?.cover_photo_url ?? null
+    }));
+    res.json({ winners: enriched });
+  } catch (err) {
+    req.log.error({ err: err.message }, "competition/winners error");
+    res.status(500).json({ error: "Failed to fetch winners" });
+  }
+});
+router33.get("/competition/my-entry", async (req, res) => {
+  const coupleId = req.query["coupleId"];
+  const voterId = req.query["voterId"];
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase27();
+  const { month, year } = currentMonthYear();
+  try {
+    const { data: entry } = await sb.from("couple_competitions").select("*").eq("couple_id", coupleId).eq("month", month).eq("year", year).maybeSingle();
+    if (!entry) {
+      res.json({ entry: null, rank: null, userVotes: [] });
+      return;
+    }
+    const { data: allEntries } = await sb.from("couple_competitions").select("id, vote_count").eq("month", month).eq("year", year).order("vote_count", { ascending: false });
+    const rank = (allEntries ?? []).findIndex((e) => e.id === entry.id) + 1;
+    let userVotes = [];
+    if (voterId) {
+      const { data: votes } = await sb.from("couple_competition_votes").select("competition_id").eq("voter_id", voterId);
+      userVotes = (votes ?? []).map((v) => v.competition_id);
+    }
+    res.json({ entry, rank, userVotes });
+  } catch (err) {
+    req.log.error({ err: err.message }, "competition/my-entry error");
+    res.status(500).json({ error: "Failed to fetch entry" });
+  }
+});
 var couple_default = router33;
 
 // src/routes/index.ts

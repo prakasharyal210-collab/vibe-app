@@ -50,3 +50,38 @@ ALTER TABLE couple_photos DISABLE ROW LEVEL SECURITY;
 ALTER TABLE couple_bucketlist DISABLE ROW LEVEL SECURITY;
 ALTER TABLE couple_notes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE couple_nudges DISABLE ROW LEVEL SECURITY;
+
+-- Couple of the Month competition tables
+CREATE TABLE IF NOT EXISTS couple_competitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  month INT NOT NULL,
+  year INT NOT NULL,
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  couple_name TEXT NOT NULL,
+  cover_photo_url TEXT,
+  vote_count INT DEFAULT 0,
+  entered_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(couple_id, month, year)
+);
+
+CREATE TABLE IF NOT EXISTS couple_competition_votes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  voter_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  competition_id UUID REFERENCES couple_competitions(id) ON DELETE CASCADE,
+  voted_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(voter_id, competition_id)
+);
+
+CREATE TABLE IF NOT EXISTS couple_competition_winners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  couple_id UUID REFERENCES couple_links(id) ON DELETE CASCADE,
+  month INT NOT NULL,
+  year INT NOT NULL,
+  rank INT NOT NULL CHECK (rank IN (1, 2, 3)),
+  vote_count INT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE couple_competitions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_competition_votes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE couple_competition_winners DISABLE ROW LEVEL SECURITY;

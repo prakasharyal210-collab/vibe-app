@@ -98,12 +98,22 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   const [searchResults, setSearchResults] = useState<Partner[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [nudgeSent, setNudgeSent] = useState(false);
+  const [compEntry, setCompEntry] = useState<{ id: string; couple_name: string; vote_count: number } | null>(null);
+  const [compRank, setCompRank] = useState<number | null>(null);
 
   const fetchStatus = useCallback(async () => {
     if (!userId) return;
     try {
       const data = await coupleApi(`/status?userId=${encodeURIComponent(userId)}`);
       setStatus(data);
+      if (data.status === "coupled") {
+        coupleApi(`/competition/my-entry?coupleId=${encodeURIComponent(data.couple.id)}&voterId=${encodeURIComponent(userId)}`)
+          .then((d: any) => {
+            setCompEntry(d.entry ?? null);
+            setCompRank(d.entry ? d.rank : null);
+          })
+          .catch(() => {});
+      }
     } catch {
       setStatus({ status: "none" });
     } finally {
@@ -241,6 +251,26 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         </LinearGradient>
 
         <View style={s.cards}>
+          {/* Competition banner */}
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: "/couple/competition", params: { coupleId, userId } } as any)}
+            activeOpacity={0.88}
+            style={s.compBanner}
+          >
+            <LinearGradient colors={["#4C1D95", "#7C3AED"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.compGrad}>
+              <Text style={{ fontSize: 24 }}>{compEntry && compRank && compRank <= 3 ? ["🥇","🥈","🥉"][compRank-1] : "🏆"}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={s.compTitle}>Couple of the Month</Text>
+                {compEntry ? (
+                  <Text style={s.compSub}>#{compRank} · {compEntry.vote_count} votes · {compEntry.couple_name}</Text>
+                ) : (
+                  <Text style={s.compSub}>Enter the competition!</Text>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
+            </LinearGradient>
+          </TouchableOpacity>
+
           <ActionCard
             emoji="📸"
             title="Shared Album"
@@ -400,6 +430,10 @@ const s = StyleSheet.create({
   nudgeBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "rgba(236,72,153,0.15)", borderWidth: 1.5, borderColor: "rgba(236,72,153,0.4)", borderRadius: 18, paddingVertical: 16, marginTop: 4 },
   nudgeBtnSent: { backgroundColor: "rgba(52,211,153,0.15)", borderColor: "rgba(52,211,153,0.4)" },
   nudgeBtnText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
+  compBanner: { borderRadius: 18, overflow: "hidden", marginBottom: 4 },
+  compGrad: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  compTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  compSub: { color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
   unlinkBtn: { alignSelf: "center", marginTop: 28, paddingHorizontal: 20, paddingVertical: 10 },
   unlinkText: { color: "rgba(255,255,255,0.25)", fontFamily: "Poppins_400Regular", fontSize: 13 },
   heroSection: { alignItems: "center", paddingTop: 32, paddingBottom: 24, paddingHorizontal: 24 },
