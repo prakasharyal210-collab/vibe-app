@@ -53,7 +53,7 @@ export function CoupleLinkModal({
       try {
         const res = await fetch(`${USERS_API}/users/search?q=${encodeURIComponent(q)}&limit=5`);
         const data = await res.json();
-        setResults(((data.users ?? []) as SearchUser[]).filter((u) => u.id !== userId));
+        setResults(((data.profiles ?? []) as SearchUser[]).filter((u) => u.id !== userId));
       } catch {
         setResults([]);
       } finally {
