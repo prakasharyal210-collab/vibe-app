@@ -56321,6 +56321,24 @@ function makeSupabase7() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
+router13.get("/check-username", async (req, res) => {
+  const raw = (req.query["username"] ?? "").trim();
+  const excludeUserId = req.query["excludeUserId"]?.trim() || void 0;
+  const FORMAT_RE = /^[a-zA-Z0-9_]{3,20}$/;
+  if (!FORMAT_RE.test(raw)) {
+    res.json({ available: false, reason: "invalid_format" });
+    return;
+  }
+  const sb = makeSupabase7();
+  try {
+    const base = sb.from("profiles").select("id").ilike("username", raw);
+    const { data } = excludeUserId ? await base.neq("id", excludeUserId).maybeSingle() : await base.maybeSingle();
+    res.json({ available: !data });
+  } catch (err) {
+    req.log.error({ err: err?.message }, "check-username error");
+    res.status(500).json({ error: "Check failed" });
+  }
+});
 router13.get("/search", async (req, res) => {
   const q = (req.query["q"] ?? "").trim();
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
@@ -56510,6 +56528,10 @@ router13.patch("/profile/:userId", async (req, res) => {
   try {
     const { error } = await sb.from("profiles").update(updates).eq("id", userId);
     if (error) {
+      if (error.code === "23505" || String(error.message).includes("profiles_username_key")) {
+        res.status(409).json({ error: "username_taken" });
+        return;
+      }
       res.status(500).json({ error: error.message });
       return;
     }

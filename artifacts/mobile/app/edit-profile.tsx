@@ -52,6 +52,9 @@ export default function EditProfileScreen() {
   const [showZodiac, setShowZodiac] = useState(false);
   const [writingBio, setWritingBio] = useState(false);
   const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid">("idle");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialUsernameRef = useRef<string>("");
 
   const loadProfile = useCallback(async () => {
     if (!session?.user?.id) { setLoading(false); return; }
@@ -76,6 +79,7 @@ export default function EditProfileScreen() {
       setAvatarUrl(profile.avatar_url ?? null);
       setFullName(profile.full_name ?? "");
       setUsername(profile.username ?? "");
+      initialUsernameRef.current = profile.username ?? "";
       setBio(profile.bio ?? "");
       setWebsite(profile.website ?? "");
       setLocation(profile.location ?? "");
@@ -94,6 +98,30 @@ export default function EditProfileScreen() {
   }, [session?.user?.id]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  // Debounced username availability check (skip if unchanged from loaded value)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!username || username === initialUsernameRef.current) {
+      setUsernameStatus("idle");
+      return;
+    }
+    setUsernameStatus("checking");
+    const uid = session?.user?.id;
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ username });
+        if (uid) params.set("excludeUserId", uid);
+        const res = await fetch(`${API_BASE}/users/check-username?${params.toString()}`);
+        const data = await res.json();
+        if (data.reason === "invalid_format") setUsernameStatus("invalid");
+        else setUsernameStatus(data.available ? "available" : "taken");
+      } catch {
+        setUsernameStatus("idle");
+      }
+    }, 500);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [username, session?.user?.id]);
 
   const pickAvatar = async () => {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -162,6 +190,10 @@ export default function EditProfileScreen() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (res.status === 409 || (body as any).error === "username_taken") {
+          Alert.alert("Username Taken", "That username is already taken, please choose another.");
+          return;
+        }
         throw new Error((body as any).error ?? `HTTP ${res.status}`);
       }
 
@@ -208,7 +240,11 @@ export default function EditProfileScreen() {
           <Ionicons name="close" size={24} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>Edit Profile</Text>
-        <TouchableOpacity onPress={handleSave} style={styles.saveBtn} disabled={saving}>
+        <TouchableOpacity
+          onPress={handleSave}
+          style={[styles.saveBtn, (usernameStatus === "taken" || usernameStatus === "invalid") && { opacity: 0.45 }]}
+          disabled={saving || usernameStatus === "taken" || usernameStatus === "invalid"}
+        >
           {saving
             ? <ActivityIndicator size="small" color="#fff" />
             : <Text style={styles.saveText}>Save</Text>}
@@ -242,7 +278,24 @@ export default function EditProfileScreen() {
         <View style={styles.form}>
           <Field label="Full name" value={fullName} onChange={setFullName} placeholder="Your display name" colors={colors} />
           <Field label="Username" value={username} onChange={setUsername} placeholder="username" autoCapitalize="none" colors={colors}>
-            <Text style={[styles.hint, { color: colors.mutedForeground }]}>vibe.app/@{username || "username"}</Text>
+            {usernameStatus === "idle" && (
+              <Text style={[styles.hint, { color: colors.mutedForeground }]}>vibe.app/@{username || "username"}</Text>
+            )}
+            {usernameStatus === "checking" && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 5 }}>
+                <ActivityIndicator size="small" color="rgba(255,255,255,0.4)" />
+                <Text style={[styles.hint, { color: colors.mutedForeground }]}>Checking…</Text>
+              </View>
+            )}
+            {usernameStatus === "available" && (
+              <Text style={[styles.hint, { color: "#22C55E", marginTop: 5 }]}>✅ Username available</Text>
+            )}
+            {usernameStatus === "taken" && (
+              <Text style={[styles.hint, { color: "#F87171", marginTop: 5 }]}>❌ Username already taken</Text>
+            )}
+            {usernameStatus === "invalid" && (
+              <Text style={[styles.hint, { color: "#FBBF24", marginTop: 5 }]}>⚠️ 3–20 chars, letters, numbers, underscores only</Text>
+            )}
           </Field>
 
           <View style={styles.fieldWrap}>

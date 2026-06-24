@@ -11,6 +11,31 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// GET /api/users/check-username?username=<name>&excludeUserId=<uuid>
+// Returns { available: true } or { available: false, reason?: "invalid_format" }
+router.get("/check-username", async (req, res) => {
+  const raw = ((req.query["username"] as string) ?? "").trim();
+  const excludeUserId = (req.query["excludeUserId"] as string | undefined)?.trim() || undefined;
+
+  const FORMAT_RE = /^[a-zA-Z0-9_]{3,20}$/;
+  if (!FORMAT_RE.test(raw)) {
+    res.json({ available: false, reason: "invalid_format" });
+    return;
+  }
+
+  const sb = makeSupabase();
+  try {
+    const base = sb.from("profiles").select("id").ilike("username", raw);
+    const { data } = excludeUserId
+      ? await base.neq("id", excludeUserId).maybeSingle()
+      : await base.maybeSingle();
+    res.json({ available: !data });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "check-username error");
+    res.status(500).json({ error: "Check failed" });
+  }
+});
+
 // GET /api/users/search?q=<query>&limit=20
 router.get("/search", async (req, res) => {
   const q = ((req.query["q"] as string) ?? "").trim();
@@ -225,7 +250,14 @@ router.patch("/profile/:userId", async (req, res) => {
   const sb = makeSupabase();
   try {
     const { error } = await sb.from("profiles").update(updates).eq("id", userId);
-    if (error) { res.status(500).json({ error: error.message }); return; }
+    if (error) {
+      if (error.code === "23505" || String(error.message).includes("profiles_username_key")) {
+        res.status(409).json({ error: "username_taken" });
+        return;
+      }
+      res.status(500).json({ error: error.message });
+      return;
+    }
     res.json({ ok: true });
   } catch (e: any) {
     req.log.error({ err: e?.message }, "profile patch error");
