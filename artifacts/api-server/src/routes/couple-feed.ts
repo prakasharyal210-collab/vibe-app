@@ -9,41 +9,57 @@ function makeSupabase() {
 
 const router = Router();
 
-// ── helpers ──────────────────────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────────────────────
 
 async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, coupleId?: string) {
-  // Fetch author profile
-  const { data: author } = await sb
-    .from("profiles")
-    .select("id, full_name, username, avatar_url")
-    .eq("id", post.author_id)
-    .maybeSingle();
+  const isAnon = post.is_anonymous !== false; // default true
 
-  // Fetch both members of the couple to build "X & Y" name
-  const { data: couple } = await sb
-    .from("couple_links")
-    .select("requester_id, receiver_id")
-    .eq("id", post.couple_id)
-    .maybeSingle();
+  let authorData: { name: string; avatar: string | null } | null = null;
+  let partnerData: { name: string; avatar: string | null } | null = null;
+  let coupleName = "Anonymous 💕";
 
-  let partnerProfile: any = null;
-  let coupleName = "";
-  if (couple) {
-    const partnerId = post.author_id === (couple as any).requester_id
-      ? (couple as any).receiver_id
-      : (couple as any).requester_id;
-    const { data: partner } = await sb
+  if (!isAnon) {
+    const { data: author } = await sb
       .from("profiles")
       .select("id, full_name, username, avatar_url")
-      .eq("id", partnerId)
+      .eq("id", post.author_id)
       .maybeSingle();
-    partnerProfile = partner;
-    const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];
-    const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
-    coupleName = `${authorFirst} & ${partnerFirst}`;
+
+    const { data: couple } = await sb
+      .from("couple_links")
+      .select("requester_id, receiver_id")
+      .eq("id", post.couple_id)
+      .maybeSingle();
+
+    if (couple) {
+      const partnerId =
+        post.author_id === (couple as any).requester_id
+          ? (couple as any).receiver_id
+          : (couple as any).requester_id;
+      const { data: partner } = await sb
+        .from("profiles")
+        .select("id, full_name, username, avatar_url")
+        .eq("id", partnerId)
+        .maybeSingle();
+
+      if (author) {
+        authorData = {
+          name: (author as any).full_name || (author as any).username,
+          avatar: (author as any).avatar_url ?? null,
+        };
+      }
+      if (partner) {
+        partnerData = {
+          name: (partner as any).full_name || (partner as any).username,
+          avatar: (partner as any).avatar_url ?? null,
+        };
+        const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];
+        const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
+        coupleName = `${authorFirst} & ${partnerFirst}`;
+      }
+    }
   }
 
-  // Check if requesting couple has liked this post
   let likedByMe = false;
   if (coupleId) {
     const { data: like } = await sb
@@ -57,33 +73,35 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
 
   return {
     ...post,
-    author: author ? {
-      name: (author as any).full_name || (author as any).username,
-      avatar: (author as any).avatar_url ?? null,
-    } : null,
-    partner: partnerProfile ? {
-      name: (partnerProfile as any).full_name || (partnerProfile as any).username,
-      avatar: (partnerProfile as any).avatar_url ?? null,
-    } : null,
-    coupleName,
+    isAnonymous: isAnon,
+    postNumber: post.post_number ?? null,
+    author: isAnon ? null : authorData,
+    partner: isAnon ? null : partnerData,
+    coupleName: isAnon ? "Anonymous 💕" : coupleName,
     likedByMe,
   };
 }
 
-// ── GET /posts ────────────────────────────────────────────────────────────────
+// ── GET /posts ─────────────────────────────────────────────────────────────────
 
 router.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"] as string | undefined;
   const limit = Math.min(Number(req.query["limit"] ?? 20), 50);
   const offset = Number(req.query["offset"] ?? 0);
+  const category = req.query["category"] as string | undefined;
   const sb = makeSupabase();
   try {
-    const { data: posts, error } = await sb
+    let query = sb
       .from("couple_feed_posts")
       .select("*")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
+    if (category && category !== "All") {
+      query = query.eq("category", category);
+    }
+
+    const { data: posts, error } = await query;
     if (error) throw error;
 
     const enriched = await Promise.all(((posts ?? []) as any[]).map((p) => enrichPost(sb, p, coupleId)));
@@ -94,15 +112,18 @@ router.get("/posts", async (req, res) => {
   }
 });
 
-// ── POST /posts ───────────────────────────────────────────────────────────────
+// ── POST /posts ────────────────────────────────────────────────────────────────
 
 router.post("/posts", async (req, res) => {
-  const { coupleId, authorId, content, photoUrl, category } = req.body as {
+  const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location } = req.body as {
     coupleId?: string;
     authorId?: string;
     content?: string;
     photoUrl?: string;
     category?: string;
+    isAnonymous?: boolean;
+    age?: number;
+    location?: string;
   };
 
   if (!coupleId || !authorId || !content) {
@@ -110,12 +131,11 @@ router.post("/posts", async (req, res) => {
     return;
   }
 
-  const validCategories = ["Story", "Advice", "Milestone", "Venting"];
-  const cat = category && validCategories.includes(category) ? category : "Story";
+  const validCategories = ["Confession", "Story", "Advice", "Milestone", "Venting"];
+  const cat = category && validCategories.includes(category) ? category : "Confession";
 
   const sb = makeSupabase();
   try {
-    // Validate couple exists and is accepted
     const { data: couple, error: coupleErr } = await sb
       .from("couple_links")
       .select("id, requester_id, receiver_id, status")
@@ -128,7 +148,6 @@ router.post("/posts", async (req, res) => {
       return;
     }
 
-    // Validate authorId is part of the couple
     const c = couple as any;
     if (authorId !== c.requester_id && authorId !== c.receiver_id) {
       res.status(403).json({ error: "Author is not part of this couple" });
@@ -143,6 +162,9 @@ router.post("/posts", async (req, res) => {
         content,
         photo_url: photoUrl ?? null,
         category: cat,
+        is_anonymous: isAnonymous !== false,
+        age: age ?? null,
+        location: location?.trim() || null,
       })
       .select()
       .single();
@@ -157,7 +179,7 @@ router.post("/posts", async (req, res) => {
   }
 });
 
-// ── DELETE /posts/:postId ─────────────────────────────────────────────────────
+// ── DELETE /posts/:postId ──────────────────────────────────────────────────────
 
 router.delete("/posts/:postId", async (req, res) => {
   const { postId } = req.params;
@@ -182,7 +204,7 @@ router.delete("/posts/:postId", async (req, res) => {
   }
 });
 
-// ── POST /posts/:postId/like ──────────────────────────────────────────────────
+// ── POST /posts/:postId/like ───────────────────────────────────────────────────
 
 router.post("/posts/:postId/like", async (req, res) => {
   const { postId } = req.params;
@@ -199,7 +221,6 @@ router.post("/posts/:postId/like", async (req, res) => {
 
     if (insertErr) {
       if (insertErr.code === "23505") {
-        // Already liked — return current count
         const { data: p } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
         res.json({ success: true, like_count: (p as any)?.like_count ?? 0 });
         return;
@@ -207,7 +228,6 @@ router.post("/posts/:postId/like", async (req, res) => {
       throw insertErr;
     }
 
-    // Increment like_count
     const { data: current } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
     const newCount = ((current as any)?.like_count ?? 0) + 1;
     await sb.from("couple_feed_posts").update({ like_count: newCount }).eq("id", postId);
@@ -219,7 +239,7 @@ router.post("/posts/:postId/like", async (req, res) => {
   }
 });
 
-// ── DELETE /posts/:postId/like ────────────────────────────────────────────────
+// ── DELETE /posts/:postId/like ─────────────────────────────────────────────────
 
 router.delete("/posts/:postId/like", async (req, res) => {
   const { postId } = req.params;
@@ -247,7 +267,7 @@ router.delete("/posts/:postId/like", async (req, res) => {
   }
 });
 
-// ── GET /posts/:postId/comments ───────────────────────────────────────────────
+// ── GET /posts/:postId/comments ────────────────────────────────────────────────
 
 router.get("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
@@ -269,10 +289,16 @@ router.get("/posts/:postId/comments", async (req, res) => {
     const profileMap = Object.fromEntries(((profiles ?? []) as any[]).map((p: any) => [p.id, p]));
 
     const enriched = ((comments ?? []) as any[]).map((c) => {
+      const isAnon = c.is_anonymous === true;
       const p = profileMap[c.author_id];
       return {
         ...c,
-        author: p ? { name: p.full_name || p.username, avatar: p.avatar_url ?? null } : null,
+        isAnonymous: isAnon,
+        author: isAnon
+          ? null
+          : p
+          ? { name: p.full_name || p.username, avatar: p.avatar_url ?? null }
+          : null,
       };
     });
 
@@ -283,14 +309,15 @@ router.get("/posts/:postId/comments", async (req, res) => {
   }
 });
 
-// ── POST /posts/:postId/comments ──────────────────────────────────────────────
+// ── POST /posts/:postId/comments ───────────────────────────────────────────────
 
 router.post("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
-  const { coupleId, authorId, content } = req.body as {
+  const { coupleId, authorId, content, isAnonymous } = req.body as {
     coupleId?: string;
     authorId?: string;
     content?: string;
+    isAnonymous?: boolean;
   };
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
@@ -300,29 +327,41 @@ router.post("/posts/:postId/comments", async (req, res) => {
   try {
     const { data: comment, error } = await sb
       .from("couple_feed_comments")
-      .insert({ post_id: postId, couple_id: coupleId, author_id: authorId, content })
+      .insert({
+        post_id: postId,
+        couple_id: coupleId,
+        author_id: authorId,
+        content,
+        is_anonymous: isAnonymous === true,
+      })
       .select()
       .single();
 
     if (error) throw error;
 
-    // Increment comment_count
     const { data: current } = await sb.from("couple_feed_posts").select("comment_count").eq("id", postId).maybeSingle();
     const newCount = ((current as any)?.comment_count ?? 0) + 1;
     await sb.from("couple_feed_posts").update({ comment_count: newCount }).eq("id", postId);
 
-    // Fetch author profile for response
-    const { data: author } = await sb
-      .from("profiles")
-      .select("id, full_name, username, avatar_url")
-      .eq("id", authorId)
-      .maybeSingle();
+    const isAnon = isAnonymous === true;
+    let authorInfo: { name: string; avatar: string | null } | null = null;
+    if (!isAnon) {
+      const { data: author } = await sb
+        .from("profiles")
+        .select("id, full_name, username, avatar_url")
+        .eq("id", authorId)
+        .maybeSingle();
+      if (author) {
+        authorInfo = { name: (author as any).full_name || (author as any).username, avatar: (author as any).avatar_url ?? null };
+      }
+    }
 
     res.json({
       success: true,
       comment: {
         ...(comment as any),
-        author: author ? { name: (author as any).full_name || (author as any).username, avatar: (author as any).avatar_url ?? null } : null,
+        isAnonymous: isAnon,
+        author: isAnon ? null : authorInfo,
       },
       comment_count: newCount,
     });

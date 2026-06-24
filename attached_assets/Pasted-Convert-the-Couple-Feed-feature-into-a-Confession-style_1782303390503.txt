@@ -1,0 +1,51 @@
+Convert the Couple Feed feature into a Confession-style feed (like "Confession of Nepalese in Australia" Facebook page). It STAYS inside the Couple tab, accessed via the existing "Couple Feed" card. Keep it for couples (linked users post, read, comment).
+
+STEP 1 — DATABASE CHANGES (give me SQL to run in Supabase dashboard):
+The couple_feed_posts table is empty, so ALTER it to add confession fields:
+
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS post_number SERIAL;
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT TRUE;
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS age INT;
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS location TEXT;
+ALTER TABLE couple_feed_posts ALTER COLUMN category SET DEFAULT 'Confession';
+
+(category options now: 'Confession', 'Advice', 'Story', 'Venting', 'Milestone')
+
+STEP 2 — API CHANGES (artifacts/api-server/src/routes/couple-feed.ts):
+- POST /api/couple-feed/posts now accepts: { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location }
+- GET /api/couple-feed/posts returns each post with:
+  - postNumber (the auto-increment number, display as #<number>)
+  - If is_anonymous = true: hide author/partner names+avatars, show "Anonymous 💕" instead
+  - If is_anonymous = false: show couple name + both avatars as before
+  - age, location, category, content, photo_url, like_count, comment_count, created_at, likedByMe
+- Comments stay the same but respect anonymity (a commenter can also be anonymous - add is_anonymous to comments too):
+  ALTER TABLE couple_feed_comments ADD COLUMN IF NOT EXISTS is_anonymous BOOLEAN DEFAULT FALSE;
+
+STEP 3 — MOBILE UI (artifacts/mobile/app/couple/feed.tsx and feed-create.tsx):
+
+feed.tsx — confession feed list:
+- Header: "Confessions 💕"
+- Category filter chips: All / Confession / Advice / Story / Venting / Milestone
+- Each post card (confession style):
+  - Top line: "#<postNumber>" in bold
+  - Second line (if age/location given): "<age> · <location>" e.g. "25 · Sydney"
+  - Category badge
+  - If anonymous: small "Anonymous 💕" label with a generic heart avatar
+  - If not anonymous: couple name + both avatars
+  - Post content text (allow long text, expandable)
+  - Photo if present
+  - ❤️ like count + 💬 comment count + time ago
+- Pull to refresh
+
+feed-create.tsx — create confession:
+- Multiline text input: "Share your confession, story, or ask for advice..."
+- Toggle switch: "Post anonymously" (ON by default)
+- Optional fields: Age (number input), Location (text input)
+- Category selector: Confession / Advice / Story / Venting / Milestone
+- Optional photo picker
+- "Post" button → POST with all fields including isAnonymous
+
+Keep the existing like/comment functionality. Comments screen: add an "anonymous" toggle when commenting too.
+
+After API changes: pnpm --filter @workspace/api-server run build, commit dist/, push, then I'll click Publish.
+Give me the SQL block to run in Supabase first.

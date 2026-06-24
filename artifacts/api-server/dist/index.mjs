@@ -60471,17 +60471,32 @@ function makeSupabase28() {
 }
 var router34 = (0, import_express34.Router)();
 async function enrichPost(sb, post2, coupleId) {
-  const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
-  const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
-  let partnerProfile = null;
-  let coupleName = "";
-  if (couple) {
-    const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
-    const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
-    partnerProfile = partner;
-    const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
-    const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
-    coupleName = `${authorFirst} & ${partnerFirst}`;
+  const isAnon = post2.is_anonymous !== false;
+  let authorData = null;
+  let partnerData = null;
+  let coupleName = "Anonymous \u{1F495}";
+  if (!isAnon) {
+    const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
+    const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
+    if (couple) {
+      const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
+      const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
+      if (author) {
+        authorData = {
+          name: author.full_name || author.username,
+          avatar: author.avatar_url ?? null
+        };
+      }
+      if (partner) {
+        partnerData = {
+          name: partner.full_name || partner.username,
+          avatar: partner.avatar_url ?? null
+        };
+        const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
+        const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
+        coupleName = `${authorFirst} & ${partnerFirst}`;
+      }
+    }
   }
   let likedByMe = false;
   if (coupleId) {
@@ -60490,15 +60505,11 @@ async function enrichPost(sb, post2, coupleId) {
   }
   return {
     ...post2,
-    author: author ? {
-      name: author.full_name || author.username,
-      avatar: author.avatar_url ?? null
-    } : null,
-    partner: partnerProfile ? {
-      name: partnerProfile.full_name || partnerProfile.username,
-      avatar: partnerProfile.avatar_url ?? null
-    } : null,
-    coupleName,
+    isAnonymous: isAnon,
+    postNumber: post2.post_number ?? null,
+    author: isAnon ? null : authorData,
+    partner: isAnon ? null : partnerData,
+    coupleName: isAnon ? "Anonymous \u{1F495}" : coupleName,
     likedByMe
   };
 }
@@ -60506,9 +60517,14 @@ router34.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"];
   const limit = Math.min(Number(req.query["limit"] ?? 20), 50);
   const offset = Number(req.query["offset"] ?? 0);
+  const category = req.query["category"];
   const sb = makeSupabase28();
   try {
-    const { data: posts, error } = await sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    let query = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (category && category !== "All") {
+      query = query.eq("category", category);
+    }
+    const { data: posts, error } = await query;
     if (error) throw error;
     const enriched = await Promise.all((posts ?? []).map((p) => enrichPost(sb, p, coupleId)));
     res.json({ posts: enriched });
@@ -60518,13 +60534,13 @@ router34.get("/posts", async (req, res) => {
   }
 });
 router34.post("/posts", async (req, res) => {
-  const { coupleId, authorId, content, photoUrl, category } = req.body;
+  const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location: location2 } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content are required" });
     return;
   }
-  const validCategories = ["Story", "Advice", "Milestone", "Venting"];
-  const cat = category && validCategories.includes(category) ? category : "Story";
+  const validCategories = ["Confession", "Story", "Advice", "Milestone", "Venting"];
+  const cat = category && validCategories.includes(category) ? category : "Confession";
   const sb = makeSupabase28();
   try {
     const { data: couple, error: coupleErr } = await sb.from("couple_links").select("id, requester_id, receiver_id, status").eq("id", coupleId).eq("status", "accepted").maybeSingle();
@@ -60542,7 +60558,10 @@ router34.post("/posts", async (req, res) => {
       author_id: authorId,
       content,
       photo_url: photoUrl ?? null,
-      category: cat
+      category: cat,
+      is_anonymous: isAnonymous !== false,
+      age: age ?? null,
+      location: location2?.trim() || null
     }).select().single();
     if (error) throw error;
     const enriched = await enrichPost(sb, post2, coupleId);
@@ -60625,10 +60644,12 @@ router34.get("/posts/:postId/comments", async (req, res) => {
     const { data: profiles } = authorIds.length ? await sb.from("profiles").select("id, full_name, username, avatar_url").in("id", authorIds) : { data: [] };
     const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
     const enriched = (comments ?? []).map((c) => {
+      const isAnon = c.is_anonymous === true;
       const p = profileMap[c.author_id];
       return {
         ...c,
-        author: p ? { name: p.full_name || p.username, avatar: p.avatar_url ?? null } : null
+        isAnonymous: isAnon,
+        author: isAnon ? null : p ? { name: p.full_name || p.username, avatar: p.avatar_url ?? null } : null
       };
     });
     res.json({ comments: enriched });
@@ -60639,24 +60660,38 @@ router34.get("/posts/:postId/comments", async (req, res) => {
 });
 router34.post("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
-  const { coupleId, authorId, content } = req.body;
+  const { coupleId, authorId, content, isAnonymous } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
     return;
   }
   const sb = makeSupabase28();
   try {
-    const { data: comment, error } = await sb.from("couple_feed_comments").insert({ post_id: postId, couple_id: coupleId, author_id: authorId, content }).select().single();
+    const { data: comment, error } = await sb.from("couple_feed_comments").insert({
+      post_id: postId,
+      couple_id: coupleId,
+      author_id: authorId,
+      content,
+      is_anonymous: isAnonymous === true
+    }).select().single();
     if (error) throw error;
     const { data: current } = await sb.from("couple_feed_posts").select("comment_count").eq("id", postId).maybeSingle();
     const newCount = (current?.comment_count ?? 0) + 1;
     await sb.from("couple_feed_posts").update({ comment_count: newCount }).eq("id", postId);
-    const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", authorId).maybeSingle();
+    const isAnon = isAnonymous === true;
+    let authorInfo = null;
+    if (!isAnon) {
+      const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", authorId).maybeSingle();
+      if (author) {
+        authorInfo = { name: author.full_name || author.username, avatar: author.avatar_url ?? null };
+      }
+    }
     res.json({
       success: true,
       comment: {
         ...comment,
-        author: author ? { name: author.full_name || author.username, avatar: author.avatar_url ?? null } : null
+        isAnonymous: isAnon,
+        author: isAnon ? null : authorInfo
       },
       comment_count: newCount
     });

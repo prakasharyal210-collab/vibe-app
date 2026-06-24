@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,12 +17,13 @@ import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 
-const CATEGORIES = ["All", "Story", "Advice", "Milestone", "Venting"] as const;
+const CATEGORIES = ["All", "Confession", "Advice", "Story", "Venting", "Milestone"] as const;
 type Category = (typeof CATEGORIES)[number];
 
 const CAT_COLORS: Record<string, string> = {
-  Story: "#EC4899",
+  Confession: "#EC4899",
   Advice: "#3B82F6",
+  Story: "#10B981",
   Milestone: "#F59E0B",
   Venting: "#8B5CF6",
 };
@@ -48,17 +50,53 @@ interface Post {
   comment_count: number;
   created_at: string;
   likedByMe: boolean;
+  isAnonymous: boolean;
+  postNumber: number | null;
+  age: number | null;
+  location: string | null;
   coupleName: string;
   author: { name: string; avatar: string | null } | null;
   partner: { name: string; avatar: string | null } | null;
 }
 
-function Avatar({ uri, size = 34 }: { uri: string | null; size?: number }) {
-  if (uri) return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 2, borderColor: "#1a1a2e" }} />;
+function AvatarPair({ author, partner }: { author: Post["author"]; partner: Post["partner"] }) {
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: "#2a1a3e", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#1a1a2e" }}>
-      <Text style={{ fontSize: size * 0.45 }}>👤</Text>
+    <View style={{ flexDirection: "row" }}>
+      {author?.avatar ? (
+        <Image source={{ uri: author.avatar }} style={s.avatar} />
+      ) : (
+        <View style={[s.avatar, s.avatarPlaceholder]}>
+          <Text style={{ fontSize: 13 }}>💕</Text>
+        </View>
+      )}
+      <View style={{ marginLeft: -8 }}>
+        {partner?.avatar ? (
+          <Image source={{ uri: partner.avatar }} style={s.avatar} />
+        ) : (
+          <View style={[s.avatar, s.avatarPlaceholder]}>
+            <Text style={{ fontSize: 13 }}>💕</Text>
+          </View>
+        )}
+      </View>
     </View>
+  );
+}
+
+function ExpandableText({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const limit = 220;
+  const long = text.length > limit;
+  return (
+    <TouchableOpacity onPress={() => long && setExpanded((v) => !v)} activeOpacity={long ? 0.7 : 1}>
+      <Text style={s.content}>
+        {long && !expanded ? text.slice(0, limit) + "…" : text}
+        {long && !expanded ? (
+          <Text style={s.readMore}> read more</Text>
+        ) : long && expanded ? (
+          <Text style={s.readMore}> show less</Text>
+        ) : null}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -78,6 +116,7 @@ function PostCard({
   onComment: (post: Post) => void;
 }) {
   const [liking, setLiking] = useState(false);
+  const catColor = CAT_COLORS[post.category] ?? "#EC4899";
 
   const toggleLike = async () => {
     if (liking) return;
@@ -104,23 +143,40 @@ function PostCard({
 
   return (
     <View style={s.card}>
-      <View style={s.cardHeader}>
-        <View style={s.avatarRow}>
-          <Avatar uri={post.author?.avatar ?? null} size={34} />
-          <View style={{ marginLeft: -10 }}>
-            <Avatar uri={post.partner?.avatar ?? null} size={34} />
-          </View>
+      <View style={s.cardTop}>
+        <View style={s.cardTopLeft}>
+          {post.postNumber != null && (
+            <Text style={s.postNumber}>#{post.postNumber}</Text>
+          )}
+          {(post.age || post.location) && (
+            <Text style={s.ageLocation}>
+              {[post.age ? `${post.age}` : null, post.location].filter(Boolean).join(" · ")}
+            </Text>
+          )}
         </View>
-        <View style={{ flex: 1, marginLeft: 10 }}>
-          <Text style={s.coupleName} numberOfLines={1}>{post.coupleName || "A Couple"}</Text>
-          <Text style={s.timeAgo}>{timeAgo(post.created_at)}</Text>
-        </View>
-        <View style={[s.catBadge, { backgroundColor: (CAT_COLORS[post.category] ?? "#EC4899") + "22", borderColor: (CAT_COLORS[post.category] ?? "#EC4899") + "66" }]}>
-          <Text style={[s.catText, { color: CAT_COLORS[post.category] ?? "#EC4899" }]}>{post.category}</Text>
+        <View style={[s.catBadge, { backgroundColor: catColor + "22", borderColor: catColor + "55" }]}>
+          <Text style={[s.catText, { color: catColor }]}>{post.category}</Text>
         </View>
       </View>
 
-      <Text style={s.content}>{post.content}</Text>
+      <View style={s.authorRow}>
+        {post.isAnonymous ? (
+          <>
+            <View style={[s.avatar, s.anonAvatar]}>
+              <Text style={{ fontSize: 14 }}>💕</Text>
+            </View>
+            <Text style={s.anonLabel}>Anonymous 💕</Text>
+          </>
+        ) : (
+          <>
+            <AvatarPair author={post.author} partner={post.partner} />
+            <Text style={s.coupleName} numberOfLines={1}>{post.coupleName}</Text>
+          </>
+        )}
+        <Text style={s.timeAgo}>{timeAgo(post.created_at)}</Text>
+      </View>
+
+      <ExpandableText text={post.content} />
 
       {post.photo_url ? (
         <Image source={{ uri: post.photo_url }} style={s.postPhoto} resizeMode="cover" />
@@ -131,12 +187,12 @@ function PostCard({
           <Ionicons
             name={post.likedByMe ? "heart" : "heart-outline"}
             size={20}
-            color={post.likedByMe ? "#EC4899" : "rgba(255,255,255,0.5)"}
+            color={post.likedByMe ? "#EC4899" : "rgba(255,255,255,0.45)"}
           />
           <Text style={[s.actionCount, post.likedByMe && { color: "#EC4899" }]}>{post.like_count}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onComment(post)} style={s.actionBtn} activeOpacity={0.7}>
-          <Ionicons name="chatbubble-outline" size={19} color="rgba(255,255,255,0.5)" />
+          <Ionicons name="chatbubble-outline" size={18} color="rgba(255,255,255,0.45)" />
           <Text style={s.actionCount}>{post.comment_count}</Text>
         </TouchableOpacity>
       </View>
@@ -174,7 +230,6 @@ export default function CoupleFeedScreen() {
   }, [coupleId, token]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
-
   useFocusEffect(useCallback(() => { fetchPosts(true); }, [fetchPosts]));
 
   const onRefresh = useCallback(async () => {
@@ -199,7 +254,9 @@ export default function CoupleFeedScreen() {
     } as any);
   };
 
-  const filtered = activeCategory === "All" ? posts : posts.filter((p) => p.category === activeCategory);
+  const filtered = activeCategory === "All"
+    ? posts
+    : posts.filter((p) => p.category === activeCategory);
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
@@ -207,9 +264,14 @@ export default function CoupleFeedScreen() {
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Couple Feed 💕</Text>
+        <Text style={s.headerTitle}>Confessions 💕</Text>
         <TouchableOpacity
-          onPress={() => router.push({ pathname: "/couple/feed-create", params: { coupleId: coupleId ?? "", authorId: userId ?? "" } } as any)}
+          onPress={() =>
+            router.push({
+              pathname: "/couple/feed-create",
+              params: { coupleId: coupleId ?? "", authorId: userId ?? "" },
+            } as any)
+          }
           style={s.shareBtn}
         >
           <Ionicons name="add" size={18} color="#EC4899" />
@@ -217,17 +279,27 @@ export default function CoupleFeedScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={s.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.filterRow}
+      >
         {CATEGORIES.map((cat) => (
           <TouchableOpacity
             key={cat}
             onPress={() => setActiveCategory(cat)}
-            style={[s.filterChip, activeCategory === cat && { backgroundColor: "#EC4899", borderColor: "#EC4899" }]}
+            style={[
+              s.filterChip,
+              activeCategory === cat && {
+                backgroundColor: CAT_COLORS[cat] ?? "#EC4899",
+                borderColor: CAT_COLORS[cat] ?? "#EC4899",
+              },
+            ]}
           >
             <Text style={[s.filterChipText, activeCategory === cat && { color: "#fff" }]}>{cat}</Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {loading ? (
         <View style={s.center}>
@@ -236,10 +308,15 @@ export default function CoupleFeedScreen() {
       ) : filtered.length === 0 ? (
         <View style={s.empty}>
           <Text style={s.emptyEmoji}>💬</Text>
-          <Text style={s.emptyTitle}>{activeCategory === "All" ? "No posts yet" : `No ${activeCategory} posts`}</Text>
-          <Text style={s.emptySub}>Be the first couple to share your story!</Text>
+          <Text style={s.emptyTitle}>{activeCategory === "All" ? "No confessions yet" : `No ${activeCategory} posts`}</Text>
+          <Text style={s.emptySub}>Be the first to share — all posts are anonymous by default.</Text>
           <TouchableOpacity
-            onPress={() => router.push({ pathname: "/couple/feed-create", params: { coupleId: coupleId ?? "", authorId: userId ?? "" } } as any)}
+            onPress={() =>
+              router.push({
+                pathname: "/couple/feed-create",
+                params: { coupleId: coupleId ?? "", authorId: userId ?? "" },
+              } as any)
+            }
             style={s.emptyBtn}
           >
             <Text style={s.emptyBtnText}>+ Share Now</Text>
@@ -259,7 +336,7 @@ export default function CoupleFeedScreen() {
               onComment={handleComment}
             />
           )}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, paddingTop: 8 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 28, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EC4899" />}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
@@ -276,8 +353,8 @@ const s = StyleSheet.create({
   headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#fff" },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#EC4899", backgroundColor: "rgba(236,72,153,0.12)" },
   shareBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#EC4899" },
-  filterRow: { flexDirection: "row", paddingHorizontal: 16, gap: 8, paddingBottom: 12, flexWrap: "nowrap" },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "transparent" },
+  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 12, flexDirection: "row" },
+  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
   filterChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.55)" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 },
@@ -287,15 +364,23 @@ const s = StyleSheet.create({
   emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#EC4899" },
   emptyBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
   card: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  avatarRow: { flexDirection: "row" },
-  coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
-  timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.4)" },
+  cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
+  cardTopLeft: { gap: 2 },
+  postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#EC4899" },
+  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.45)" },
   catBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
   catText: { fontFamily: "Poppins_600SemiBold", fontSize: 11 },
+  authorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+  avatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#1a1a2e" },
+  avatarPlaceholder: { backgroundColor: "#2a1a3e", alignItems: "center", justifyContent: "center" },
+  anonAvatar: { backgroundColor: "rgba(236,72,153,0.15)", alignItems: "center", justifyContent: "center" },
+  anonLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.55)", flex: 1 },
+  coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#fff", flex: 1 },
+  timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.35)" },
   content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 22, marginBottom: 12 },
+  readMore: { color: "#EC4899", fontFamily: "Poppins_600SemiBold" },
   postPhoto: { width: "100%", height: 200, borderRadius: 12, marginBottom: 12 },
   cardActions: { flexDirection: "row", gap: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
-  actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.5)" },
+  actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.45)" },
 });
