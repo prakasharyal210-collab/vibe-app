@@ -128,6 +128,8 @@ export interface PostData {
   commentsEnabled?: boolean;
   downloadsEnabled?: boolean;
   category?: string;
+  coupleId?: string;
+  isCouplePost?: boolean;
 }
 
 interface TaggedUser { id: string; username: string; avatar_url?: string | null; full_name?: string | null; }
@@ -143,6 +145,8 @@ interface Props {
   stickers: StickerItem[];
   onDiscard: () => void;
   onPost: (data: PostData) => void | Promise<void>;
+  coupleIsLinked?: boolean;
+  coupledId?: string | null;
 }
 
 const TEXT_COLORS = ["#ffffff", "#000000", "#7C3AED", "#F97316", "#EF4444", "#10B981", "#3B82F6", "#FBBF24", "#EC4899"];
@@ -243,7 +247,7 @@ const adj = StyleSheet.create({
 });
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, textOverlays: initialText, stickers: initialStickers, onDiscard, onPost }: Props) {
+export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, textOverlays: initialText, stickers: initialStickers, onDiscard, onPost, coupleIsLinked, coupledId }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
 
@@ -398,6 +402,8 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
     setStickers((prev) => prev.map((s) => s.id === id ? { ...s, x, y } : s));
   }, []);
 
+  const [postAsCouple, setPostAsCouple] = useState(false);
+
   const handlePost = async () => {
     setPosting(true);
     try {
@@ -411,6 +417,8 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
         commentsEnabled: allowComments,
         downloadsEnabled: allowDownloads,
         category: category ?? undefined,
+        coupleId: postAsCouple && coupledId ? coupledId : undefined,
+        isCouplePost: postAsCouple && !!coupledId,
       });
     } finally {
       setPosting(false);
@@ -858,7 +866,7 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
               </View>
 
               {/* Allow Downloads */}
-              <View style={[styles.postOptionRow, { borderBottomWidth: 0 }]}>
+              <View style={[styles.postOptionRow, { borderBottomColor: colors.border }]}>
                 <Icon name="download-outline" size={18} color="#3B82F6" />
                 <Text style={[styles.postOptionText, { color: colors.foreground }]}>Allow Downloads</Text>
                 <Switch
@@ -868,6 +876,20 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
                   thumbColor="#fff"
                 />
               </View>
+
+              {/* Post as Couple — only visible when both partners are linked */}
+              {coupleIsLinked && (
+                <View style={[styles.postOptionRow, { borderBottomWidth: 0 }]}>
+                  <Text style={{ fontSize: 18 }}>💑</Text>
+                  <Text style={[styles.postOptionText, { color: colors.foreground }]}>Post as Couple</Text>
+                  <Switch
+                    value={postAsCouple}
+                    onValueChange={setPostAsCouple}
+                    trackColor={{ false: "rgba(255,255,255,0.1)", true: "#EC4899" }}
+                    thumbColor="#fff"
+                  />
+                </View>
+              )}
             </View>
 
             <GradientButton onPress={handlePost} title="Post to Gundruk 🔥" loading={posting} disabled={isPhoto && !category} />

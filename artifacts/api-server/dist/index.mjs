@@ -55602,8 +55602,33 @@ router8.get("/user/:userId", async (req, res) => {
     const { data } = await q.order("created_at", { ascending: false });
     return data ?? [];
   }
-  const [posts, reels] = await Promise.all([queryTable("posts"), queryTable("reels")]);
-  res.json({ posts, reels });
+  async function fetchPartnerCouplePosts(table) {
+    try {
+      const { data: link } = await sb.from("couple_links").select("id").eq("status", "accepted").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle();
+      if (!link) return [];
+      const { data } = await sb.from(table).select("*").eq("is_couple_post", true).eq("couple_id", link.id).neq("user_id", userId).order("created_at", { ascending: false });
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+  const [posts, reels, partnerPosts, partnerReels] = await Promise.all([
+    queryTable("posts"),
+    queryTable("reels"),
+    fetchPartnerCouplePosts("posts"),
+    fetchPartnerCouplePosts("reels")
+  ]);
+  const postIdSet = new Set(posts.map((p) => p.id));
+  const mergedPosts = [
+    ...posts,
+    ...partnerPosts.filter((p) => !postIdSet.has(p.id))
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const reelIdSet = new Set(reels.map((r) => r.id));
+  const mergedReels = [
+    ...reels,
+    ...partnerReels.filter((r) => !reelIdSet.has(r.id))
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  res.json({ posts: mergedPosts, reels: mergedReels });
 });
 router8.get("/tagged", async (req, res) => {
   const { userId } = req.query;
@@ -55663,7 +55688,9 @@ router8.post("/create", async (req, res) => {
     mimeType = "image/jpeg",
     ext = "jpg",
     caption = "",
-    options = {}
+    options = {},
+    coupleId,
+    isCouplePost
   } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
@@ -55709,6 +55736,14 @@ router8.post("/create", async (req, res) => {
       req.log.warn({ err }, "Thumbnail upload failed (non-fatal)");
     }
   }
+  let validatedCoupleId = null;
+  if (isCouplePost && coupleId) {
+    try {
+      const { data: link } = await sb.from("couple_links").select("id").eq("id", coupleId).eq("status", "accepted").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle();
+      if (link) validatedCoupleId = coupleId;
+    } catch {
+    }
+  }
   const VALID_VISIBILITIES = ["public", "friends", "private"];
   const safeVisibility = VALID_VISIBILITIES.includes(options.visibility) ? options.visibility : "public";
   const payload = {
@@ -55724,7 +55759,8 @@ router8.post("/create", async (req, res) => {
     ...thumbnailUrl ? { thumbnail_url: thumbnailUrl } : {},
     ...options.filterId ? { filter_id: options.filterId } : {},
     ...options.location ? { location: options.location } : {},
-    ...options.category ? { category: options.category } : {}
+    ...options.category ? { category: options.category } : {},
+    ...validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}
   };
   const r1 = await sb.from("posts").insert(payload).select("id").single();
   let insertData = r1.data;
@@ -55760,6 +55796,14 @@ router8.post("/create", async (req, res) => {
     const r4 = await sb.from("posts").insert(payloadNoCat).select("id").single();
     insertData = r4.data;
     insertErr = r4.error;
+  }
+  if (insertErr?.message?.includes("couple_id") || insertErr?.message?.includes("is_couple_post")) {
+    const payloadNoCouple = { ...payload };
+    delete payloadNoCouple.couple_id;
+    delete payloadNoCouple.is_couple_post;
+    const r5 = await sb.from("posts").insert(payloadNoCouple).select("id").single();
+    insertData = r5.data;
+    insertErr = r5.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");
@@ -55997,7 +56041,9 @@ router9.post("/create", async (req, res) => {
     duration,
     visibility,
     originalSoundPostId,
-    originalSoundUsername
+    originalSoundUsername,
+    coupleId,
+    isCouplePost
   } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
@@ -56010,6 +56056,14 @@ router9.post("/create", async (req, res) => {
     return;
   }
   const sb = createClient(supabaseUrl, serviceKey);
+  let validatedCoupleId = null;
+  if (isCouplePost && coupleId) {
+    try {
+      const { data: link } = await sb.from("couple_links").select("id").eq("id", coupleId).eq("status", "accepted").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle();
+      if (link) validatedCoupleId = coupleId;
+    } catch {
+    }
+  }
   const ts = Date.now();
   let videoUrl = null;
   let thumbnailUrl = null;
@@ -56062,7 +56116,8 @@ router9.post("/create", async (req, res) => {
     views_count: 0,
     created_at: (/* @__PURE__ */ new Date()).toISOString(),
     ...originalSoundPostId ? { original_sound_post_id: originalSoundPostId } : {},
-    ...originalSoundUsername ? { original_sound_username: originalSoundUsername } : {}
+    ...originalSoundUsername ? { original_sound_username: originalSoundUsername } : {},
+    ...validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}
   };
   const rr1 = await sb.from("reels").insert(reelPayload).select("id").single();
   let data = rr1.data;
@@ -56081,6 +56136,14 @@ router9.post("/create", async (req, res) => {
     const rr3 = await sb.from("reels").insert(payloadNoSound).select("id").single();
     data = rr3.data;
     error = rr3.error;
+  }
+  if (error?.message?.includes("couple_id") || error?.message?.includes("is_couple_post")) {
+    const payloadNoCouple = { ...reelPayload };
+    delete payloadNoCouple.couple_id;
+    delete payloadNoCouple.is_couple_post;
+    const rr4 = await sb.from("reels").insert(payloadNoCouple).select("id").single();
+    data = rr4.data;
+    error = rr4.error;
   }
   if (error) {
     req.log.error({ err: error.message }, "Reel insert failed");
@@ -58557,6 +58620,36 @@ async function enrichWithProfiles(supabase, rows) {
     profiles: profileMap.get(row.user_id) ?? null
   }));
 }
+async function enrichWithCoupleData(supabase, rows) {
+  const coupleRows = rows.filter((r) => r.is_couple_post && r.couple_id);
+  if (!coupleRows.length) return rows;
+  const coupleIds = [...new Set(coupleRows.map((r) => r.couple_id))];
+  const { data: links } = await supabase.from("couple_links").select("id, requester_id, receiver_id").in("id", coupleIds);
+  if (!links?.length) return rows;
+  const allUserIds = /* @__PURE__ */ new Set();
+  for (const l of links) {
+    if (l.requester_id) allUserIds.add(l.requester_id);
+    if (l.receiver_id) allUserIds.add(l.receiver_id);
+  }
+  const { data: profiles } = await supabase.from("profiles").select("id, username, full_name, avatar_url").in("id", [...allUserIds]);
+  const profileMap = /* @__PURE__ */ new Map();
+  for (const p of profiles ?? []) profileMap.set(p.id, p);
+  const linkMap = /* @__PURE__ */ new Map();
+  for (const l of links) linkMap.set(l.id, l);
+  return rows.map((row) => {
+    if (!row.is_couple_post || !row.couple_id) return row;
+    const link = linkMap.get(row.couple_id);
+    if (!link) return row;
+    const p1 = profileMap.get(link.requester_id) ?? null;
+    const p2 = profileMap.get(link.receiver_id) ?? null;
+    const name1 = p1?.full_name?.split(" ")[0] || p1?.username || "Partner";
+    const name2 = p2?.full_name?.split(" ")[0] || p2?.username || "Partner";
+    return {
+      ...row,
+      couple: { partner1: p1, partner2: p2, coupleName: `${name1} & ${name2}` }
+    };
+  });
+}
 function normaliseFriendsRow(row) {
   const { post_id, username, avatar_url, is_verified, is_liked, is_saved, ...rest } = row;
   return {
@@ -58628,7 +58721,8 @@ router23.get("/foryou", async (req, res) => {
     );
     if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v2Data);
-      const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p) => p.is_archived !== true))));
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p) => p.is_archived !== true))));
       res.json({ data: out, source: "v2" });
       return;
     }
@@ -58638,7 +58732,8 @@ router23.get("/foryou", async (req, res) => {
     );
     if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v1Data);
-      const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p) => p.is_archived !== true))));
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p) => p.is_archived !== true))));
       res.json({ data: out, source: "v1" });
       return;
     }
@@ -58674,7 +58769,8 @@ router23.get("/friends", async (req, res) => {
   });
   if (!error && Array.isArray(data) && data.length > 0) {
     const normalised = data.map(normaliseFriendsRow);
-    res.json({ data: normalised, source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, normalised);
+    res.json({ data: enrichedCouple, source: "rpc" });
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
@@ -58695,7 +58791,8 @@ router23.get("/reels", async (req, res) => {
     );
     if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v2Data);
-      res.json({ data: enriched, source: "v2" });
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      res.json({ data: enrichedCouple, source: "v2" });
       return;
     }
   }
@@ -58717,7 +58814,8 @@ router23.get("/following-reels", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = data.length > 0 && !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched, source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple, source: "rpc" });
     return;
   }
   res.json({ data: [], source: "empty", error: error?.message });
@@ -58767,7 +58865,8 @@ router23.get("/following", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched.filter((p) => p.is_archived !== true), source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple.filter((p) => p.is_archived !== true), source: "rpc" });
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
@@ -58794,7 +58893,8 @@ router23.get("/nearby", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched.filter((p) => p.is_archived !== true), source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple.filter((p) => p.is_archived !== true), source: "rpc" });
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
@@ -58817,7 +58917,8 @@ router23.get("/vibes", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched.filter((p) => p.is_archived !== true), source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple.filter((p) => p.is_archived !== true), source: "rpc" });
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("likes_count", { ascending: false }).limit(limit).range(offset, offset + limit - 1);

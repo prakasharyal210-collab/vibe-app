@@ -20,6 +20,8 @@ router.post("/create", async (req, res) => {
     visibility,
     originalSoundPostId,
     originalSoundUsername,
+    coupleId,
+    isCouplePost,
   } = req.body as {
     userId: string;
     videoBase64?: string;
@@ -31,6 +33,8 @@ router.post("/create", async (req, res) => {
     visibility?: string;
     originalSoundPostId?: string | null;
     originalSoundUsername?: string | null;
+    coupleId?: string;
+    isCouplePost?: boolean;
   };
 
   if (!userId) {
@@ -47,6 +51,21 @@ router.post("/create", async (req, res) => {
     return;
   }
   const sb = createClient(supabaseUrl, serviceKey);
+
+  // Validate couple link — only include if the user is actually part of the couple
+  let validatedCoupleId: string | null = null;
+  if (isCouplePost && coupleId) {
+    try {
+      const { data: link } = await sb
+        .from("couple_links")
+        .select("id")
+        .eq("id", coupleId)
+        .eq("status", "accepted")
+        .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
+        .maybeSingle();
+      if (link) validatedCoupleId = coupleId;
+    } catch {}
+  }
 
   const ts = Date.now();
   let videoUrl: string | null = null;
@@ -116,6 +135,7 @@ router.post("/create", async (req, res) => {
     created_at: new Date().toISOString(),
     ...(originalSoundPostId ? { original_sound_post_id: originalSoundPostId } : {}),
     ...(originalSoundUsername ? { original_sound_username: originalSoundUsername } : {}),
+    ...(validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}),
   };
 
   const rr1 = await sb.from("reels").insert(reelPayload).select("id").single();
@@ -137,6 +157,15 @@ router.post("/create", async (req, res) => {
     const rr3 = await sb.from("reels").insert(payloadNoSound).select("id").single();
     data = rr3.data;
     error = rr3.error;
+  }
+  // Graceful fallback: if couple columns not yet added
+  if (error?.message?.includes("couple_id") || error?.message?.includes("is_couple_post")) {
+    const payloadNoCouple = { ...reelPayload };
+    delete payloadNoCouple.couple_id;
+    delete payloadNoCouple.is_couple_post;
+    const rr4 = await sb.from("reels").insert(payloadNoCouple).select("id").single();
+    data = rr4.data;
+    error = rr4.error;
   }
 
   if (error) {

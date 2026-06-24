@@ -39,6 +39,56 @@ async function enrichWithProfiles(
   }));
 }
 
+// For rows with is_couple_post=true, look up both partner profiles and attach a
+// `couple: { partner1, partner2, coupleName }` object so PostCard can render them.
+async function enrichWithCoupleData(
+  supabase: SupabaseClient,
+  rows: any[],
+): Promise<any[]> {
+  const coupleRows = rows.filter((r) => r.is_couple_post && r.couple_id);
+  if (!coupleRows.length) return rows;
+
+  const coupleIds = [...new Set(coupleRows.map((r) => r.couple_id as string))];
+
+  const { data: links } = await supabase
+    .from("couple_links")
+    .select("id, requester_id, receiver_id")
+    .in("id", coupleIds);
+
+  if (!links?.length) return rows;
+
+  const allUserIds = new Set<string>();
+  for (const l of links) {
+    if (l.requester_id) allUserIds.add(l.requester_id as string);
+    if (l.receiver_id) allUserIds.add(l.receiver_id as string);
+  }
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username, full_name, avatar_url")
+    .in("id", [...allUserIds]);
+
+  const profileMap = new Map<string, any>();
+  for (const p of profiles ?? []) profileMap.set(p.id as string, p);
+
+  const linkMap = new Map<string, any>();
+  for (const l of links) linkMap.set(l.id as string, l);
+
+  return rows.map((row) => {
+    if (!row.is_couple_post || !row.couple_id) return row;
+    const link = linkMap.get(row.couple_id as string);
+    if (!link) return row;
+    const p1 = profileMap.get(link.requester_id as string) ?? null;
+    const p2 = profileMap.get(link.receiver_id as string) ?? null;
+    const name1 = (p1?.full_name as string | null)?.split(" ")[0] || (p1?.username as string | null) || "Partner";
+    const name2 = (p2?.full_name as string | null)?.split(" ")[0] || (p2?.username as string | null) || "Partner";
+    return {
+      ...row,
+      couple: { partner1: p1, partner2: p2, coupleName: `${name1} & ${name2}` },
+    };
+  });
+}
+
 // get_friends_feed returns flat top-level username/avatar_url/is_verified plus
 // `post_id` instead of `id`.  Normalise to the standard Post shape so PostCard
 // can consume it identically to other feed sources.
@@ -122,7 +172,8 @@ router.get("/foryou", async (req, res) => {
     );
     if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v2Data);
-      const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p: any) => p.is_archived !== true))));
       res.json({ data: out, source: "v2" });
       return;
     }
@@ -134,7 +185,8 @@ router.get("/foryou", async (req, res) => {
     );
     if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v1Data);
-      const out = sortRows(filterByCategory(filterByContentType(enriched.filter((p: any) => p.is_archived !== true))));
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p: any) => p.is_archived !== true))));
       res.json({ data: out, source: "v1" });
       return;
     }
@@ -193,7 +245,8 @@ router.get("/friends", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     // Normalise flat RPC shape → nested profiles object + canonical `id` field.
     const normalised = data.map(normaliseFriendsRow);
-    res.json({ data: normalised, source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, normalised);
+    res.json({ data: enrichedCouple, source: "rpc" });
     return;
   }
 
@@ -230,7 +283,8 @@ router.get("/reels", async (req, res) => {
     );
     if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v2Data);
-      res.json({ data: enriched, source: "v2" });
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      res.json({ data: enrichedCouple, source: "v2" });
       return;
     }
   }
@@ -269,7 +323,8 @@ router.get("/following-reels", async (req, res) => {
     // Enrich with profiles (RPC may or may not include them — be safe).
     const needsEnrich = data.length > 0 && !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched, source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple, source: "rpc" });
     return;
   }
 
@@ -352,7 +407,8 @@ router.get("/following", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple.filter((p: any) => p.is_archived !== true), source: "rpc" });
     return;
   }
 
@@ -396,7 +452,8 @@ router.get("/nearby", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple.filter((p: any) => p.is_archived !== true), source: "rpc" });
     return;
   }
 
@@ -436,7 +493,8 @@ router.get("/vibes", async (req, res) => {
   if (!error && Array.isArray(data) && data.length > 0) {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
-    res.json({ data: enriched.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+    res.json({ data: enrichedCouple.filter((p: any) => p.is_archived !== true), source: "rpc" });
     return;
   }
 

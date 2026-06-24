@@ -55,6 +55,41 @@ import {
 import { AchievementModal } from "@/components/AchievementModal";
 import { usePostRealtime } from "@/context/RealtimeContext";
 
+// ── Couple header sub-component (module-level to avoid remount on each render) ─
+function CoupleHeaderRow({ post, style }: { post: any; style?: object }) {
+  const couple = post.couple as { coupleName?: string; partner1?: { username?: string; avatar_url?: string | null }; partner2?: { username?: string; avatar_url?: string | null } } | undefined;
+  if (!couple) return null;
+
+  const handlePress = () => {
+    Alert.alert(
+      couple.coupleName ?? "Couple Post",
+      "Visit a profile:",
+      [
+        couple.partner1?.username ? { text: `@${couple.partner1.username}`, onPress: () => router.push(`/profile/${couple.partner1!.username}` as any) } : null,
+        couple.partner2?.username ? { text: `@${couple.partner2.username}`, onPress: () => router.push(`/profile/${couple.partner2!.username}` as any) } : null,
+        { text: "Cancel", style: "cancel" },
+      ].filter(Boolean) as any[]
+    );
+  };
+
+  return (
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.8} style={[{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }, style]}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <UserAvatar username={couple.partner1?.username} url={couple.partner1?.avatar_url} size={34} />
+        <View style={{ marginLeft: -10, borderRadius: 99, borderWidth: 2, borderColor: "#0a0a0a" }}>
+          <UserAvatar username={couple.partner2?.username} url={couple.partner2?.avatar_url} size={34} />
+        </View>
+      </View>
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 }} numberOfLines={1}>{couple.coupleName ?? "Couple"}</Text>
+          <Text style={{ fontSize: 13 }}>💑</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_MARGIN = 12;
 const CARD_W = SCREEN_WIDTH - CARD_MARGIN * 2;
@@ -475,18 +510,24 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
         {/* Header overlaid on top of image */}
         <View style={[styles.header, { backgroundColor: "transparent" }]}>
-          <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.8}>
-            <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={38} />
-          </TouchableOpacity>
-          <View style={styles.headerText}>
-            <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.7}>
-              <View style={styles.nameRow}>
-                <Text style={[styles.username, { color: "#fff" }]}>{post.profiles?.username ?? "user"}</Text>
-                {post.profiles?.is_verified && <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />}
+          {(post as any).is_couple_post && (post as any).couple ? (
+            <CoupleHeaderRow post={post} />
+          ) : (
+            <>
+              <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.8}>
+                <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={38} />
+              </TouchableOpacity>
+              <View style={styles.headerText}>
+                <TouchableOpacity onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)} activeOpacity={0.7}>
+                  <View style={styles.nameRow}>
+                    <Text style={[styles.username, { color: "#fff" }]}>{post.profiles?.username ?? "user"}</Text>
+                    {post.profiles?.is_verified && <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />}
+                  </View>
+                </TouchableOpacity>
+                <Text style={[styles.time, { color: "rgba(255,255,255,0.7)" }]}>{timeAgo(post.created_at)}</Text>
               </View>
-            </TouchableOpacity>
-            <Text style={[styles.time, { color: "rgba(255,255,255,0.7)" }]}>{timeAgo(post.created_at)}</Text>
-          </View>
+            </>
+          )}
           <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
         </View>
 
@@ -556,35 +597,41 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     <View style={[styles.container, { backgroundColor: colors.card }]}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)}
-          activeOpacity={0.8}
-        >
-          <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={38} />
-        </TouchableOpacity>
-        <View style={styles.headerText}>
-          <TouchableOpacity
-            onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)}
-            activeOpacity={0.7}
-          >
-            <View style={styles.nameRow}>
-              <Text style={[styles.username, { color: colors.foreground }]}>
-                {post.profiles?.username ?? "user"}
-              </Text>
-              {post.profiles?.is_verified && (
-                <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />
+        {(post as any).is_couple_post && (post as any).couple ? (
+          <CoupleHeaderRow post={post} />
+        ) : (
+          <>
+            <TouchableOpacity
+              onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)}
+              activeOpacity={0.8}
+            >
+              <UserAvatar username={post.profiles?.username} url={post.profiles?.avatar_url} size={38} />
+            </TouchableOpacity>
+            <View style={styles.headerText}>
+              <TouchableOpacity
+                onPress={() => post.profiles?.username && router.push(`/profile/${post.profiles.username}` as any)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.nameRow}>
+                  <Text style={[styles.username, { color: colors.foreground }]}>
+                    {post.profiles?.username ?? "user"}
+                  </Text>
+                  {post.profiles?.is_verified && (
+                    <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />
+                  )}
+                </View>
+              </TouchableOpacity>
+              {post.location ? (
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
+                  <Text style={[styles.location, { color: colors.mutedForeground }]}>{post.location}</Text>
+                </View>
+              ) : (
+                <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(post.created_at)}</Text>
               )}
             </View>
-          </TouchableOpacity>
-          {post.location ? (
-            <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={11} color={colors.mutedForeground} />
-              <Text style={[styles.location, { color: colors.mutedForeground }]}>{post.location}</Text>
-            </View>
-          ) : (
-            <Text style={[styles.time, { color: colors.mutedForeground }]}>{timeAgo(post.created_at)}</Text>
-          )}
-        </View>
+          </>
+        )}
         <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
         <TouchableOpacity onPress={() => setShowOptionsSheet(true)} style={styles.moreBtn}>
           <Ionicons name="ellipsis-vertical" size={18} color={colors.mutedForeground} />

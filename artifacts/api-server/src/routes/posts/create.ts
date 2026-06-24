@@ -205,8 +205,51 @@ router.get("/user/:userId", async (req, res) => {
     return data ?? [];
   }
 
-  const [posts, reels] = await Promise.all([queryTable("posts"), queryTable("reels")]);
-  res.json({ posts, reels });
+  // Fetch couple posts authored by the partner (couple_id matches but user_id != userId)
+  // so they appear on both partners' profile grids.
+  async function fetchPartnerCouplePosts(table: "posts" | "reels"): Promise<any[]> {
+    try {
+      const { data: link } = await sb
+        .from("couple_links")
+        .select("id")
+        .eq("status", "accepted")
+        .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
+        .maybeSingle();
+      if (!link) return [];
+      const { data } = await sb
+        .from(table)
+        .select("*")
+        .eq("is_couple_post", true)
+        .eq("couple_id", (link as { id: string }).id)
+        .neq("user_id", userId)
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  const [posts, reels, partnerPosts, partnerReels] = await Promise.all([
+    queryTable("posts"),
+    queryTable("reels"),
+    fetchPartnerCouplePosts("posts"),
+    fetchPartnerCouplePosts("reels"),
+  ]);
+
+  // Merge partner couple posts, dedup, and re-sort by created_at
+  const postIdSet = new Set((posts as any[]).map((p: any) => p.id));
+  const mergedPosts = [
+    ...posts,
+    ...(partnerPosts as any[]).filter((p: any) => !postIdSet.has(p.id)),
+  ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  const reelIdSet = new Set((reels as any[]).map((r: any) => r.id));
+  const mergedReels = [
+    ...reels,
+    ...(partnerReels as any[]).filter((r: any) => !reelIdSet.has(r.id)),
+  ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  res.json({ posts: mergedPosts, reels: mergedReels });
 });
 
 // GET /api/posts/tagged?userId=<uuid> — posts the user is tagged in (post_tags table), bypassing RLS
@@ -275,6 +318,8 @@ router.post("/create", async (req, res) => {
     ext = "jpg",
     caption = "",
     options = {},
+    coupleId,
+    isCouplePost,
   } = req.body as {
     userId: string;
     imageBase64?: string;
@@ -291,6 +336,8 @@ router.post("/create", async (req, res) => {
       visibility?: string;
       category?: string;
     };
+    coupleId?: string;
+    isCouplePost?: boolean;
   };
 
   if (!userId) {
@@ -352,6 +399,21 @@ router.post("/create", async (req, res) => {
   }
 
   // Insert post record (service role bypasses RLS)
+  // Validate couple link — only include if the user is actually part of the couple
+  let validatedCoupleId: string | null = null;
+  if (isCouplePost && coupleId) {
+    try {
+      const { data: link } = await sb
+        .from("couple_links")
+        .select("id")
+        .eq("id", coupleId)
+        .eq("status", "accepted")
+        .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
+        .maybeSingle();
+      if (link) validatedCoupleId = coupleId;
+    } catch {}
+  }
+
   const VALID_VISIBILITIES = ["public", "friends", "private"] as const;
   const safeVisibility: string = VALID_VISIBILITIES.includes(options.visibility as any)
     ? (options.visibility as string)
@@ -371,6 +433,7 @@ router.post("/create", async (req, res) => {
     ...(options.filterId ? { filter_id: options.filterId } : {}),
     ...(options.location ? { location: options.location } : {}),
     ...(options.category ? { category: options.category } : {}),
+    ...(validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
@@ -410,6 +473,15 @@ router.post("/create", async (req, res) => {
     const r4 = await sb.from("posts").insert(payloadNoCat).select("id").single();
     insertData = r4.data as { id: string } | null;
     insertErr = r4.error;
+  }
+  if (insertErr?.message?.includes("couple_id") || insertErr?.message?.includes("is_couple_post")) {
+    // couple columns not yet added — strip and retry silently
+    const payloadNoCouple = { ...payload };
+    delete payloadNoCouple.couple_id;
+    delete payloadNoCouple.is_couple_post;
+    const r5 = await sb.from("posts").insert(payloadNoCouple).select("id").single();
+    insertData = r5.data as { id: string } | null;
+    insertErr = r5.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");

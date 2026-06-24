@@ -1585,6 +1585,8 @@ export async function uploadPostMedia(
     downloadsEnabled?: boolean;
     visibility?: string;
     category?: string;
+    coupleId?: string;
+    isCouplePost?: boolean;
   }
 ): Promise<{ id: string; mediaUrl: string }> {
   const cleanUri = uri.split('?')[0];
@@ -1662,6 +1664,8 @@ export async function uploadPostMedia(
             ext: videoExt,
             caption,
             options: { ...options, visibility: options?.visibility ?? 'public' },
+            coupleId: options?.coupleId,
+            isCouplePost: options?.isCouplePost,
           }),
         }),
         25_000,
@@ -1717,6 +1721,8 @@ export async function uploadPostMedia(
           ext,
           caption,
           options: { ...options, visibility: options?.visibility ?? 'public' },
+          coupleId: options?.coupleId,
+          isCouplePost: options?.isCouplePost,
         }),
       }),
       25_000,
@@ -1742,7 +1748,8 @@ export async function uploadReelMedia(
   duration?: number,
   visibility?: string,
   originalSoundPostId?: string | null,
-  originalSoundUsername?: string | null
+  originalSoundUsername?: string | null,
+  coupleOptions?: { coupleId?: string; isCouplePost?: boolean }
 ): Promise<{ id: string; videoUrl: string; thumbnailUrl?: string } | null> {
   try {
     const cleanUri = uri.split('?')[0];
@@ -1784,7 +1791,7 @@ export async function uploadReelMedia(
       fetch(`${API_BASE}/reels/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration, visibility, originalSoundPostId: originalSoundPostId ?? null, originalSoundUsername: originalSoundUsername ?? null }),
+        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration, visibility, originalSoundPostId: originalSoundPostId ?? null, originalSoundUsername: originalSoundUsername ?? null, coupleId: coupleOptions?.coupleId, isCouplePost: coupleOptions?.isCouplePost }),
       }),
       120_000,
       'reel create API'

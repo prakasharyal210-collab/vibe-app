@@ -47,6 +47,7 @@ import { LensSelector } from "@/components/camera/LensSelector";
 import type { BanubaHandle } from "@/components/camera/BanubaCameraView";
 import PostPage from "@/components/camera/PostPage";
 import { useAuth } from "@/context/AuthContext";
+import { useCoupleStatus } from "@/context/CoupleContext";
 import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
 import { Track } from "@/lib/music";
 import { callAI, parseAIJson } from "@/lib/ai";
@@ -442,6 +443,7 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
   const insets = useSafeAreaInsets();
   React.useEffect(() => { console.log("[CreateScreen] mounted"); }, []);
   const { session } = useAuth();
+  const { isLinked: coupleIsLinked, coupleId: coupledId } = useCoupleStatus();
   const isLoggedIn = !!session;
 
   const [camPermission, requestCamPermission] = useCameraPermissions();
@@ -1372,6 +1374,8 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
             initialFilter={{ id: cameraFilter.id, label: cameraFilter.label, color: cameraFilter.blendColor, opacity: cameraFilter.blendOpacity, blendHex: cameraFilter.blendColor }}
             textOverlays={textOverlays}
             stickers={stickers}
+            coupleIsLinked={coupleIsLinked}
+            coupledId={coupledId}
             onDiscard={() => { setRecordedUri(null); setTextOverlays([]); setStickers([]); }}
             onPost={async (data) => {
               const uri = recordedUri;
@@ -1395,9 +1399,11 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                       downloadsEnabled: data.downloadsEnabled,
                       visibility,
                       category: (data as any).category,
+                      coupleId: data.coupleId,
+                      isCouplePost: data.isCouplePost,
                     });
                   } else {
-                    await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility, selectedSound?.postId ?? null, selectedSound?.username ?? null);
+                    await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility, selectedSound?.postId ?? null, selectedSound?.username ?? null, { coupleId: data.coupleId, isCouplePost: data.isCouplePost });
                   }
                 }
                 setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null); setSelectedSound(null);

@@ -19,12 +19,14 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useAuth } from "@/context/AuthContext";
+import { useCoupleStatus } from "@/context/CoupleContext";
 import { CAMERA_FILTERS, type CameraFilter } from "@/components/camera/CameraFilterStrip";
 import { searchVibeUsers, type SocialMatchUser, uploadPostMedia } from "@/lib/db";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
@@ -216,6 +218,10 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
+  // Couple post
+  const { isLinked, coupleId: coupleLinkId } = useCoupleStatus();
+  const [postAsCouple, setPostAsCouple] = useState(false);
+
   // Camera
   const cameraRef = useRef<CameraView>(null);
   const [camPermission, requestCamPermission] = useCameraPermissions();
@@ -348,6 +354,8 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
               visibility,
               category: category ?? undefined,
+              coupleId: postAsCouple && coupleLinkId ? coupleLinkId : undefined,
+              isCouplePost: postAsCouple && !!coupleLinkId,
             });
           }
         })(),
@@ -363,6 +371,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       setRawMedia([]); setPreviewIdx(0); setCropRatio("original");
       setActiveFilter(CAMERA_FILTERS[0]!); setVisibility("public");
       setSelectedMusic(null); setFeeling(null); setCategory(null);
+      setPostAsCouple(false);
       setPhase("idle");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -383,7 +392,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       // so this setState is a no-op.
       setPhase((current) => (current === "uploading" ? "compose" : current));
     }
-  }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling, category]);
+  }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling, category, postAsCouple, coupleLinkId]);
 
   const discard = useCallback(() => {
     setRawMedia([]); setCaption(""); setLocation("");
@@ -807,6 +816,23 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.3)" />
           <Text style={p.changeMediaText}>Change selection</Text>
         </TouchableOpacity>
+
+        {/* ── Post as Couple toggle (only shown when linked) ─────────── */}
+        {isLinked && (
+          <View style={p.coupleRow}>
+            <Text style={p.coupleIcon}>💑</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={p.coupleLabel}>Post as Couple</Text>
+              <Text style={p.coupleDesc}>Both of your names will appear on this post</Text>
+            </View>
+            <Switch
+              value={postAsCouple}
+              onValueChange={setPostAsCouple}
+              trackColor={{ false: "rgba(255,255,255,0.1)", true: "#EC4899" }}
+              thumbColor="#fff"
+            />
+          </View>
+        )}
 
         {!category && (
           <View style={p.categoryHint}>
@@ -1296,6 +1322,10 @@ const p = StyleSheet.create({
   categoryRequired: { color: "#F59E0B", fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
 
   // Hint shown above share button when no category
+  coupleRow: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: 16, marginBottom: 14, backgroundColor: "rgba(236,72,153,0.08)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(236,72,153,0.2)", paddingHorizontal: 14, paddingVertical: 12 },
+  coupleIcon: { fontSize: 22 },
+  coupleLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  coupleDesc: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 1 },
   categoryHint: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 16, marginBottom: 8 },
   categoryHintText: { color: "#F59E0B", fontFamily: "Poppins_400Regular", fontSize: 12 },
 
