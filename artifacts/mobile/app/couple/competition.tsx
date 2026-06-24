@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  FlatList,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -16,6 +15,12 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import ReAnimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSpring,
+} from "react-native-reanimated";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,10 +35,10 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-const RANK_META = [
-  { emoji: "🥇", colors: ["#F59E0B", "#B45309"] as [string, string], label: "1st Place" },
-  { emoji: "🥈", colors: ["#94A3B8", "#64748B"] as [string, string], label: "2nd Place" },
-  { emoji: "🥉", colors: ["#B45309", "#78350F"] as [string, string], label: "3rd Place" },
+const MEDAL = [
+  { icon: "👑", label: "#1", colors: ["#F59E0B", "#D97706"] as [string, string], glow: "#F59E0B" },
+  { icon: "🥈", label: "#2", colors: ["#C0C8D4", "#64748B"] as [string, string], glow: "#94A3B8" },
+  { icon: "🥉", label: "#3", colors: ["#C2773B", "#92400E"] as [string, string], glow: "#C2773B" },
 ];
 
 interface LeaderboardEntry {
@@ -59,117 +64,209 @@ interface Winner {
   vote_count: number;
 }
 
-function MiniAvatar({ uri }: { uri: string | null }) {
-  if (uri) return <Image source={{ uri }} style={s.miniAvatar} />;
+// ── module-scope sub-components ────────────────────────────────────────────────
+
+function MiniAvatar({ uri, size = 32 }: { uri: string | null; size?: number }) {
+  const r = size / 2;
+  if (uri) {
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: r, borderWidth: 2, borderColor: "#080810" }} />;
+  }
   return (
-    <View style={[s.miniAvatar, { backgroundColor: "rgba(139,92,246,0.25)", alignItems: "center", justifyContent: "center" }]}>
-      <Text style={{ fontSize: 14 }}>👤</Text>
+    <View style={{ width: size, height: size, borderRadius: r, borderWidth: 2, borderColor: "#080810", backgroundColor: "rgba(139,92,246,0.25)", alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontSize: size * 0.38 }}>👤</Text>
     </View>
   );
 }
 
 function VoteButton({
-  voted,
-  count,
-  onPress,
-  disabled,
+  voted, count, onPress, isMine,
 }: {
-  voted: boolean;
-  count: number;
-  onPress: () => void;
-  disabled?: boolean;
+  voted: boolean; count: number; onPress: () => void; isMine: boolean;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
 
+  if (isMine) {
+    return (
+      <View style={s.yoursPill}>
+        <Text style={s.yoursText}>Yours 💜</Text>
+      </View>
+    );
+  }
+
   const handlePress = () => {
     Animated.sequence([
-      Animated.timing(scale, { toValue: 1.35, duration: 120, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 1, duration: 120, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1.4, duration: 100, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 1, duration: 100, useNativeDriver: true }),
     ]).start();
     onPress();
   };
 
   return (
-    <TouchableOpacity onPress={handlePress} disabled={disabled} activeOpacity={0.8}>
+    <TouchableOpacity onPress={handlePress} activeOpacity={0.8}>
       <Animated.View style={[s.voteBtn, voted && s.voteBtnActive, { transform: [{ scale }] }]}>
-        <Text style={{ fontSize: 16 }}>{voted ? "❤️" : "🤍"}</Text>
+        <Text style={{ fontSize: 15 }}>{voted ? "❤️" : "🤍"}</Text>
         <Text style={[s.voteCount, voted && { color: "#EC4899" }]}>{count}</Text>
       </Animated.View>
     </TouchableOpacity>
   );
 }
 
-function LeaderboardCard({
-  entry,
-  myEntry,
-  userId,
-  userVotes,
-  onVote,
-  onShare,
+// Top-3 podium card with cover photo background and medal glow
+function PodiumCard({
+  entry, myEntry, userVotes, onVote, onShare, index,
 }: {
   entry: LeaderboardEntry;
   myEntry: LeaderboardEntry | null;
-  userId: string;
   userVotes: string[];
   onVote: (id: string, voted: boolean) => void;
   onShare: (entry: LeaderboardEntry) => void;
+  index: number;
 }) {
-  const rank = entry.rank;
-  const isTop3 = rank <= 3;
-  const meta = isTop3 ? RANK_META[rank - 1] : null;
+  const opa = useSharedValue(0);
+  const ty = useSharedValue(44);
+
+  useEffect(() => {
+    opa.value = withDelay(index * 100, withSpring(1, { damping: 22, stiffness: 120 }));
+    ty.value = withDelay(index * 100, withSpring(0, { damping: 18, stiffness: 110 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opa.value,
+    transform: [{ translateY: ty.value }],
+  }));
+
+  const medal = MEDAL[entry.rank - 1];
   const voted = userVotes.includes(entry.id);
   const isMine = myEntry?.id === entry.id;
 
-  const cardContent = (
-    <View style={[s.card, isMine && s.cardMine]}>
-      <View style={s.cardTop}>
-        <View style={s.rankBadge}>
-          <Text style={s.rankText}>{isTop3 ? meta!.emoji : `#${rank}`}</Text>
-        </View>
-        <View style={s.avatarPair}>
-          <MiniAvatar uri={entry.requester?.avatar_url ?? null} />
-          <View style={s.heartOverlap}><Text style={{ fontSize: 12 }}>💑</Text></View>
-          <MiniAvatar uri={entry.receiver?.avatar_url ?? null} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.coupleName} numberOfLines={1}>{entry.couple_name}</Text>
-          <Text style={s.daysTogether}>{entry.daysTogether}d together</Text>
-        </View>
-        <View style={s.cardActions}>
-          {isMine && (
-            <TouchableOpacity onPress={() => onShare(entry)} style={s.shareBtn}>
-              <Ionicons name="share-outline" size={16} color="#A78BFA" />
-            </TouchableOpacity>
-          )}
-          <VoteButton
-            voted={voted}
-            count={entry.vote_count}
-            onPress={() => onVote(entry.id, voted)}
-            disabled={isMine}
-          />
+  return (
+    <ReAnimated.View style={[s.podiumWrap, animStyle]}>
+      {/* Glow halo — iOS shadow */}
+      <View
+        style={[
+          s.podiumGlowRing,
+          { shadowColor: medal.glow, elevation: entry.rank === 1 ? 14 : 10 },
+        ]}
+      >
+        {/* Gradient border (1.5px thick) */}
+        <LinearGradient
+          colors={[medal.colors[0] + "CC", medal.colors[1] + "77"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={s.podiumGradBorder}
+        >
+          <View style={s.podiumInner}>
+            {/* Background: cover photo or gradient */}
+            {entry.cover_photo_url ? (
+              <>
+                <Image
+                  source={{ uri: entry.cover_photo_url }}
+                  style={StyleSheet.absoluteFill as any}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={["rgba(8,8,16,0.5)", "rgba(8,8,16,0.05)", "rgba(8,8,16,0.88)"]}
+                  locations={[0, 0.38, 1]}
+                  style={StyleSheet.absoluteFill as any}
+                />
+              </>
+            ) : (
+              <LinearGradient
+                colors={[medal.colors[0] + "28", "#080810"]}
+                style={StyleSheet.absoluteFill as any}
+              />
+            )}
+
+            {/* Rank badge — top left */}
+            <View
+              style={[
+                s.podiumRankBadge,
+                { backgroundColor: medal.glow + "40", borderColor: medal.glow + "99" },
+              ]}
+            >
+              <Text style={s.podiumRankIcon}>{medal.icon}</Text>
+              <Text style={[s.podiumRankLabel, { color: medal.glow }]}>{medal.label}</Text>
+            </View>
+
+            {/* Share button — top right, only for own entry */}
+            {isMine && (
+              <TouchableOpacity onPress={() => onShare(entry)} style={s.podiumShareBtn}>
+                <Ionicons name="share-outline" size={15} color="rgba(255,255,255,0.75)" />
+              </TouchableOpacity>
+            )}
+
+            {/* Content — pinned to bottom */}
+            <View style={s.podiumContent}>
+              <View style={s.podiumAvatarRow}>
+                <MiniAvatar uri={entry.requester?.avatar_url ?? null} size={50} />
+                <Text style={s.podiumHeart}>💑</Text>
+                <MiniAvatar uri={entry.receiver?.avatar_url ?? null} size={50} />
+              </View>
+              <Text style={s.podiumCoupleName} numberOfLines={1}>{entry.couple_name}</Text>
+              <Text style={s.podiumDays}>{entry.daysTogether}d together</Text>
+              <VoteButton
+                voted={voted}
+                count={entry.vote_count}
+                onPress={() => onVote(entry.id, voted)}
+                isMine={isMine}
+              />
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+    </ReAnimated.View>
+  );
+}
+
+// Compact row for ranks 4+
+function RankRow({
+  entry, myEntry, userVotes, onVote, index,
+}: {
+  entry: LeaderboardEntry;
+  myEntry: LeaderboardEntry | null;
+  userVotes: string[];
+  onVote: (id: string, voted: boolean) => void;
+  index: number;
+}) {
+  const opa = useSharedValue(0);
+  const tx = useSharedValue(18);
+
+  useEffect(() => {
+    opa.value = withDelay(index * 55, withSpring(1, { damping: 24 }));
+    tx.value = withDelay(index * 55, withSpring(0, { damping: 20, stiffness: 130 }));
+  }, []);
+
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: opa.value,
+    transform: [{ translateX: tx.value }],
+  }));
+
+  const voted = userVotes.includes(entry.id);
+  const isMine = myEntry?.id === entry.id;
+
+  return (
+    <ReAnimated.View style={[s.rankRowWrap, isMine && s.rankRowMine, animStyle]}>
+      <Text style={s.rankRowNum}>#{entry.rank}</Text>
+      {/* Overlapping avatars */}
+      <View style={s.rankRowAvatarStack}>
+        <MiniAvatar uri={entry.requester?.avatar_url ?? null} size={28} />
+        <View style={{ marginLeft: -9 }}>
+          <MiniAvatar uri={entry.receiver?.avatar_url ?? null} size={28} />
         </View>
       </View>
-      {entry.cover_photo_url && (
-        <Image source={{ uri: entry.cover_photo_url }} style={s.coverPhoto} resizeMode="cover" />
-      )}
-    </View>
+      <Text style={s.rankRowName} numberOfLines={1}>{entry.couple_name}</Text>
+      <Text style={s.rankRowDays}>{entry.daysTogether}d</Text>
+      <VoteButton
+        voted={voted}
+        count={entry.vote_count}
+        onPress={() => onVote(entry.id, voted)}
+        isMine={isMine}
+      />
+    </ReAnimated.View>
   );
-
-  if (isTop3 && meta) {
-    return (
-      <LinearGradient
-        colors={[meta.colors[0] + "44", meta.colors[1] + "22"]}
-        style={s.topCardGrad}
-      >
-        <View style={[s.topCardInner, { borderColor: meta.colors[0] + "66" }]}>
-          {cardContent}
-        </View>
-      </LinearGradient>
-    );
-  }
-
-  return <View style={s.plainCardWrap}>{cardContent}</View>;
 }
+
+// ── main screen ────────────────────────────────────────────────────────────────
 
 export default function CompetitionScreen() {
   const insets = useSafeAreaInsets();
@@ -267,18 +364,20 @@ export default function CompetitionScreen() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  const resorted = (list: LeaderboardEntry[], id: string, delta: number) =>
+    [...list.map((e) => e.id === id ? { ...e, vote_count: e.vote_count + delta } : e)]
+      .sort((a, b) => b.vote_count - a.vote_count)
+      .map((e, i) => ({ ...e, rank: i + 1 }));
+
   const handleVote = async (competitionId: string, alreadyVoted: boolean) => {
+    const delta = alreadyVoted ? -1 : 1;
     const method = alreadyVoted ? "DELETE" : "POST";
+
     setUserVotes((prev) =>
       alreadyVoted ? prev.filter((id) => id !== competitionId) : [...prev, competitionId]
     );
-    setLeaderboard((prev) =>
-      prev.map((e) =>
-        e.id === competitionId
-          ? { ...e, vote_count: e.vote_count + (alreadyVoted ? -1 : 1) }
-          : e
-      )
-    );
+    setLeaderboard((prev) => resorted(prev, competitionId, delta));
+
     try {
       await fetch(`${API}/competition/vote/${encodeURIComponent(competitionId)}`, {
         method,
@@ -289,13 +388,7 @@ export default function CompetitionScreen() {
       setUserVotes((prev) =>
         alreadyVoted ? [...prev, competitionId] : prev.filter((id) => id !== competitionId)
       );
-      setLeaderboard((prev) =>
-        prev.map((e) =>
-          e.id === competitionId
-            ? { ...e, vote_count: e.vote_count + (alreadyVoted ? 1 : -1) }
-            : e
-        )
-      );
+      setLeaderboard((prev) => resorted(prev, competitionId, -delta));
     }
   };
 
@@ -340,6 +433,9 @@ export default function CompetitionScreen() {
     return acc;
   }, {});
 
+  const top3 = leaderboard.slice(0, 3);
+  const rest = leaderboard.slice(3);
+
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
       <View style={s.header}>
@@ -354,6 +450,8 @@ export default function CompetitionScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollContent}>
+
+        {/* Enter banner */}
         {coupleId && !myEntry && (
           <TouchableOpacity onPress={() => setEnterModal(true)} activeOpacity={0.88} style={s.enterBanner}>
             <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.enterGrad}>
@@ -367,10 +465,11 @@ export default function CompetitionScreen() {
           </TouchableOpacity>
         )}
 
+        {/* My entry banner */}
         {myEntry && myRank && (
           <View style={s.myEntryBanner}>
             <LinearGradient colors={["rgba(124,58,237,0.3)", "rgba(236,72,153,0.15)"]} style={s.myEntryGrad}>
-              <Text style={{ fontSize: 24 }}>{myRank <= 3 ? RANK_META[myRank - 1].emoji : "🏅"}</Text>
+              <Text style={{ fontSize: 24 }}>{myRank <= 3 ? MEDAL[myRank - 1].icon : "🏅"}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={s.myEntryTitle}>{myEntry.couple_name}</Text>
                 <Text style={s.myEntrySub}>Rank #{myRank} · {myEntry.vote_count} votes</Text>
@@ -383,7 +482,8 @@ export default function CompetitionScreen() {
           </View>
         )}
 
-        <Text style={s.sectionTitle}>🏅 Leaderboard</Text>
+        {/* Leaderboard */}
+        <Text style={s.sectionTitle}>Trending Couples 🔥</Text>
 
         {loading ? (
           <View style={s.loadingWrap}><ActivityIndicator color="#8B5CF6" size="large" /></View>
@@ -394,19 +494,40 @@ export default function CompetitionScreen() {
             <Text style={s.emptySub}>Be the first couple to compete this month!</Text>
           </View>
         ) : (
-          leaderboard.map((entry) => (
-            <LeaderboardCard
-              key={entry.id}
-              entry={entry}
-              myEntry={myEntry}
-              userId={userId ?? ""}
-              userVotes={userVotes}
-              onVote={handleVote}
-              onShare={handleShare}
-            />
-          ))
+          <>
+            {/* Podium — top 3 */}
+            {top3.map((entry, i) => (
+              <PodiumCard
+                key={entry.id}
+                entry={entry}
+                myEntry={myEntry}
+                userVotes={userVotes}
+                onVote={handleVote}
+                onShare={handleShare}
+                index={i}
+              />
+            ))}
+
+            {/* Ranks 4+ */}
+            {rest.length > 0 && (
+              <View style={s.rankListCard}>
+                <Text style={s.rankListHeader}>More Couples</Text>
+                {rest.map((entry, i) => (
+                  <RankRow
+                    key={entry.id}
+                    entry={entry}
+                    myEntry={myEntry}
+                    userVotes={userVotes}
+                    onVote={handleVote}
+                    index={i}
+                  />
+                ))}
+              </View>
+            )}
+          </>
         )}
 
+        {/* Hall of Fame */}
         {Object.keys(hallOfFameByMonth).length > 0 && (
           <>
             <Text style={[s.sectionTitle, { marginTop: 32 }]}>✨ Hall of Fame</Text>
@@ -414,10 +535,10 @@ export default function CompetitionScreen() {
               <View key={monthKey} style={s.hofMonth}>
                 <Text style={s.hofMonthTitle}>{monthKey}</Text>
                 {monthWinners.map((w) => {
-                  const meta = RANK_META[w.rank - 1];
+                  const m = MEDAL[Math.min(w.rank - 1, 2)];
                   return (
                     <View key={w.id} style={s.hofRow}>
-                      <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
+                      <Text style={{ fontSize: 20 }}>{m.icon}</Text>
                       <View style={{ flex: 1 }}>
                         <Text style={s.hofName}>{w.couple_name}</Text>
                         <Text style={s.hofVotes}>{w.vote_count} votes</Text>
@@ -434,6 +555,7 @@ export default function CompetitionScreen() {
         )}
       </ScrollView>
 
+      {/* Enter competition modal */}
       <Modal visible={enterModal} transparent animationType="slide" onRequestClose={() => setEnterModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={s.modalOverlay}>
           <View style={s.enterSheet}>
@@ -500,12 +622,15 @@ export default function CompetitionScreen() {
 }
 
 const s = StyleSheet.create({
+  // ── layout ──────────────────────────────────────────────────────────────────
   container: { flex: 1, backgroundColor: "#080810" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.08)" },
   backBtn: { padding: 6 },
   headerTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 18 },
   headerSub: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   scrollContent: { paddingBottom: 120, paddingTop: 4 },
+
+  // ── enter / my-entry banners ─────────────────────────────────────────────────
   enterBanner: { marginHorizontal: 16, marginTop: 14, borderRadius: 18, overflow: "hidden" },
   enterGrad: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 18, paddingVertical: 18 },
   enterTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
@@ -516,37 +641,154 @@ const s = StyleSheet.create({
   myEntrySub: { color: "rgba(255,255,255,0.5)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 2 },
   shareMyBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(139,92,246,0.2)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
   shareMyText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  sectionTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 18, paddingHorizontal: 16, marginTop: 20, marginBottom: 12 },
+
+  // ── section title ────────────────────────────────────────────────────────────
+  sectionTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 18, paddingHorizontal: 16, marginTop: 22, marginBottom: 14 },
   loadingWrap: { paddingVertical: 48, alignItems: "center" },
   emptyWrap: { alignItems: "center", paddingVertical: 40, gap: 10, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 48 },
   emptyTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 18, textAlign: "center" },
   emptySub: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center" },
-  topCardGrad: { marginHorizontal: 16, marginBottom: 10, borderRadius: 20 },
-  topCardInner: { borderRadius: 18, borderWidth: 1.5, overflow: "hidden", backgroundColor: "#0F0F1A" },
-  plainCardWrap: { marginHorizontal: 16, marginBottom: 8 },
-  card: { backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 18, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
-  cardMine: { borderColor: "rgba(139,92,246,0.5)" },
-  cardTop: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
-  rankBadge: { width: 36, alignItems: "center" },
-  rankText: { fontSize: 22 },
-  avatarPair: { flexDirection: "row", alignItems: "center", width: 72 },
-  miniAvatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#080810" },
-  heartOverlap: { marginHorizontal: -4, zIndex: 1 },
-  coupleName: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
-  daysTogether: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 11, marginTop: 2 },
-  cardActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  shareBtn: { padding: 8, backgroundColor: "rgba(139,92,246,0.15)", borderRadius: 12 },
-  voteBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
-  voteBtnActive: { backgroundColor: "rgba(236,72,153,0.15)", borderColor: "rgba(236,72,153,0.4)" },
-  voteCount: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_700Bold", fontSize: 13 },
-  coverPhoto: { width: "100%", height: 140 },
+
+  // ── podium cards (top 3) ─────────────────────────────────────────────────────
+  podiumWrap: { marginHorizontal: 16, marginBottom: 14 },
+  podiumGlowRing: {
+    borderRadius: 22,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+  },
+  podiumGradBorder: { borderRadius: 22, padding: 1.5 },
+  podiumInner: {
+    borderRadius: 20,
+    overflow: "hidden",
+    height: 210,
+    backgroundColor: "#0F0F1A",
+    justifyContent: "flex-end",
+  },
+  podiumRankBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  podiumRankIcon: { fontSize: 18 },
+  podiumRankLabel: { fontFamily: "Poppins_700Bold", fontSize: 17 },
+  podiumShareBtn: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    padding: 8,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    borderRadius: 12,
+  },
+  podiumContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 10,
+    alignItems: "center",
+    gap: 3,
+  },
+  podiumAvatarRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  podiumHeart: { fontSize: 20 },
+  podiumCoupleName: {
+    color: "#fff",
+    fontFamily: "Poppins_700Bold",
+    fontSize: 18,
+    textShadowColor: "rgba(0,0,0,0.9)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  podiumDays: {
+    color: "rgba(255,255,255,0.6)",
+    fontFamily: "Poppins_400Regular",
+    fontSize: 12,
+    marginBottom: 4,
+    textShadowColor: "rgba(0,0,0,0.7)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+
+  // ── vote button ──────────────────────────────────────────────────────────────
+  voteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  voteBtnActive: { backgroundColor: "rgba(236,72,153,0.2)", borderColor: "rgba(236,72,153,0.5)" },
+  voteCount: { color: "rgba(255,255,255,0.85)", fontFamily: "Poppins_700Bold", fontSize: 13 },
+  yoursPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "rgba(139,92,246,0.15)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(139,92,246,0.3)",
+  },
+  yoursText: { color: "#A78BFA", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+
+  // ── rank list (4+) ───────────────────────────────────────────────────────────
+  rankListCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    backgroundColor: "rgba(255,255,255,0.03)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.07)",
+    overflow: "hidden",
+  },
+  rankListHeader: {
+    color: "rgba(255,255,255,0.3)",
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 10,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 1.2,
+  },
+  rankRowWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    borderTopWidth: 0.5,
+    borderTopColor: "rgba(255,255,255,0.05)",
+  },
+  rankRowMine: { backgroundColor: "rgba(139,92,246,0.07)" },
+  rankRowNum: {
+    color: "rgba(255,255,255,0.28)",
+    fontFamily: "Poppins_700Bold",
+    fontSize: 13,
+    width: 30,
+    textAlign: "center",
+  },
+  rankRowAvatarStack: { flexDirection: "row" },
+  rankRowName: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14, flex: 1 },
+  rankRowDays: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 11 },
+
+  // ── hall of fame ─────────────────────────────────────────────────────────────
   hofMonth: { marginHorizontal: 16, marginBottom: 16, backgroundColor: "rgba(255,255,255,0.04)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", overflow: "hidden" },
   hofMonthTitle: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_600SemiBold", fontSize: 13, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.07)" },
   hofRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.05)" },
   hofName: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
   hofVotes: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   hofPhoto: { width: 44, height: 44, borderRadius: 8 },
+
+  // ── enter modal ──────────────────────────────────────────────────────────────
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.7)" },
   enterSheet: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 40 },
   sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginTop: 14, marginBottom: 20 },

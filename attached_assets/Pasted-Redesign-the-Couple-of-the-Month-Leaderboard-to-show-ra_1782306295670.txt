@@ -1,0 +1,43 @@
+Redesign the Couple of the Month Leaderboard to show ranked trending couples (#1, #2, #3...) with premium styling.
+
+File: artifacts/mobile/app/couple/competition.tsx (the Couple of the Month screen)
+
+CURRENT: flat "No entries yet" empty state.
+
+WANTED: A ranked leaderboard where couples are ordered by vote count, showing their rank number.
+
+LEADERBOARD DESIGN:
+
+TOP 3 (special podium styling):
+- #1 — large card, GOLD gradient border/glow, 👑 crown icon, "#1" big and bold in gold
+- #2 — SILVER gradient border/glow, 🥈, "#2" in silver
+- #3 — BRONZE gradient border/glow, 🥉, "#3" in bronze
+- Each top-3 card shows: rank number, both partner avatars (side by side overlapping), couple name, vote count with ❤️, and a Vote button
+
+RANKS 4+ (simpler list):
+- A clean row per couple: "#4", "#5", etc. in muted text
+- Small avatars + couple name on left, vote count + ❤️ vote button on right
+
+VOTE BEHAVIOR:
+- Each user (couple) can vote once per month per couple
+- Tapping ❤️ Vote calls POST /api/couple/competition/vote/:competitionId
+- Tapping again removes vote (DELETE)
+- Can't vote for your own couple (hide/disable vote button on own entry)
+- Update vote count + re-sort optimistically with a smooth animation when ranks change
+
+DATA:
+- GET /api/couple/competition/leaderboard returns couples sorted by vote_count DESC
+- Each entry: competitionId, coupleName, partner1{name,avatar}, partner2{name,avatar}, voteCount, coverPhotoUrl, isMyCouple, votedByMe
+- Add rank dynamically (index + 1) based on sorted order
+
+STYLING (premium):
+- Gold/silver/bronze gradients using expo-linear-gradient
+- Soft glowing shadows matching each medal color
+- Top 3 cards larger with the cover photo as a subtle background (darkened overlay so text is readable)
+- Rank number as a large stylish badge in the corner
+- Smooth entrance animations (Reanimated), stagger cards
+- "Trending Couples 🔥" as the leaderboard section title instead of just "Leaderboard"
+
+Keep the "Enter This Month!" banner at top. Keep all existing API and entry functionality.
+
+After any API changes: rebuild dist, commit, push, then I'll publish.
