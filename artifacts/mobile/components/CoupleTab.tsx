@@ -251,6 +251,14 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         </LinearGradient>
 
         <View style={s.cards}>
+          <ActionCard
+            emoji="💬"
+            title="Couple Feed"
+            sub="Stories & advice from all couples"
+            color="#EC4899"
+            onPress={() => router.push({ pathname: "/couple/feed", params: { coupleId, userId } } as any)}
+          />
+
           {/* Competition banner */}
           <TouchableOpacity
             onPress={() => router.push({ pathname: "/couple/competition", params: { coupleId, userId } } as any)}
