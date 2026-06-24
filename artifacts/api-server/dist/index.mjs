@@ -60477,24 +60477,27 @@ async function enrichPost(sb, post2, coupleId) {
   let coupleName = "Anonymous \u{1F495}";
   if (!isAnon) {
     const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
-    const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
-    if (couple) {
-      const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
-      const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
-      if (author) {
-        authorData = {
-          name: author.full_name || author.username,
-          avatar: author.avatar_url ?? null
-        };
-      }
-      if (partner) {
-        partnerData = {
-          name: partner.full_name || partner.username,
-          avatar: partner.avatar_url ?? null
-        };
-        const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
-        const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
-        coupleName = `${authorFirst} & ${partnerFirst}`;
+    if (author) {
+      authorData = {
+        name: author.full_name || author.username,
+        avatar: author.avatar_url ?? null
+      };
+      coupleName = author.full_name || author.username || "Unknown";
+    }
+    if (post2.couple_id) {
+      const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
+      if (couple) {
+        const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
+        const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
+        if (partner) {
+          partnerData = {
+            name: partner.full_name || partner.username,
+            avatar: partner.avatar_url ?? null
+          };
+          const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
+          const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
+          coupleName = `${authorFirst} & ${partnerFirst}`;
+        }
       }
     }
   }
@@ -60520,7 +60523,7 @@ router34.get("/posts", async (req, res) => {
   const category = req.query["category"];
   const sb = makeSupabase28();
   try {
-    let query = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    let query = sb.from("couple_feed_posts").select("*").order("post_number", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
     if (category && category !== "All") {
       query = query.eq("category", category);
     }

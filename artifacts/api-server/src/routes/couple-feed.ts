@@ -25,37 +25,43 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
       .eq("id", post.author_id)
       .maybeSingle();
 
-    const { data: couple } = await sb
-      .from("couple_links")
-      .select("requester_id, receiver_id")
-      .eq("id", post.couple_id)
-      .maybeSingle();
+    if (author) {
+      authorData = {
+        name: (author as any).full_name || (author as any).username,
+        avatar: (author as any).avatar_url ?? null,
+      };
+      coupleName = (author as any).full_name || (author as any).username || "Unknown";
+    }
 
-    if (couple) {
-      const partnerId =
-        post.author_id === (couple as any).requester_id
-          ? (couple as any).receiver_id
-          : (couple as any).requester_id;
-      const { data: partner } = await sb
-        .from("profiles")
-        .select("id, full_name, username, avatar_url")
-        .eq("id", partnerId)
+    // couple_id may be null if the couple unlinked (ON DELETE SET NULL).
+    // Gracefully skip partner lookup rather than crashing.
+    if (post.couple_id) {
+      const { data: couple } = await sb
+        .from("couple_links")
+        .select("requester_id, receiver_id")
+        .eq("id", post.couple_id)
         .maybeSingle();
 
-      if (author) {
-        authorData = {
-          name: (author as any).full_name || (author as any).username,
-          avatar: (author as any).avatar_url ?? null,
-        };
-      }
-      if (partner) {
-        partnerData = {
-          name: (partner as any).full_name || (partner as any).username,
-          avatar: (partner as any).avatar_url ?? null,
-        };
-        const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];
-        const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
-        coupleName = `${authorFirst} & ${partnerFirst}`;
+      if (couple) {
+        const partnerId =
+          post.author_id === (couple as any).requester_id
+            ? (couple as any).receiver_id
+            : (couple as any).requester_id;
+        const { data: partner } = await sb
+          .from("profiles")
+          .select("id, full_name, username, avatar_url")
+          .eq("id", partnerId)
+          .maybeSingle();
+
+        if (partner) {
+          partnerData = {
+            name: (partner as any).full_name || (partner as any).username,
+            avatar: (partner as any).avatar_url ?? null,
+          };
+          const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];
+          const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
+          coupleName = `${authorFirst} & ${partnerFirst}`;
+        }
       }
     }
   }
@@ -83,6 +89,8 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
 }
 
 // ── GET /posts ─────────────────────────────────────────────────────────────────
+// Returns ALL confessions from ALL couples — this is a permanent public community
+// feed. coupleId is only used to determine likedByMe; it is never used to filter.
 
 router.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"] as string | undefined;
@@ -94,6 +102,8 @@ router.get("/posts", async (req, res) => {
     let query = sb
       .from("couple_feed_posts")
       .select("*")
+      // newest post_number first; fall back to created_at for posts without one
+      .order("post_number", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
