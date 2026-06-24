@@ -1,7 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   Platform,
   StyleSheet,
   Text,
@@ -23,6 +23,29 @@ import { GradientButton } from "@/components/GradientButton";
 import { GundrukLogo } from "@/components/GundrukLogo";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function isValidEmail(v: string) { return EMAIL_RE.test(v.trim()); }
+
+function friendlyLoginError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (
+    m.includes("invalid login") ||
+    m.includes("invalid credentials") ||
+    m.includes("wrong password") ||
+    m.includes("user not found") ||
+    m.includes("invalid email or password") ||
+    m.includes("email not confirmed") ||
+    m.includes("invalid password")
+  ) {
+    return "Incorrect email or password.";
+  }
+  if (m.includes("network") || m.includes("fetch") || m.includes("timeout") || m.includes("failed to fetch")) {
+    return "Something went wrong. Please check your connection and try again.";
+  }
+  // Unknown — give a safe generic message (don't surface raw Supabase strings)
+  return "Something went wrong. Please check your connection and try again.";
+}
 
 function BackgroundOrbs() {
   const ty1 = useSharedValue(0);
@@ -68,7 +91,6 @@ const orbStyles = StyleSheet.create({
   },
 });
 
-// ── Error boundary so a crash never shows pure black ──────────────────────────
 class LoginErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { error: string | null }
@@ -98,27 +120,55 @@ class LoginErrorBoundary extends React.Component<
 function LoginScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [focused, setFocused] = useState<"email" | "password" | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused]   = useState<"email" | "password" | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [formError, setFormError]   = useState<string | null>(null);
 
   React.useEffect(() => { console.log("[LoginScreen] mounted"); }, []);
 
+  // Clear email error once user fixes the address
+  React.useEffect(() => {
+    if (emailError && isValidEmail(email)) setEmailError(null);
+  }, [email]);
+
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
+    setFormError(null);
+    let hasError = false;
+
+    if (!email) {
+      setEmailError("Email is required");
+      hasError = true;
+    } else if (!isValidEmail(email)) {
+      setEmailError("Please enter a valid email address");
+      hasError = true;
     }
+
+    if (!password) {
+      setFormError("Please enter your password.");
+      hasError = true;
+    }
+    if (hasError) return;
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      Alert.alert("Sign In Failed", error.message);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error) {
+        setFormError(friendlyLoginError(error.message ?? ""));
+      }
+      // On success: navigation is handled by RootLayoutNav in _layout.tsx
+    } catch {
+      setFormError("Something went wrong. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
-    // Navigation to feed is handled by RootLayoutNav in _layout.tsx
-    // when the session transitions null → non-null.
   };
+
+  const emailOk = email.length === 0 || isValidEmail(email);
+  const btnDisabled = loading || (email.length > 0 && !emailOk);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
@@ -139,35 +189,81 @@ function LoginScreen() {
       >
         <GundrukLogo subtitle="Welcome back" />
 
-        {/* Glassmorphism form card */}
         <View style={styles.card}>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email address"
-            placeholderTextColor="rgba(156,163,175,0.55)"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onFocus={() => setFocused("email")}
-            onBlur={() => setFocused(null)}
-            style={[styles.input, focused === "email" && styles.inputFocused]}
-          />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor="rgba(156,163,175,0.55)"
-            secureTextEntry
-            onFocus={() => setFocused("password")}
-            onBlur={() => setFocused(null)}
-            style={[styles.input, focused === "password" && styles.inputFocused]}
+          {/* ── Email ── */}
+          <View style={{ gap: 4 }}>
+            <TextInput
+              value={email}
+              onChangeText={v => { setEmail(v); setFormError(null); }}
+              placeholder="Email address"
+              placeholderTextColor="rgba(156,163,175,0.55)"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onFocus={() => setFocused("email")}
+              onBlur={() => setFocused(null)}
+              style={[
+                styles.input,
+                focused === "email" && styles.inputFocused,
+                emailError != null && styles.inputError,
+              ]}
+            />
+            {emailError != null && (
+              <Text style={styles.fieldError}>⚠️ {emailError}</Text>
+            )}
+          </View>
+
+          {/* ── Password ── */}
+          <View style={styles.passwordWrap}>
+            <TextInput
+              value={password}
+              onChangeText={v => { setPassword(v); setFormError(null); }}
+              placeholder="Password"
+              placeholderTextColor="rgba(156,163,175,0.55)"
+              secureTextEntry={!showPassword}
+              onFocus={() => setFocused("password")}
+              onBlur={() => setFocused(null)}
+              style={[
+                styles.input,
+                styles.passwordInput,
+                focused === "password" && styles.inputFocused,
+              ]}
+            />
+            <TouchableOpacity
+              onPress={() => setShowPassword(v => !v)}
+              style={styles.eyeBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color="rgba(255,255,255,0.45)"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Form-level error banner ── */}
+          {formError != null && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{formError}</Text>
+            </View>
+          )}
+
+          <GradientButton
+            onPress={handleLogin}
+            title="Sign In"
+            loading={loading}
+            style={styles.btn}
+            disabled={btnDisabled}
           />
 
-          <GradientButton onPress={handleLogin} title="Sign In" loading={loading} style={styles.btn} />
-
-          <TouchableOpacity onPress={() => {}} style={styles.forgotBtn}>
-            <Text style={[styles.forgotText, { color: colors.mutedForeground }]}>Forgot password?</Text>
+          <TouchableOpacity
+            onPress={() => router.push("/(auth)/forgot-password")}
+            style={styles.forgotBtn}
+          >
+            <Text style={[styles.forgotText, { color: colors.mutedForeground }]}>
+              Forgot password?
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -183,13 +279,8 @@ function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: "#080810",
-  },
-  content: {
-    paddingHorizontal: 24,
-  },
+  root: { flex: 1, backgroundColor: "#080810" },
+  content: { paddingHorizontal: 24 },
   card: {
     backgroundColor: "rgba(255,255,255,0.04)",
     borderWidth: 1,
@@ -215,31 +306,29 @@ const styles = StyleSheet.create({
     borderColor: "rgba(139,92,246,0.6)",
     backgroundColor: "rgba(139,92,246,0.06)",
   },
-  btn: {
-    marginTop: 4,
+  inputError: {
+    borderColor: "rgba(248,113,113,0.5)",
+    backgroundColor: "rgba(248,113,113,0.05)",
   },
-  forgotBtn: {
-    alignItems: "center",
-    paddingVertical: 2,
+  passwordWrap: { position: "relative" },
+  passwordInput: { paddingRight: 50 },
+  eyeBtn: { position: "absolute", right: 14, top: 16 },
+  btn: { marginTop: 4 },
+  forgotBtn: { alignItems: "center", paddingVertical: 2 },
+  forgotText: { fontSize: 13, fontFamily: "Poppins_400Regular" },
+  signupRow: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
+  signupText: { fontSize: 14, fontFamily: "Poppins_400Regular" },
+  signupLink: { fontSize: 14, fontFamily: "Poppins_600SemiBold", color: "#A78BFA" },
+  fieldError: { fontSize: 12, fontFamily: "Poppins_400Regular", color: "#F87171", paddingLeft: 2 },
+  errorBanner: {
+    backgroundColor: "rgba(248,113,113,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(248,113,113,0.25)",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
-  forgotText: {
-    fontSize: 13,
-    fontFamily: "Poppins_400Regular",
-  },
-  signupRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  signupText: {
-    fontSize: 14,
-    fontFamily: "Poppins_400Regular",
-  },
-  signupLink: {
-    fontSize: 14,
-    fontFamily: "Poppins_600SemiBold",
-    color: "#A78BFA",
-  },
+  errorBannerText: { fontSize: 13, fontFamily: "Poppins_400Regular", color: "#FCA5A5", lineHeight: 20 },
 });
 
 export default function LoginScreenWrapper() {

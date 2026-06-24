@@ -1,0 +1,48 @@
+Make the signup/login auth flow robust for new users. Handle all the common error cases gracefully with clear messages instead of crashes or silent failures.
+
+CONTEXT: Using Supabase auth. Signup screen and login screen are in artifacts/mobile/app/(auth)/.
+
+FIX THESE CASES:
+
+1. EMAIL ALREADY REGISTERED (signup):
+- When supabase.auth.signUp returns an error indicating the email exists (error message contains "already registered" / "already exists" / "User already registered"), show a clear message: "This email is already registered. Try logging in instead."
+- Add a "Log in" link/button right there so they can switch to login easily
+
+2. INVALID EMAIL FORMAT (signup + login):
+- Validate email format before submitting (basic regex)
+- Show "Please enter a valid email address" if invalid
+- Disable submit button until email is valid format
+
+3. PASSWORD RULES (signup):
+- Show password requirement hint below the field: "At least 6 characters"
+- Validate min 6 chars before submitting
+- Show inline feedback if too short
+- Optional: a show/hide password toggle (eye icon)
+
+4. WRONG PASSWORD / USER NOT FOUND (login):
+- When login fails with invalid credentials, show "Incorrect email or password" (don't reveal which one is wrong, for security)
+- Don't show raw Supabase error strings to users
+
+5. FORGOT PASSWORD:
+- Add a "Forgot password?" link on the login screen
+- Tapping it opens a screen/modal where user enters their email
+- Call supabase.auth.resetPasswordForEmail(email)
+- Show "Password reset link sent to your email" on success
+- Handle errors gracefully
+
+6. EMAIL VERIFICATION (if Supabase has email confirmation enabled):
+- After successful signup, if the user needs to verify their email, show a clear screen: "Check your email to verify your account" with the email address shown
+- Don't just dump them into the app if they're not verified
+
+7. LOADING STATES:
+- Show a spinner on the button while signup/login is processing
+- Disable the button during the request to prevent double-submission
+
+8. GENERIC NETWORK ERROR:
+- If the request fails due to network/timeout, show "Something went wrong. Please check your connection and try again."
+
+Keep the existing username availability check that was already added.
+Apply consistent styling matching the app's dark theme.
+Show all error messages inline (below the relevant field or as a banner), not as raw alerts where possible.
+
+After changes, typecheck and confirm no errors.
