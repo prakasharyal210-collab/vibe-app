@@ -1,0 +1,48 @@
+Create API routes for the Couple Feed feature.
+
+Create artifacts/api-server/src/routes/couple-feed.ts with these endpoints. All DB access uses the service-role Supabase client (same pattern as other route files).
+
+ENDPOINTS:
+
+1. GET /api/couple-feed/posts?coupleId=<id>&limit=20&offset=0
+   - Returns all posts (public feed, all couples see all posts), newest first
+   - For each post, join the author's profile (full_name, avatar_url) AND the partner's profile from couple_links
+   - Each post should include: id, content, photo_url, category, like_count, comment_count, created_at, author { name, avatar }, partner { name, avatar }, coupleName (e.g. "Prakash & Priya")
+   - Also include "likedByMe": true/false based on whether the requesting coupleId has liked it
+
+2. POST /api/couple-feed/posts
+   - Body: { coupleId, authorId, content, photoUrl (optional), category }
+   - Validate: coupleId must exist in couple_links with status 'accepted', authorId must be part of that couple
+   - Insert into couple_feed_posts, return the created post
+
+3. DELETE /api/couple-feed/posts/:postId
+   - Body: { coupleId }
+   - Only allow delete if the post belongs to that coupleId
+
+4. POST /api/couple-feed/posts/:postId/like
+   - Body: { coupleId, likerId }
+   - Insert into couple_feed_likes (UNIQUE post_id+couple_id prevents double-like)
+   - Increment like_count on the post
+   - Return new like_count
+
+5. DELETE /api/couple-feed/posts/:postId/like
+   - Body: { coupleId }
+   - Remove the like row, decrement like_count
+   - Return new like_count
+
+6. GET /api/couple-feed/posts/:postId/comments
+   - Return all comments for a post with author profile (name, avatar), newest first
+
+7. POST /api/couple-feed/posts/:postId/comments
+   - Body: { coupleId, authorId, content }
+   - Insert comment, increment comment_count on the post
+   - Return the created comment with author profile
+
+Register the router in artifacts/api-server/src/index.ts as:
+app.use('/api/couple-feed', coupleFeedRouter)
+
+Make sure to import it at the top.
+
+To build the couple name "X & Y": fetch both profiles from couple_links (requester_id and receiver_id), use their first names.
+
+After creating: pnpm --filter @workspace/api-server run build, commit dist/, push to GitHub. Then remind me to click Publish in Replit to deploy to production.

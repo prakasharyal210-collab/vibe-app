@@ -20618,27 +20618,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router35;
+    module.exports = Router36;
     module.exports.Route = Route;
-    function Router35(options) {
-      if (!(this instanceof Router35)) {
-        return new Router35(options);
+    function Router36(options) {
+      if (!(this instanceof Router36)) {
+        return new Router36(options);
       }
       const opts = options || {};
-      function router35(req, res, next) {
-        router35.handle(req, res, next);
+      function router36(req, res, next) {
+        router36.handle(req, res, next);
       }
-      Object.setPrototypeOf(router35, this);
-      router35.caseSensitive = opts.caseSensitive;
-      router35.mergeParams = opts.mergeParams;
-      router35.params = {};
-      router35.strict = opts.strict;
-      router35.stack = [];
-      return router35;
+      Object.setPrototypeOf(router36, this);
+      router36.caseSensitive = opts.caseSensitive;
+      router36.mergeParams = opts.mergeParams;
+      router36.params = {};
+      router36.strict = opts.strict;
+      router36.stack = [];
+      return router36;
     }
-    Router35.prototype = function() {
+    Router36.prototype = function() {
     };
-    Router35.prototype.param = function param(name, fn) {
+    Router36.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20658,7 +20658,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router35.prototype.handle = function handle(req, res, callback) {
+    Router36.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20785,7 +20785,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router35.prototype.use = function use(handler) {
+    Router36.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -20818,7 +20818,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router35.prototype.route = function route(path) {
+    Router36.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -20833,7 +20833,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router35.prototype[method] = function(path) {
+      Router36.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21016,13 +21016,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router35 = require_router();
+    var Router36 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router35 = null;
+      var router36 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21031,13 +21031,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router35 === null) {
-            router35 = new Router35({
+          if (router36 === null) {
+            router36 = new Router36({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router35;
+          return router36;
         }
       });
     };
@@ -21108,15 +21108,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router35 = this.router;
+      var router36 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router35.use(path, fn2);
+          return router36.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router35.use(path, function mounted_app(req, res, next) {
+        router36.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23689,7 +23689,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router35 = require_router();
+    var Router36 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23711,8 +23711,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router35.Route;
-    exports.Router = Router35;
+    exports.Route = Router36.Route;
+    exports.Router = Router36;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -41591,12 +41591,12 @@ var require_main3 = __commonJS({
 });
 
 // src/app.ts
-var import_express35 = __toESM(require_express2(), 1);
+var import_express36 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express34 = __toESM(require_express2(), 1);
+var import_express35 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -60462,42 +60462,248 @@ router33.get("/competition/my-entry", async (req, res) => {
 });
 var couple_default = router33;
 
-// src/routes/index.ts
+// src/routes/couple-feed.ts
+var import_express34 = __toESM(require_express2(), 1);
+function makeSupabase28() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
 var router34 = (0, import_express34.Router)();
-router34.use(health_default);
-router34.use("/ai", caption_default);
-router34.use("/ai", chat_default);
-router34.use("/admin", setup_default);
-router34.use("/music", deezer_default);
-router34.use("/posts", remove_default);
-router34.use("/posts", update_default);
-router34.use("/posts", create_default);
-router34.use("/reels", create_default2);
-router34.use("/reels", remove_default2);
-router34.use("/reels", watch_default);
-router34.use("/reels", like_default);
-router34.use("/users", search_default);
-router34.use("/users/social", social_default);
-router34.use("/users/notifications", notifications_default);
-router34.use("/engage", engage_default);
-router34.use("/messages", messages_default);
-router34.use("/users", setup_default2);
-router34.use("/users", onboarding_default);
-router34.use("/users", contacts_default);
-router34.use("/moderation", moderation_default);
-router34.use("/stories", stories_default);
-router34.use("/comments", comments_default);
-router34.use("/storage", storage_default);
-router34.use("/feed", feed_default);
-router34.use("/vibe", vibe_default);
-router34.use("/vibe-requests", vibe_requests_default);
-router34.use("/vibe-rooms", vibe_rooms_default);
-router34.use("/snaps", snaps_default);
-router34.use("/rewards", rewards_default);
-router34.use("/analytics", analytics_default);
-router34.use("/sounds", sounds_default);
-router34.use("/couple", couple_default);
-var routes_default = router34;
+async function enrichPost(sb, post2, coupleId) {
+  const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
+  const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
+  let partnerProfile = null;
+  let coupleName = "";
+  if (couple) {
+    const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
+    const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
+    partnerProfile = partner;
+    const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
+    const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
+    coupleName = `${authorFirst} & ${partnerFirst}`;
+  }
+  let likedByMe = false;
+  if (coupleId) {
+    const { data: like } = await sb.from("couple_feed_likes").select("id").eq("post_id", post2.id).eq("couple_id", coupleId).maybeSingle();
+    likedByMe = !!like;
+  }
+  return {
+    ...post2,
+    author: author ? {
+      name: author.full_name || author.username,
+      avatar: author.avatar_url ?? null
+    } : null,
+    partner: partnerProfile ? {
+      name: partnerProfile.full_name || partnerProfile.username,
+      avatar: partnerProfile.avatar_url ?? null
+    } : null,
+    coupleName,
+    likedByMe
+  };
+}
+router34.get("/posts", async (req, res) => {
+  const coupleId = req.query["coupleId"];
+  const limit = Math.min(Number(req.query["limit"] ?? 20), 50);
+  const offset = Number(req.query["offset"] ?? 0);
+  const sb = makeSupabase28();
+  try {
+    const { data: posts, error } = await sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    if (error) throw error;
+    const enriched = await Promise.all((posts ?? []).map((p) => enrichPost(sb, p, coupleId)));
+    res.json({ posts: enriched });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/posts GET error");
+    res.status(500).json({ error: "Failed to fetch couple feed" });
+  }
+});
+router34.post("/posts", async (req, res) => {
+  const { coupleId, authorId, content, photoUrl, category } = req.body;
+  if (!coupleId || !authorId || !content) {
+    res.status(400).json({ error: "coupleId, authorId, and content are required" });
+    return;
+  }
+  const validCategories = ["Story", "Advice", "Milestone", "Venting"];
+  const cat = category && validCategories.includes(category) ? category : "Story";
+  const sb = makeSupabase28();
+  try {
+    const { data: couple, error: coupleErr } = await sb.from("couple_links").select("id, requester_id, receiver_id, status").eq("id", coupleId).eq("status", "accepted").maybeSingle();
+    if (coupleErr || !couple) {
+      res.status(403).json({ error: "Couple not found or not accepted" });
+      return;
+    }
+    const c = couple;
+    if (authorId !== c.requester_id && authorId !== c.receiver_id) {
+      res.status(403).json({ error: "Author is not part of this couple" });
+      return;
+    }
+    const { data: post2, error } = await sb.from("couple_feed_posts").insert({
+      couple_id: coupleId,
+      author_id: authorId,
+      content,
+      photo_url: photoUrl ?? null,
+      category: cat
+    }).select().single();
+    if (error) throw error;
+    const enriched = await enrichPost(sb, post2, coupleId);
+    res.json({ success: true, post: enriched });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/posts POST error");
+    res.status(500).json({ error: "Failed to create post" });
+  }
+});
+router34.delete("/posts/:postId", async (req, res) => {
+  const { postId } = req.params;
+  const { coupleId } = req.body;
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase28();
+  try {
+    const { error } = await sb.from("couple_feed_posts").delete().eq("id", postId).eq("couple_id", coupleId);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/posts DELETE error");
+    res.status(500).json({ error: "Failed to delete post" });
+  }
+});
+router34.post("/posts/:postId/like", async (req, res) => {
+  const { postId } = req.params;
+  const { coupleId, likerId } = req.body;
+  if (!coupleId || !likerId) {
+    res.status(400).json({ error: "coupleId and likerId required" });
+    return;
+  }
+  const sb = makeSupabase28();
+  try {
+    const { error: insertErr } = await sb.from("couple_feed_likes").insert({ post_id: postId, couple_id: coupleId, liker_id: likerId });
+    if (insertErr) {
+      if (insertErr.code === "23505") {
+        const { data: p } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
+        res.json({ success: true, like_count: p?.like_count ?? 0 });
+        return;
+      }
+      throw insertErr;
+    }
+    const { data: current } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
+    const newCount = (current?.like_count ?? 0) + 1;
+    await sb.from("couple_feed_posts").update({ like_count: newCount }).eq("id", postId);
+    res.json({ success: true, like_count: newCount });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/like POST error");
+    res.status(500).json({ error: "Failed to like post" });
+  }
+});
+router34.delete("/posts/:postId/like", async (req, res) => {
+  const { postId } = req.params;
+  const { coupleId } = req.body;
+  if (!coupleId) {
+    res.status(400).json({ error: "coupleId required" });
+    return;
+  }
+  const sb = makeSupabase28();
+  try {
+    await sb.from("couple_feed_likes").delete().eq("post_id", postId).eq("couple_id", coupleId);
+    const { data: current } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
+    const newCount = Math.max(0, (current?.like_count ?? 1) - 1);
+    await sb.from("couple_feed_posts").update({ like_count: newCount }).eq("id", postId);
+    res.json({ success: true, like_count: newCount });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/like DELETE error");
+    res.status(500).json({ error: "Failed to unlike post" });
+  }
+});
+router34.get("/posts/:postId/comments", async (req, res) => {
+  const { postId } = req.params;
+  const sb = makeSupabase28();
+  try {
+    const { data: comments, error } = await sb.from("couple_feed_comments").select("*").eq("post_id", postId).order("created_at", { ascending: false });
+    if (error) throw error;
+    const authorIds = [...new Set((comments ?? []).map((c) => c.author_id))];
+    const { data: profiles } = authorIds.length ? await sb.from("profiles").select("id, full_name, username, avatar_url").in("id", authorIds) : { data: [] };
+    const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
+    const enriched = (comments ?? []).map((c) => {
+      const p = profileMap[c.author_id];
+      return {
+        ...c,
+        author: p ? { name: p.full_name || p.username, avatar: p.avatar_url ?? null } : null
+      };
+    });
+    res.json({ comments: enriched });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/comments GET error");
+    res.status(500).json({ error: "Failed to fetch comments" });
+  }
+});
+router34.post("/posts/:postId/comments", async (req, res) => {
+  const { postId } = req.params;
+  const { coupleId, authorId, content } = req.body;
+  if (!coupleId || !authorId || !content) {
+    res.status(400).json({ error: "coupleId, authorId, and content required" });
+    return;
+  }
+  const sb = makeSupabase28();
+  try {
+    const { data: comment, error } = await sb.from("couple_feed_comments").insert({ post_id: postId, couple_id: coupleId, author_id: authorId, content }).select().single();
+    if (error) throw error;
+    const { data: current } = await sb.from("couple_feed_posts").select("comment_count").eq("id", postId).maybeSingle();
+    const newCount = (current?.comment_count ?? 0) + 1;
+    await sb.from("couple_feed_posts").update({ comment_count: newCount }).eq("id", postId);
+    const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", authorId).maybeSingle();
+    res.json({
+      success: true,
+      comment: {
+        ...comment,
+        author: author ? { name: author.full_name || author.username, avatar: author.avatar_url ?? null } : null
+      },
+      comment_count: newCount
+    });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/comments POST error");
+    res.status(500).json({ error: "Failed to add comment" });
+  }
+});
+var couple_feed_default = router34;
+
+// src/routes/index.ts
+var router35 = (0, import_express35.Router)();
+router35.use(health_default);
+router35.use("/ai", caption_default);
+router35.use("/ai", chat_default);
+router35.use("/admin", setup_default);
+router35.use("/music", deezer_default);
+router35.use("/posts", remove_default);
+router35.use("/posts", update_default);
+router35.use("/posts", create_default);
+router35.use("/reels", create_default2);
+router35.use("/reels", remove_default2);
+router35.use("/reels", watch_default);
+router35.use("/reels", like_default);
+router35.use("/users", search_default);
+router35.use("/users/social", social_default);
+router35.use("/users/notifications", notifications_default);
+router35.use("/engage", engage_default);
+router35.use("/messages", messages_default);
+router35.use("/users", setup_default2);
+router35.use("/users", onboarding_default);
+router35.use("/users", contacts_default);
+router35.use("/moderation", moderation_default);
+router35.use("/stories", stories_default);
+router35.use("/comments", comments_default);
+router35.use("/storage", storage_default);
+router35.use("/feed", feed_default);
+router35.use("/vibe", vibe_default);
+router35.use("/vibe-requests", vibe_requests_default);
+router35.use("/vibe-rooms", vibe_rooms_default);
+router35.use("/snaps", snaps_default);
+router35.use("/rewards", rewards_default);
+router35.use("/analytics", analytics_default);
+router35.use("/sounds", sounds_default);
+router35.use("/couple", couple_default);
+router35.use("/couple-feed", couple_feed_default);
+var routes_default = router35;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -60518,7 +60724,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express35.default)();
+var app = (0, import_express36.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -60539,8 +60745,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express35.default.json({ limit: "150mb" }));
-app.use(import_express35.default.urlencoded({ extended: true, limit: "150mb" }));
+app.use(import_express36.default.json({ limit: "150mb" }));
+app.use(import_express36.default.urlencoded({ extended: true, limit: "150mb" }));
 app.use((_req, res, next) => {
   const start = Date.now();
   const origEnd = res.end.bind(res);

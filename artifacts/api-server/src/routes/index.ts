@@ -32,6 +32,7 @@ import usersOnboardingRouter from "./users/onboarding";
 import usersContactsRouter from "./users/contacts";
 import soundsRouter from "./sounds";
 import coupleRouter from "./couple";
+import coupleFeedRouter from "./couple-feed";
 
 const router: IRouter = Router();
 
@@ -68,5 +69,6 @@ router.use("/rewards", rewardsRouter);
 router.use("/analytics", analyticsRouter);
 router.use("/sounds", soundsRouter);
 router.use("/couple", coupleRouter);
+router.use("/couple-feed", coupleFeedRouter);
 
 export default router;
