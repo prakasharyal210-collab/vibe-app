@@ -56321,6 +56321,17 @@ function makeSupabase7() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
+async function fetchPartner(sb, profileId) {
+  try {
+    const linkQ = await sb.from("couple_links").select("requester_id, receiver_id").eq("status", "accepted").or(`requester_id.eq.${profileId},receiver_id.eq.${profileId}`).maybeSingle();
+    if (!linkQ.data) return null;
+    const partnerId = linkQ.data.requester_id === profileId ? linkQ.data.receiver_id : linkQ.data.requester_id;
+    const pQ = await sb.from("profiles").select("username, full_name, avatar_url").eq("id", partnerId).maybeSingle();
+    return pQ.data ?? null;
+  } catch {
+    return null;
+  }
+}
 router13.get("/check-username", async (req, res) => {
   const raw = (req.query["username"] ?? "").trim();
   const excludeUserId = req.query["excludeUserId"]?.trim() || void 0;
@@ -56367,7 +56378,7 @@ router13.get("/profile/:username", async (req, res) => {
   const viewerId = req.query["viewer_id"]?.trim() || void 0;
   const sb = makeSupabase7();
   req.log.info({ username }, "profile lookup");
-  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign";
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship";
   const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private";
   try {
     let selectCols = PROFILE_COLS_FULL;
@@ -56426,12 +56437,17 @@ router13.get("/profile/:username", async (req, res) => {
     const posts_count = (postsRes.status === "fulfilled" ? postsRes.value.count ?? 0 : 0) + (reelsRes.status === "fulfilled" ? reelsRes.value.count ?? 0 : 0);
     const followers_count = followersRes.status === "fulfilled" ? followersRes.value.count ?? 0 : 0;
     const following_count = followingRes.status === "fulfilled" ? followingRes.value.count ?? 0 : 0;
+    let partner = null;
+    if (profile.show_relationship !== false) {
+      partner = await fetchPartner(sb, profile.id);
+    }
     res.json({
       profile: {
         ...profile,
         posts_count,
         followers_count,
-        following_count
+        following_count,
+        partner
       }
     });
   } catch (err) {
@@ -56457,7 +56473,7 @@ router13.get("/profile/by-id/:userId", async (req, res) => {
   }
   const sb = makeSupabase7();
   try {
-    const { data, error } = await sb.from("profiles").select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status, zodiac_sign").eq("id", userId).maybeSingle();
+    const { data, error } = await sb.from("profiles").select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship").eq("id", userId).maybeSingle();
     if (error) {
       if (error.code === "42703" || String(error.message).includes("column")) {
         const { data: base, error: baseErr } = await sb.from("profiles").select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private").eq("id", userId).maybeSingle();
@@ -56479,7 +56495,11 @@ router13.get("/profile/by-id/:userId", async (req, res) => {
       res.status(404).json({ error: "not found" });
       return;
     }
-    res.json({ profile: data });
+    let partner = null;
+    if (data.show_relationship !== false) {
+      partner = await fetchPartner(sb, userId);
+    }
+    res.json({ profile: { ...data, partner } });
   } catch (e) {
     req.log.error({ err: e?.message }, "profile by-id error");
     res.status(500).json({ error: "Profile load failed" });
@@ -56491,6 +56511,7 @@ router13.patch("/profile/:userId", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
+  const body = req.body;
   const {
     relationship_status,
     bio,
@@ -56503,7 +56524,8 @@ router13.patch("/profile/:userId", async (req, res) => {
     username,
     avatar_url,
     zodiac_sign
-  } = req.body;
+  } = body;
+  const show_relationship = typeof body.show_relationship === "boolean" ? body.show_relationship : void 0;
   if (relationship_status !== void 0 && relationship_status !== null && !VALID_STATUSES.includes(relationship_status)) {
     res.status(400).json({ error: "invalid relationship_status" });
     return;
@@ -56520,6 +56542,7 @@ router13.patch("/profile/:userId", async (req, res) => {
   if (username !== void 0) updates.username = username;
   if (avatar_url !== void 0) updates.avatar_url = avatar_url;
   if (zodiac_sign !== void 0) updates.zodiac_sign = zodiac_sign;
+  if (show_relationship !== void 0) updates.show_relationship = show_relationship;
   if (Object.keys(updates).length === 0) {
     res.json({ ok: true });
     return;

@@ -1,0 +1,37 @@
+Add a partner relationship badge to user profiles. When a user is linked in a couple, show their partner on their profile with a tappable badge.
+
+CONTEXT:
+- Couple links are in couple_links table (status 'accepted' = linked)
+- Profile screens: artifacts/mobile/app/(tabs)/profile.tsx (own profile) and artifacts/mobile/app/profile/[username].tsx (other users' profiles)
+- All DB access through the API server
+
+STEP 1 — API:
+Add to the profile lookup endpoint (GET /api/users/profile/:username and GET /api/users/profile/by-id/:userId in artifacts/api-server/src/routes/users/search.ts):
+- Check if this profile's user has an accepted couple_link (as requester OR receiver)
+- If yes AND their "show_relationship" setting is true (default true), include in the response:
+  partner: {
+    username: <partner's username>,
+    full_name: <partner's name>,
+    avatar_url: <partner's avatar>,
+    showRelationship: true
+  }
+- If not linked or hidden, partner: null
+
+STEP 2 — DATABASE:
+Add a setting column (give me SQL to run in Supabase):
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS show_relationship BOOLEAN DEFAULT TRUE;
+
+STEP 3 — PROFILE UI:
+On both profile screens, if profile.partner exists, show a relationship badge below the bio (above or near the stats):
+- "💑 With" + partner's small circular avatar (28px) + "@partnername" 
+- The whole badge is tappable → navigates to /profile/[partnerUsername]
+- Style: subtle pink-tinted rounded pill, partner avatar + name in pink (#EC4899)
+- Small heart or couple emoji prefix
+
+STEP 4 — PRIVACY TOGGLE:
+In Settings (artifacts/mobile/app/settings.tsx), in or near the Relationship Mode section (only show when user is coupled):
+- A toggle row: "Show relationship on profile" (ON by default)
+- Toggling calls PATCH /api/users/profile/:userId with { show_relationship: true/false }
+- When OFF, the partner badge won't show on their profile to anyone
+
+Give me the SQL block first, then make API + mobile changes, rebuild dist, commit, push.

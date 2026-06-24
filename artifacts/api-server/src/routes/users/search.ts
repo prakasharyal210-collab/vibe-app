@@ -11,6 +11,35 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+type SB = ReturnType<typeof makeSupabase>;
+
+type PartnerInfo = { username: string; full_name: string | null; avatar_url: string | null } | null;
+
+/** Look up the accepted couple partner for a given profile id. Returns null if not linked or on error. */
+async function fetchPartner(sb: SB, profileId: string): Promise<PartnerInfo> {
+  try {
+    const linkQ = await sb
+      .from("couple_links")
+      .select("requester_id, receiver_id")
+      .eq("status", "accepted")
+      .or(`requester_id.eq.${profileId},receiver_id.eq.${profileId}`)
+      .maybeSingle();
+    if (!linkQ.data) return null;
+    const partnerId =
+      linkQ.data.requester_id === profileId
+        ? linkQ.data.receiver_id
+        : linkQ.data.requester_id;
+    const pQ = await sb
+      .from("profiles")
+      .select("username, full_name, avatar_url")
+      .eq("id", partnerId)
+      .maybeSingle();
+    return pQ.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // GET /api/users/check-username?username=<name>&excludeUserId=<uuid>
 // Returns { available: true } or { available: false, reason?: "invalid_format" }
 router.get("/check-username", async (req, res) => {
@@ -74,19 +103,16 @@ router.get("/profile/:username", async (req, res) => {
 
   req.log.info({ username }, "profile lookup");
 
-  // PROFILE_COLS_FULL includes columns added by optional migrations (vibe_status, relationship_status,
-  // display_name). If those migrations have not been run yet, PostgREST returns a 42703 "column does
-  // not exist" error. We fall back to PROFILE_COLS_BASE so the route never returns 500 for a profile
-  // that actually exists — the mobile app would otherwise show "User not found".
-  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign";
+  // PROFILE_COLS_FULL includes columns added by optional migrations. If those migrations have not
+  // been run yet, PostgREST returns a 42703 "column does not exist" error. We fall back to
+  // PROFILE_COLS_BASE so the route never returns 500 for a profile that actually exists.
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship";
   const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private";
 
   try {
     let selectCols = PROFILE_COLS_FULL;
 
     // Try exact match first, then fall back to case-insensitive match.
-    // ilike without wildcards is equivalent to LOWER(col) = LOWER(val).
-    // Use `any` so we can reassign after the migration-fallback block without TS complaining.
     let profile: any = null;
     let queryError: any = null;
 
@@ -154,12 +180,19 @@ router.get("/profile/:username", async (req, res) => {
     const followers_count = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : 0;
     const following_count = followingRes.status === "fulfilled" ? (followingRes.value.count ?? 0) : 0;
 
+    // Partner badge — show_relationship defaults to true if column doesn't exist yet
+    let partner: PartnerInfo = null;
+    if (profile.show_relationship !== false) {
+      partner = await fetchPartner(sb, profile.id);
+    }
+
     res.json({
       profile: {
         ...profile,
         posts_count,
         followers_count,
         following_count,
+        partner,
       },
     });
   } catch (err: any) {
@@ -185,7 +218,7 @@ router.get("/profile/by-id/:userId", async (req, res) => {
   try {
     const { data, error } = await sb
       .from("profiles")
-      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status, zodiac_sign")
+      .select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship")
       .eq("id", userId)
       .maybeSingle();
 
@@ -206,7 +239,14 @@ router.get("/profile/by-id/:userId", async (req, res) => {
       return;
     }
     if (!data) { res.status(404).json({ error: "not found" }); return; }
-    res.json({ profile: data });
+
+    // Partner badge — show_relationship defaults to true if column doesn't exist yet
+    let partner: PartnerInfo = null;
+    if ((data as any).show_relationship !== false) {
+      partner = await fetchPartner(sb, userId);
+    }
+
+    res.json({ profile: { ...(data as any), partner } });
   } catch (e: any) {
     req.log.error({ err: e?.message }, "profile by-id error");
     res.status(500).json({ error: "Profile load failed" });
@@ -217,11 +257,16 @@ router.patch("/profile/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
 
+  const body = req.body as Record<string, any>;
   const {
     relationship_status,
     bio, full_name, display_name, website, location, pronouns, vibe_status,
     username, avatar_url, zodiac_sign,
-  } = req.body as Record<string, string | null | undefined>;
+  } = body as Record<string, string | null | undefined>;
+
+  // show_relationship is a boolean — handle separately from the string fields
+  const show_relationship: boolean | undefined =
+    typeof body.show_relationship === "boolean" ? body.show_relationship : undefined;
 
   if (
     relationship_status !== undefined &&
@@ -232,7 +277,7 @@ router.patch("/profile/:userId", async (req, res) => {
     return;
   }
 
-  const updates: Record<string, string | null> = {};
+  const updates: Record<string, string | boolean | null> = {};
   if (relationship_status !== undefined) updates.relationship_status = relationship_status;
   if (bio !== undefined) updates.bio = bio;
   if (full_name !== undefined) updates.full_name = full_name;
@@ -244,6 +289,7 @@ router.patch("/profile/:userId", async (req, res) => {
   if (username !== undefined) updates.username = username;
   if (avatar_url !== undefined) updates.avatar_url = avatar_url;
   if (zodiac_sign !== undefined) updates.zodiac_sign = zodiac_sign;
+  if (show_relationship !== undefined) updates.show_relationship = show_relationship;
 
   if (Object.keys(updates).length === 0) { res.json({ ok: true }); return; }
 

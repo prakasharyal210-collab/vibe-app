@@ -748,6 +748,23 @@ export default function UserProfileScreen() {
               </View>
             ) : null}
             {profile?.bio ? <Text style={[styles.bio, { color: colors.foreground }]}>{profile.bio}</Text> : null}
+            {(profile as any)?.partner && (
+              <TouchableOpacity
+                onPress={() => router.push(`/profile/${(profile as any).partner.username}` as any)}
+                style={styles.partnerBadge}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.partnerEmoji}>💑</Text>
+                {(profile as any).partner.avatar_url ? (
+                  <Image source={{ uri: (profile as any).partner.avatar_url }} style={styles.partnerAvatarSmall} />
+                ) : (
+                  <View style={[styles.partnerAvatarSmall, styles.partnerAvatarFallback]}>
+                    <Text style={{ fontSize: 10 }}>👤</Text>
+                  </View>
+                )}
+                <Text style={styles.partnerHandle}>@{(profile as any).partner.username}</Text>
+              </TouchableOpacity>
+            )}
             {mutuals.count > 0 && (
               <Text style={[styles.mutuals, { color: colors.mutedForeground }]}>
                 {"Followed by "}
@@ -959,6 +976,17 @@ const styles = StyleSheet.create({
   pronounsBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, backgroundColor: "rgba(80,50,150,0.15)", borderColor: "rgba(140,100,230,0.35)" },
   pronounsText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#c4b5fd" },
   bio: { fontFamily: "Poppins_400Regular", fontSize: 13, lineHeight: 20 },
+  partnerBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "rgba(236,72,153,0.1)",
+    borderWidth: 1, borderColor: "rgba(236,72,153,0.25)",
+    borderRadius: 20, paddingVertical: 5, paddingHorizontal: 10,
+    alignSelf: "flex-start", marginTop: 2,
+  },
+  partnerAvatarSmall: { width: 26, height: 26, borderRadius: 13 },
+  partnerAvatarFallback: { backgroundColor: "rgba(236,72,153,0.15)", alignItems: "center", justifyContent: "center" },
+  partnerEmoji: { fontSize: 13 },
+  partnerHandle: { fontSize: 12, fontFamily: "Poppins_500Medium", color: "#EC4899" },
   mutuals: { fontFamily: "Poppins_400Regular", fontSize: 12, lineHeight: 18 },
   websiteRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   websiteText: { color: "#7C3AED", fontFamily: "Poppins_600SemiBold", fontSize: 13 },

@@ -44,6 +44,7 @@ import { captureRef } from "react-native-view-shot";
 import { buildVibeUrl } from "@/lib/share";
 
 import { useProfileRealtime } from "@/context/RealtimeContext";
+import { useCoupleStatus } from "@/context/CoupleContext";
 import { useColors } from "@/hooks/useColors";
 import { Profile, supabase } from "@/lib/supabase";
 import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
@@ -813,6 +814,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const isLoggedIn = !!session;
+  const coupleInfo = useCoupleStatus();
   const [profile, setProfile] = useState<Profile>(MOCK_PROFILE);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
@@ -1291,6 +1293,23 @@ export default function ProfileScreen() {
             {(profile as any).zodiac_sign ? (
               <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
             ) : null}
+            {coupleInfo.coupleStatus === "coupled" && coupleInfo.partnerUsername && (
+              <TouchableOpacity
+                onPress={() => router.push(`/profile/${coupleInfo.partnerUsername}` as any)}
+                style={styles.partnerBadge}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.partnerEmoji}>💑</Text>
+                {coupleInfo.partnerAvatar ? (
+                  <Image source={{ uri: coupleInfo.partnerAvatar }} style={styles.partnerAvatarSmall} />
+                ) : (
+                  <View style={[styles.partnerAvatarSmall, styles.partnerAvatarFallback]}>
+                    <Text style={{ fontSize: 10 }}>👤</Text>
+                  </View>
+                )}
+                <Text style={styles.partnerHandle}>@{coupleInfo.partnerUsername}</Text>
+              </TouchableOpacity>
+            )}
             {(profile as any).pronouns ? (
               <View style={styles.pronounsBadge}>
                 <Text style={styles.pronounsText}>{(profile as any).pronouns}</Text>
@@ -1632,6 +1651,17 @@ const styles = StyleSheet.create({
   shareLinkText: { fontSize: 12, fontFamily: "Poppins_500Medium" },
   pronounsBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, borderWidth: 1, backgroundColor: "rgba(80,50,150,0.15)", borderColor: "rgba(140,100,230,0.35)" },
   pronounsText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#c4b5fd" },
+  partnerBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "rgba(236,72,153,0.1)",
+    borderWidth: 1, borderColor: "rgba(236,72,153,0.25)",
+    borderRadius: 20, paddingVertical: 5, paddingHorizontal: 10,
+    alignSelf: "flex-start",
+  },
+  partnerAvatarSmall: { width: 24, height: 24, borderRadius: 12 },
+  partnerAvatarFallback: { backgroundColor: "rgba(236,72,153,0.15)", alignItems: "center", justifyContent: "center" },
+  partnerEmoji: { fontSize: 13 },
+  partnerHandle: { fontSize: 12, fontFamily: "Poppins_500Medium", color: "#EC4899" },
   statsPanel: { borderRadius: 16, marginBottom: 14, overflow: "hidden" },
   statsPanelRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 4 },
   statsPanelSep: { height: 0.5, marginHorizontal: 12 },

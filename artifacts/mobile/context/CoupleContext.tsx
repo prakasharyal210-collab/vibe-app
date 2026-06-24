@@ -24,6 +24,7 @@ interface CoupleContextValue {
   coupleId: string | null;
   partnerId: string | null;
   partnerName: string | null;
+  partnerUsername: string | null;
   partnerAvatar: string | null;
   pendingSent: { id: string; receiver_id: string; receiver: CoupleProfile | null } | null;
   pendingReceived: PendingRequest[];
@@ -37,6 +38,7 @@ const CoupleContext = createContext<CoupleContextValue>({
   coupleId: null,
   partnerId: null,
   partnerName: null,
+  partnerUsername: null,
   partnerAvatar: null,
   pendingSent: null,
   pendingReceived: [],
@@ -52,6 +54,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
   const [coupleId, setCoupleId] = useState<string | null>(null);
   const [partnerId, setPartnerId] = useState<string | null>(null);
   const [partnerName, setPartnerName] = useState<string | null>(null);
+  const [partnerUsername, setPartnerUsername] = useState<string | null>(null);
   const [partnerAvatar, setPartnerAvatar] = useState<string | null>(null);
   const [pendingSent, setPendingSent] = useState<CoupleContextValue["pendingSent"]>(null);
   const [pendingReceived, setPendingReceived] = useState<PendingRequest[]>([]);
@@ -63,6 +66,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
       setCoupleId(null);
       setPartnerId(null);
       setPartnerName(null);
+      setPartnerUsername(null);
       setPartnerAvatar(null);
       setPendingSent(null);
       setPendingReceived([]);
@@ -79,6 +83,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
           const partner = data.partner ?? null;
           setPartnerId(partner?.id ?? null);
           setPartnerName(partner?.full_name || partner?.username || null);
+          setPartnerUsername(partner?.username ?? null);
           setPartnerAvatar(partner?.avatar_url ?? null);
           setPendingSent(null);
           setPendingReceived([]);
@@ -87,6 +92,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
           setCoupleId(null);
           setPartnerId(null);
           setPartnerName(null);
+          setPartnerUsername(null);
           setPartnerAvatar(null);
           setPendingSent({ id: data.pending?.id, receiver_id: data.pending?.receiver_id, receiver: data.receiver ?? null });
           setPendingReceived([]);
@@ -95,6 +101,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
           setCoupleId(null);
           setPartnerId(null);
           setPartnerName(null);
+          setPartnerUsername(null);
           setPartnerAvatar(null);
           setPendingSent(null);
           setPendingReceived(data.pendingRequests ?? []);
@@ -103,6 +110,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
           setCoupleId(null);
           setPartnerId(null);
           setPartnerName(null);
+          setPartnerUsername(null);
           setPartnerAvatar(null);
           setPendingSent(null);
           setPendingReceived([]);
@@ -126,6 +134,7 @@ export function CoupleProvider({ children }: { children: React.ReactNode }) {
         coupleId,
         partnerId,
         partnerName,
+        partnerUsername,
         partnerAvatar,
         pendingSent,
         pendingReceived,

@@ -811,6 +811,33 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const [showRelationship, setShowRelationship] = useState(true);
+
+  useEffect(() => {
+    if (coupleStatus !== "coupled" || !userId) return;
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    fetch(`${apiBase}/users/profile/by-id/${userId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: any) => {
+        if (d?.profile?.show_relationship !== undefined) {
+          setShowRelationship(d.profile.show_relationship !== false);
+        }
+      })
+      .catch(() => {});
+  }, [coupleStatus, userId]);
+
+  const handleShowRelationshipToggle = async (value: boolean) => {
+    setShowRelationship(value);
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    try {
+      await fetch(`${apiBase}/users/profile/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ show_relationship: value }),
+      });
+    } catch { /* non-fatal */ }
+  };
+
   const handleUnlink = () => {
     Alert.alert("Unlink Couple?", "This will remove your couple connection.", [
       { text: "Cancel", style: "cancel" },
@@ -993,6 +1020,18 @@ export default function SettingsScreen() {
                 <TouchableOpacity onPress={handleUnlink} style={relStyles.unlinkBtn}>
                   <Text style={relStyles.unlinkText}>Unlink</Text>
                 </TouchableOpacity>
+              </View>
+              <View style={[relStyles.toggleRow, { borderTopColor: colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[relStyles.toggleLabel, { color: colors.foreground }]}>Show on profile</Text>
+                  <Text style={[relStyles.toggleSub, { color: colors.mutedForeground }]}>Display partner badge publicly</Text>
+                </View>
+                <Switch
+                  value={showRelationship}
+                  onValueChange={handleShowRelationshipToggle}
+                  trackColor={{ false: "rgba(255,255,255,0.1)", true: "rgba(236,72,153,0.5)" }}
+                  thumbColor={showRelationship ? "#EC4899" : "rgba(255,255,255,0.6)"}
+                />
               </View>
             </View>
           )}
@@ -1410,6 +1449,13 @@ const relStyles = StyleSheet.create({
     borderColor: "rgba(239,68,68,0.4)",
   },
   unlinkText: { color: "#EF4444", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  toggleRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  toggleLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  toggleSub: { fontFamily: "Poppins_400Regular", fontSize: 12, marginTop: 1 },
   pendingWrap: { alignItems: "center", padding: 20 },
   pendingTitle: { fontFamily: "Poppins_700Bold", fontSize: 17, marginBottom: 6 },
   pendingSub: { fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center", marginBottom: 16 },

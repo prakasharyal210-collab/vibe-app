@@ -1,0 +1,42 @@
+Add "Post as Couple" feature — let linked couples co-post to Feed and Reels, showing both partners' names and avatars.
+
+IMPORTANT: Do NOT rebuild the posting system. ADD a couple flag to existing posts/reels. Keep all existing posting logic intact.
+
+STEP 1 — DATABASE (give me SQL to run in Supabase):
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS couple_id UUID;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_couple_post BOOLEAN DEFAULT FALSE;
+ALTER TABLE reels ADD COLUMN IF NOT EXISTS couple_id UUID;
+ALTER TABLE reels ADD COLUMN IF NOT EXISTS is_couple_post BOOLEAN DEFAULT FALSE;
+
+STEP 2 — API:
+- In the create post route (artifacts/api-server/src/routes/posts/create.ts) and create reel route (reels/create.ts):
+  - Accept optional { coupleId, isCouplePost } in the body
+  - If isCouplePost is true, validate the coupleId is an accepted couple_link the author belongs to, then save couple_id + is_couple_post = true
+- In the feed/reel fetch routes AND profile post-grid routes:
+  - When is_couple_post = true, include a "couple" object in the response:
+    couple: { 
+      partner1: { username, full_name, avatar_url },
+      partner2: { username, full_name, avatar_url },
+      coupleName: "Name1 & Name2"
+    }
+  - A couple post should appear on BOTH partners' profile grids (when fetching posts for either partner's profile, include couple posts where they are part of the couple_id)
+
+STEP 3 — MOBILE: CREATE FLOW
+In the post/reel creation screen (the + tab flow):
+- IF the user is linked in a couple (use CoupleContext isLinked), show a toggle: "💑 Post as Couple"
+- When ON, the post is sent with coupleId + isCouplePost: true
+- When OFF (default), posts normally as just the individual
+
+STEP 4 — MOBILE: DISPLAY
+In feed cards, reel overlays, and profile grids:
+- When a post/reel has is_couple_post = true:
+  - Show BOTH avatars (overlapping, side by side) instead of one
+  - Show the couple name "Prakash & Priya" instead of single username
+  - A small 💑 indicator
+  - Tapping the names could open a small menu to visit either profile (or just default to the poster)
+- Normal posts display exactly as before (no change)
+
+STEP 5 — EDGE CASE (unlinking):
+- If a couple unlinks, their existing couple posts should REMAIN (do not delete). They just stay as couple posts with the saved couple info. Make sure couple_id is NOT a cascade-delete foreign key — keep it as a plain UUID column (that's why we didn't add REFERENCES in the SQL above).
+
+Give me the SQL block first. Then API changes, then mobile. Rebuild dist, commit, push. Keep all existing non-couple posting working exactly as before.
