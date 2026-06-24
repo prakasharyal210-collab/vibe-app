@@ -1,0 +1,40 @@
+Redesign the Couple tab home screen in Gundruk to look premium and polished — glassmorphism + soft romantic gradients style (like Locket / Pixels / premium dating apps).
+
+File: the couple home screen (artifacts/mobile/app/(tabs)/find.tsx couple section, or artifacts/mobile/app/couple/index.tsx — wherever the couple home cards render).
+
+DESIGN DIRECTION — "Premium Romantic Glassmorphism":
+
+1. BACKGROUND:
+   - Deep dark base (#0D0D14)
+   - A soft radial gradient glow behind the couple avatars at top: pink (#EC4899) fading to purple (#8B5CF6) fading to transparent, very subtle, like a warm aura
+   - Optional: subtle floating heart particles or a faint gradient mesh (keep performant)
+
+2. COUPLE HEADER (top section with avatars + name + days together):
+   - Two avatars with glowing gradient rings (pink-to-purple), connected by an animated heart in the middle
+   - Couple name in large bold white text with slight letter spacing
+   - "days together" counter: make it a glassmorphic pill — semi-transparent white background (rgba(255,255,255,0.06)), backdrop blur, thin border (rgba(255,255,255,0.12)), large pink number, soft inner glow
+
+3. FEATURE CARDS (Confession Room, Couple of the Month, Shared Album, Notes, Bucket List):
+   - Glassmorphic cards: background rgba(255,255,255,0.05), border 1px rgba(255,255,255,0.1), borderRadius 24, backdrop blur effect
+   - Each card has a soft colored glow matching its theme:
+     - Confession Room → pink glow
+     - Couple of the Month → gold/amber glow (keep it special, maybe a subtle shimmer)
+     - Shared Album → purple glow
+     - Notes → blue glow
+     - Bucket List → teal glow
+   - Icon in a rounded squircle container with a soft gradient matching the card theme
+   - Title in white semibold, subtitle in muted gray (rgba(255,255,255,0.5))
+   - Subtle press animation: scale down to 0.97 with spring on tap
+   - Generous padding (20px) and spacing between cards (16px)
+
+4. POLISH:
+   - Use consistent shadows: soft, colored, blurred (shadowColor matching the glow, shadowOpacity 0.3, shadowRadius 20)
+   - Smooth entrance animation: cards fade + slide up slightly on mount (stagger them 50ms apart) using Reanimated
+   - Rounded everything, no sharp corners
+   - Premium typography: bold titles, light subtitles
+
+Use expo-linear-gradient for gradients (already in the project), and react-native-reanimated for animations (already used elsewhere in the app like the profile screen).
+
+For the glassmorphism blur, use expo-blur (BlurView) if available; if not, simulate with semi-transparent backgrounds.
+
+Keep all existing navigation and functionality — only change the visual design. Each card still navigates to the same screen.
