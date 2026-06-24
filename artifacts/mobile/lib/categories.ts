@@ -14,6 +14,11 @@ export const POST_CATEGORIES = [
   { id: "tech",        emoji: "💻", label: "Tech" },
   { id: "education",   emoji: "📚", label: "Education" },
   { id: "nature",      emoji: "🌿", label: "Nature" },
+  { id: "love",        emoji: "💕", label: "Love" },
+  { id: "spiritual",   emoji: "🙏", label: "Spiritual" },
+  { id: "memes",       emoji: "😂", label: "Memes" },
+  { id: "culture",     emoji: "💃", label: "Culture" },
+  { id: "other",       emoji: "✨", label: "Other" },
 ] as const;
 
 export type CategoryId = typeof POST_CATEGORIES[number]["id"];
