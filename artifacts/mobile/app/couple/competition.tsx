@@ -20,6 +20,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 const API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
 
@@ -182,8 +184,53 @@ export default function CompetitionScreen() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [enterModal, setEnterModal] = useState(false);
   const [coupleName, setCoupleName] = useState("");
-  const [coverUrl, setCoverUrl] = useState("");
+  const [coverPhotoUri, setCoverPhotoUri] = useState<string | null>(null);
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [entering, setEntering] = useState(false);
+
+  const pickCoverPhoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission needed", "Allow photo library access to add a cover photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const uri = result.assets[0].uri;
+    setCoverPhotoUri(uri);
+    setCoverPhotoUrl(null);
+    setUploadingPhoto(true);
+    try {
+      const mimeType = uri.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
+      const base64 = await FileSystem.readAsStringAsync(uri, { encoding: "base64" as any });
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
+      const res = await fetch(`${apiBase}/api/storage/avatar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64, userId, mimeType }),
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json() as { url: string };
+      setCoverPhotoUrl(url);
+    } catch {
+      Alert.alert("Upload failed", "Could not upload the photo. Please try again.");
+      setCoverPhotoUri(null);
+      setCoverPhotoUrl(null);
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const clearCoverPhoto = () => {
+    setCoverPhotoUri(null);
+    setCoverPhotoUrl(null);
+  };
 
   const fetchAll = useCallback(async () => {
     try {
@@ -254,6 +301,7 @@ export default function CompetitionScreen() {
 
   const handleEnter = async () => {
     if (!coupleName.trim()) { Alert.alert("Name required", "Enter a couple name to compete"); return; }
+    if (uploadingPhoto) { Alert.alert("Please wait", "Photo is still uploading…"); return; }
     setEntering(true);
     try {
       const res = await fetch(`${API}/competition/enter`, {
@@ -262,14 +310,15 @@ export default function CompetitionScreen() {
         body: JSON.stringify({
           coupleId,
           coupleName: coupleName.trim(),
-          coverPhotoUrl: coverUrl.trim() || null,
+          coverPhotoUrl: coverPhotoUrl ?? null,
         }),
       });
       const data = await res.json();
       if (data.error) { Alert.alert("Error", data.error); return; }
       setEnterModal(false);
       setCoupleName("");
-      setCoverUrl("");
+      setCoverPhotoUri(null);
+      setCoverPhotoUrl(null);
       fetchAll();
     } catch {
       Alert.alert("Error", "Failed to enter competition");
@@ -402,15 +451,32 @@ export default function CompetitionScreen() {
               maxLength={40}
             />
 
-            <Text style={s.fieldLabel}>Cover Photo URL (optional)</Text>
-            <TextInput
-              style={s.textInput}
-              placeholder="Paste a photo URL from your album"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              value={coverUrl}
-              onChangeText={setCoverUrl}
-              autoCapitalize="none"
-            />
+            <Text style={s.fieldLabel}>Cover Photo (optional)</Text>
+            {coverPhotoUri ? (
+              <View style={s.photoPreviewWrap}>
+                <Image source={{ uri: coverPhotoUri }} style={s.photoPicked} resizeMode="cover" />
+                {uploadingPhoto ? (
+                  <View style={s.photoOverlay}>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={s.photoOverlayText}>Uploading…</Text>
+                  </View>
+                ) : coverPhotoUrl ? (
+                  <View style={s.photoReadyBadge}>
+                    <Ionicons name="checkmark-circle" size={18} color="#34D399" />
+                    <Text style={s.photoReadyText}>Ready</Text>
+                  </View>
+                ) : null}
+                <TouchableOpacity onPress={clearCoverPhoto} style={s.photoRemoveBtn}>
+                  <Ionicons name="close-circle" size={28} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={pickCoverPhoto} style={s.photoPickBtn} activeOpacity={0.75}>
+                <Ionicons name="camera-outline" size={28} color="rgba(255,255,255,0.4)" />
+                <Text style={s.photoPickText}>Add Cover Photo</Text>
+                <Text style={s.photoPickSub}>16:9 recommended</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               onPress={handleEnter}
@@ -488,8 +554,18 @@ const s = StyleSheet.create({
   sheetSub: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 14, marginBottom: 20 },
   fieldLabel: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_600SemiBold", fontSize: 13, marginBottom: 8 },
   textInput: { backgroundColor: "rgba(255,255,255,0.07)", borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", paddingHorizontal: 16, paddingVertical: 13, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 15, marginBottom: 16 },
-  enterConfirmBtn: { backgroundColor: "#7C3AED", borderRadius: 16, paddingVertical: 16, alignItems: "center", marginBottom: 10 },
+  enterConfirmBtn: { backgroundColor: "#7C3AED", borderRadius: 16, paddingVertical: 16, alignItems: "center", marginBottom: 10, marginTop: 20 },
   enterConfirmText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 },
   cancelBtn: { alignItems: "center", paddingVertical: 12 },
   cancelText: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 14 },
+  photoPickBtn: { height: 110, borderRadius: 16, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.12)", borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(255,255,255,0.03)", marginBottom: 16 },
+  photoPickText: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_600SemiBold", fontSize: 14 },
+  photoPickSub: { color: "rgba(255,255,255,0.25)", fontFamily: "Poppins_400Regular", fontSize: 11 },
+  photoPreviewWrap: { position: "relative", marginBottom: 16, borderRadius: 16, overflow: "hidden" },
+  photoPicked: { width: "100%", height: 140, borderRadius: 16 },
+  photoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.55)", alignItems: "center", justifyContent: "center", gap: 6 } as any,
+  photoOverlayText: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
+  photoReadyBadge: { position: "absolute", bottom: 8, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
+  photoReadyText: { color: "#34D399", fontFamily: "Poppins_600SemiBold", fontSize: 12 },
+  photoRemoveBtn: { position: "absolute", top: 8, right: 8 },
 });
