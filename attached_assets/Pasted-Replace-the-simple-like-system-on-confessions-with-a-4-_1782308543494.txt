@@ -1,0 +1,51 @@
+Replace the simple like system on confessions with a 4-reaction system (like Facebook reactions but for emotional support).
+
+THE 4 REACTIONS:
+- support (🫂) - "I'm here for you"
+- relate (🥲) - "I feel this"
+- strength (💪) - "Stay strong"
+- love (❤️) - "This touched me"
+
+STEP 1 — DATABASE (give me SQL to run in Supabase first):
+The couple_feed_likes table currently stores one like per couple per post. Convert it to store a reaction type:
+
+ALTER TABLE couple_feed_likes ADD COLUMN IF NOT EXISTS reaction TEXT DEFAULT 'support' CHECK (reaction IN ('support', 'relate', 'strength', 'love'));
+
+Also we need per-reaction counts on posts. Instead of just like_count, add:
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS reaction_support INT DEFAULT 0;
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS reaction_relate INT DEFAULT 0;
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS reaction_strength INT DEFAULT 0;
+ALTER TABLE couple_feed_posts ADD COLUMN IF NOT EXISTS reaction_love INT DEFAULT 0;
+
+(keep like_count as the total of all reactions for backwards compat)
+
+STEP 2 — API (artifacts/api-server/src/routes/couple-feed.ts):
+- POST /api/couple-feed/posts/:postId/react
+  - Body: { coupleId, likerId, reaction } where reaction is one of support/relate/strength/love
+  - If the couple already reacted: update their reaction to the new type (and adjust the per-reaction counts: decrement old reaction count, increment new one)
+  - If new reaction: insert row, increment that reaction's count + like_count
+  - Return updated counts + myReaction
+- DELETE /api/couple-feed/posts/:postId/react
+  - Body: { coupleId }
+  - Remove the couple's reaction, decrement the appropriate count + like_count
+  - Return updated counts
+- GET /api/couple-feed/posts now returns for each post:
+  - reactions: { support, relate, strength, love } counts
+  - totalReactions (sum)
+  - myReaction: 'support' | 'relate' | 'strength' | 'love' | null (what THIS couple reacted, based on coupleId param)
+
+STEP 3 — MOBILE UI (artifacts/mobile/app/couple/feed.tsx):
+- Remove the single ❤️ like button
+- Add a reaction bar at the bottom of each confession card showing the 4 emoji reactions with their counts:
+  🫂 12   🥲 8   💪 5   ❤️ 3
+- Tapping an emoji applies that reaction (highlights it if it's your current reaction)
+- Tapping your current reaction again removes it
+- Show total reaction count somewhere ("28 reactions")
+- The emoji the user selected should be visually highlighted (filled/colored background pill)
+
+- DOUBLE-TAP on the card = quick 🫂 support reaction with the big animated emoji pop (the 🫂 emoji scales up in center then fades)
+- Tapping a reaction = optimistic update
+
+Style: reaction pills in a horizontal row, dark rounded pills, selected one has a pink/colored highlight. Emoji + count side by side.
+
+After API changes: pnpm --filter @workspace/api-server run build, commit dist/, push. Give me the SQL block first.

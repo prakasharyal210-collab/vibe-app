@@ -60501,11 +60501,17 @@ async function enrichPost(sb, post2, coupleId) {
       }
     }
   }
-  let likedByMe = false;
+  let myReaction = null;
   if (coupleId) {
-    const { data: like } = await sb.from("couple_feed_likes").select("id").eq("post_id", post2.id).eq("couple_id", coupleId).maybeSingle();
-    likedByMe = !!like;
+    const { data: like } = await sb.from("couple_feed_likes").select("reaction").eq("post_id", post2.id).eq("couple_id", coupleId).maybeSingle();
+    myReaction = like?.reaction ?? null;
   }
+  const reactions = {
+    support: post2.reaction_support ?? 0,
+    relate: post2.reaction_relate ?? 0,
+    strength: post2.reaction_strength ?? 0,
+    love: post2.reaction_love ?? 0
+  };
   return {
     ...post2,
     isAnonymous: isAnon,
@@ -60513,7 +60519,10 @@ async function enrichPost(sb, post2, coupleId) {
     author: isAnon ? null : authorData,
     partner: isAnon ? null : partnerData,
     coupleName: isAnon ? "Anonymous \u{1F495}" : coupleName,
-    likedByMe
+    likedByMe: myReaction !== null,
+    myReaction,
+    reactions,
+    totalReactions: reactions.support + reactions.relate + reactions.strength + reactions.love
   };
 }
 router34.get("/posts", async (req, res) => {
@@ -60591,34 +60600,69 @@ router34.delete("/posts/:postId", async (req, res) => {
     res.status(500).json({ error: "Failed to delete post" });
   }
 });
-router34.post("/posts/:postId/like", async (req, res) => {
+var VALID_REACTIONS = ["support", "relate", "strength", "love"];
+function reactionCol(r) {
+  return `reaction_${r}`;
+}
+function makeCountsResponse(post2, myReaction) {
+  const reactions = {
+    support: post2?.reaction_support ?? 0,
+    relate: post2?.reaction_relate ?? 0,
+    strength: post2?.reaction_strength ?? 0,
+    love: post2?.reaction_love ?? 0
+  };
+  return {
+    success: true,
+    reactions,
+    totalReactions: reactions.support + reactions.relate + reactions.strength + reactions.love,
+    like_count: post2?.like_count ?? 0,
+    myReaction
+  };
+}
+router34.post("/posts/:postId/react", async (req, res) => {
   const { postId } = req.params;
-  const { coupleId, likerId } = req.body;
-  if (!coupleId || !likerId) {
-    res.status(400).json({ error: "coupleId and likerId required" });
+  const { coupleId, likerId, reaction } = req.body;
+  if (!coupleId || !likerId || !reaction || !VALID_REACTIONS.includes(reaction)) {
+    res.status(400).json({ error: "coupleId, likerId, and valid reaction required" });
     return;
   }
+  const r = reaction;
+  const col = reactionCol(r);
   const sb = makeSupabase28();
   try {
-    const { error: insertErr } = await sb.from("couple_feed_likes").insert({ post_id: postId, couple_id: coupleId, liker_id: likerId });
-    if (insertErr) {
-      if (insertErr.code === "23505") {
-        const { data: p } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
-        res.json({ success: true, like_count: p?.like_count ?? 0 });
+    const { data: existing } = await sb.from("couple_feed_likes").select("id, reaction").eq("post_id", postId).eq("couple_id", coupleId).maybeSingle();
+    if (existing) {
+      const oldR = existing.reaction;
+      if (oldR === r) {
+        const { data: p3 } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+        res.json(makeCountsResponse(p3, r));
         return;
       }
-      throw insertErr;
+      const oldCol = reactionCol(oldR);
+      const { data: p2 } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+      await sb.from("couple_feed_posts").update({
+        [oldCol]: Math.max(0, (p2?.[oldCol] ?? 1) - 1),
+        [col]: (p2?.[col] ?? 0) + 1
+      }).eq("id", postId);
+      await sb.from("couple_feed_likes").update({ reaction: r }).eq("id", existing.id);
+      const { data: updated2 } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+      res.json(makeCountsResponse(updated2, r));
+      return;
     }
-    const { data: current } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
-    const newCount = (current?.like_count ?? 0) + 1;
-    await sb.from("couple_feed_posts").update({ like_count: newCount }).eq("id", postId);
-    res.json({ success: true, like_count: newCount });
+    await sb.from("couple_feed_likes").insert({ post_id: postId, couple_id: coupleId, liker_id: likerId, reaction: r });
+    const { data: p } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+    await sb.from("couple_feed_posts").update({
+      [col]: (p?.[col] ?? 0) + 1,
+      like_count: (p?.like_count ?? 0) + 1
+    }).eq("id", postId);
+    const { data: updated } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+    res.json(makeCountsResponse(updated, r));
   } catch (err) {
-    req.log.error({ err: err.message }, "couple-feed/like POST error");
-    res.status(500).json({ error: "Failed to like post" });
+    req.log.error({ err: err.message }, "couple-feed/react POST error");
+    res.status(500).json({ error: "Failed to react" });
   }
 });
-router34.delete("/posts/:postId/like", async (req, res) => {
+router34.delete("/posts/:postId/react", async (req, res) => {
   const { postId } = req.params;
   const { coupleId } = req.body;
   if (!coupleId) {
@@ -60627,14 +60671,25 @@ router34.delete("/posts/:postId/like", async (req, res) => {
   }
   const sb = makeSupabase28();
   try {
-    await sb.from("couple_feed_likes").delete().eq("post_id", postId).eq("couple_id", coupleId);
-    const { data: current } = await sb.from("couple_feed_posts").select("like_count").eq("id", postId).maybeSingle();
-    const newCount = Math.max(0, (current?.like_count ?? 1) - 1);
-    await sb.from("couple_feed_posts").update({ like_count: newCount }).eq("id", postId);
-    res.json({ success: true, like_count: newCount });
+    const { data: existing } = await sb.from("couple_feed_likes").select("id, reaction").eq("post_id", postId).eq("couple_id", coupleId).maybeSingle();
+    if (!existing) {
+      const { data: p2 } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+      res.json(makeCountsResponse(p2, null));
+      return;
+    }
+    const oldR = existing.reaction;
+    const col = reactionCol(oldR);
+    await sb.from("couple_feed_likes").delete().eq("id", existing.id);
+    const { data: p } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+    await sb.from("couple_feed_posts").update({
+      [col]: Math.max(0, (p?.[col] ?? 1) - 1),
+      like_count: Math.max(0, (p?.like_count ?? 1) - 1)
+    }).eq("id", postId);
+    const { data: updated } = await sb.from("couple_feed_posts").select("*").eq("id", postId).maybeSingle();
+    res.json(makeCountsResponse(updated, null));
   } catch (err) {
-    req.log.error({ err: err.message }, "couple-feed/like DELETE error");
-    res.status(500).json({ error: "Failed to unlike post" });
+    req.log.error({ err: err.message }, "couple-feed/react DELETE error");
+    res.status(500).json({ error: "Failed to remove reaction" });
   }
 });
 router34.get("/posts/:postId/comments", async (req, res) => {

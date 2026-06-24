@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   ActivityIndicator,
   FlatList,
   Image,
@@ -20,6 +21,15 @@ const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 
 const CATEGORIES = ["All", "Confession", "Advice", "Story", "Venting", "Milestone"] as const;
 type Category = (typeof CATEGORIES)[number];
+
+type ReactionType = "support" | "relate" | "strength" | "love";
+
+const REACTIONS: { type: ReactionType; emoji: string; color: string }[] = [
+  { type: "support",  emoji: "🫂", color: "#8B5CF6" },
+  { type: "relate",   emoji: "🥲", color: "#3B82F6" },
+  { type: "strength", emoji: "💪", color: "#F59E0B" },
+  { type: "love",     emoji: "❤️", color: "#EC4899" },
+];
 
 const CAT_COLORS: Record<string, string> = {
   Confession: "#EC4899",
@@ -51,6 +61,9 @@ interface Post {
   comment_count: number;
   created_at: string;
   likedByMe: boolean;
+  myReaction: ReactionType | null;
+  reactions: { support: number; relate: number; strength: number; love: number };
+  totalReactions: number;
   isAnonymous: boolean;
   postNumber: number | null;
   age: number | null;
@@ -108,46 +121,89 @@ function PostCard({
   coupleId,
   authorId,
   token,
-  onLikeToggle,
+  onReact,
   onComment,
 }: {
   post: Post;
   coupleId: string;
   authorId: string;
   token: string | null;
-  onLikeToggle: (postId: string, liked: boolean, newCount: number) => void;
+  onReact: (postId: string, myReaction: ReactionType | null, reactions: Post["reactions"], totalReactions: number) => void;
   onComment: (post: Post) => void;
 }) {
-  const [liking, setLiking] = useState(false);
+  const [reacting, setReacting] = useState(false);
   const [photoHeight, setPhotoHeight] = useState<number>(220);
+  const [popVisible, setPopVisible] = useState(false);
   const { width: screenWidth } = useWindowDimensions();
+  const lastTapRef = useRef<number>(0);
+  const popScale = useRef(new Animated.Value(0)).current;
+  const popOpacity = useRef(new Animated.Value(0)).current;
   const catColor = CAT_COLORS[post.category] ?? "#EC4899";
 
-  const toggleLike = async () => {
-    if (liking) return;
-    setLiking(true);
-    const newLiked = !post.likedByMe;
-    const newCount = post.like_count + (newLiked ? 1 : -1);
-    onLikeToggle(post.id, newLiked, newCount);
+  // Fallback for posts loaded before the SQL migration
+  const reactions = post.reactions ?? { support: 0, relate: 0, strength: 0, love: 0 };
+  const totalReactions = post.totalReactions ?? 0;
+
+  const handleReact = async (reaction: ReactionType) => {
+    if (reacting) return;
+    setReacting(true);
+    const isSame = post.myReaction === reaction;
+    const prevMyReaction = post.myReaction;
+
+    // Optimistic update
+    const newReactions = { ...reactions };
+    if (isSame) {
+      newReactions[reaction] = Math.max(0, (newReactions[reaction] ?? 0) - 1);
+    } else {
+      if (prevMyReaction) newReactions[prevMyReaction] = Math.max(0, (newReactions[prevMyReaction] ?? 0) - 1);
+      newReactions[reaction] = (newReactions[reaction] ?? 0) + 1;
+    }
+    const newTotal = Object.values(newReactions).reduce((a, b) => a + b, 0);
+    onReact(post.id, isSame ? null : reaction, newReactions, newTotal);
+
     try {
-      const method = newLiked ? "POST" : "DELETE";
-      await fetch(`${API_BASE}/api/couple-feed/posts/${post.id}/like`, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ coupleId, likerId: authorId }),
-      });
+      if (isSame) {
+        await fetch(`${API_BASE}/api/couple-feed/posts/${post.id}/react`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ coupleId }),
+        });
+      } else {
+        await fetch(`${API_BASE}/api/couple-feed/posts/${post.id}/react`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ coupleId, likerId: authorId, reaction }),
+        });
+      }
     } catch {
-      onLikeToggle(post.id, !newLiked, post.like_count);
+      // Rollback on network error
+      onReact(post.id, prevMyReaction, reactions, totalReactions);
     } finally {
-      setLiking(false);
+      setReacting(false);
     }
   };
 
+  const triggerPop = () => {
+    setPopVisible(true);
+    popScale.setValue(0.2);
+    popOpacity.setValue(1);
+    Animated.parallel([
+      Animated.spring(popScale, { toValue: 1.6, useNativeDriver: true, damping: 8, stiffness: 120 }),
+      Animated.timing(popOpacity, { toValue: 0, delay: 480, duration: 320, useNativeDriver: true }),
+    ]).start(() => setPopVisible(false));
+  };
+
+  const handleCardPress = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 320) {
+      handleReact("support");
+      triggerPop();
+    }
+    lastTapRef.current = now;
+  };
+
   return (
-    <View style={s.card}>
+    <TouchableOpacity onPress={handleCardPress} activeOpacity={1} style={s.card}>
       <View style={s.cardTop}>
         <View style={s.cardTopLeft}>
           {post.postNumber != null && (
@@ -191,29 +247,55 @@ function PostCard({
           onLoad={(e) => {
             const { width: w, height: h } = e.nativeEvent.source;
             if (w && h) {
-              const cardWidth = screenWidth - 32; // 16px padding each side
-              const natural = (cardWidth / w) * h;
-              setPhotoHeight(Math.min(natural, MAX_PHOTO_HEIGHT));
+              const cardWidth = screenWidth - 32;
+              setPhotoHeight(Math.min((cardWidth / w) * h, MAX_PHOTO_HEIGHT));
             }
           }}
         />
       ) : null}
 
-      <View style={s.cardActions}>
-        <TouchableOpacity onPress={toggleLike} style={s.actionBtn} activeOpacity={0.7}>
-          <Ionicons
-            name={post.likedByMe ? "heart" : "heart-outline"}
-            size={20}
-            color={post.likedByMe ? "#EC4899" : "rgba(255,255,255,0.45)"}
-          />
-          <Text style={[s.actionCount, post.likedByMe && { color: "#EC4899" }]}>{post.like_count}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => onComment(post)} style={s.actionBtn} activeOpacity={0.7}>
-          <Ionicons name="chatbubble-outline" size={18} color="rgba(255,255,255,0.45)" />
+      {/* Reaction bar */}
+      <View style={s.reactionBar}>
+        {REACTIONS.map(({ type, emoji, color }) => {
+          const count = reactions[type] ?? 0;
+          const isActive = post.myReaction === type;
+          return (
+            <TouchableOpacity
+              key={type}
+              onPress={() => handleReact(type)}
+              activeOpacity={0.72}
+              style={[
+                s.reactionPill,
+                isActive && { backgroundColor: color + "22", borderColor: color + "55" },
+              ]}
+            >
+              <Text style={s.reactionEmoji}>{emoji}</Text>
+              {count > 0 && (
+                <Text style={[s.reactionCount, isActive && { color }]}>{count}</Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+        <View style={{ flex: 1 }} />
+        {totalReactions > 0 && (
+          <Text style={s.totalReactions}>{totalReactions}</Text>
+        )}
+        <TouchableOpacity onPress={() => onComment(post)} style={s.commentBtn} activeOpacity={0.7}>
+          <Ionicons name="chatbubble-outline" size={17} color="rgba(255,255,255,0.45)" />
           <Text style={s.actionCount}>{post.comment_count}</Text>
         </TouchableOpacity>
       </View>
-    </View>
+
+      {/* Double-tap 🫂 pop */}
+      {popVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, s.popWrap, { opacity: popOpacity }]}
+        >
+          <Animated.Text style={[s.popEmoji, { transform: [{ scale: popScale }] }]}>🫂</Animated.Text>
+        </Animated.View>
+      )}
+    </TouchableOpacity>
   );
 }
 
@@ -255,8 +337,19 @@ export default function CoupleFeedScreen() {
     setRefreshing(false);
   }, [fetchPosts]);
 
-  const handleLikeToggle = (postId: string, liked: boolean, newCount: number) => {
-    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, likedByMe: liked, like_count: newCount } : p));
+  const handleReact = (
+    postId: string,
+    myReaction: ReactionType | null,
+    reactions: Post["reactions"],
+    totalReactions: number,
+  ) => {
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? { ...p, myReaction, reactions, totalReactions, likedByMe: myReaction !== null, like_count: totalReactions }
+          : p
+      )
+    );
   };
 
   const handleComment = (post: Post) => {
@@ -350,7 +443,7 @@ export default function CoupleFeedScreen() {
               coupleId={coupleId ?? ""}
               authorId={userId ?? ""}
               token={token}
-              onLikeToggle={handleLikeToggle}
+              onReact={handleReact}
               onComment={handleComment}
             />
           )}
@@ -382,7 +475,7 @@ const s = StyleSheet.create({
   emptySub: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.45)", textAlign: "center" },
   emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#EC4899" },
   emptyBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
-  card: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  card: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
   cardTopLeft: { gap: 2 },
   postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#EC4899" },
@@ -399,7 +492,15 @@ const s = StyleSheet.create({
   content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 22, marginBottom: 12 },
   readMore: { color: "#EC4899", fontFamily: "Poppins_600SemiBold" },
   postPhoto: { width: "100%", borderRadius: 12, marginBottom: 12, overflow: "hidden" },
-  cardActions: { flexDirection: "row", gap: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
-  actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
+  // ── Reaction bar ─────────────────────────────────────────────────────────────
+  reactionBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
+  reactionPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  reactionEmoji: { fontSize: 16 },
+  reactionCount: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.5)" },
+  totalReactions: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.3)", marginRight: 4 },
+  commentBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5 },
   actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.45)" },
+  // ── Double-tap pop ────────────────────────────────────────────────────────────
+  popWrap: { alignItems: "center", justifyContent: "center" },
+  popEmoji: { fontSize: 80 },
 });
