@@ -2480,32 +2480,38 @@ function FindVibeContent() {
       style={[styles.container, { backgroundColor: colors.background }]}
       {...mainTabSwipe.panHandlers}
     >
-      <View style={[styles.header, { paddingTop: topInset + 8 }]}>
-        <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => router.push("/vibe-notifications" as any)}
-            style={[styles.iconBtn, { backgroundColor: pendingVibeCount > 0 ? "rgba(124,58,237,0.2)" : colors.muted, borderColor: pendingVibeCount > 0 ? "#7C3AED" : colors.border }]}
-          >
-            <Ionicons name="flash" size={18} color={pendingVibeCount > 0 ? "#A78BFA" : colors.mutedForeground} />
-            {pendingVibeCount > 0 && (
-              <View style={styles.vibeBadge}>
-                <Text style={styles.vibeBadgeText}>{pendingVibeCount > 9 ? "9+" : pendingVibeCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setShowSpeedVibe(true)}
-            style={[styles.iconBtn, { backgroundColor: "rgba(249,115,22,0.12)", borderColor: "#F97316" }]}
-          >
-            <Text style={{ fontSize: 14 }}>⚡</Text>
-            <Text style={[styles.speedText, { color: "#F97316" }]}>Speed</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowFilter(true)} style={[styles.filterBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-            <Ionicons name="options-outline" size={20} color="#7C3AED" />
-          </TouchableOpacity>
+      {isLinked ? (
+        <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>💕 Couple</Text>
         </View>
-      </View>
+      ) : (
+        <View style={[styles.header, { paddingTop: topInset + 8 }]}>
+          <Text style={[styles.headerTitle, { color: colors.foreground }]}>Find Vibe</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push("/vibe-notifications" as any)}
+              style={[styles.iconBtn, { backgroundColor: pendingVibeCount > 0 ? "rgba(124,58,237,0.2)" : colors.muted, borderColor: pendingVibeCount > 0 ? "#7C3AED" : colors.border }]}
+            >
+              <Ionicons name="flash" size={18} color={pendingVibeCount > 0 ? "#A78BFA" : colors.mutedForeground} />
+              {pendingVibeCount > 0 && (
+                <View style={styles.vibeBadge}>
+                  <Text style={styles.vibeBadgeText}>{pendingVibeCount > 9 ? "9+" : pendingVibeCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowSpeedVibe(true)}
+              style={[styles.iconBtn, { backgroundColor: "rgba(249,115,22,0.12)", borderColor: "#F97316" }]}
+            >
+              <Text style={{ fontSize: 14 }}>⚡</Text>
+              <Text style={[styles.speedText, { color: "#F97316" }]}>Speed</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowFilter(true)} style={[styles.filterBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+              <Ionicons name="options-outline" size={20} color="#7C3AED" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {isLinked ? (
         <CoupleTab userId={userId ?? ""} session={session} />
