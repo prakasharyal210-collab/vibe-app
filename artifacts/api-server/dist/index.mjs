@@ -59139,6 +59139,26 @@ router24.get("/deck", async (req, res) => {
       id: row.user_id ?? row.id
     }));
     req.log.info({ afterRpc: profiles.length }, "vibe-deck: candidates after RPC");
+    if (profiles.length > 0) {
+      const candidateIds = profiles.map((p) => p.id);
+      const orFilter = `requester_id.in.(${candidateIds.join(",")}),receiver_id.in.(${candidateIds.join(",")})`;
+      const { data: coupledRows, error: coupledErr } = await sb.from("couple_links").select("requester_id, receiver_id").eq("status", "accepted").or(orFilter);
+      if (coupledErr) {
+        req.log.error({ err: coupledErr.message }, "vibe-deck: couple exclusion query failed \u2014 filtering all show_in_matching=false as fallback");
+        profiles = profiles.filter((p) => p.show_in_matching !== false);
+      } else {
+        const coupledIds = /* @__PURE__ */ new Set();
+        for (const row of coupledRows ?? []) {
+          coupledIds.add(row.requester_id);
+          coupledIds.add(row.receiver_id);
+        }
+        if (coupledIds.size > 0) {
+          const beforeCouple = profiles.length;
+          profiles = profiles.filter((p) => !coupledIds.has(p.id));
+          req.log.info({ beforeCouple, afterCouple: profiles.length, excludedCoupled: coupledIds.size }, "vibe-deck: after coupled-users exclusion");
+        }
+      }
+    }
     if (excludeConn && profiles.length > 0) {
       const [followingRes, followersRes] = await Promise.all([
         sb.from("follows").select("following_id").eq("follower_id", userId),
@@ -59390,7 +59410,26 @@ router24.get("/by-intention", async (req, res) => {
     res.status(500).json({ error: queryError.message });
     return;
   }
-  const users = (data ?? []).map((p) => ({
+  let candidates = data ?? [];
+  if (candidates.length > 0) {
+    const candidateIds = candidates.map((p) => p.id);
+    const { data: coupledRows, error: coupledErr } = await sb.from("couple_links").select("requester_id, receiver_id").eq("status", "accepted").or(`requester_id.in.(${candidateIds.join(",")}),receiver_id.in.(${candidateIds.join(",")})`);
+    if (!coupledErr) {
+      const coupledIds = /* @__PURE__ */ new Set();
+      for (const row of coupledRows ?? []) {
+        coupledIds.add(row.requester_id);
+        coupledIds.add(row.receiver_id);
+      }
+      if (coupledIds.size > 0) {
+        const beforeCouple = candidates.length;
+        candidates = candidates.filter((p) => !coupledIds.has(p.id));
+        req.log.info({ beforeCouple, afterCouple: candidates.length, excludedCoupled: coupledIds.size }, "by-intention: after coupled-users exclusion");
+      }
+    } else {
+      req.log.error({ err: coupledErr.message }, "by-intention: couple exclusion query failed \u2014 proceeding with show_in_matching filter only");
+    }
+  }
+  const users = candidates.map((p) => ({
     id: p.id,
     username: p.username ?? null,
     name: p.full_name ?? p.username ?? "Vibe User",
@@ -60224,8 +60263,20 @@ router33.post("/accept", async (req, res) => {
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const { data, error } = await sb.from("couple_links").update({ status: "accepted", accepted_at: now }).eq("id", coupleId).select().single();
     if (error) throw error;
-    await sb.from("profiles").update({ show_in_matching: false }).eq("id", link.requester_id);
-    await sb.from("profiles").update({ show_in_matching: false }).eq("id", userId);
+    const [reqUpdate, recUpdate] = await Promise.all([
+      sb.from("profiles").update({ show_in_matching: false }).eq("id", link.requester_id),
+      sb.from("profiles").update({ show_in_matching: false }).eq("id", userId)
+    ]);
+    if (reqUpdate.error) {
+      req.log.error({ err: reqUpdate.error.message, userId: link.requester_id }, "couple/accept: failed to set show_in_matching=false for requester");
+    } else {
+      req.log.info({ userId: link.requester_id }, "couple/accept: show_in_matching=false set for requester");
+    }
+    if (recUpdate.error) {
+      req.log.error({ err: recUpdate.error.message, userId }, "couple/accept: failed to set show_in_matching=false for receiver");
+    } else {
+      req.log.info({ userId }, "couple/accept: show_in_matching=false set for receiver");
+    }
     res.json({ success: true, couple: data });
   } catch (err) {
     req.log.error({ err: err.message }, "couple/accept error");
@@ -60262,8 +60313,20 @@ router33.delete("/unlink", async (req, res) => {
       return;
     }
     await sb.from("couple_links").delete().eq("id", coupleId);
-    await sb.from("profiles").update({ show_in_matching: true }).eq("id", link.requester_id);
-    await sb.from("profiles").update({ show_in_matching: true }).eq("id", link.receiver_id);
+    const [reqRestore, recRestore] = await Promise.all([
+      sb.from("profiles").update({ show_in_matching: true }).eq("id", link.requester_id),
+      sb.from("profiles").update({ show_in_matching: true }).eq("id", link.receiver_id)
+    ]);
+    if (reqRestore.error) {
+      req.log.error({ err: reqRestore.error.message, userId: link.requester_id }, "couple/unlink: failed to restore show_in_matching for requester");
+    } else {
+      req.log.info({ userId: link.requester_id }, "couple/unlink: show_in_matching=true restored for requester");
+    }
+    if (recRestore.error) {
+      req.log.error({ err: recRestore.error.message, userId: link.receiver_id }, "couple/unlink: failed to restore show_in_matching for receiver");
+    } else {
+      req.log.info({ userId: link.receiver_id }, "couple/unlink: show_in_matching=true restored for receiver");
+    }
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err: err.message }, "couple/unlink error");

@@ -98,8 +98,22 @@ router.post("/accept", async (req, res) => {
 
     if (error) throw error;
 
-    await sb.from("profiles").update({ show_in_matching: false }).eq("id", (link as any).requester_id);
-    await sb.from("profiles").update({ show_in_matching: false }).eq("id", userId);
+    // CRITICAL: coupled users must never appear in matching.
+    // Set show_in_matching = false for BOTH partners immediately on accept.
+    const [reqUpdate, recUpdate] = await Promise.all([
+      sb.from("profiles").update({ show_in_matching: false }).eq("id", (link as any).requester_id),
+      sb.from("profiles").update({ show_in_matching: false }).eq("id", userId),
+    ]);
+    if (reqUpdate.error) {
+      req.log.error({ err: reqUpdate.error.message, userId: (link as any).requester_id }, "couple/accept: failed to set show_in_matching=false for requester");
+    } else {
+      req.log.info({ userId: (link as any).requester_id }, "couple/accept: show_in_matching=false set for requester");
+    }
+    if (recUpdate.error) {
+      req.log.error({ err: recUpdate.error.message, userId }, "couple/accept: failed to set show_in_matching=false for receiver");
+    } else {
+      req.log.info({ userId }, "couple/accept: show_in_matching=false set for receiver");
+    }
 
     res.json({ success: true, couple: data });
   } catch (err: any) {
@@ -152,8 +166,23 @@ router.delete("/unlink", async (req, res) => {
     }
 
     await sb.from("couple_links").delete().eq("id", coupleId);
-    await sb.from("profiles").update({ show_in_matching: true }).eq("id", (link as any).requester_id);
-    await sb.from("profiles").update({ show_in_matching: true }).eq("id", (link as any).receiver_id);
+
+    // CRITICAL: coupled users must never appear in matching.
+    // Restore show_in_matching = true for BOTH partners on unlink so they re-enter the dating pool.
+    const [reqRestore, recRestore] = await Promise.all([
+      sb.from("profiles").update({ show_in_matching: true }).eq("id", (link as any).requester_id),
+      sb.from("profiles").update({ show_in_matching: true }).eq("id", (link as any).receiver_id),
+    ]);
+    if (reqRestore.error) {
+      req.log.error({ err: reqRestore.error.message, userId: (link as any).requester_id }, "couple/unlink: failed to restore show_in_matching for requester");
+    } else {
+      req.log.info({ userId: (link as any).requester_id }, "couple/unlink: show_in_matching=true restored for requester");
+    }
+    if (recRestore.error) {
+      req.log.error({ err: recRestore.error.message, userId: (link as any).receiver_id }, "couple/unlink: failed to restore show_in_matching for receiver");
+    } else {
+      req.log.info({ userId: (link as any).receiver_id }, "couple/unlink: show_in_matching=true restored for receiver");
+    }
 
     res.json({ success: true });
   } catch (err: any) {

@@ -267,6 +267,34 @@ router.get("/deck", async (req, res) => {
 
     req.log.info({ afterRpc: profiles.length }, "vibe-deck: candidates after RPC");
 
+    // CRITICAL: coupled users must never appear in matching.
+    // Bulletproof layer: even if show_in_matching was not set correctly, explicitly
+    // exclude any candidate who has an accepted couple_link. Defense-in-depth.
+    if (profiles.length > 0) {
+      const candidateIds = profiles.map((p: any) => p.id as string);
+      const orFilter = `requester_id.in.(${candidateIds.join(",")}),receiver_id.in.(${candidateIds.join(",")})`;
+      const { data: coupledRows, error: coupledErr } = await sb
+        .from("couple_links")
+        .select("requester_id, receiver_id")
+        .eq("status", "accepted")
+        .or(orFilter);
+      if (coupledErr) {
+        req.log.error({ err: coupledErr.message }, "vibe-deck: couple exclusion query failed — filtering all show_in_matching=false as fallback");
+        profiles = profiles.filter((p: any) => p.show_in_matching !== false);
+      } else {
+        const coupledIds = new Set<string>();
+        for (const row of coupledRows ?? []) {
+          coupledIds.add((row as any).requester_id as string);
+          coupledIds.add((row as any).receiver_id as string);
+        }
+        if (coupledIds.size > 0) {
+          const beforeCouple = profiles.length;
+          profiles = profiles.filter((p: any) => !coupledIds.has(p.id as string));
+          req.log.info({ beforeCouple, afterCouple: profiles.length, excludedCoupled: coupledIds.size }, "vibe-deck: after coupled-users exclusion");
+        }
+      }
+    }
+
     // 3. Exclude follows / followers if requested (RPC already excludes swiped/matched users)
     if (excludeConn && profiles.length > 0) {
       const [followingRes, followersRes] = await Promise.all([
@@ -604,7 +632,34 @@ router.get("/by-intention", async (req, res) => {
     return;
   }
 
-  const users = (data ?? []).map((p: any) => ({
+  // CRITICAL: coupled users must never appear in matching.
+  // Bulletproof layer: explicitly exclude any candidate with an accepted couple_link,
+  // regardless of their show_in_matching value.
+  let candidates: any[] = data ?? [];
+  if (candidates.length > 0) {
+    const candidateIds = candidates.map((p: any) => p.id as string);
+    const { data: coupledRows, error: coupledErr } = await sb
+      .from("couple_links")
+      .select("requester_id, receiver_id")
+      .eq("status", "accepted")
+      .or(`requester_id.in.(${candidateIds.join(",")}),receiver_id.in.(${candidateIds.join(",")})`);
+    if (!coupledErr) {
+      const coupledIds = new Set<string>();
+      for (const row of coupledRows ?? []) {
+        coupledIds.add((row as any).requester_id as string);
+        coupledIds.add((row as any).receiver_id as string);
+      }
+      if (coupledIds.size > 0) {
+        const beforeCouple = candidates.length;
+        candidates = candidates.filter((p: any) => !coupledIds.has(p.id as string));
+        req.log.info({ beforeCouple, afterCouple: candidates.length, excludedCoupled: coupledIds.size }, "by-intention: after coupled-users exclusion");
+      }
+    } else {
+      req.log.error({ err: coupledErr.message }, "by-intention: couple exclusion query failed — proceeding with show_in_matching filter only");
+    }
+  }
+
+  const users = (candidates).map((p: any) => ({
     id: p.id,
     username: p.username ?? null,
     name: p.full_name ?? p.username ?? "Vibe User",
