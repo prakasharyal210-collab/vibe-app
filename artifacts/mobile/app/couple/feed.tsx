@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -100,6 +101,8 @@ function ExpandableText({ text }: { text: string }) {
   );
 }
 
+const MAX_PHOTO_HEIGHT = 400;
+
 function PostCard({
   post,
   coupleId,
@@ -116,6 +119,8 @@ function PostCard({
   onComment: (post: Post) => void;
 }) {
   const [liking, setLiking] = useState(false);
+  const [photoHeight, setPhotoHeight] = useState<number>(220);
+  const { width: screenWidth } = useWindowDimensions();
   const catColor = CAT_COLORS[post.category] ?? "#EC4899";
 
   const toggleLike = async () => {
@@ -179,7 +184,19 @@ function PostCard({
       <ExpandableText text={post.content} />
 
       {post.photo_url ? (
-        <Image source={{ uri: post.photo_url }} style={s.postPhoto} resizeMode="cover" />
+        <Image
+          source={{ uri: post.photo_url }}
+          style={[s.postPhoto, { height: photoHeight }]}
+          resizeMode="cover"
+          onLoad={(e) => {
+            const { width: w, height: h } = e.nativeEvent.source;
+            if (w && h) {
+              const cardWidth = screenWidth - 32; // 16px padding each side
+              const natural = (cardWidth / w) * h;
+              setPhotoHeight(Math.min(natural, MAX_PHOTO_HEIGHT));
+            }
+          }}
+        />
       ) : null}
 
       <View style={s.cardActions}>
@@ -381,7 +398,7 @@ const s = StyleSheet.create({
   timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.35)" },
   content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 22, marginBottom: 12 },
   readMore: { color: "#EC4899", fontFamily: "Poppins_600SemiBold" },
-  postPhoto: { width: "100%", height: 200, borderRadius: 12, marginBottom: 12 },
+  postPhoto: { width: "100%", borderRadius: 12, marginBottom: 12, overflow: "hidden" },
   cardActions: { flexDirection: "row", gap: 16, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.45)" },

@@ -294,8 +294,7 @@ export default function CompetitionScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
+      allowsEditing: false,
       quality: 0.85,
     });
     if (result.canceled || !result.assets[0]) return;

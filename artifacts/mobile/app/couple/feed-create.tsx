@@ -62,9 +62,8 @@ export default function FeedCreateScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
       quality: 0.8,
-      allowsEditing: true,
-      aspect: [4, 3],
     });
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
