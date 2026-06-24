@@ -7,6 +7,7 @@
     "hello": "tsx ./src/hello.ts",
     "supabase-migrate": "tsx ./src/supabase-migrate.mts",
     "run-couple-migration": "tsx ./src/run-couple-migration.mts",
+    "run-couple-feed-migration": "tsx ./src/run-couple-feed-migration.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
