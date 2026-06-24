@@ -253,8 +253,8 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         <View style={s.cards}>
           <ActionCard
             emoji="💬"
-            title="Couple Feed"
-            sub="Stories & advice from all couples"
+            title="Confession Room"
+            sub="Share anonymously, get support 💕"
             color="#EC4899"
             onPress={() => router.push({ pathname: "/couple/feed", params: { coupleId, userId } } as any)}
           />

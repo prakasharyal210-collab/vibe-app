@@ -282,6 +282,7 @@ export default function CoupleFeedScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={s.filterScroll}
         contentContainerStyle={s.filterRow}
       >
         {CATEGORIES.map((cat) => (
@@ -353,8 +354,9 @@ const s = StyleSheet.create({
   headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#fff" },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#EC4899", backgroundColor: "rgba(236,72,153,0.12)" },
   shareBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#EC4899" },
-  filterRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 12, flexDirection: "row" },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+  filterScroll: { flexGrow: 0, maxHeight: 44 },
+  filterRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", height: 34, justifyContent: "center" },
   filterChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.55)" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 },
