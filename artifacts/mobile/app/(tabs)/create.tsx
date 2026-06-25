@@ -1108,8 +1108,12 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
 
           {/* Collapsible tool list — slides open below the toggle */}
           <RAnimated.View style={[s.toolsCollapse, toolsContainerStyle]} pointerEvents={toolsOpen ? "box-none" : "none"}>
-            <View style={{ gap: 14, paddingTop: 14 }}>
-
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              style={{ maxHeight: H * 0.58 }}
+              contentContainerStyle={{ gap: 14, paddingTop: 14, paddingBottom: 8, alignItems: "center" }}
+            >
               <TouchableOpacity
                 style={s.sideTool}
                 onPress={facing === "back" ? cycleFlash : undefined}
@@ -1194,7 +1198,7 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                 </TouchableOpacity>
               )}
 
-            </View>
+            </ScrollView>
           </RAnimated.View>
         </RAnimated.View>
 
