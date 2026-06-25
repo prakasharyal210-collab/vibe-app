@@ -58748,8 +58748,9 @@ router23.get("/foryou", async (req, res) => {
     freshQuery = freshQuery.eq("category", category);
   }
   const { data: freshData } = await freshQuery.order(sortCol, { ascending: false }).limit(limit).range(offset, offset + limit - 1);
+  const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({
-    data: freshData ?? [],
+    data: freshEnriched,
     source: "fresh"
   });
 });
@@ -58774,8 +58775,9 @@ router23.get("/friends", async (req, res) => {
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
+  const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({
-    data: freshData ?? [],
+    data: freshEnriched,
     source: "fresh",
     error: error?.message
   });
@@ -58870,7 +58872,8 @@ router23.get("/following", async (req, res) => {
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
-  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+  const followingFresh = await enrichWithCoupleData(supabase, freshData ?? []);
+  res.json({ data: followingFresh, source: "fresh", error: error?.message });
 });
 router23.get("/nearby", async (req, res) => {
   const userId = req.query["userId"];
@@ -58898,7 +58901,8 @@ router23.get("/nearby", async (req, res) => {
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
-  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+  const nearbyFresh = await enrichWithCoupleData(supabase, freshData ?? []);
+  res.json({ data: nearbyFresh, source: "fresh", error: error?.message });
 });
 router23.get("/vibes", async (req, res) => {
   const userId = req.query["userId"];
@@ -58922,7 +58926,8 @@ router23.get("/vibes", async (req, res) => {
     return;
   }
   const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("likes_count", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
-  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+  const vibesFresh = await enrichWithCoupleData(supabase, freshData ?? []);
+  res.json({ data: vibesFresh, source: "fresh", error: error?.message });
 });
 router23.get("/personalized", async (req, res) => {
   const userId = req.query["userId"];
@@ -58940,12 +58945,14 @@ router23.get("/personalized", async (req, res) => {
       p_offset: offset
     });
     if (!error && Array.isArray(data) && data.length > 0) {
-      res.json({ data, source: "rpc" });
+      const enrichedCouple = await enrichWithCoupleData(supabase, data);
+      res.json({ data: enrichedCouple, source: "rpc" });
       return;
     }
     if (error) req.log.warn({ error: error.message }, "get_personalized_feed RPC warn");
     const { data: fallback } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
-    res.json({ data: fallback ?? [], source: "fresh" });
+    const personalizedFresh = await enrichWithCoupleData(supabase, fallback ?? []);
+    res.json({ data: personalizedFresh, source: "fresh" });
   } catch (err) {
     req.log.error({ err: err?.message }, "personalized feed error");
     res.json({ data: [], source: "error" });

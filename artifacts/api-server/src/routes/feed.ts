@@ -216,8 +216,9 @@ router.get("/foryou", async (req, res) => {
     .limit(limit)
     .range(offset, offset + limit - 1);
 
+  const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({
-    data: freshData ?? [],
+    data: freshEnriched,
     source: "fresh",
   });
 });
@@ -260,8 +261,9 @@ router.get("/friends", async (req, res) => {
     .limit(limit)
     .range(offset, offset + limit - 1);
 
+  const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({
-    data: freshData ?? [],
+    data: freshEnriched,
     source: "fresh",
     error: error?.message,
   });
@@ -421,7 +423,8 @@ router.get("/following", async (req, res) => {
     .limit(limit)
     .range(offset, offset + limit - 1);
 
-  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+  const followingFresh = await enrichWithCoupleData(supabase, freshData ?? []);
+  res.json({ data: followingFresh, source: "fresh", error: error?.message });
 });
 
 // ─── GET /api/feed/nearby ─────────────────────────────────────────────────────
@@ -466,7 +469,8 @@ router.get("/nearby", async (req, res) => {
     .limit(limit)
     .range(offset, offset + limit - 1);
 
-  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+  const nearbyFresh = await enrichWithCoupleData(supabase, freshData ?? []);
+  res.json({ data: nearbyFresh, source: "fresh", error: error?.message });
 });
 
 // ─── GET /api/feed/vibes ──────────────────────────────────────────────────────
@@ -507,7 +511,8 @@ router.get("/vibes", async (req, res) => {
     .limit(limit)
     .range(offset, offset + limit - 1);
 
-  res.json({ data: freshData ?? [], source: "fresh", error: error?.message });
+  const vibesFresh = await enrichWithCoupleData(supabase, freshData ?? []);
+  res.json({ data: vibesFresh, source: "fresh", error: error?.message });
 });
 
 // ─── GET /api/feed/personalized ──────────────────────────────────────────────
@@ -529,7 +534,8 @@ router.get("/personalized", async (req, res) => {
       p_offset: offset,
     });
     if (!error && Array.isArray(data) && data.length > 0) {
-      res.json({ data, source: "rpc" });
+      const enrichedCouple = await enrichWithCoupleData(supabase, data);
+      res.json({ data: enrichedCouple, source: "rpc" });
       return;
     }
     if (error) req.log.warn({ error: error.message }, "get_personalized_feed RPC warn");
@@ -540,7 +546,8 @@ router.get("/personalized", async (req, res) => {
       .or("is_archived.eq.false,is_archived.is.null")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
-    res.json({ data: fallback ?? [], source: "fresh" });
+    const personalizedFresh = await enrichWithCoupleData(supabase, fallback ?? []);
+    res.json({ data: personalizedFresh, source: "fresh" });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "personalized feed error");
     res.json({ data: [], source: "error" });
