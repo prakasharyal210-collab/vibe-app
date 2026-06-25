@@ -1050,7 +1050,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                 <Text style={p.feelingClearText}>Clear category</Text>
               </TouchableOpacity>
             )}
-            <View style={p.catGrid}>
+            <ScrollView
+              showsVerticalScrollIndicator
+              bounces={false}
+              style={p.catGridScroll}
+              contentContainerStyle={p.catGrid}
+            >
               {POST_CATEGORIES.map((cat) => {
                 const isActive = category === cat.id;
                 return (
@@ -1065,7 +1070,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1339,7 +1344,8 @@ const p = StyleSheet.create({
   feelingLabelActive: { color: "#A78BFA" },
 
   // Category picker
-  catGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 4, paddingBottom: 8 },
+  catGridScroll: { maxHeight: 380 },
+  catGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 4, paddingBottom: 40 },
   catCell: { width: "30%", margin: "1.65%" as any, alignItems: "center", paddingVertical: 14, borderRadius: 16, backgroundColor: "#16162A", borderWidth: 1, borderColor: "rgba(255,255,255,0.06)", gap: 4 },
   catCellActive: { backgroundColor: "rgba(124,58,237,0.25)", borderColor: "#7C3AED" },
   catEmoji: { fontSize: 24 },
