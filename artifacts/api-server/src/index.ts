@@ -18,6 +18,24 @@ async function ensureSupabaseSetup() {
     }
   }
 
+  // Ensure couple post columns exist on posts table
+  await sb.rpc("exec_ddl" as any, {
+    ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS couple_id UUID REFERENCES couple_links(id) ON DELETE SET NULL",
+  });
+  await sb.rpc("exec_ddl" as any, {
+    ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_couple_post BOOLEAN NOT NULL DEFAULT FALSE",
+  });
+  logger.info("posts couple columns ensured");
+
+  // Ensure is_couple_post column exists on reels table
+  await sb.rpc("exec_ddl" as any, {
+    ddl: "ALTER TABLE reels ADD COLUMN IF NOT EXISTS couple_id UUID REFERENCES couple_links(id) ON DELETE SET NULL",
+  });
+  await sb.rpc("exec_ddl" as any, {
+    ddl: "ALTER TABLE reels ADD COLUMN IF NOT EXISTS is_couple_post BOOLEAN NOT NULL DEFAULT FALSE",
+  });
+  logger.info("reels couple columns ensured");
+
   // Ensure image_url column exists on posts (alias for media_url)
   const { error: colErr } = await sb.rpc("exec_ddl" as any, {
     ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url TEXT",

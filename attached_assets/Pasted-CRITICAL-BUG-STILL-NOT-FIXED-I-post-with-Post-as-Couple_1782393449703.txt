@@ -1,0 +1,31 @@
+CRITICAL BUG STILL NOT FIXED: I post with "Post as Couple" toggle ON, but posts STILL show as normal single posts in the feed (single username, single avatar, no couple name, no dual avatars). I posted a brand new post after the last fix and it still shows wrong.
+
+Do a COMPLETE end-to-end diagnosis and ACTUALLY FIX it this time. Report findings at each step:
+
+STEP 1 — Check the most recent post in the database:
+- Query the posts table for the most recently created post
+- Tell me the actual values of: is_couple_post, couple_id
+- Print them so we know if the data is being SAVED
+
+STEP 2 — IF is_couple_post is FALSE or couple_id is NULL (save bug):
+- Trace from the mobile toggle to the database:
+  - In PostPage.tsx: is the "Post as Couple" toggle state actually being captured and passed to the upload function? Add a console.log of the toggle value at post time.
+  - In lib/db.ts uploadPostMedia: is it forwarding coupleId and isCouplePost in the request body/form data? Log what's being sent.
+  - In API posts/create.ts: is it reading isCouplePost and coupleId from the request? Log what's received. Is it writing them to the insert? 
+  - CHECK: is the coupleId being passed actually the couple_links id? Get the current user's coupleId from CoupleContext and verify it's a valid accepted couple_link.
+  - Fix whatever link in this chain is dropping the data.
+
+STEP 3 — IF is_couple_post is TRUE and couple_id has a value (display bug):
+- The data saves but doesn't display. Check the feed response:
+  - Does GET /api/feed/foryou actually return is_couple_post and a couple object for that post?
+  - Log the raw API response for the couple post
+  - Check enrichWithCoupleData: is it actually being called and returning { partner1, partner2, coupleName }? Log its output.
+- Check PostCard.tsx:
+  - What EXACT field does it check to decide couple vs single? (is_couple_post? isCouplePost? couple?)
+  - What EXACT field name does the API return? 
+  - FIX any snake_case vs camelCase mismatch between API response and PostCard.
+
+STEP 4 — Verify the API is actually deployed:
+- Confirm the running production server at gundruk.replit.app has the latest code. If the fix is only in dev and not published, that's the problem - tell me to publish.
+
+ACTUALLY TRACE THE REAL DATA, don't assume. Tell me the exact values found at each step and exactly which line was broken. Then fix it, rebuild dist, and tell me clearly whether I need to run SQL or click Publish.

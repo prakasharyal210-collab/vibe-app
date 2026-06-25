@@ -61109,6 +61109,20 @@ async function ensureSupabaseSetup() {
       logger.info({ bucket }, "Created storage bucket");
     }
   }
+  await sb.rpc("exec_ddl", {
+    ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS couple_id UUID REFERENCES couple_links(id) ON DELETE SET NULL"
+  });
+  await sb.rpc("exec_ddl", {
+    ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS is_couple_post BOOLEAN NOT NULL DEFAULT FALSE"
+  });
+  logger.info("posts couple columns ensured");
+  await sb.rpc("exec_ddl", {
+    ddl: "ALTER TABLE reels ADD COLUMN IF NOT EXISTS couple_id UUID REFERENCES couple_links(id) ON DELETE SET NULL"
+  });
+  await sb.rpc("exec_ddl", {
+    ddl: "ALTER TABLE reels ADD COLUMN IF NOT EXISTS is_couple_post BOOLEAN NOT NULL DEFAULT FALSE"
+  });
+  logger.info("reels couple columns ensured");
   const { error: colErr } = await sb.rpc("exec_ddl", {
     ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url TEXT"
   });
