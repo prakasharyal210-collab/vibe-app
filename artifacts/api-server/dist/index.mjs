@@ -55737,12 +55737,21 @@ router8.post("/create", async (req, res) => {
     }
   }
   let validatedCoupleId = null;
+  req.log.info({ isCouplePost, coupleId: coupleId ?? null, userId }, "couple-post: received params");
   if (isCouplePost && coupleId) {
     try {
-      const { data: link } = await sb.from("couple_links").select("id").eq("id", coupleId).eq("status", "accepted").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle();
-      if (link) validatedCoupleId = coupleId;
-    } catch {
+      const { data: link, error: linkErr } = await sb.from("couple_links").select("id").eq("id", coupleId).eq("status", "accepted").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle();
+      if (link) {
+        validatedCoupleId = coupleId;
+        req.log.info({ validatedCoupleId }, "couple-post: couple link validated OK");
+      } else {
+        req.log.warn({ coupleId, userId, linkErr: linkErr?.message }, "couple-post: couple link NOT found/accepted \u2014 stripping couple data");
+      }
+    } catch (e) {
+      req.log.error({ err: e?.message }, "couple-post: couple link validation threw");
     }
+  } else if (isCouplePost) {
+    req.log.warn({ isCouplePost, coupleId }, "couple-post: isCouplePost=true but coupleId is missing");
   }
   const VALID_VISIBILITIES = ["public", "friends", "private"];
   const safeVisibility = VALID_VISIBILITIES.includes(options.visibility) ? options.visibility : "public";
