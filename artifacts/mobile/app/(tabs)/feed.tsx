@@ -47,6 +47,7 @@ import {
 } from "@/lib/db";
 import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
+import { POST_CATEGORIES } from "@/lib/categories";
 
 const { width: W, height: H } = Dimensions.get("window");
 const PAGE_SIZE = 20;
@@ -57,25 +58,13 @@ const INDICATOR_W = 40;
 type FeedTabId = "foryou" | "friends";
 
 // ─── Category pills ────────────────────────────────────────────────────────────
-interface Category { id: string; label: string; keywords: string[] }
+// Derived from POST_CATEGORIES so the feed filter always stays in sync with the
+// creation picker — adding a category to lib/categories.ts is all that's needed.
+interface Category { id: string; label: string }
 const CATEGORIES: Category[] = [
-  { id: "explore",     label: "🧭 Explore",     keywords: [] },
-  { id: "trending",    label: "🔥 Trending",     keywords: [] },
-  { id: "music",       label: "🎵 Music",        keywords: ["music", "song", "beat", "artist", "track", "album", "listen"] },
-  { id: "dance",       label: "💃 Dance",        keywords: ["dance", "dancing", "choreo", "moves"] },
-  { id: "comedy",      label: "😂 Comedy",       keywords: ["comedy", "funny", "laugh", "humor", "joke", "lol"] },
-  { id: "travel",      label: "✈️ Travel",       keywords: ["travel", "trip", "vacation", "explore", "adventure", "wanderlust"] },
-  { id: "food",        label: "🍕 Food",         keywords: ["food", "eat", "recipe", "cooking", "foodie", "chef"] },
-  { id: "fitness",     label: "💪 Fitness",      keywords: ["fitness", "gym", "workout", "run", "exercise", "health"] },
-  { id: "gaming",      label: "🎮 Gaming",       keywords: ["gaming", "game", "play", "stream", "esports", "gamer"] },
-  { id: "photography", label: "📸 Photography",  keywords: ["photo", "photography", "shot", "camera", "portrait", "landscape"] },
-  { id: "art",         label: "🎨 Art",          keywords: ["art", "drawing", "painting", "sketch", "creative", "design"] },
-  { id: "fashion",     label: "💄 Fashion",      keywords: ["fashion", "style", "outfit", "ootd", "clothes", "wear"] },
-  { id: "pets",        label: "🐾 Pets",         keywords: ["pet", "dog", "cat", "puppy", "kitten", "animal"] },
-  { id: "sports",      label: "⚽ Sports",       keywords: ["sport", "football", "basketball", "soccer", "tennis", "athlete"] },
-  { id: "tech",        label: "💻 Tech",         keywords: ["tech", "ai", "coding", "developer", "startup", "software"] },
-  { id: "education",   label: "📚 Education",    keywords: ["learn", "education", "study", "school", "knowledge", "tutorial"] },
-  { id: "nature",      label: "🌿 Nature",       keywords: ["nature", "forest", "ocean", "mountains", "outdoor", "wildlife"] },
+  { id: "explore",  label: "🧭 Explore" },
+  { id: "trending", label: "🔥 Trending" },
+  ...POST_CATEGORIES.map((c) => ({ id: c.id, label: `${c.emoji} ${c.label}` })),
 ];
 
 function CategoryPills({
