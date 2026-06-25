@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { Buffer } from "buffer";
 
 function makeSupabase() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -97,6 +98,48 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
     totalReactions: (reactions.support + reactions.relate + reactions.strength + reactions.love),
   };
 }
+
+// ── POST /upload-photo ─────────────────────────────────────────────────────────
+// Accepts { base64, mimeType, ext, userId } — uploads to the public `posts`
+// Supabase storage bucket using the service-role key and returns the public URL.
+// Called by feed-create.tsx before submitting a confession post.
+
+router.post("/upload-photo", async (req, res) => {
+  const { base64, mimeType, ext, userId } = req.body as {
+    base64?: string;
+    mimeType?: string;
+    ext?: string;
+    userId?: string;
+  };
+  if (!base64 || !userId) {
+    res.status(400).json({ error: "base64 and userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const fileExt = (ext ?? "jpg").replace(/^\./, "");
+    const mime = mimeType ?? "image/jpeg";
+    const path = `confessions/${userId}/${Date.now()}.${fileExt}`;
+    const bytes = Buffer.from(base64, "base64");
+
+    const { error: uploadErr } = await sb.storage
+      .from("posts")
+      .upload(path, bytes, { contentType: mime, upsert: false });
+
+    if (uploadErr) {
+      req.log.error({ err: uploadErr.message }, "couple-feed/upload-photo: storage upload failed");
+      res.status(500).json({ error: uploadErr.message });
+      return;
+    }
+
+    const { data: urlData } = sb.storage.from("posts").getPublicUrl(path);
+    req.log.info({ path, url: urlData.publicUrl }, "couple-feed/upload-photo: uploaded OK");
+    res.json({ url: urlData.publicUrl });
+  } catch (err: any) {
+    req.log.error({ err: err.message }, "couple-feed/upload-photo error");
+    res.status(500).json({ error: "Failed to upload photo" });
+  }
+});
 
 // ── GET /posts ─────────────────────────────────────────────────────────────────
 // Returns ALL confessions from ALL couples — this is a permanent public community

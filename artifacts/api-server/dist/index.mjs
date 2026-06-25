@@ -1595,7 +1595,7 @@ var require_safer = __commonJS({
   "../../node_modules/.pnpm/safer-buffer@2.1.2/node_modules/safer-buffer/safer.js"(exports, module) {
     "use strict";
     var buffer = __require("buffer");
-    var Buffer2 = buffer.Buffer;
+    var Buffer3 = buffer.Buffer;
     var safer = {};
     var key;
     for (key in buffer) {
@@ -1604,12 +1604,12 @@ var require_safer = __commonJS({
       safer[key] = buffer[key];
     }
     var Safer = safer.Buffer = {};
-    for (key in Buffer2) {
-      if (!Buffer2.hasOwnProperty(key)) continue;
+    for (key in Buffer3) {
+      if (!Buffer3.hasOwnProperty(key)) continue;
       if (key === "allocUnsafe" || key === "allocUnsafeSlow") continue;
-      Safer[key] = Buffer2[key];
+      Safer[key] = Buffer3[key];
     }
-    safer.Buffer.prototype = Buffer2.prototype;
+    safer.Buffer.prototype = Buffer3.prototype;
     if (!Safer.from || Safer.from === Uint8Array.from) {
       Safer.from = function(value, encodingOrOffset, length) {
         if (typeof value === "number") {
@@ -1618,7 +1618,7 @@ var require_safer = __commonJS({
         if (value && typeof value.length === "undefined") {
           throw new TypeError("The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object. Received type " + typeof value);
         }
-        return Buffer2(value, encodingOrOffset, length);
+        return Buffer3(value, encodingOrOffset, length);
       };
     }
     if (!Safer.alloc) {
@@ -1629,7 +1629,7 @@ var require_safer = __commonJS({
         if (size < 0 || size >= 2 * (1 << 30)) {
           throw new RangeError('The value "' + size + '" is invalid for option "size"');
         }
-        var buf = Buffer2(size);
+        var buf = Buffer3(size);
         if (!fill || fill.length === 0) {
           buf.fill(0);
         } else if (typeof encoding === "string") {
@@ -1724,7 +1724,7 @@ var require_merge_exports = __commonJS({
 var require_internal = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/encodings/internal.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     module.exports = {
       // Encodings
       utf8: { type: "_internal", bomAware: true },
@@ -1748,7 +1748,7 @@ var require_internal = __commonJS({
       } else if (this.enc === "cesu8") {
         this.enc = "utf8";
         this.encoder = InternalEncoderCesu8;
-        if (Buffer2.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
+        if (Buffer3.from("eda0bdedb2a9", "hex").toString() !== "\u{1F4A9}") {
           this.decoder = InternalDecoderCesu8;
           this.defaultCharUnicode = iconv.defaultCharUnicode;
         }
@@ -1761,8 +1761,8 @@ var require_internal = __commonJS({
       this.decoder = new StringDecoder(codec.enc);
     }
     InternalDecoder.prototype.write = function(buf) {
-      if (!Buffer2.isBuffer(buf)) {
-        buf = Buffer2.from(buf);
+      if (!Buffer3.isBuffer(buf)) {
+        buf = Buffer3.from(buf);
       }
       return this.decoder.write(buf);
     };
@@ -1773,7 +1773,7 @@ var require_internal = __commonJS({
       this.enc = codec.enc;
     }
     InternalEncoder.prototype.write = function(str) {
-      return Buffer2.from(str, this.enc);
+      return Buffer3.from(str, this.enc);
     };
     InternalEncoder.prototype.end = function() {
     };
@@ -1785,15 +1785,15 @@ var require_internal = __commonJS({
       var completeQuads = str.length - str.length % 4;
       this.prevStr = str.slice(completeQuads);
       str = str.slice(0, completeQuads);
-      return Buffer2.from(str, "base64");
+      return Buffer3.from(str, "base64");
     };
     InternalEncoderBase64.prototype.end = function() {
-      return Buffer2.from(this.prevStr, "base64");
+      return Buffer3.from(this.prevStr, "base64");
     };
     function InternalEncoderCesu8(options, codec) {
     }
     InternalEncoderCesu8.prototype.write = function(str) {
-      var buf = Buffer2.alloc(str.length * 3);
+      var buf = Buffer3.alloc(str.length * 3);
       var bufIdx = 0;
       for (var i = 0; i < str.length; i++) {
         var charCode = str.charCodeAt(i);
@@ -1889,13 +1889,13 @@ var require_internal = __commonJS({
           str = str.slice(0, str.length - 1);
         }
       }
-      return Buffer2.from(str, this.enc);
+      return Buffer3.from(str, this.enc);
     };
     InternalEncoderUtf8.prototype.end = function() {
       if (this.highSurrogate) {
         var str = this.highSurrogate;
         this.highSurrogate = "";
-        return Buffer2.from(str, this.enc);
+        return Buffer3.from(str, this.enc);
       }
     };
   }
@@ -1905,7 +1905,7 @@ var require_internal = __commonJS({
 var require_utf32 = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/encodings/utf32.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports._utf32 = Utf32Codec;
     function Utf32Codec(codecOptions, iconv) {
       this.iconv = iconv;
@@ -1923,8 +1923,8 @@ var require_utf32 = __commonJS({
       this.highSurrogate = 0;
     }
     Utf32Encoder.prototype.write = function(str) {
-      var src = Buffer2.from(str, "ucs2");
-      var dst = Buffer2.alloc(src.length * 2);
+      var src = Buffer3.from(str, "ucs2");
+      var dst = Buffer3.alloc(src.length * 2);
       var write32 = this.isLE ? dst.writeUInt32LE : dst.writeUInt32BE;
       var offset = 0;
       for (var i = 0; i < src.length; i += 2) {
@@ -1960,7 +1960,7 @@ var require_utf32 = __commonJS({
       if (!this.highSurrogate) {
         return;
       }
-      var buf = Buffer2.alloc(4);
+      var buf = Buffer3.alloc(4);
       if (this.isLE) {
         buf.writeUInt32LE(this.highSurrogate, 0);
       } else {
@@ -1980,7 +1980,7 @@ var require_utf32 = __commonJS({
       }
       var i = 0;
       var codepoint = 0;
-      var dst = Buffer2.alloc(src.length + 4);
+      var dst = Buffer3.alloc(src.length + 4);
       var offset = 0;
       var isLE = this.isLE;
       var overflow = this.overflow;
@@ -2136,7 +2136,7 @@ var require_utf32 = __commonJS({
 var require_utf16 = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/encodings/utf16.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports.utf16be = Utf16BECodec;
     function Utf16BECodec() {
     }
@@ -2146,7 +2146,7 @@ var require_utf16 = __commonJS({
     function Utf16BEEncoder() {
     }
     Utf16BEEncoder.prototype.write = function(str) {
-      var buf = Buffer2.from(str, "ucs2");
+      var buf = Buffer3.from(str, "ucs2");
       for (var i = 0; i < buf.length; i += 2) {
         var tmp = buf[i];
         buf[i] = buf[i + 1];
@@ -2163,7 +2163,7 @@ var require_utf16 = __commonJS({
       if (buf.length == 0) {
         return "";
       }
-      var buf2 = Buffer2.alloc(buf.length + 1);
+      var buf2 = Buffer3.alloc(buf.length + 1);
       var i = 0;
       var j = 0;
       if (this.overflowByte !== -1) {
@@ -2279,7 +2279,7 @@ var require_utf16 = __commonJS({
 var require_utf7 = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/encodings/utf7.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports.utf7 = Utf7Codec;
     exports.unicode11utf7 = "utf7";
     function Utf7Codec(codecOptions, iconv) {
@@ -2293,7 +2293,7 @@ var require_utf7 = __commonJS({
       this.iconv = codec.iconv;
     }
     Utf7Encoder.prototype.write = function(str) {
-      return Buffer2.from(str.replace(nonDirectChars, function(chunk) {
+      return Buffer3.from(str.replace(nonDirectChars, function(chunk) {
         return "+" + (chunk === "+" ? "" : this.iconv.encode(chunk, "utf16-be").toString("base64").replace(/=+$/, "")) + "-";
       }.bind(this)));
     };
@@ -2331,7 +2331,7 @@ var require_utf7 = __commonJS({
               res += "+";
             } else {
               var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i2), "ascii");
-              res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+              res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
             }
             if (buf[i2] != minusChar) {
               i2--;
@@ -2349,7 +2349,7 @@ var require_utf7 = __commonJS({
         var canBeDecoded = b64str.length - b64str.length % 8;
         base64Accum = b64str.slice(canBeDecoded);
         b64str = b64str.slice(0, canBeDecoded);
-        res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+        res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
       }
       this.inBase64 = inBase64;
       this.base64Accum = base64Accum;
@@ -2358,7 +2358,7 @@ var require_utf7 = __commonJS({
     Utf7Decoder.prototype.end = function() {
       var res = "";
       if (this.inBase64 && this.base64Accum.length > 0) {
-        res = this.iconv.decode(Buffer2.from(this.base64Accum, "base64"), "utf16-be");
+        res = this.iconv.decode(Buffer3.from(this.base64Accum, "base64"), "utf16-be");
       }
       this.inBase64 = false;
       this.base64Accum = "";
@@ -2374,14 +2374,14 @@ var require_utf7 = __commonJS({
     function Utf7IMAPEncoder(options, codec) {
       this.iconv = codec.iconv;
       this.inBase64 = false;
-      this.base64Accum = Buffer2.alloc(6);
+      this.base64Accum = Buffer3.alloc(6);
       this.base64AccumIdx = 0;
     }
     Utf7IMAPEncoder.prototype.write = function(str) {
       var inBase64 = this.inBase64;
       var base64Accum = this.base64Accum;
       var base64AccumIdx = this.base64AccumIdx;
-      var buf = Buffer2.alloc(str.length * 5 + 10);
+      var buf = Buffer3.alloc(str.length * 5 + 10);
       var bufIdx = 0;
       for (var i2 = 0; i2 < str.length; i2++) {
         var uChar = str.charCodeAt(i2);
@@ -2420,7 +2420,7 @@ var require_utf7 = __commonJS({
       return buf.slice(0, bufIdx);
     };
     Utf7IMAPEncoder.prototype.end = function() {
-      var buf = Buffer2.alloc(10);
+      var buf = Buffer3.alloc(10);
       var bufIdx = 0;
       if (this.inBase64) {
         if (this.base64AccumIdx > 0) {
@@ -2457,7 +2457,7 @@ var require_utf7 = __commonJS({
               res += "&";
             } else {
               var b64str = base64Accum + this.iconv.decode(buf.slice(lastI, i2), "ascii").replace(/,/g, "/");
-              res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+              res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
             }
             if (buf[i2] != minusChar) {
               i2--;
@@ -2475,7 +2475,7 @@ var require_utf7 = __commonJS({
         var canBeDecoded = b64str.length - b64str.length % 8;
         base64Accum = b64str.slice(canBeDecoded);
         b64str = b64str.slice(0, canBeDecoded);
-        res += this.iconv.decode(Buffer2.from(b64str, "base64"), "utf16-be");
+        res += this.iconv.decode(Buffer3.from(b64str, "base64"), "utf16-be");
       }
       this.inBase64 = inBase64;
       this.base64Accum = base64Accum;
@@ -2484,7 +2484,7 @@ var require_utf7 = __commonJS({
     Utf7IMAPDecoder.prototype.end = function() {
       var res = "";
       if (this.inBase64 && this.base64Accum.length > 0) {
-        res = this.iconv.decode(Buffer2.from(this.base64Accum, "base64"), "utf16-be");
+        res = this.iconv.decode(Buffer3.from(this.base64Accum, "base64"), "utf16-be");
       }
       this.inBase64 = false;
       this.base64Accum = "";
@@ -2497,7 +2497,7 @@ var require_utf7 = __commonJS({
 var require_sbcs_codec = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/encodings/sbcs-codec.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports._sbcs = SBCSCodec;
     function SBCSCodec(codecOptions, iconv) {
       if (!codecOptions) {
@@ -2513,8 +2513,8 @@ var require_sbcs_codec = __commonJS({
         }
         codecOptions.chars = asciiString + codecOptions.chars;
       }
-      this.decodeBuf = Buffer2.from(codecOptions.chars, "ucs2");
-      var encodeBuf = Buffer2.alloc(65536, iconv.defaultCharSingleByte.charCodeAt(0));
+      this.decodeBuf = Buffer3.from(codecOptions.chars, "ucs2");
+      var encodeBuf = Buffer3.alloc(65536, iconv.defaultCharSingleByte.charCodeAt(0));
       for (var i = 0; i < codecOptions.chars.length; i++) {
         encodeBuf[codecOptions.chars.charCodeAt(i)] = i;
       }
@@ -2526,7 +2526,7 @@ var require_sbcs_codec = __commonJS({
       this.encodeBuf = codec.encodeBuf;
     }
     SBCSEncoder.prototype.write = function(str) {
-      var buf = Buffer2.alloc(str.length);
+      var buf = Buffer3.alloc(str.length);
       for (var i = 0; i < str.length; i++) {
         buf[i] = this.encodeBuf[str.charCodeAt(i)];
       }
@@ -2539,7 +2539,7 @@ var require_sbcs_codec = __commonJS({
     }
     SBCSDecoder.prototype.write = function(buf) {
       var decodeBuf = this.decodeBuf;
-      var newBuf = Buffer2.alloc(buf.length * 2);
+      var newBuf = Buffer3.alloc(buf.length * 2);
       var idx1 = 0;
       var idx2 = 0;
       for (var i = 0; i < buf.length; i++) {
@@ -3167,7 +3167,7 @@ var require_sbcs_data_generated = __commonJS({
 var require_dbcs_codec = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/encodings/dbcs-codec.js"(exports) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     exports._dbcs = DBCSCodec;
     var UNASSIGNED = -1;
     var GB18030_CODE = -2;
@@ -3403,7 +3403,7 @@ var require_dbcs_codec = __commonJS({
       this.gb18030 = codec.gb18030;
     }
     DBCSEncoder.prototype.write = function(str) {
-      var newBuf = Buffer2.alloc(str.length * (this.gb18030 ? 4 : 3));
+      var newBuf = Buffer3.alloc(str.length * (this.gb18030 ? 4 : 3));
       var leadSurrogate = this.leadSurrogate;
       var seqObj = this.seqObj;
       var nextChar = -1;
@@ -3507,7 +3507,7 @@ var require_dbcs_codec = __commonJS({
       if (this.leadSurrogate === -1 && this.seqObj === void 0) {
         return;
       }
-      var newBuf = Buffer2.alloc(10);
+      var newBuf = Buffer3.alloc(10);
       var j = 0;
       if (this.seqObj) {
         var dbcsCode = this.seqObj[DEF_CHAR];
@@ -3538,7 +3538,7 @@ var require_dbcs_codec = __commonJS({
       this.gb18030 = codec.gb18030;
     }
     DBCSDecoder.prototype.write = function(buf) {
-      var newBuf = Buffer2.alloc(buf.length * 2);
+      var newBuf = Buffer3.alloc(buf.length * 2);
       var nodeIdx = this.nodeIdx;
       var prevBytes = this.prevBytes;
       var prevOffset = this.prevBytes.length;
@@ -5147,7 +5147,7 @@ var require_encodings = __commonJS({
 var require_streams = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/lib/streams.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     module.exports = function(streamModule) {
       var Transform = streamModule.Transform;
       function IconvLiteEncoderStream(conv, options) {
@@ -5187,7 +5187,7 @@ var require_streams = __commonJS({
           chunks.push(chunk);
         });
         this.on("end", function() {
-          cb(null, Buffer2.concat(chunks));
+          cb(null, Buffer3.concat(chunks));
         });
         return this;
       };
@@ -5201,7 +5201,7 @@ var require_streams = __commonJS({
         constructor: { value: IconvLiteDecoderStream }
       });
       IconvLiteDecoderStream.prototype._transform = function(chunk, encoding, done) {
-        if (!Buffer2.isBuffer(chunk) && !(chunk instanceof Uint8Array)) {
+        if (!Buffer3.isBuffer(chunk) && !(chunk instanceof Uint8Array)) {
           return done(new Error("Iconv decoding stream needs buffers as its input."));
         }
         try {
@@ -5244,7 +5244,7 @@ var require_streams = __commonJS({
 var require_lib = __commonJS({
   "../../node_modules/.pnpm/iconv-lite@0.7.2/node_modules/iconv-lite/lib/index.js"(exports, module) {
     "use strict";
-    var Buffer2 = require_safer().Buffer;
+    var Buffer3 = require_safer().Buffer;
     var bomHandling = require_bom_handling();
     var mergeModules = require_merge_exports();
     module.exports.encodings = null;
@@ -5255,7 +5255,7 @@ var require_lib = __commonJS({
       var encoder = module.exports.getEncoder(encoding, options);
       var res = encoder.write(str);
       var trail = encoder.end();
-      return trail && trail.length > 0 ? Buffer2.concat([res, trail]) : res;
+      return trail && trail.length > 0 ? Buffer3.concat([res, trail]) : res;
     };
     module.exports.decode = function decode(buf, encoding, options) {
       if (typeof buf === "string") {
@@ -5263,7 +5263,7 @@ var require_lib = __commonJS({
           console.error("Iconv-lite warning: decode()-ing strings is deprecated. Refer to https://github.com/ashtuchkin/iconv-lite/wiki/Use-Buffers-when-decoding");
           module.exports.skipDecodeWarning = true;
         }
-        buf = Buffer2.from("" + (buf || ""), "binary");
+        buf = Buffer3.from("" + (buf || ""), "binary");
       }
       var decoder = module.exports.getDecoder(encoding, options);
       var res = decoder.write(buf);
@@ -19764,7 +19764,7 @@ var require_utils3 = __commonJS({
     var proxyaddr = require_proxy_addr();
     var qs = require_lib2();
     var querystring = __require("node:querystring");
-    var { Buffer: Buffer2 } = __require("node:buffer");
+    var { Buffer: Buffer3 } = __require("node:buffer");
     exports.methods = METHODS.map((method) => method.toLowerCase());
     exports.etag = createETagGenerator({ weak: false });
     exports.wetag = createETagGenerator({ weak: true });
@@ -19868,7 +19868,7 @@ var require_utils3 = __commonJS({
     };
     function createETagGenerator(options) {
       return function generateETag(body, encoding) {
-        var buf = !Buffer2.isBuffer(body) ? Buffer2.from(body, encoding) : body;
+        var buf = !Buffer3.isBuffer(body) ? Buffer3.from(body, encoding) : body;
         return etag(buf, options);
       };
     }
@@ -23131,7 +23131,7 @@ var require_response = __commonJS({
     var extname = path.extname;
     var resolve = path.resolve;
     var vary = require_vary();
-    var { Buffer: Buffer2 } = __require("node:buffer");
+    var { Buffer: Buffer3 } = __require("node:buffer");
     var res = Object.create(http.ServerResponse.prototype);
     module.exports = res;
     res.status = function status(code) {
@@ -23195,12 +23195,12 @@ var require_response = __commonJS({
       var generateETag = !this.get("ETag") && typeof etagFn === "function";
       var len;
       if (chunk !== void 0) {
-        if (Buffer2.isBuffer(chunk)) {
+        if (Buffer3.isBuffer(chunk)) {
           len = chunk.length;
         } else if (!generateETag && chunk.length < 1e3) {
-          len = Buffer2.byteLength(chunk, encoding);
+          len = Buffer3.byteLength(chunk, encoding);
         } else {
-          chunk = Buffer2.from(chunk, encoding);
+          chunk = Buffer3.from(chunk, encoding);
           encoding = void 0;
           len = chunk.length;
         }
@@ -23462,7 +23462,7 @@ var require_response = __commonJS({
         }
       });
       this.status(status);
-      this.set("Content-Length", Buffer2.byteLength(body));
+      this.set("Content-Length", Buffer3.byteLength(body));
       if (this.req.method === "HEAD") {
         this.end();
       } else {
@@ -60673,6 +60673,7 @@ var couple_default = router33;
 
 // src/routes/couple-feed.ts
 var import_express34 = __toESM(require_express2(), 1);
+import { Buffer as Buffer2 } from "buffer";
 function makeSupabase28() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
@@ -60734,6 +60735,32 @@ async function enrichPost(sb, post2, coupleId) {
     totalReactions: reactions.support + reactions.relate + reactions.strength + reactions.love
   };
 }
+router34.post("/upload-photo", async (req, res) => {
+  const { base64, mimeType, ext, userId } = req.body;
+  if (!base64 || !userId) {
+    res.status(400).json({ error: "base64 and userId required" });
+    return;
+  }
+  const sb = makeSupabase28();
+  try {
+    const fileExt = (ext ?? "jpg").replace(/^\./, "");
+    const mime = mimeType ?? "image/jpeg";
+    const path = `confessions/${userId}/${Date.now()}.${fileExt}`;
+    const bytes = Buffer2.from(base64, "base64");
+    const { error: uploadErr } = await sb.storage.from("posts").upload(path, bytes, { contentType: mime, upsert: false });
+    if (uploadErr) {
+      req.log.error({ err: uploadErr.message }, "couple-feed/upload-photo: storage upload failed");
+      res.status(500).json({ error: uploadErr.message });
+      return;
+    }
+    const { data: urlData } = sb.storage.from("posts").getPublicUrl(path);
+    req.log.info({ path, url: urlData.publicUrl }, "couple-feed/upload-photo: uploaded OK");
+    res.json({ url: urlData.publicUrl });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/upload-photo error");
+    res.status(500).json({ error: "Failed to upload photo" });
+  }
+});
 router34.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"];
   const limit = Math.min(Number(req.query["limit"] ?? 20), 50);

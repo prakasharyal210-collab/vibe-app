@@ -1,0 +1,37 @@
+Confession photos are not showing in the Confession Room feed. Debug and fix the photo upload + display for confessions.
+
+CONTEXT:
+- Confessions are in couple_feed_posts table (photo_url column)
+- Create screen: artifacts/mobile/app/couple/feed-create.tsx
+- Feed display: artifacts/mobile/app/couple/feed.tsx
+- API: artifacts/api-server/src/routes/couple-feed.ts
+
+STEP 1 — FIND THE PROBLEM. Check both possibilities:
+
+A) Is the photo being UPLOADED and SAVED?
+- In feed-create.tsx, check how the photo is uploaded. It should:
+  - Pick image with expo-image-picker
+  - Upload to Supabase storage using the SAME upload helper the app uses for normal posts (find it in lib/db.ts - probably uploadPostMedia or similar)
+  - Get back a public URL
+  - Send that URL as photoUrl in POST /api/couple-feed/posts
+- Add console.log to confirm: the picked image uri, the uploaded URL, and what's sent to the API
+- In the API POST route, confirm photo_url is actually being written to couple_feed_posts (log the insert payload)
+
+B) Is the photo being RETURNED and DISPLAYED?
+- In the GET /api/couple-feed/posts route, confirm photo_url is included in the response for each post
+- In feed.tsx, confirm the post card renders an <Image> when photo_url exists:
+  - source={{ uri: post.photo_url }}
+  - has explicit width and height (or aspectRatio) - an Image with no dimensions shows nothing
+  - resizeMode="cover"
+
+STEP 2 — FIX whatever is broken:
+- If upload fails: make confession photo upload use the exact same working upload function as normal feed posts (don't use a custom/different method)
+- If display fails: ensure the Image component has proper dimensions. Use a style like { width: '100%', aspectRatio: 1.2, borderRadius: 12 } or get real dimensions via Image.getSize
+- Make sure the Supabase storage bucket the photo uploads to is PUBLIC (confession photos need to be publicly readable). If it's uploading to a private bucket, switch to the public posts bucket.
+
+STEP 3 — Tell me:
+- Whether the problem was upload or display
+- Which file(s) you changed
+- Whether photo_url is now populated in couple_feed_posts
+
+After API changes: rebuild dist, commit, push, and remind me to publish.

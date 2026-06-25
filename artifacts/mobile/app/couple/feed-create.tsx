@@ -17,6 +17,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { readAsStringAsync } from "expo-file-system/legacy";
 import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
@@ -70,6 +71,27 @@ export default function FeedCreateScreen() {
     }
   };
 
+  const uploadPhoto = async (uri: string): Promise<string> => {
+    const cleanUri = uri.split("?")[0];
+    const rawExt = (cleanUri.split(".").pop() ?? "jpg").toLowerCase();
+    const ext = rawExt === "png" ? "png" : rawExt === "gif" ? "gif" : "jpg";
+    const mimeType = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
+
+    const base64 = await readAsStringAsync(uri, { encoding: "base64" as any });
+
+    const uploadRes = await fetch(`${API_BASE}/api/couple-feed/upload-photo`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ base64, mimeType, ext, userId: authorId }),
+    });
+    const uploadData = await uploadRes.json();
+    if (uploadData.error) throw new Error(uploadData.error);
+    return uploadData.url as string;
+  };
+
   const handlePost = async () => {
     if (!content.trim()) {
       Alert.alert("Write something", "Your post needs some text before sharing.");
@@ -87,6 +109,19 @@ export default function FeedCreateScreen() {
 
     setPosting(true);
     try {
+      // Upload photo to Supabase storage first — the local device URI is not
+      // accessible from other devices. We must get back a public HTTPS URL.
+      let uploadedPhotoUrl: string | undefined;
+      if (photoUri) {
+        try {
+          uploadedPhotoUrl = await uploadPhoto(photoUri);
+        } catch (uploadErr: any) {
+          Alert.alert("Photo upload failed", uploadErr?.message ?? "Could not upload photo. Please try again.");
+          setPosting(false);
+          return;
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/couple-feed/posts`, {
         method: "POST",
         headers: {
@@ -97,7 +132,7 @@ export default function FeedCreateScreen() {
           coupleId,
           authorId,
           content: content.trim(),
-          photoUrl: photoUri ?? undefined,
+          photoUrl: uploadedPhotoUrl,
           category,
           isAnonymous,
           age: ageNum,
