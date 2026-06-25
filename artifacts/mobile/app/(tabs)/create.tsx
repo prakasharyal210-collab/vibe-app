@@ -538,6 +538,14 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
   const [aiModal, setAiModal] = useState<{ type: "idea" | "script"; content: string[] } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // ── Collapsible tools menu ─────────────────────────────────────────────────
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const toolsReveal = useSharedValue(0);
+  const toolsContainerStyle = useAnimatedStyle(() => ({
+    maxHeight: toolsReveal.value * 900,
+    opacity: toolsReveal.value,
+  }));
+
   // Safety timeout — if permission hooks never resolve on Android, unblock after 5s
   const [permTimeout, setPermTimeout] = useState(false);
   useEffect(() => {
@@ -1077,107 +1085,117 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
           </View>
         </View>
 
-        {/* ── RIGHT SIDE TOOLS (vertically scrollable rail) ── */}
+        {/* ── RIGHT SIDE TOOLS (collapsible — tap ⋯ to expand) ── */}
         <RAnimated.View
-          style={[s.sideTools, { top: tabBarHeight + 48, bottom: insets.bottom + 200 }, controlsStyle]}
+          style={[s.sideTools, { top: tabBarHeight + 48 }, controlsStyle]}
           pointerEvents={recording ? "none" : "box-none"}
         >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            contentContainerStyle={{ gap: 14, paddingVertical: 4 }}
+          {/* Always-visible toggle button */}
+          <TouchableOpacity
+            style={s.sideTool}
+            onPress={() => {
+              const next = !toolsOpen;
+              setToolsOpen(next);
+              toolsReveal.value = withTiming(next ? 1 : 0, { duration: 260 });
+            }}
           >
-            <TouchableOpacity style={s.sideTool} onPress={() => setFacing((f) => f === "back" ? "front" : "back")}>
-              <View style={s.sideCircle}><CI name="camera-reverse-outline" size={22} color="#fff" /></View>
-              <Text style={s.sideLabel}>Flip</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={s.sideTool}
-              onPress={facing === "back" ? cycleFlash : undefined}
-              activeOpacity={facing === "back" ? 0.7 : 1}
-            >
-              <View style={[s.sideCircle, flashActive && { backgroundColor: "#EAB30830" }]}>
-                <CI name={flashIcon} size={22} color={flashColor} />
-              </View>
-              <Text style={[s.sideLabel, { color: flashColor }]}>
-                {facing === "front" ? "Flash" : flashMode === "off" ? "Flash" : flashMode === "on" ? "Torch" : "Auto"}
+            <View style={[s.sideCircle, toolsOpen && { backgroundColor: "rgba(124,58,237,0.45)", borderColor: "rgba(124,58,237,0.6)" }]}>
+              <Text style={{ color: "#fff", fontSize: 19, lineHeight: 22, textAlign: "center" }}>
+                {toolsOpen ? "✕" : "⋯"}
               </Text>
-            </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
 
-            <TouchableOpacity style={s.sideTool} onPress={() => { const opts: TimerValue[] = [0, 3, 5, 10]; setTimerSecs((t) => opts[(opts.indexOf(t) + 1) % opts.length]); }}>
-              <View style={[s.sideCircle, timerSecs > 0 && { backgroundColor: "#7C3AED30" }]}>
-                <CI name={timerSecs > 0 ? "timer" : "timer-outline"} size={22} color={timerSecs > 0 ? "#A78BFA" : "#fff"} />
-              </View>
-              <Text style={[s.sideLabel, timerSecs > 0 && { color: "#A78BFA" }]}>{timerSecs > 0 ? `${timerSecs}s` : "Timer"}</Text>
-            </TouchableOpacity>
+          {/* Collapsible tool list — slides open below the toggle */}
+          <RAnimated.View style={[s.toolsCollapse, toolsContainerStyle]} pointerEvents={toolsOpen ? "box-none" : "none"}>
+            <View style={{ gap: 14, paddingTop: 14 }}>
 
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowGrid((v) => !v)}>
-              <View style={[s.sideCircle, showGrid && { backgroundColor: "#7C3AED30" }]}>
-                <CI name="grid-outline" size={22} color={showGrid ? "#A78BFA" : "#fff"} />
-              </View>
-              <Text style={[s.sideLabel, showGrid && { color: "#A78BFA" }]}>Grid</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => { setShowFilterStrip((v) => !v); setShowBeauty(false); }}>
-              <View style={[s.sideCircle, showFilterStrip && { backgroundColor: "#EC489930" }]}>
-                <CI name="color-filter-outline" size={22} color={showFilterStrip ? "#EC4899" : cameraFilter.id !== "none" ? "#EC4899" : "#fff"} />
-              </View>
-              <Text style={[s.sideLabel, (showFilterStrip || cameraFilter.id !== "none") && { color: "#EC4899" }]}>Filter</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => { setShowBeauty((v) => !v); setShowFilterStrip(false); setShowLensPicker(false); }}>
-              <View style={[s.sideCircle, showBeauty && { backgroundColor: "#EC489930" }]}>
-                <CI name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
-              </View>
-              <Text style={s.sideLabel}>Beauty</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => { setShowLensPicker((v) => !v); setShowFilterStrip(false); setShowBeauty(false); }}>
-              <View style={[s.sideCircle, (showLensPicker || activeLensId !== null) && { backgroundColor: "#A78BFA30" }]}>
-                <Text style={{ fontSize: 20 }}>{activeLensId ? "✨" : "🪄"}</Text>
-              </View>
-              <Text style={[s.sideLabel, activeLensId !== null && { color: "#A78BFA" }]}>Lens</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowMusicPicker(true)}>
-              <View style={[s.sideCircle, selectedMusic && { backgroundColor: "#7C3AED30" }]}>
-                <CI name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
-              </View>
-              <Text style={[s.sideLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowSoundsPicker(true)}>
-              <View style={[s.sideCircle, selectedSound && { backgroundColor: "#06B6D430" }]}>
-                <CI name="radio-outline" size={22} color={selectedSound ? "#06B6D4" : "#fff"} />
-                {selectedSound && (
-                  <View style={s.soundDot} />
-                )}
-              </View>
-              <Text style={[s.sideLabel, selectedSound && { color: "#06B6D4" }]}>Sounds</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.sideTool} onPress={() => setShowTextModal(true)}>
-              <View style={s.sideCircle}><CI name="text-outline" size={22} color="#fff" /></View>
-              <Text style={s.sideLabel}>Text</Text>
-            </TouchableOpacity>
-
-            {captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? (
-              <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
-                <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
-                  {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <CI name="bulb-outline" size={22} color="#A78BFA" />}
+              <TouchableOpacity
+                style={s.sideTool}
+                onPress={facing === "back" ? cycleFlash : undefined}
+                activeOpacity={facing === "back" ? 0.7 : 1}
+              >
+                <View style={[s.sideCircle, flashActive && { backgroundColor: "#EAB30830" }]}>
+                  <CI name={flashIcon} size={22} color={flashColor} />
                 </View>
-                <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
+                <Text style={[s.sideLabel, { color: flashColor }]}>
+                  {facing === "front" ? "Flash" : flashMode === "off" ? "Flash" : flashMode === "on" ? "Torch" : "Auto"}
+                </Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
-                <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
-                  {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <CI name="document-text-outline" size={22} color="#A78BFA" />}
+
+              <TouchableOpacity style={s.sideTool} onPress={() => { const opts: TimerValue[] = [0, 3, 5, 10]; setTimerSecs((t) => opts[(opts.indexOf(t) + 1) % opts.length]); }}>
+                <View style={[s.sideCircle, timerSecs > 0 && { backgroundColor: "#7C3AED30" }]}>
+                  <CI name={timerSecs > 0 ? "timer" : "timer-outline"} size={22} color={timerSecs > 0 ? "#A78BFA" : "#fff"} />
                 </View>
-                <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Script</Text>
+                <Text style={[s.sideLabel, timerSecs > 0 && { color: "#A78BFA" }]}>{timerSecs > 0 ? `${timerSecs}s` : "Timer"}</Text>
               </TouchableOpacity>
-            )}
-          </ScrollView>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => setShowGrid((v) => !v)}>
+                <View style={[s.sideCircle, showGrid && { backgroundColor: "#7C3AED30" }]}>
+                  <CI name="grid-outline" size={22} color={showGrid ? "#A78BFA" : "#fff"} />
+                </View>
+                <Text style={[s.sideLabel, showGrid && { color: "#A78BFA" }]}>Grid</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => { setShowFilterStrip((v) => !v); setShowBeauty(false); }}>
+                <View style={[s.sideCircle, showFilterStrip && { backgroundColor: "#EC489930" }]}>
+                  <CI name="color-filter-outline" size={22} color={showFilterStrip ? "#EC4899" : cameraFilter.id !== "none" ? "#EC4899" : "#fff"} />
+                </View>
+                <Text style={[s.sideLabel, (showFilterStrip || cameraFilter.id !== "none") && { color: "#EC4899" }]}>Filter</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => { setShowBeauty((v) => !v); setShowFilterStrip(false); setShowLensPicker(false); }}>
+                <View style={[s.sideCircle, showBeauty && { backgroundColor: "#EC489930" }]}>
+                  <CI name="color-wand-outline" size={22} color={showBeauty ? "#EC4899" : "#fff"} />
+                </View>
+                <Text style={s.sideLabel}>Beauty</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => { setShowLensPicker((v) => !v); setShowFilterStrip(false); setShowBeauty(false); }}>
+                <View style={[s.sideCircle, (showLensPicker || activeLensId !== null) && { backgroundColor: "#A78BFA30" }]}>
+                  <Text style={{ fontSize: 20 }}>{activeLensId ? "✨" : "🪄"}</Text>
+                </View>
+                <Text style={[s.sideLabel, activeLensId !== null && { color: "#A78BFA" }]}>Lens</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => setShowMusicPicker(true)}>
+                <View style={[s.sideCircle, selectedMusic && { backgroundColor: "#7C3AED30" }]}>
+                  <CI name="musical-notes-outline" size={22} color={selectedMusic ? "#A78BFA" : "#fff"} />
+                </View>
+                <Text style={[s.sideLabel, selectedMusic && { color: "#A78BFA" }]}>Music</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => setShowSoundsPicker(true)}>
+                <View style={[s.sideCircle, selectedSound && { backgroundColor: "#06B6D430" }]}>
+                  <CI name="radio-outline" size={22} color={selectedSound ? "#06B6D4" : "#fff"} />
+                  {selectedSound && <View style={s.soundDot} />}
+                </View>
+                <Text style={[s.sideLabel, selectedSound && { color: "#06B6D4" }]}>Sounds</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.sideTool} onPress={() => setShowTextModal(true)}>
+                <View style={s.sideCircle}><CI name="text-outline" size={22} color="#fff" /></View>
+                <Text style={s.sideLabel}>Text</Text>
+              </TouchableOpacity>
+
+              {captureMode === "Photo" || captureMode === "Portrait" || captureMode === "Night" ? (
+                <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
+                  <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
+                    {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <CI name="bulb-outline" size={22} color="#A78BFA" />}
+                  </View>
+                  <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Idea</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={s.sideTool} disabled={aiLoading} onPress={() => { setAiTopic(""); setShowAiTopicInput(true); }}>
+                  <View style={[s.sideCircle, { backgroundColor: "rgba(124,58,237,0.35)" }]}>
+                    {aiLoading ? <ActivityIndicator size="small" color="#A78BFA" /> : <CI name="document-text-outline" size={22} color="#A78BFA" />}
+                  </View>
+                  <Text style={[s.sideLabel, { color: "#A78BFA" }]}>AI Script</Text>
+                </TouchableOpacity>
+              )}
+
+            </View>
+          </RAnimated.View>
         </RAnimated.View>
 
         {/* ── FILTER STRIP ── */}
@@ -1544,10 +1562,11 @@ const s = StyleSheet.create({
   topPillText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 13 },
   modeHint: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_500Medium", fontSize: 12, backgroundColor: "rgba(0,0,0,0.4)", paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10 },
 
-  sideTools: { position: "absolute", right: 8 },
+  sideTools: { position: "absolute", right: 8, alignItems: "center" },
   sideTool: { alignItems: "center", gap: 3 },
   sideCircle: { width: SIDE_CIRCLE_SIZE, height: SIDE_CIRCLE_SIZE, borderRadius: SIDE_CIRCLE_SIZE / 2, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.2)" },
   sideLabel: { color: "#fff", fontSize: 9.5, fontFamily: "Poppins_500Medium", textShadowColor: "rgba(0,0,0,0.9)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  toolsCollapse: { overflow: "hidden", alignItems: "center" },
 
   timerOverlay: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
   timerNumber: { fontSize: 110, fontFamily: "Poppins_700Bold", color: "#fff", textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 2, height: 2 }, textShadowRadius: 8 },
