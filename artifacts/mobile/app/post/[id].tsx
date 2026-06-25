@@ -35,6 +35,7 @@ import { Image } from "expo-image";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommentsSheet } from "@/components/CommentsSheet";
+import { CoupleHeaderRow } from "@/components/PostCard";
 import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
@@ -1296,7 +1297,7 @@ export default function PostDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Author row — large avatar + follower/post count + Follow ─── */}
+        {/* ── Author row — couple header OR single avatar + Follow ──────── */}
         <View
           style={[
             S.authorSection,
@@ -1306,52 +1307,58 @@ export default function PostDetailScreen() {
             },
           ]}
         >
-          <TouchableOpacity
-            style={S.authorLeft}
-            onPress={() => router.push(`/profile/${username}` as any)}
-            activeOpacity={0.75}
-          >
-            <GradientRingAvatar username={username} url={avatarUrl} size={52} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <Text style={[S.authorName, { color: colors.foreground }]}>{username}</Text>
-                {isVerified && (
-                  <Ionicons name="checkmark-circle" size={15} color="#7C3AED" />
-                )}
-              </View>
-              {authorStats ? (
-                <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
-                  {formatCount(authorStats.followers_count)} Followers ·{" "}
-                  {formatCount(authorStats.posts_count)} Posts
-                </Text>
-              ) : (
-                <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
-                  {timeAgo(post.created_at)}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
+          {(post as any).is_couple_post && (post as any).couple ? (
+            <CoupleHeaderRow post={post as any} style={{ flex: 1 }} />
+          ) : (
+            <>
+              <TouchableOpacity
+                style={S.authorLeft}
+                onPress={() => router.push(`/profile/${username}` as any)}
+                activeOpacity={0.75}
+              >
+                <GradientRingAvatar username={username} url={avatarUrl} size={52} />
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                    <Text style={[S.authorName, { color: colors.foreground }]}>{username}</Text>
+                    {isVerified && (
+                      <Ionicons name="checkmark-circle" size={15} color="#7C3AED" />
+                    )}
+                  </View>
+                  {authorStats ? (
+                    <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
+                      {formatCount(authorStats.followers_count)} Followers ·{" "}
+                      {formatCount(authorStats.posts_count)} Posts
+                    </Text>
+                  ) : (
+                    <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
+                      {timeAgo(post.created_at)}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => setFollowing((f) => !f)} activeOpacity={0.8}>
-            {following ? (
-              <View
-                style={[S.followingBtn, { borderColor: "rgba(255,255,255,0.22)" }]}
-              >
-                <Text style={[S.followBtnTxt, { color: colors.foreground }]}>
-                  Following
-                </Text>
-              </View>
-            ) : (
-              <LinearGradient
-                colors={["#EA580C", "#7C3AED"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={S.followGrad}
-              >
-                <Text style={[S.followBtnTxt, { color: "#fff" }]}>Follow</Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity onPress={() => setFollowing((f) => !f)} activeOpacity={0.8}>
+                {following ? (
+                  <View
+                    style={[S.followingBtn, { borderColor: "rgba(255,255,255,0.22)" }]}
+                  >
+                    <Text style={[S.followBtnTxt, { color: colors.foreground }]}>
+                      Following
+                    </Text>
+                  </View>
+                ) : (
+                  <LinearGradient
+                    colors={["#EA580C", "#7C3AED"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={S.followGrad}
+                  >
+                    <Text style={[S.followBtnTxt, { color: "#fff" }]}>Follow</Text>
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* ── Post Information — 3-column stats row ─────────────────────── */}

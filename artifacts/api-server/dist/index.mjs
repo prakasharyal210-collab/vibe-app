@@ -56028,6 +56028,22 @@ router8.get("/:postId", async (req, res) => {
   if (!post2.image_url && post2.media_url) {
     post2.image_url = post2.media_url;
   }
+  if (post2.is_couple_post && post2.couple_id) {
+    try {
+      const { data: link } = await sb.from("couple_links").select("id, requester_id, receiver_id").eq("id", post2.couple_id).single();
+      if (link) {
+        const uids = [link.requester_id, link.receiver_id].filter(Boolean);
+        const { data: profiles } = await sb.from("profiles").select("id, username, full_name, avatar_url").in("id", uids);
+        const pm = new Map((profiles ?? []).map((p) => [p.id, p]));
+        const p1 = pm.get(link.requester_id) ?? null;
+        const p2 = pm.get(link.receiver_id) ?? null;
+        const name1 = p1?.full_name?.split(" ")[0] || p1?.username || "Partner";
+        const name2 = p2?.full_name?.split(" ")[0] || p2?.username || "Partner";
+        post2.couple = { partner1: p1, partner2: p2, coupleName: `${name1} & ${name2}` };
+      }
+    } catch {
+    }
+  }
   res.json({ data: post2 });
 });
 var create_default = router8;

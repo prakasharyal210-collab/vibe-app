@@ -56,7 +56,7 @@ import { AchievementModal } from "@/components/AchievementModal";
 import { usePostRealtime } from "@/context/RealtimeContext";
 
 // ── Couple header sub-component (module-level to avoid remount on each render) ─
-function CoupleHeaderRow({ post, style }: { post: any; style?: object }) {
+export function CoupleHeaderRow({ post, style }: { post: any; style?: object }) {
   const couple = post.couple as { coupleName?: string; partner1?: { username?: string; avatar_url?: string | null }; partner2?: { username?: string; avatar_url?: string | null } } | undefined;
   if (!couple) return null;
 

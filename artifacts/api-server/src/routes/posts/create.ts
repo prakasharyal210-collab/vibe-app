@@ -761,6 +761,31 @@ router.get("/:postId", async (req, res) => {
     post.image_url = post.media_url;
   }
 
+  // Enrich couple posts with both partner profiles so the detail screen can
+  // render the dual-avatar + couple-name header (same as the feed does).
+  if (post.is_couple_post && post.couple_id) {
+    try {
+      const { data: link } = await sb
+        .from("couple_links")
+        .select("id, requester_id, receiver_id")
+        .eq("id", post.couple_id as string)
+        .single();
+      if (link) {
+        const uids = [link.requester_id, link.receiver_id].filter(Boolean) as string[];
+        const { data: profiles } = await sb
+          .from("profiles")
+          .select("id, username, full_name, avatar_url")
+          .in("id", uids);
+        const pm = new Map((profiles ?? []).map((p: any) => [p.id as string, p]));
+        const p1 = pm.get(link.requester_id as string) ?? null;
+        const p2 = pm.get(link.receiver_id as string) ?? null;
+        const name1 = (p1?.full_name as string | null)?.split(" ")[0] || (p1?.username as string | null) || "Partner";
+        const name2 = (p2?.full_name as string | null)?.split(" ")[0] || (p2?.username as string | null) || "Partner";
+        post.couple = { partner1: p1, partner2: p2, coupleName: `${name1} & ${name2}` };
+      }
+    } catch {}
+  }
+
   res.json({ data: post });
 });
 
