@@ -1,0 +1,25 @@
+Add three features required by Google Play before launch: Block User, Report content/user, and Delete Account. These are mandatory for a social app with user-generated content.
+
+=== 1. BLOCK USER ===
+- Add a "Block" option on user profiles (profile/[username].tsx) - in the "..." menu or as a button.
+- Create a `blocked_users` table in Supabase: id, blocker_id, blocked_id, created_at.
+- Add API endpoints: POST /api/users/block (body: blockerId, blockedId), POST /api/users/unblock, GET /api/users/blocked (list).
+- When a user is blocked: hide their posts/reels/comments/confessions from the blocker's feeds, and hide the blocker from the blocked user. Filter blocked users out of: main feed, find vibe deck, confession feed, comments, search results.
+- All DB access through the API server (service-role key) - never direct supabase calls from mobile.
+
+=== 2. REPORT CONTENT / USER ===
+- Add a "Report" option on: posts, reels, comments, confessions, and user profiles (in the "..." menu).
+- Create a `reports` table: id, reporter_id, reported_type ('post'|'reel'|'comment'|'confession'|'user'), reported_id, reason, created_at.
+- Add API endpoint: POST /api/reports (body: reporterId, reportedType, reportedId, reason).
+- Show a simple reason picker when reporting (e.g. Spam, Harassment, Inappropriate content, Other), then confirm "Thanks, we'll review this."
+- Reports just need to be stored (so you can review them later) - that satisfies the requirement.
+
+=== 3. DELETE ACCOUNT ===
+- Add a "Delete Account" option in Settings (artifacts/mobile - the settings screen), clearly visible.
+- Show a confirmation dialog warning it's permanent ("This will permanently delete your account, posts, and data. This cannot be undone.").
+- Add API endpoint: DELETE /api/users/account (body: userId) that deletes the user's profile and their data (posts, reels, comments, etc.), and deletes their Supabase auth user via the service-role admin API (supabase.auth.admin.deleteUser).
+- After deletion, log the user out and return them to the login screen.
+
+Use the existing black/white design. All DB access through the API server. Create any needed Supabase tables and give me the migration SQL to run.
+
+Tell me what you built, what tables/migrations I need to run, and what endpoints you added.

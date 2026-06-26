@@ -337,4 +337,58 @@ router.get("/photos", async (req, res) => {
   }
 });
 
+// ─── DELETE /api/users/account ────────────────────────────────────────────────
+// Permanently deletes the user's data and their Supabase Auth account.
+// body: { userId }
+router.delete("/account", async (req, res) => {
+  const { userId } = req.body as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  req.log.info({ userId }, "delete account: starting");
+
+  try {
+    // Step 1: Delete all user content in parallel (ignore errors on tables that may not exist).
+    await Promise.allSettled([
+      sb.from("posts").delete().eq("user_id", userId),
+      sb.from("reels").delete().eq("user_id", userId),
+      sb.from("comments").delete().eq("user_id", userId),
+      sb.from("likes").delete().eq("user_id", userId),
+      sb.from("reel_likes").delete().eq("user_id", userId),
+      sb.from("follows").delete().or(`follower_id.eq.${userId},following_id.eq.${userId}`),
+      sb.from("saved_posts").delete().eq("user_id", userId),
+      sb.from("blocks").delete().or(`blocker_id.eq.${userId},blocked_id.eq.${userId}`),
+      sb.from("reports").delete().eq("reporter_id", userId),
+      sb.from("vibe_swipes").delete().eq("user_id", userId),
+      sb.from("vibe_matches").delete().or(`user_id.eq.${userId},matched_user_id.eq.${userId}`),
+      sb.from("vibe_scores").delete().eq("user_id", userId),
+      sb.from("user_settings").delete().eq("user_id", userId),
+      sb.from("notifications").delete().or(`user_id.eq.${userId},actor_id.eq.${userId}`),
+      sb.from("story_views").delete().eq("viewer_id", userId),
+      sb.from("stories").delete().eq("user_id", userId),
+      sb.from("couple_links").delete().or(`user1_id.eq.${userId},user2_id.eq.${userId}`),
+      sb.from("restricted_users").delete().or(`restrictor_id.eq.${userId},restricted_id.eq.${userId}`),
+      sb.from("muted_users").delete().or(`muter_id.eq.${userId},muted_id.eq.${userId}`),
+      sb.from("wallets").delete().eq("user_id", userId),
+    ]);
+
+    // Step 2: Delete the profile row.
+    await sb.from("profiles").delete().eq("id", userId);
+
+    // Step 3: Delete the Supabase Auth user via admin API (requires service role key).
+    const { error: authErr } = await sb.auth.admin.deleteUser(userId);
+    if (authErr) {
+      req.log.warn({ err: authErr.message, userId }, "delete account: auth user delete failed (profile already gone)");
+    }
+
+    req.log.info({ userId }, "delete account: complete");
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message, userId }, "delete account: error");
+    res.status(500).json({ error: "Failed to delete account. Please try again." });
+  }
+});
+
 export default router;

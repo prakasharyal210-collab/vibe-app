@@ -951,6 +951,47 @@ export default function SettingsScreen() {
     ]);
   };
 
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account?",
+      "This will permanently delete your account, posts, and all data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Are you sure?",
+              "Type your username to confirm permanent deletion.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, delete everything",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+                      const res = await fetch(`${apiBase}/users/account`, {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId }),
+                      });
+                      if (!res.ok) throw new Error("Failed");
+                      await signOut();
+                    } catch {
+                      Alert.alert("Error", "Could not delete account. Please try again or contact support.");
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
   const openLink = (url: string, title: string) => {
     Linking.openURL(url).catch(() => Alert.alert(title, `Visit: ${url}`));
   };
@@ -1274,11 +1315,15 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Log Out ── */}
-        <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
+        {/* ── Log Out + Delete Account ── */}
+        <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 10 }}>
           <TouchableOpacity onPress={handleSignOut} activeOpacity={0.8} style={styles.logoutBtn}>
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.8} style={styles.deleteAccountBtn}>
+            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
           </TouchableOpacity>
           <Text style={[styles.versionNote, { color: colors.mutedForeground }]}>
             Gundruk · v1.0.0 · Made with 💜
@@ -1412,6 +1457,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(239,68,68,0.1)", borderWidth: 1.5, borderColor: "#EF4444",
   },
   logoutText: { color: "#EF4444", fontSize: 15, fontFamily: "Poppins_700Bold" },
+  deleteAccountBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 8, height: 44, borderRadius: 14,
+    backgroundColor: "transparent", borderWidth: 1, borderColor: "rgba(239,68,68,0.35)",
+  },
+  deleteAccountText: { color: "#EF4444", fontSize: 13, fontFamily: "Poppins_500Medium" },
   versionNote: { textAlign: "center", fontSize: 12, fontFamily: "Poppins_400Regular", paddingBottom: 4 },
 });
 

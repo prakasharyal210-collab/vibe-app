@@ -19,7 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { addComment, addReelComment, fetchComments, fetchReelComments } from "@/lib/db";
+import { addComment, addReelComment, fetchComments, fetchReelComments, reportContent } from "@/lib/db";
 import { Comment, timeAgo } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
 
@@ -85,13 +85,24 @@ function CommentItem({ commentId, username, text, time, likes, userId, initialLi
     }
   };
 
+  const handleReport = () => {
+    if (!myId) return;
+    Alert.alert("Report comment", "Why are you reporting this comment?", [
+      { text: "Spam", onPress: () => reportContent(myId, commentId, "comment", "Spam").then(() => Alert.alert("Reported", "Thanks, we'll review it.")) },
+      { text: "Harassment", onPress: () => reportContent(myId, commentId, "comment", "Harassment").then(() => Alert.alert("Reported", "Thanks, we'll review it.")) },
+      { text: "Inappropriate", onPress: () => reportContent(myId, commentId, "comment", "Inappropriate content").then(() => Alert.alert("Reported", "Thanks, we'll review it.")) },
+      { text: "Other", onPress: () => reportContent(myId, commentId, "comment", "Other").then(() => Alert.alert("Reported", "Thanks, we'll review it.")) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   return (
     <View style={[styles.commentRow, isReply && styles.replyIndent]}>
       {isReply && <View style={styles.replyLine} />}
       <TouchableOpacity onPress={() => router.push(`/profile/${username}` as any)} activeOpacity={0.8}>
         <UserAvatar username={username} size={isReply ? 28 : 34} />
       </TouchableOpacity>
-      <View style={styles.commentBody}>
+      <TouchableOpacity style={styles.commentBody} activeOpacity={0.9} onLongPress={handleReport} delayLongPress={400}>
         <Text style={[styles.commentUser, { color: colors.foreground }]}>
           <Text onPress={() => router.push(`/profile/${username}` as any)} style={styles.commentUser}>
             {username}
@@ -104,7 +115,7 @@ function CommentItem({ commentId, username, text, time, likes, userId, initialLi
             <Text style={[styles.commentTime, { color: colors.mutedForeground }]}>Reply</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </TouchableOpacity>
       <TouchableOpacity onPress={handleLike} style={styles.commentLike}>
         <Ionicons
           name={liked ? "heart" : "heart-outline"}

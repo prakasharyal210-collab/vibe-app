@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -153,6 +155,8 @@ function PostCard({
   const [reacting, setReacting] = useState(false);
   const [photoHeight, setPhotoHeight] = useState<number>(220);
   const [popVisible, setPopVisible] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportingReason, setReportingReason] = useState<string | null>(null);
   const { width: screenWidth } = useWindowDimensions();
   const lastTapRef = useRef<number>(0);
   const popScale = useRef(new Animated.Value(0)).current;
@@ -313,6 +317,9 @@ function PostCard({
           <Ionicons name="chatbubble-outline" size={17} color="#555555" />
           <Text style={s.actionCount}>{post.comment_count}</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowReport(true)} style={s.commentBtn} activeOpacity={0.7}>
+          <Ionicons name="ellipsis-horizontal" size={17} color="#555555" />
+        </TouchableOpacity>
       </View>
 
       {/* Double-tap 🫂 pop overlay */}
@@ -324,6 +331,44 @@ function PostCard({
           <Animated.Text style={[s.popEmoji, { transform: [{ scale: popScale }] }]}>🫂</Animated.Text>
         </Animated.View>
       )}
+
+      {/* Report sheet */}
+      <Modal visible={showReport} transparent animationType="slide" onRequestClose={() => setShowReport(false)}>
+        <TouchableOpacity style={s.reportBackdrop} activeOpacity={1} onPress={() => setShowReport(false)} />
+        <View style={s.reportSheet}>
+          <View style={s.reportHandle} />
+          <Text style={s.reportTitle}>Why are you reporting this?</Text>
+          {["Spam", "Harassment", "Inappropriate content", "Misinformation", "Other"].map((reason) => (
+            <TouchableOpacity
+              key={reason}
+              disabled={!!reportingReason}
+              onPress={async () => {
+                setReportingReason(reason);
+                try {
+                  await fetch(`${API_BASE}/api/moderation/report`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reporterId: authorId, targetType: "post", targetId: post.id, reason }),
+                  });
+                  setShowReport(false);
+                  Alert.alert("Reported", "Thanks for letting us know. We'll review this.");
+                } catch {
+                  Alert.alert("Error", "Could not submit report. Try again.");
+                } finally {
+                  setReportingReason(null);
+                }
+              }}
+              style={[s.reportRow, { opacity: reportingReason === reason ? 0.5 : 1 }]}
+            >
+              <Ionicons name="flag-outline" size={16} color="#EF4444" />
+              <Text style={s.reportRowText}>{reportingReason === reason ? "Submitting…" : reason}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => setShowReport(false)} style={s.reportCancel}>
+            <Text style={s.reportCancelText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -563,4 +608,12 @@ const s = StyleSheet.create({
   actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#555555" },
   popWrap: { alignItems: "center", justifyContent: "center" },
   popEmoji: { fontSize: 80 },
+  reportBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)" },
+  reportSheet: { backgroundColor: "#1A1A2E", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 14, borderTopWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  reportHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.25)", alignSelf: "center", marginBottom: 14 },
+  reportTitle: { fontSize: 15, fontFamily: "Poppins_600SemiBold", color: "#fff", paddingHorizontal: 20, paddingBottom: 10 },
+  reportRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
+  reportRowText: { fontSize: 14, fontFamily: "Poppins_400Regular", color: "#fff", flex: 1 },
+  reportCancel: { paddingVertical: 16, alignItems: "center" },
+  reportCancelText: { fontSize: 14, fontFamily: "Poppins_500Medium", color: "rgba(255,255,255,0.45)" },
 });

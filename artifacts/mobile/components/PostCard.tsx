@@ -45,6 +45,7 @@ import {
   checkFavourited,
   checkLiked,
   recordEngagement,
+  reportContent,
   toggleFavourite,
   toggleLike,
   trackUserInterest,
@@ -162,6 +163,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [showShare, setShowShare] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [showOptionsSheet, setShowOptionsSheet] = useState(false);
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [reportingReason, setReportingReason] = useState<string | null>(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [showEditCaption, setShowEditCaption] = useState(false);
   const [editCaptionText, setEditCaptionText] = useState(post.caption ?? "");
@@ -888,8 +891,44 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               <CardSheetRow icon="trash-outline" label="Delete" onPress={handleDeletePost} color="#EF4444" />
             </>
           ) : (
-            <CardSheetRow icon="eye-off-outline" label="Not interested" onPress={handleNotInterested} />
+            <>
+              <CardSheetRow icon="eye-off-outline" label="Not interested" onPress={handleNotInterested} />
+              <CardSheetRow icon="flag-outline" label="Report" onPress={() => { setShowOptionsSheet(false); setShowReportSheet(true); }} color="#EF4444" />
+            </>
           )}
+        </View>
+      </Modal>
+
+      {/* ── Report reasons sheet ───────────────────────────────────────────── */}
+      <Modal visible={showReportSheet} transparent animationType="slide" onRequestClose={() => setShowReportSheet(false)}>
+        <TouchableOpacity style={cardOptS.backdrop} activeOpacity={1} onPress={() => setShowReportSheet(false)} />
+        <View style={[cardOptS.sheet, { paddingBottom: insets.bottom + 12 }]}>
+          <View style={cardOptS.handle} />
+          <Text style={[cardOptS.reportTitle]}>Why are you reporting this post?</Text>
+          {["Spam", "Harassment", "Inappropriate content", "Misinformation", "Other"].map((reason) => (
+            <TouchableOpacity
+              key={reason}
+              disabled={!!reportingReason}
+              onPress={async () => {
+                if (!userId) return;
+                setReportingReason(reason);
+                try {
+                  await reportContent(userId, post.id, "post", reason);
+                  setShowReportSheet(false);
+                  Alert.alert("Reported", "Thanks for letting us know. We'll review this post.");
+                } finally {
+                  setReportingReason(null);
+                }
+              }}
+              style={[cardOptS.reportRow, { opacity: reportingReason === reason ? 0.5 : 1 }]}
+            >
+              <Ionicons name="flag-outline" size={18} color="#EF4444" />
+              <Text style={cardOptS.reportRowText}>{reportingReason === reason ? "Submitting…" : reason}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => setShowReportSheet(false)} style={cardOptS.cancelRow}>
+            <Text style={cardOptS.cancelText}>Cancel</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
 
@@ -1017,6 +1056,11 @@ const cardOptS = StyleSheet.create({
   },
   editSaveBtn: { backgroundColor: "#7C3AED", borderRadius: 12, paddingVertical: 13, alignItems: "center" },
   editSaveTxt: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
+  reportTitle: { fontSize: 15, fontFamily: "Poppins_600SemiBold", color: "#fff", paddingHorizontal: 22, paddingBottom: 10 },
+  reportRow: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 13, paddingHorizontal: 22, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.07)" },
+  reportRowText: { fontSize: 14, fontFamily: "Poppins_400Regular", color: "#fff", flex: 1 },
+  cancelRow: { paddingVertical: 14, alignItems: "center", borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)", marginTop: 4 },
+  cancelText: { fontSize: 14, fontFamily: "Poppins_500Medium", color: "rgba(255,255,255,0.5)" },
 });
 
 const musicCreditStyles = StyleSheet.create({
