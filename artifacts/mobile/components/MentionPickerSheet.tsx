@@ -74,11 +74,13 @@ export function MentionPickerSheet({ visible, onClose, onSelect, viewerId }: Pro
 
   const fetchUsers = useCallback(async (q: string) => {
     setLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
       const params = new URLSearchParams({ q, limit: "20" });
       if (viewerId) params.set("viewer_id", viewerId);
       const res = await fetch(`${API_BASE}/users/search?${params.toString()}`, {
-        signal: AbortSignal.timeout(8000),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const data = (await res.json()) as { profiles?: MentionUser[] };
@@ -86,6 +88,7 @@ export function MentionPickerSheet({ visible, onClose, onSelect, viewerId }: Pro
     } catch {
       setResults([]);
     } finally {
+      clearTimeout(timer);
       setLoading(false);
     }
   }, [viewerId]);
