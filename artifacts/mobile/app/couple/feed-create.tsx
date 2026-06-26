@@ -25,14 +25,6 @@ const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 const CATEGORIES = ["Confession", "Advice", "Story", "Venting", "Milestone"] as const;
 type Category = (typeof CATEGORIES)[number];
 
-const CAT_COLORS: Record<Category, string> = {
-  Confession: "#C4B5E8",
-  Advice: "#A4C9C0",
-  Story: "#A4C9C0",
-  Milestone: "#C4B5E8",
-  Venting: "#B0A2D4",
-};
-
 const CAT_EMOJIS: Record<Category, string> = {
   Confession: "💕",
   Advice: "💡",
@@ -109,8 +101,6 @@ export default function FeedCreateScreen() {
 
     setPosting(true);
     try {
-      // Upload photo to Supabase storage first — the local device URI is not
-      // accessible from other devices. We must get back a public HTTPS URL.
       let uploadedPhotoUrl: string | undefined;
       if (photoUri) {
         try {
@@ -157,7 +147,7 @@ export default function FeedCreateScreen() {
       <View style={[s.container, { paddingTop: insets.top }]}>
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-            <Ionicons name="close" size={22} color="#fff" />
+            <Ionicons name="close" size={22} color="#ffffff" />
           </TouchableOpacity>
           <Text style={s.headerTitle}>New Confession</Text>
           <TouchableOpacity
@@ -166,7 +156,7 @@ export default function FeedCreateScreen() {
             style={[s.postBtn, (posting || !content.trim()) && { opacity: 0.4 }]}
           >
             {posting ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color="#000000" />
             ) : (
               <Text style={s.postBtnText}>Post</Text>
             )}
@@ -182,7 +172,9 @@ export default function FeedCreateScreen() {
           {/* Anonymous toggle */}
           <View style={s.anonRow}>
             <View style={s.anonLeft}>
-              <Text style={s.anonIcon}>🕵️</Text>
+              <View style={s.anonIconWrap}>
+                <Ionicons name="eye-off-outline" size={20} color="#ffffff" />
+              </View>
               <View>
                 <Text style={s.anonTitle}>Post anonymously</Text>
                 <Text style={s.anonSub}>{isAnonymous ? "Your identity is hidden" : "Your couple name will show"}</Text>
@@ -191,8 +183,8 @@ export default function FeedCreateScreen() {
             <Switch
               value={isAnonymous}
               onValueChange={setIsAnonymous}
-              trackColor={{ false: "rgba(196,181,232,0.15)", true: "#C4B5E8" }}
-              thumbColor="#fff"
+              trackColor={{ false: "#1f1f1f", true: "#ffffff" }}
+              thumbColor={isAnonymous ? "#000000" : "#888888"}
             />
           </View>
 
@@ -207,12 +199,12 @@ export default function FeedCreateScreen() {
                   style={[
                     s.catChip,
                     active
-                      ? { backgroundColor: CAT_COLORS[cat], borderColor: CAT_COLORS[cat] }
-                      : { borderColor: CAT_COLORS[cat] + "44", backgroundColor: CAT_COLORS[cat] + "11" },
+                      ? { backgroundColor: "#ffffff", borderColor: "#ffffff" }
+                      : { borderColor: "rgba(255,255,255,0.15)", backgroundColor: "transparent" },
                   ]}
                 >
                   <Text style={{ fontSize: 14 }}>{CAT_EMOJIS[cat]}</Text>
-                  <Text style={[s.catLabel, { color: active ? "#fff" : CAT_COLORS[cat] }]}>{cat}</Text>
+                  <Text style={[s.catLabel, { color: active ? "#000000" : "#888888" }]}>{cat}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -222,7 +214,7 @@ export default function FeedCreateScreen() {
           <TextInput
             style={s.textInput}
             placeholder="Share your confession, story, or ask for advice..."
-            placeholderTextColor="rgba(255,255,255,0.25)"
+            placeholderTextColor="#555555"
             value={content}
             onChangeText={setContent}
             multiline
@@ -238,7 +230,7 @@ export default function FeedCreateScreen() {
               <TextInput
                 style={s.optionalInput}
                 placeholder="e.g. 25"
-                placeholderTextColor="rgba(255,255,255,0.2)"
+                placeholderTextColor="#555555"
                 value={age}
                 onChangeText={(v) => setAge(v.replace(/[^0-9]/g, ""))}
                 keyboardType="number-pad"
@@ -250,7 +242,7 @@ export default function FeedCreateScreen() {
               <TextInput
                 style={s.optionalInput}
                 placeholder="e.g. Sydney"
-                placeholderTextColor="rgba(255,255,255,0.2)"
+                placeholderTextColor="#555555"
                 value={location}
                 onChangeText={setLocation}
                 maxLength={60}
@@ -263,12 +255,12 @@ export default function FeedCreateScreen() {
             <View style={s.photoPreviewWrap}>
               <Image source={{ uri: photoUri }} style={s.photoPreview} resizeMode="cover" />
               <TouchableOpacity onPress={() => setPhotoUri(null)} style={s.removePhotoBtn}>
-                <Ionicons name="close-circle" size={28} color="#C4B5E8" />
+                <Ionicons name="close-circle" size={28} color="#ffffff" />
               </TouchableOpacity>
             </View>
           ) : (
             <TouchableOpacity onPress={pickPhoto} style={s.photoPickerBtn} activeOpacity={0.75}>
-              <Ionicons name="image-outline" size={24} color="rgba(255,255,255,0.35)" />
+              <Ionicons name="image-outline" size={24} color="#555555" />
               <Text style={s.photoPickerText}>Tap to add a photo</Text>
             </TouchableOpacity>
           )}
@@ -279,29 +271,29 @@ export default function FeedCreateScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#2d2838" },
+  container: { flex: 1, backgroundColor: "#000000" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(196,181,232,0.1)", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 17, color: "#F2EFFB" },
-  postBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, backgroundColor: "#C4B5E8" },
-  postBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#26215c" },
-  anonRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(196,181,232,0.07)", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "rgba(196,181,232,0.18)", marginTop: 8 },
-  anonLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  anonIcon: { fontSize: 26 },
-  anonTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#F2EFFB" },
-  anonSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#B0A2D4" },
-  sectionLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "#B0A2D4", marginTop: 20, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.6 },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#141414", alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 17, color: "#ffffff" },
+  postBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, backgroundColor: "#ffffff" },
+  postBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#000000" },
+  anonRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#141414", borderRadius: 16, padding: 14, marginTop: 8 },
+  anonLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  anonIconWrap: { width: 38, height: 38, borderRadius: 10, backgroundColor: "#1f1f1f", alignItems: "center", justifyContent: "center" },
+  anonTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#ffffff" },
+  anonSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#888888", marginTop: 1 },
+  sectionLabel: { fontFamily: "Poppins_700Bold", fontSize: 11, color: "#555555", marginTop: 22, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.8 },
   catRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   catChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
   catLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  textInput: { backgroundColor: "#3d3650", borderRadius: 16, borderWidth: 1, borderColor: "rgba(196,181,232,0.15)", padding: 16, color: "#F2EFFB", fontFamily: "Poppins_400Regular", fontSize: 15, minHeight: 150, lineHeight: 24 },
-  charCount: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#B0A2D4", textAlign: "right", marginTop: 6 },
+  textInput: { backgroundColor: "#141414", borderRadius: 16, padding: 16, color: "#ffffff", fontFamily: "Poppins_400Regular", fontSize: 15, minHeight: 150, lineHeight: 24 },
+  charCount: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#555555", textAlign: "right", marginTop: 6 },
   optionalRow: { flexDirection: "row", gap: 12 },
   optionalField: { gap: 6 },
-  optionalLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#B0A2D4" },
-  optionalInput: { backgroundColor: "#3d3650", borderRadius: 12, borderWidth: 1, borderColor: "rgba(196,181,232,0.15)", paddingHorizontal: 14, paddingVertical: 10, color: "#F2EFFB", fontFamily: "Poppins_400Regular", fontSize: 14 },
-  photoPickerBtn: { height: 110, borderRadius: 16, borderWidth: 1.5, borderColor: "rgba(196,181,232,0.2)", borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(196,181,232,0.04)" },
-  photoPickerText: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#B0A2D4" },
+  optionalLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#888888" },
+  optionalInput: { backgroundColor: "#141414", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: "#ffffff", fontFamily: "Poppins_400Regular", fontSize: 14 },
+  photoPickerBtn: { height: 110, borderRadius: 16, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#141414" },
+  photoPickerText: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#555555" },
   photoPreviewWrap: { position: "relative" },
   photoPreview: { width: "100%", height: 200, borderRadius: 16 },
   removePhotoBtn: { position: "absolute", top: 8, right: 8 },

@@ -1,0 +1,31 @@
+Redesign the Couple home screen (artifacts/mobile/components/CoupleTab.tsx) to match the black & white aesthetic of the Feed and Find Vibe screens. Remove the lavender palette completely. Use pure black + white + gray, with BOLD text.
+
+ALSO FIX: the icons are currently rendering as broken boxes (☒). The Ionicons aren't showing. Make sure the icon component is imported and used correctly (e.g. import { Ionicons } from '@expo/vector-icons') and that valid icon names are used so icons actually render.
+
+COLORS (exactly):
+- Page background: #000000 (pure black)
+- Card background: #141414
+- Icon tile background: #1f1f1f
+- Primary text: #ffffff
+- Secondary/muted text: #888888
+- Chevron/icon-muted: #555555
+- Avatar bg: #1a1a1a, border #2e2e2e
+
+LAYOUT:
+- Two avatars centered, 66px circles, #1a1a1a bg, 1.5px #2e2e2e border, a small WHITE heart icon between them
+- "You & [Name]" — white, 22px, font-weight 700 (BOLD), centered
+- "X days together" — gray #888, 13px, weight 500, centered, small
+- Each feature card: background #141414, border-radius 14px, padding 15px, row layout:
+  - Left: 44px rounded square icon tile (#1f1f1f bg, border-radius 12px) with a WHITE Ionicon (22px) inside — make icons actually render
+  - Title: white, 16px, font-weight 700 (BOLD)
+  - Subtitle: gray #888, 13px, weight 400
+  - Right: white/gray chevron-forward icon (#555)
+- 10px gap between cards
+- Confession Room subtitle stays "A safe space to share"
+- NO colors, NO lavender, NO gradients, NO glows. Pure black/white/gray monochrome to match Feed and Find Vibe.
+
+Suggested Ionicons names: chatbubble-ellipses (Confession), trophy (Couple of Month), images (Shared Album), document-text or create (Notes), checkbox or list (Bucket List), chevron-forward (arrows), heart (between avatars), person (empty avatar).
+
+Apply the same black/white treatment to the Confession Room feed (artifacts/mobile/app/couple/feed.tsx) and posting screen (feed-create.tsx) so they match - black background, white bold text, gray secondary, white accents instead of lavender.
+
+Keep ALL functionality and navigation. Only change styling. Tell me what you changed and confirm icons now render.

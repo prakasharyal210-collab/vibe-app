@@ -24,17 +24,17 @@ import Animated, {
   withSequence,
 } from "react-native-reanimated";
 
-// ── Palette ──────────────────────────────────────────────────────────────────
+// ── Monochrome palette ────────────────────────────────────────────────────────
 const P = {
-  bg:        "#2d2838",
-  card:      "#3d3650",
-  text:      "#F2EFFB",
-  muted:     "#B0A2D4",
-  lavender:  "#C4B5E8",
-  green:     "#A4C9C0",
-  iconDark:  "#26215c",
-  greenDark: "#04342c",
-  border:    "rgba(196,181,232,0.12)",
+  bg:           "#000000",
+  card:         "#141414",
+  iconTile:     "#1f1f1f",
+  text:         "#ffffff",
+  muted:        "#888888",
+  chevron:      "#555555",
+  avatarBg:     "#1a1a1a",
+  avatarBorder: "#2e2e2e",
+  border:       "rgba(255,255,255,0.08)",
 };
 
 const API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
@@ -76,7 +76,7 @@ type CoupleStatus =
   | { status: "pending_received"; pendingRequests: PendingRequest[] }
   | { status: "coupled"; couple: CoupleLink; partner: Partner };
 
-// ─── Softly pulsing lavender heart ───────────────────────────────────────────
+// ─── Pulsing heart ────────────────────────────────────────────────────────────
 
 function PulsingHeart() {
   const scale = useSharedValue(1);
@@ -92,8 +92,8 @@ function PulsingHeart() {
   }, []);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
-    <Animated.View style={[style, { marginHorizontal: 4 }]}>
-      <Ionicons name="heart" size={20} color={P.lavender} />
+    <Animated.View style={[style, { marginHorizontal: 6 }]}>
+      <Ionicons name="heart" size={20} color="#ffffff" />
     </Animated.View>
   );
 }
@@ -136,36 +136,32 @@ function AnimatedCard({
   );
 }
 
-// ─── Lavender avatar circle ───────────────────────────────────────────────────
+// ─── Monochrome avatar circle ─────────────────────────────────────────────────
 
-function LavendAvatar({ uri, emoji }: { uri: string | null; emoji?: string }) {
+function MonoAvatar({ uri }: { uri: string | null }) {
   return (
     <View style={s.avatarCircle}>
       {uri ? (
         <Image source={{ uri }} style={s.avatarImg} />
       ) : (
         <View style={[s.avatarImg, s.avatarFallback]}>
-          <Text style={{ fontSize: 22 }}>{emoji ?? "👤"}</Text>
+          <Ionicons name="person" size={26} color={P.muted} />
         </View>
       )}
     </View>
   );
 }
 
-// ─── Lavender feature card ────────────────────────────────────────────────────
+// ─── Monochrome feature card ──────────────────────────────────────────────────
 
-function LavendCard({
+function MonoCard({
   iconName,
-  iconBg,
-  iconColor,
   title,
   sub,
   onPress,
   delay,
 }: {
   iconName: string;
-  iconBg: string;
-  iconColor: string;
   title: string;
   sub: string;
   onPress: () => void;
@@ -174,14 +170,14 @@ function LavendCard({
   return (
     <AnimatedCard onPress={onPress} delay={delay}>
       <View style={s.featureCard}>
-        <View style={[s.iconTile, { backgroundColor: iconBg }]}>
-          <Ionicons name={iconName as any} size={22} color={iconColor} />
+        <View style={s.iconTile}>
+          <Ionicons name={iconName as any} size={22} color="#ffffff" />
         </View>
         <View style={{ flex: 1, marginLeft: 14 }}>
           <Text style={s.cardTitle}>{title}</Text>
           <Text style={s.cardSub}>{sub}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={16} color={P.muted} />
+        <Ionicons name="chevron-forward" size={16} color={P.chevron} />
       </View>
     </AnimatedCard>
   );
@@ -302,7 +298,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   if (loading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator color={P.lavender} size="large" />
+        <ActivityIndicator color="#ffffff" size="large" />
       </View>
     );
   }
@@ -326,9 +322,9 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         {/* ── Header ────────────────────────────────────────────────────── */}
         <View style={s.headerWrap}>
           <View style={s.avatarRow}>
-            <LavendAvatar uri={null} emoji="😊" />
+            <MonoAvatar uri={null} />
             <PulsingHeart />
-            <LavendAvatar uri={partner?.avatar_url ?? null} emoji="👤" />
+            <MonoAvatar uri={partner?.avatar_url ?? null} />
           </View>
 
           <Text style={s.coupleName}>You & {partnerFirst}</Text>
@@ -344,10 +340,8 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
 
         {/* ── Feature cards ─────────────────────────────────────────────── */}
         <View style={s.cards}>
-          <LavendCard
+          <MonoCard
             iconName="chatbubble-ellipses"
-            iconBg={P.lavender}
-            iconColor={P.iconDark}
             title="Confession Room"
             sub="A safe space to share"
             onPress={() => router.push({ pathname: "/couple/feed", params: { coupleId, userId } } as any)}
@@ -359,12 +353,8 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
             delay={70}
           >
             <View style={s.featureCard}>
-              <View style={[s.iconTile, { backgroundColor: P.green }]}>
-                <Ionicons
-                  name={compEntry && compRank && compRank <= 3 ? "trophy" : "trophy-outline"}
-                  size={22}
-                  color={P.greenDark}
-                />
+              <View style={s.iconTile}>
+                <Ionicons name="trophy" size={22} color="#ffffff" />
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={s.cardTitle}>Couple of the Month</Text>
@@ -372,32 +362,26 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
                   {compEntry ? `#${compRank} · ${compEntry.vote_count} votes` : "Enter the competition!"}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={P.muted} />
+              <Ionicons name="chevron-forward" size={16} color={P.chevron} />
             </View>
           </AnimatedCard>
 
-          <LavendCard
-            iconName="images-outline"
-            iconBg={P.lavender}
-            iconColor={P.iconDark}
+          <MonoCard
+            iconName="images"
             title="Shared Album"
             sub="Your photos together"
             onPress={() => router.push({ pathname: "/couple/album", params: { coupleId, userId } } as any)}
             delay={140}
           />
-          <LavendCard
-            iconName="pencil-outline"
-            iconBg={P.lavender}
-            iconColor={P.iconDark}
+          <MonoCard
+            iconName="create"
             title="Notes"
             sub="Leave little messages"
             onPress={() => router.push({ pathname: "/couple/notes", params: { coupleId, userId } } as any)}
             delay={210}
           />
-          <LavendCard
-            iconName="list-outline"
-            iconBg={P.lavender}
-            iconColor={P.iconDark}
+          <MonoCard
+            iconName="checkbox"
             title="Bucket List"
             sub="Dreams to do together"
             onPress={() => router.push({ pathname: "/couple/bucketlist", params: { coupleId, userId } } as any)}
@@ -407,11 +391,11 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           {/* Thinking of You nudge */}
           <AnimatedCard onPress={sendNudge} delay={350}>
             <View style={s.featureCard}>
-              <View style={[s.iconTile, { backgroundColor: nudgeSent ? P.green : P.lavender }]}>
+              <View style={s.iconTile}>
                 <Ionicons
                   name={nudgeSent ? "checkmark" : "heart-outline"}
                   size={22}
-                  color={nudgeSent ? P.greenDark : P.iconDark}
+                  color="#ffffff"
                 />
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
@@ -420,7 +404,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
                   {nudgeSent ? "They'll know you're thinking of them" : "Send a gentle nudge to your partner"}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color={P.muted} />
+              <Ionicons name="chevron-forward" size={16} color={P.chevron} />
             </View>
           </AnimatedCard>
         </View>
@@ -452,7 +436,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
             onChangeText={(t) => { setSearchText(t); searchUsers(t); }}
             autoCapitalize="none"
           />
-          {searchLoading && <ActivityIndicator size="small" color={P.lavender} style={{ marginRight: 12 }} />}
+          {searchLoading && <ActivityIndicator size="small" color="#ffffff" style={{ marginRight: 12 }} />}
         </View>
 
         {searchResults.length > 0 && (
@@ -463,8 +447,8 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
                   {u.avatar_url ? (
                     <Image source={{ uri: u.avatar_url }} style={{ width: 40, height: 40, borderRadius: 20 }} />
                   ) : (
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(196,181,232,0.15)", alignItems: "center", justifyContent: "center" }}>
-                      <Text>👤</Text>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: P.iconTile, alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="person" size={20} color={P.muted} />
                     </View>
                   )}
                 </View>
@@ -476,7 +460,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
                   onPress={() => sendRequest(u.id, u.full_name || u.username)}
                   style={s.sendRequestBtn}
                 >
-                  <Text style={s.sendRequestText}>💌 Request</Text>
+                  <Text style={s.sendRequestText}>Request</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -486,7 +470,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
 
       {status?.status === "pending_sent" && (
         <View style={s.pendingBanner}>
-          <Text style={{ fontSize: 20 }}>⏳</Text>
+          <Ionicons name="time-outline" size={22} color={P.muted} />
           <View style={{ flex: 1 }}>
             <Text style={s.pendingTitle}>Request sent!</Text>
             <Text style={s.pendingSub}>Waiting for your partner to accept</Text>
@@ -496,15 +480,15 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
 
       {status?.status === "pending_received" && status.pendingRequests.length > 0 && (
         <View style={s.incomingSection}>
-          <Text style={s.incomingHeader}>💌 Incoming Requests</Text>
+          <Text style={s.incomingHeader}>Incoming Requests</Text>
           {status.pendingRequests.map((req) => (
             <View key={req.id} style={s.incomingCard}>
               <View style={s.incomingAvatar}>
                 {req.requester?.avatar_url ? (
                   <Image source={{ uri: req.requester.avatar_url }} style={{ width: 48, height: 48, borderRadius: 24 }} />
                 ) : (
-                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(196,181,232,0.15)", alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ fontSize: 22 }}>👤</Text>
+                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: P.iconTile, alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name="person" size={22} color={P.muted} />
                   </View>
                 )}
               </View>
@@ -514,7 +498,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
               </View>
               <View style={s.incomingBtns}>
                 <TouchableOpacity onPress={() => acceptRequest(req.id)} style={s.acceptBtn}>
-                  <Text style={{ color: P.iconDark, fontFamily: "Poppins_700Bold", fontSize: 13 }}>Accept 💑</Text>
+                  <Text style={{ color: "#000000", fontFamily: "Poppins_700Bold", fontSize: 13 }}>Accept</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => declineRequest(req.id)} style={s.declineBtn}>
                   <Text style={{ color: P.muted, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>Decline</Text>
@@ -530,7 +514,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
 
 const s = StyleSheet.create({
   // ── Shared ────────────────────────────────────────────────────────────────
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: P.bg },
   scroll: { flex: 1, backgroundColor: P.bg },
   scrollContent: { paddingBottom: 120 },
 
@@ -543,24 +527,24 @@ const s = StyleSheet.create({
   },
   avatarRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
   avatarCircle: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: P.card,
-    borderWidth: 2, borderColor: P.lavender,
+    width: 66, height: 66, borderRadius: 33,
+    backgroundColor: P.avatarBg,
+    borderWidth: 1.5, borderColor: P.avatarBorder,
     alignItems: "center", justifyContent: "center",
     overflow: "hidden",
   },
-  avatarImg: { width: 60, height: 60, borderRadius: 30 },
+  avatarImg: { width: 63, height: 63, borderRadius: 31.5 },
   avatarFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
   coupleName: {
     color: P.text,
-    fontFamily: "Poppins_500Medium",
-    fontSize: 19,
+    fontFamily: "Poppins_700Bold",
+    fontSize: 22,
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   daysText: {
     color: P.muted,
-    fontFamily: "Poppins_400Regular",
+    fontFamily: "Poppins_500Medium",
     fontSize: 13,
     textAlign: "center",
     marginBottom: 2,
@@ -574,15 +558,16 @@ const s = StyleSheet.create({
     alignItems: "center",
     backgroundColor: P.card,
     borderRadius: 14,
-    padding: 16,
+    padding: 15,
   },
   iconTile: {
-    width: 42, height: 42, borderRadius: 12,
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: P.iconTile,
     alignItems: "center", justifyContent: "center",
     flexShrink: 0,
   },
-  cardTitle: { fontFamily: "Poppins_500Medium", fontSize: 15, color: P.text, marginBottom: 2 },
-  cardSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: P.muted },
+  cardTitle: { fontFamily: "Poppins_700Bold", fontSize: 16, color: P.text, marginBottom: 2 },
+  cardSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: P.muted },
 
   // ── Unlink ─────────────────────────────────────────────────────────────────
   unlinkBtn: { marginTop: 28, alignSelf: "center", padding: 12 },
@@ -606,36 +591,43 @@ const s = StyleSheet.create({
   },
   searchResultRow: {
     flexDirection: "row", alignItems: "center", gap: 12, padding: 12,
-    borderBottomWidth: 1, borderBottomColor: "rgba(196,181,232,0.08)",
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)",
   },
   searchResultAvatar: {},
   searchResultName: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: P.text },
   searchResultUser: { fontFamily: "Poppins_400Regular", fontSize: 12, color: P.muted },
-  sendRequestBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: P.lavender },
-  sendRequestText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: P.iconDark },
+  sendRequestBtn: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 14,
+    backgroundColor: "#ffffff",
+  },
+  sendRequestText: { fontFamily: "Poppins_700Bold", fontSize: 13, color: "#000000" },
+
+  // ── Pending / incoming ────────────────────────────────────────────────────
   pendingBanner: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    marginHorizontal: 16, marginTop: 16,
+    marginHorizontal: 16, marginTop: 20,
     backgroundColor: P.card, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: P.border,
   },
   pendingTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: P.text },
-  pendingSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: P.muted },
-  incomingSection: { marginHorizontal: 16, marginTop: 24, gap: 12 },
+  pendingSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: P.muted, marginTop: 2 },
+  incomingSection: { marginHorizontal: 16, marginTop: 20, gap: 12 },
   incomingHeader: { fontFamily: "Poppins_700Bold", fontSize: 16, color: P.text },
   incomingCard: {
     flexDirection: "row", alignItems: "center", gap: 12,
     backgroundColor: P.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: P.border,
   },
   incomingAvatar: {},
   incomingName: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: P.text },
-  incomingUser: { fontFamily: "Poppins_400Regular", fontSize: 12, color: P.muted },
-  incomingBtns: { gap: 6 },
+  incomingUser: { fontFamily: "Poppins_400Regular", fontSize: 12, color: P.muted, marginTop: 1 },
+  incomingBtns: { flexDirection: "column", gap: 6 },
   acceptBtn: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: P.lavender, alignItems: "center",
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 12,
+    backgroundColor: "#ffffff",
   },
   declineBtn: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: "rgba(176,162,212,0.1)", alignItems: "center",
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
 });

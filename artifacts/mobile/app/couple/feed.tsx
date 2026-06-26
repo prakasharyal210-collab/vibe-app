@@ -25,18 +25,18 @@ type Category = (typeof CATEGORIES)[number];
 type ReactionType = "support" | "relate" | "strength" | "love";
 
 const REACTIONS: { type: ReactionType; emoji: string; color: string }[] = [
-  { type: "support",  emoji: "🫂", color: "#8B5CF6" },
-  { type: "relate",   emoji: "🥲", color: "#3B82F6" },
-  { type: "strength", emoji: "💪", color: "#F59E0B" },
-  { type: "love",     emoji: "❤️", color: "#EC4899" },
+  { type: "support",  emoji: "🫂", color: "#ffffff" },
+  { type: "relate",   emoji: "🥲", color: "#ffffff" },
+  { type: "strength", emoji: "💪", color: "#ffffff" },
+  { type: "love",     emoji: "❤️", color: "#ffffff" },
 ];
 
 const CAT_COLORS: Record<string, string> = {
-  Confession: "#C4B5E8",
-  Advice: "#A4C9C0",
-  Story: "#A4C9C0",
-  Milestone: "#C4B5E8",
-  Venting: "#B0A2D4",
+  Confession: "#ffffff",
+  Advice:     "#888888",
+  Story:      "#888888",
+  Milestone:  "#ffffff",
+  Venting:    "#888888",
 };
 
 function timeAgo(iso: string): string {
@@ -80,7 +80,7 @@ function AvatarPair({ author, partner }: { author: Post["author"]; partner: Post
         <Image source={{ uri: author.avatar }} style={s.avatar} />
       ) : (
         <View style={[s.avatar, s.avatarPlaceholder]}>
-          <Text style={{ fontSize: 13 }}>💕</Text>
+          <Ionicons name="person" size={14} color="#555555" />
         </View>
       )}
       <View style={{ marginLeft: -8 }}>
@@ -88,7 +88,7 @@ function AvatarPair({ author, partner }: { author: Post["author"]; partner: Post
           <Image source={{ uri: partner.avatar }} style={s.avatar} />
         ) : (
           <View style={[s.avatar, s.avatarPlaceholder]}>
-            <Text style={{ fontSize: 13 }}>💕</Text>
+            <Ionicons name="person" size={14} color="#555555" />
           </View>
         )}
       </View>
@@ -138,9 +138,8 @@ function PostCard({
   const lastTapRef = useRef<number>(0);
   const popScale = useRef(new Animated.Value(0)).current;
   const popOpacity = useRef(new Animated.Value(0)).current;
-  const catColor = CAT_COLORS[post.category] ?? "#EC4899";
+  const catColor = CAT_COLORS[post.category] ?? "#ffffff";
 
-  // Fallback for posts loaded before the SQL migration
   const reactions = post.reactions ?? { support: 0, relate: 0, strength: 0, love: 0 };
   const totalReactions = post.totalReactions ?? 0;
 
@@ -150,7 +149,6 @@ function PostCard({
     const isSame = post.myReaction === reaction;
     const prevMyReaction = post.myReaction;
 
-    // Optimistic update
     const newReactions = { ...reactions };
     if (isSame) {
       newReactions[reaction] = Math.max(0, (newReactions[reaction] ?? 0) - 1);
@@ -176,7 +174,6 @@ function PostCard({
         });
       }
     } catch {
-      // Rollback on network error
       onReact(post.id, prevMyReaction, reactions, totalReactions);
     } finally {
       setReacting(false);
@@ -215,7 +212,7 @@ function PostCard({
             </Text>
           )}
         </View>
-        <View style={[s.catBadge, { backgroundColor: catColor + "22", borderColor: catColor + "55" }]}>
+        <View style={[s.catBadge, { backgroundColor: catColor + "18", borderColor: catColor + "44" }]}>
           <Text style={[s.catText, { color: catColor }]}>{post.category}</Text>
         </View>
       </View>
@@ -224,9 +221,9 @@ function PostCard({
         {post.isAnonymous ? (
           <>
             <View style={[s.avatar, s.anonAvatar]}>
-              <Text style={{ fontSize: 14 }}>💕</Text>
+              <Ionicons name="person" size={14} color="#555555" />
             </View>
-            <Text style={s.anonLabel}>Anonymous 💕</Text>
+            <Text style={s.anonLabel}>Anonymous</Text>
           </>
         ) : (
           <>
@@ -266,12 +263,12 @@ function PostCard({
               activeOpacity={0.72}
               style={[
                 s.reactionPill,
-                isActive && { backgroundColor: color + "22", borderColor: color + "55" },
+                isActive && { backgroundColor: "rgba(255,255,255,0.12)", borderColor: "rgba(255,255,255,0.3)" },
               ]}
             >
               <Text style={s.reactionEmoji}>{emoji}</Text>
               {count > 0 && (
-                <Text style={[s.reactionCount, isActive && { color }]}>{count}</Text>
+                <Text style={[s.reactionCount, isActive && { color: "#ffffff" }]}>{count}</Text>
               )}
             </TouchableOpacity>
           );
@@ -281,7 +278,7 @@ function PostCard({
           <Text style={s.totalReactions}>{totalReactions}</Text>
         )}
         <TouchableOpacity onPress={() => onComment(post)} style={s.commentBtn} activeOpacity={0.7}>
-          <Ionicons name="chatbubble-outline" size={17} color="rgba(255,255,255,0.45)" />
+          <Ionicons name="chatbubble-outline" size={17} color="#555555" />
           <Text style={s.actionCount}>{post.comment_count}</Text>
         </TouchableOpacity>
       </View>
@@ -372,9 +369,9 @@ export default function CoupleFeedScreen() {
     <View style={[s.container, { paddingTop: insets.top }]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Confessions 💕</Text>
+        <Text style={s.headerTitle}>Confessions</Text>
         <TouchableOpacity
           onPress={() =>
             router.push({
@@ -384,7 +381,7 @@ export default function CoupleFeedScreen() {
           }
           style={s.shareBtn}
         >
-          <Ionicons name="add" size={18} color="#C4B5E8" />
+          <Ionicons name="add" size={18} color="#000000" />
           <Text style={s.shareBtnText}>Share</Text>
         </TouchableOpacity>
       </View>
@@ -402,19 +399,19 @@ export default function CoupleFeedScreen() {
             style={[
               s.filterChip,
               activeCategory === cat && {
-                backgroundColor: CAT_COLORS[cat] ?? "#EC4899",
-                borderColor: CAT_COLORS[cat] ?? "#EC4899",
+                backgroundColor: "#ffffff",
+                borderColor: "#ffffff",
               },
             ]}
           >
-            <Text style={[s.filterChipText, activeCategory === cat && { color: "#fff" }]}>{cat}</Text>
+            <Text style={[s.filterChipText, activeCategory === cat && { color: "#000000" }]}>{cat}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
       {loading ? (
         <View style={s.center}>
-          <ActivityIndicator color="#C4B5E8" size="large" />
+          <ActivityIndicator color="#ffffff" size="large" />
         </View>
       ) : filtered.length === 0 ? (
         <View style={s.empty}>
@@ -449,7 +446,7 @@ export default function CoupleFeedScreen() {
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 28, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C4B5E8" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         />
       )}
@@ -458,49 +455,47 @@ export default function CoupleFeedScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#2d2838" },
+  container: { flex: 1, backgroundColor: "#000000" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(196,181,232,0.1)", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#F2EFFB" },
-  shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#C4B5E8", backgroundColor: "rgba(196,181,232,0.1)" },
-  shareBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#C4B5E8" },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#141414", alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#ffffff" },
+  shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "#ffffff" },
+  shareBtnText: { fontFamily: "Poppins_700Bold", fontSize: 13, color: "#000000" },
   filterScroll: { flexGrow: 0, maxHeight: 44 },
   filterRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(196,181,232,0.2)", height: 34, justifyContent: "center" },
-  filterChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#B0A2D4" },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", height: 34, justifyContent: "center" },
+  filterChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#888888" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 52, marginBottom: 8 },
-  emptyTitle: { fontFamily: "Poppins_700Bold", fontSize: 18, color: "#F2EFFB", textAlign: "center" },
-  emptySub: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#B0A2D4", textAlign: "center" },
-  emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#C4B5E8" },
-  emptyBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#26215c" },
-  card: { backgroundColor: "#3d3650", borderRadius: 16, padding: 16, overflow: "hidden" },
+  emptyTitle: { fontFamily: "Poppins_700Bold", fontSize: 18, color: "#ffffff", textAlign: "center" },
+  emptySub: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#888888", textAlign: "center" },
+  emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#ffffff" },
+  emptyBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#000000" },
+  card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, overflow: "hidden" },
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
   cardTopLeft: { gap: 2 },
-  postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#C4B5E8" },
-  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#B0A2D4" },
+  postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#ffffff" },
+  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#888888" },
   catBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
   catText: { fontFamily: "Poppins_600SemiBold", fontSize: 11 },
   authorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#2d2838" },
-  avatarPlaceholder: { backgroundColor: "rgba(196,181,232,0.15)", alignItems: "center", justifyContent: "center" },
-  anonAvatar: { backgroundColor: "rgba(196,181,232,0.15)", alignItems: "center", justifyContent: "center" },
-  anonLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#B0A2D4", flex: 1 },
-  coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#F2EFFB", flex: 1 },
-  timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#B0A2D4" },
-  content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#F2EFFB", lineHeight: 22, marginBottom: 12 },
-  readMore: { color: "#C4B5E8", fontFamily: "Poppins_600SemiBold" },
+  avatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#000000" },
+  avatarPlaceholder: { backgroundColor: "#1f1f1f", alignItems: "center", justifyContent: "center" },
+  anonAvatar: { backgroundColor: "#1f1f1f", alignItems: "center", justifyContent: "center" },
+  anonLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#888888", flex: 1 },
+  coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#ffffff", flex: 1 },
+  timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#555555" },
+  content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#ffffff", lineHeight: 22, marginBottom: 12 },
+  readMore: { color: "#888888", fontFamily: "Poppins_600SemiBold" },
   postPhoto: { width: "100%", borderRadius: 12, marginBottom: 12, overflow: "hidden" },
-  // ── Reaction bar ─────────────────────────────────────────────────────────────
-  reactionBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(196,181,232,0.08)" },
-  reactionPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(196,181,232,0.06)", borderWidth: 1, borderColor: "rgba(196,181,232,0.12)" },
+  reactionBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
+  reactionPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, backgroundColor: "#1f1f1f", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
   reactionEmoji: { fontSize: 16 },
-  reactionCount: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#B0A2D4" },
-  totalReactions: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#B0A2D4", marginRight: 4 },
+  reactionCount: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#888888" },
+  totalReactions: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#555555", marginRight: 4 },
   commentBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5 },
-  actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#B0A2D4" },
-  // ── Double-tap pop ────────────────────────────────────────────────────────────
+  actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#555555" },
   popWrap: { alignItems: "center", justifyContent: "center" },
   popEmoji: { fontSize: 80 },
 });
