@@ -807,7 +807,7 @@ function GuestProfile() {
   );
 }
 
-type ProfileTab = "posts" | "reels" | "tagged" | "saved" | "archived";
+type ProfileTab = "posts" | "reels" | "saved";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -878,63 +878,6 @@ export default function ProfileScreen() {
     })();
   }, [activeTab, session?.user?.id]);
 
-  useEffect(() => {
-    if (!session?.user?.id || activeTab !== "archived") return;
-    const uid = session.user.id;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/posts/user/${uid}?viewerId=${uid}&onlyArchived=true`);
-        if (res.ok) {
-          const json = await res.json();
-          setArchivedPosts(
-            (json.posts ?? []).map((p: any) => ({
-              id: p.id,
-              image_url: p.media_url ?? p.image_url ?? "",
-              isReel: false,
-              likes: p.likes_count ?? 0,
-              views: p.views_count ?? 0,
-              comments: p.comments_count ?? 0,
-              caption: p.caption ?? "",
-              created_at: p.created_at,
-              isOwn: true,
-            }))
-          );
-        }
-      } catch {}
-    })();
-  }, [activeTab, session?.user?.id]);
-
-  useEffect(() => {
-    if (!session?.user?.id || activeTab !== "tagged") return;
-    const uid = session.user.id;
-    let cancelled = false;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    (async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/posts/tagged?userId=${encodeURIComponent(uid)}`,
-          { signal: controller.signal },
-        );
-        if (res.ok && !cancelled) {
-          const json = await res.json();
-          setTaggedPosts(
-            (json.posts ?? []).map((p: any) => ({
-              id: p.id,
-              image_url: p.media_url ?? p.image_url ?? null,
-              isReel: false,
-              likes: p.likes_count ?? 0,
-              comments: p.comments_count ?? 0,
-              caption: p.caption ?? "",
-              isOwn: false,
-            }))
-          );
-        }
-      } catch {}
-      clearTimeout(timeout);
-    })();
-    return () => { cancelled = true; controller.abort(); clearTimeout(timeout); };
-  }, [activeTab, session?.user?.id]);
 
   const loadProfile = useCallback(async (uid: string) => {
     // Run Supabase profile fetch and API stats lookup in parallel.
@@ -1080,11 +1023,9 @@ export default function ProfileScreen() {
   const reelsOnly = myPosts.filter((p) => p.isReel);
 
   const gridData: GridItem[] =
-    activeTab === "posts" ? postsOnly :
     activeTab === "reels" ? reelsOnly :
     activeTab === "saved" ? savedPosts :
-    activeTab === "archived" ? archivedPosts :
-    taggedPosts;
+    postsOnly;
 
   // ── Derived stats — read from live backend (all posts), not client-side page ─
   const totalLikes = liveEngagement.total_likes;
@@ -1432,12 +1373,10 @@ export default function ProfileScreen() {
           {([
             { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
             { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
-            { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
             { key: "saved" as ProfileTab, icon: "star-outline", label: "Saved" },
-            { key: "archived" as ProfileTab, icon: "archive-outline", label: "Archived" },
           ]).map((tab) => (
             <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
-              style={[styles.gridTab, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
+              style={[styles.gridTab, { flex: 1 }, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
               <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#8B5CF6" : colors.mutedForeground} />
             </TouchableOpacity>
           ))}
@@ -1464,17 +1403,9 @@ export default function ProfileScreen() {
                 <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No saved posts yet</Text>
                 <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Tap the star on any post to save it</Text>
               </View>
-            : activeTab === "archived"
-              ? <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
-                  <Text style={{ fontSize: 44 }}>🗂️</Text>
-                  <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No archived posts</Text>
-                  <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Posts you archive will appear here</Text>
-                </View>
-            : (activeTab === "posts" || activeTab === "reels")
-              ? postsLoading
-                ? <SkeletonGrid />
-                : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
-              : null
+            : postsLoading
+              ? <SkeletonGrid />
+              : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
         }
         renderItem={renderGridItem}
         ItemSeparatorComponent={() => <View style={{ height: 1.5 }} />}
