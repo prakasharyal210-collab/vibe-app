@@ -1,12 +1,34 @@
+/**
+ * Entry point — sets up the WebSocket polyfill BEFORE any Supabase client
+ * is created, then starts the HTTP server.
+ *
+ * Why the polyfill is needed:
+ *   @supabase/realtime-js checks for `globalThis.WebSocket` in the
+ *   RealtimeClient constructor (called inside `createClient()`). Node.js 20
+ *   on Railway does not expose WebSocket as a global, so without the polyfill
+ *   every `makeSupabase()` call throws and all routes return 500.
+ */
+
+// ─── WebSocket polyfill ────────────────────────────────────────────────────
+// Must run before the first import that triggers @supabase/realtime-js.
+// We import `ws` (a proper dependency) and set it globally so that
+// realtime-js finds `globalThis.WebSocket` and doesn't throw.
+import { WebSocket as NodeWebSocket } from "ws";
+if (typeof globalThis.WebSocket === "undefined") {
+  (globalThis as any).WebSocket = NodeWebSocket;
+}
+
 import app from "./app";
 import { logger } from "./lib/logger";
-import { createClient } from "@supabase/supabase-js";
+import { makeSupabase } from "./lib/supabase";
 
 async function ensureSupabaseSetup() {
-  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
-  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
-  if (!serviceKey) return;
-  const sb = createClient(url, serviceKey);
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!key) return;
+
+  // Use the shared factory so we get the correct server-side options
+  // (no session persistence, realtime idle) consistently everywhere.
+  const sb = makeSupabase();
 
   // Ensure storage buckets exist
   for (const bucket of ["posts", "reels", "media", "avatars", "snaps"]) {
@@ -41,7 +63,6 @@ async function ensureSupabaseSetup() {
     ddl: "ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url TEXT",
   });
   if (!colErr) {
-    // backfill and add sync trigger
     await sb.rpc("exec_ddl" as any, {
       ddl: "UPDATE posts SET image_url = media_url WHERE image_url IS NULL AND media_url IS NOT NULL",
     });
