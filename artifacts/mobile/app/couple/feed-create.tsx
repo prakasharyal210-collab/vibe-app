@@ -26,11 +26,11 @@ const CATEGORIES = ["Confession", "Advice", "Story", "Venting", "Milestone"] as 
 type Category = (typeof CATEGORIES)[number];
 
 const CAT_COLORS: Record<Category, string> = {
-  Confession: "#EC4899",
-  Advice: "#3B82F6",
-  Story: "#10B981",
-  Milestone: "#F59E0B",
-  Venting: "#8B5CF6",
+  Confession: "#C4B5E8",
+  Advice: "#A4C9C0",
+  Story: "#A4C9C0",
+  Milestone: "#C4B5E8",
+  Venting: "#B0A2D4",
 };
 
 const CAT_EMOJIS: Record<Category, string> = {
@@ -191,7 +191,7 @@ export default function FeedCreateScreen() {
             <Switch
               value={isAnonymous}
               onValueChange={setIsAnonymous}
-              trackColor={{ false: "rgba(255,255,255,0.12)", true: "#EC4899" }}
+              trackColor={{ false: "rgba(196,181,232,0.15)", true: "#C4B5E8" }}
               thumbColor="#fff"
             />
           </View>
@@ -263,7 +263,7 @@ export default function FeedCreateScreen() {
             <View style={s.photoPreviewWrap}>
               <Image source={{ uri: photoUri }} style={s.photoPreview} resizeMode="cover" />
               <TouchableOpacity onPress={() => setPhotoUri(null)} style={s.removePhotoBtn}>
-                <Ionicons name="close-circle" size={28} color="#EC4899" />
+                <Ionicons name="close-circle" size={28} color="#C4B5E8" />
               </TouchableOpacity>
             </View>
           ) : (
@@ -279,29 +279,29 @@ export default function FeedCreateScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#080810" },
+  container: { flex: 1, backgroundColor: "#2d2838" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 17, color: "#fff" },
-  postBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, backgroundColor: "#EC4899" },
-  postBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#fff" },
-  anonRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(236,72,153,0.08)", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "rgba(236,72,153,0.2)", marginTop: 8 },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(196,181,232,0.1)", alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 17, color: "#F2EFFB" },
+  postBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, backgroundColor: "#C4B5E8" },
+  postBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#26215c" },
+  anonRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(196,181,232,0.07)", borderRadius: 16, padding: 14, borderWidth: 1, borderColor: "rgba(196,181,232,0.18)", marginTop: 8 },
   anonLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   anonIcon: { fontSize: 26 },
-  anonTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
-  anonSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.4)" },
-  sectionLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 20, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.6 },
+  anonTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#F2EFFB" },
+  anonSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#B0A2D4" },
+  sectionLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "#B0A2D4", marginTop: 20, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.6 },
   catRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   catChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
   catLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  textInput: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", padding: 16, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 15, minHeight: 150, lineHeight: 24 },
-  charCount: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.22)", textAlign: "right", marginTop: 6 },
+  textInput: { backgroundColor: "#3d3650", borderRadius: 16, borderWidth: 1, borderColor: "rgba(196,181,232,0.15)", padding: 16, color: "#F2EFFB", fontFamily: "Poppins_400Regular", fontSize: 15, minHeight: 150, lineHeight: 24 },
+  charCount: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#B0A2D4", textAlign: "right", marginTop: 6 },
   optionalRow: { flexDirection: "row", gap: 12 },
   optionalField: { gap: 6 },
-  optionalLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.4)" },
-  optionalInput: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", paddingHorizontal: 14, paddingVertical: 10, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 14 },
-  photoPickerBtn: { height: 110, borderRadius: 16, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(255,255,255,0.02)" },
-  photoPickerText: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.3)" },
+  optionalLabel: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#B0A2D4" },
+  optionalInput: { backgroundColor: "#3d3650", borderRadius: 12, borderWidth: 1, borderColor: "rgba(196,181,232,0.15)", paddingHorizontal: 14, paddingVertical: 10, color: "#F2EFFB", fontFamily: "Poppins_400Regular", fontSize: 14 },
+  photoPickerBtn: { height: 110, borderRadius: 16, borderWidth: 1.5, borderColor: "rgba(196,181,232,0.2)", borderStyle: "dashed", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(196,181,232,0.04)" },
+  photoPickerText: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#B0A2D4" },
   photoPreviewWrap: { position: "relative" },
   photoPreview: { width: "100%", height: 200, borderRadius: 16 },
   removePhotoBtn: { position: "absolute", top: 8, right: 8 },

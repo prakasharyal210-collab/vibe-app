@@ -32,11 +32,11 @@ const REACTIONS: { type: ReactionType; emoji: string; color: string }[] = [
 ];
 
 const CAT_COLORS: Record<string, string> = {
-  Confession: "#EC4899",
-  Advice: "#3B82F6",
-  Story: "#10B981",
-  Milestone: "#F59E0B",
-  Venting: "#8B5CF6",
+  Confession: "#C4B5E8",
+  Advice: "#A4C9C0",
+  Story: "#A4C9C0",
+  Milestone: "#C4B5E8",
+  Venting: "#B0A2D4",
 };
 
 function timeAgo(iso: string): string {
@@ -384,7 +384,7 @@ export default function CoupleFeedScreen() {
           }
           style={s.shareBtn}
         >
-          <Ionicons name="add" size={18} color="#EC4899" />
+          <Ionicons name="add" size={18} color="#C4B5E8" />
           <Text style={s.shareBtnText}>Share</Text>
         </TouchableOpacity>
       </View>
@@ -414,7 +414,7 @@ export default function CoupleFeedScreen() {
 
       {loading ? (
         <View style={s.center}>
-          <ActivityIndicator color="#EC4899" size="large" />
+          <ActivityIndicator color="#C4B5E8" size="large" />
         </View>
       ) : filtered.length === 0 ? (
         <View style={s.empty}>
@@ -449,7 +449,7 @@ export default function CoupleFeedScreen() {
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 28, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EC4899" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#C4B5E8" />}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         />
       )}
@@ -458,48 +458,48 @@ export default function CoupleFeedScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#080810" },
+  container: { flex: 1, backgroundColor: "#2d2838" },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
-  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#fff" },
-  shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#EC4899", backgroundColor: "rgba(236,72,153,0.12)" },
-  shareBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#EC4899" },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "rgba(196,181,232,0.1)", alignItems: "center", justifyContent: "center" },
+  headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#F2EFFB" },
+  shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#C4B5E8", backgroundColor: "rgba(196,181,232,0.1)" },
+  shareBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#C4B5E8" },
   filterScroll: { flexGrow: 0, maxHeight: 44 },
   filterRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", height: 34, justifyContent: "center" },
-  filterChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.55)" },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "rgba(196,181,232,0.2)", height: 34, justifyContent: "center" },
+  filterChipText: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#B0A2D4" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 52, marginBottom: 8 },
-  emptyTitle: { fontFamily: "Poppins_700Bold", fontSize: 18, color: "#fff", textAlign: "center" },
-  emptySub: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.45)", textAlign: "center" },
-  emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#EC4899" },
-  emptyBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#fff" },
-  card: { backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  emptyTitle: { fontFamily: "Poppins_700Bold", fontSize: 18, color: "#F2EFFB", textAlign: "center" },
+  emptySub: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#B0A2D4", textAlign: "center" },
+  emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#C4B5E8" },
+  emptyBtnText: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#26215c" },
+  card: { backgroundColor: "#3d3650", borderRadius: 16, padding: 16, overflow: "hidden" },
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
   cardTopLeft: { gap: 2 },
-  postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#EC4899" },
-  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.45)" },
+  postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#C4B5E8" },
+  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#B0A2D4" },
   catBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
   catText: { fontFamily: "Poppins_600SemiBold", fontSize: 11 },
   authorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#1a1a2e" },
-  avatarPlaceholder: { backgroundColor: "#2a1a3e", alignItems: "center", justifyContent: "center" },
-  anonAvatar: { backgroundColor: "rgba(236,72,153,0.15)", alignItems: "center", justifyContent: "center" },
-  anonLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.55)", flex: 1 },
-  coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#fff", flex: 1 },
-  timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.35)" },
-  content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.85)", lineHeight: 22, marginBottom: 12 },
-  readMore: { color: "#EC4899", fontFamily: "Poppins_600SemiBold" },
+  avatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#2d2838" },
+  avatarPlaceholder: { backgroundColor: "rgba(196,181,232,0.15)", alignItems: "center", justifyContent: "center" },
+  anonAvatar: { backgroundColor: "rgba(196,181,232,0.15)", alignItems: "center", justifyContent: "center" },
+  anonLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#B0A2D4", flex: 1 },
+  coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#F2EFFB", flex: 1 },
+  timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#B0A2D4" },
+  content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#F2EFFB", lineHeight: 22, marginBottom: 12 },
+  readMore: { color: "#C4B5E8", fontFamily: "Poppins_600SemiBold" },
   postPhoto: { width: "100%", borderRadius: 12, marginBottom: 12, overflow: "hidden" },
   // ── Reaction bar ─────────────────────────────────────────────────────────────
-  reactionBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)" },
-  reactionPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  reactionBar: { flexDirection: "row", alignItems: "center", gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: "rgba(196,181,232,0.08)" },
+  reactionPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 14, backgroundColor: "rgba(196,181,232,0.06)", borderWidth: 1, borderColor: "rgba(196,181,232,0.12)" },
   reactionEmoji: { fontSize: 16 },
-  reactionCount: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "rgba(255,255,255,0.5)" },
-  totalReactions: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "rgba(255,255,255,0.3)", marginRight: 4 },
+  reactionCount: { fontFamily: "Poppins_500Medium", fontSize: 12, color: "#B0A2D4" },
+  totalReactions: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#B0A2D4", marginRight: 4 },
   commentBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 8, paddingVertical: 5 },
-  actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "rgba(255,255,255,0.45)" },
+  actionCount: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#B0A2D4" },
   // ── Double-tap pop ────────────────────────────────────────────────────────────
   popWrap: { alignItems: "center", justifyContent: "center" },
   popEmoji: { fontSize: 80 },
