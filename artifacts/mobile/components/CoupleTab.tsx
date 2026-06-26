@@ -93,7 +93,7 @@ function PulsingHeart() {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
     <Animated.View style={[style, { marginHorizontal: 6 }]}>
-      <Ionicons name="heart" size={20} color="#ffffff" />
+      <Text style={{ fontSize: 20 }}>💕</Text>
     </Animated.View>
   );
 }
@@ -152,16 +152,16 @@ function MonoAvatar({ uri }: { uri: string | null }) {
   );
 }
 
-// ─── Monochrome feature card ──────────────────────────────────────────────────
+// ─── Emoji feature card ───────────────────────────────────────────────────────
 
 function MonoCard({
-  iconName,
+  emoji,
   title,
   sub,
   onPress,
   delay,
 }: {
-  iconName: string;
+  emoji: string;
   title: string;
   sub: string;
   onPress: () => void;
@@ -171,7 +171,7 @@ function MonoCard({
     <AnimatedCard onPress={onPress} delay={delay}>
       <View style={s.featureCard}>
         <View style={s.iconTile}>
-          <Ionicons name={iconName as any} size={22} color="#ffffff" />
+          <Text style={s.tileEmoji}>{emoji}</Text>
         </View>
         <View style={{ flex: 1, marginLeft: 14 }}>
           <Text style={s.cardTitle}>{title}</Text>
@@ -341,7 +341,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         {/* ── Feature cards ─────────────────────────────────────────────── */}
         <View style={s.cards}>
           <MonoCard
-            iconName="chatbubble-ellipses"
+            emoji="💬"
             title="Confession Room"
             sub="A safe space to share"
             onPress={() => router.push({ pathname: "/couple/feed", params: { coupleId, userId } } as any)}
@@ -354,7 +354,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           >
             <View style={s.featureCard}>
               <View style={s.iconTile}>
-                <Ionicons name="trophy" size={22} color="#ffffff" />
+                <Text style={s.tileEmoji}>🏆</Text>
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={s.cardTitle}>Couple of the Month</Text>
@@ -367,21 +367,21 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           </AnimatedCard>
 
           <MonoCard
-            iconName="images"
+            emoji="📸"
             title="Shared Album"
             sub="Your photos together"
             onPress={() => router.push({ pathname: "/couple/album", params: { coupleId, userId } } as any)}
             delay={140}
           />
           <MonoCard
-            iconName="create"
+            emoji="💌"
             title="Notes"
             sub="Leave little messages"
             onPress={() => router.push({ pathname: "/couple/notes", params: { coupleId, userId } } as any)}
             delay={210}
           />
           <MonoCard
-            iconName="checkbox"
+            emoji="✨"
             title="Bucket List"
             sub="Dreams to do together"
             onPress={() => router.push({ pathname: "/couple/bucketlist", params: { coupleId, userId } } as any)}
@@ -392,11 +392,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           <AnimatedCard onPress={sendNudge} delay={350}>
             <View style={s.featureCard}>
               <View style={s.iconTile}>
-                <Ionicons
-                  name={nudgeSent ? "checkmark" : "heart-outline"}
-                  size={22}
-                  color="#ffffff"
-                />
+                <Text style={s.tileEmoji}>{nudgeSent ? "✅" : "💞"}</Text>
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={s.cardTitle}>{nudgeSent ? "Nudge sent!" : "Thinking of You"}</Text>
@@ -566,6 +562,7 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     flexShrink: 0,
   },
+  tileEmoji: { fontSize: 22, textAlign: "center" },
   cardTitle: { fontFamily: "Poppins_700Bold", fontSize: 16, color: P.text, marginBottom: 2 },
   cardSub: { fontFamily: "Poppins_400Regular", fontSize: 13, color: P.muted },
 
