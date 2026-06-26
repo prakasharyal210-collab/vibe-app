@@ -69,27 +69,34 @@ router.get("/check-username", async (req, res) => {
 router.get("/search", async (req, res) => {
   const q = ((req.query["q"] as string) ?? "").trim();
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
-  const sb = makeSupabase();
 
   try {
-    let query = sb
+    const sb = makeSupabase();
+
+    // Build the base filter query FIRST, then add transform (order/limit).
+    // Calling .or() after .limit() operates on a PostgrestTransformBuilder which
+    // does not have .or() — this caused a runtime TypeError on Railway.
+    let baseQuery = sb
       .from("profiles")
-      .select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private")
+      .select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private");
+
+    if (q) {
+      baseQuery = baseQuery.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
+    }
+
+    const { data, error } = await baseQuery
       .order("followers_count", { ascending: false })
       .limit(limit);
 
-    if (q) {
-      query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
-    }
-
-    const { data, error } = await query;
     if (error) {
-      res.status(500).json({ error: error.message });
+      req.log.error({ err: error.message, q }, "user-search db error");
+      res.json({ profiles: [] });
       return;
     }
     res.json({ profiles: data ?? [] });
   } catch (err: any) {
-    res.status(500).json({ error: "Search failed" });
+    req.log.error({ err: err?.message, q }, "user-search unexpected error");
+    res.json({ profiles: [] });
   }
 });
 

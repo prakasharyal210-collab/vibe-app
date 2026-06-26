@@ -56504,20 +56504,22 @@ router13.get("/check-username", async (req, res) => {
 router13.get("/search", async (req, res) => {
   const q = (req.query["q"] ?? "").trim();
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
-  const sb = makeSupabase8();
   try {
-    let query = sb.from("profiles").select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private").order("followers_count", { ascending: false }).limit(limit);
+    const sb = makeSupabase8();
+    let baseQuery = sb.from("profiles").select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private");
     if (q) {
-      query = query.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
+      baseQuery = baseQuery.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
     }
-    const { data, error } = await query;
+    const { data, error } = await baseQuery.order("followers_count", { ascending: false }).limit(limit);
     if (error) {
-      res.status(500).json({ error: error.message });
+      req.log.error({ err: error.message, q }, "user-search db error");
+      res.json({ profiles: [] });
       return;
     }
     res.json({ profiles: data ?? [] });
   } catch (err) {
-    res.status(500).json({ error: "Search failed" });
+    req.log.error({ err: err?.message, q }, "user-search unexpected error");
+    res.json({ profiles: [] });
   }
 });
 router13.get("/profile/:username", async (req, res) => {
