@@ -47,12 +47,14 @@ async function fetchGiphyStickers(query: string): Promise<GiphySticker[]> {
   const mem = stickerCache.get(key);
   if (mem && Date.now() - mem.ts < CACHE_TTL) return mem.data;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const url = query.trim()
       ? `https://api.giphy.com/v1/stickers/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(query)}&limit=24&rating=pg`
       : `https://api.giphy.com/v1/stickers/trending?api_key=${GIPHY_KEY}&limit=24&rating=pg`;
 
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`Giphy ${res.status}`);
     const json = await res.json() as { data?: any[] };
     const stickers: GiphySticker[] = (json.data ?? [])
@@ -67,6 +69,8 @@ async function fetchGiphyStickers(query: string): Promise<GiphySticker[]> {
     return stickers;
   } catch {
     return [];
+  } finally {
+    clearTimeout(timer);
   }
 }
 

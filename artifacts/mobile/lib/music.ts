@@ -128,16 +128,22 @@ export async function fetchTracksFromJamendo(category: MusicCategory): Promise<T
     let url = `${JAMENDO_BASE}?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=20&order=popularity_total&include=musicinfo`;
     if (tag) url += `&tags=${tag}`;
 
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`Jamendo ${res.status}`);
-    const json = await res.json() as { results?: JamendoTrack[] };
-    const results = json.results ?? [];
-    const tracks = results.map((jt) => jamendoToTrack(jt, category));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`Jamendo ${res.status}`);
+      const json = await res.json() as { results?: JamendoTrack[] };
+      const results = json.results ?? [];
+      const tracks = results.map((jt) => jamendoToTrack(jt, category));
 
-    const entry = { data: tracks, ts: Date.now() };
-    memCache.set(cacheKey, entry);
-    AsyncStorage.setItem(cacheKey, JSON.stringify(entry)).catch(() => {});
-    return tracks;
+      const entry = { data: tracks, ts: Date.now() };
+      memCache.set(cacheKey, entry);
+      AsyncStorage.setItem(cacheKey, JSON.stringify(entry)).catch(() => {});
+      return tracks;
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     return getTracksByCategory(category);
   }
@@ -152,14 +158,20 @@ export async function searchTracksOnJamendo(query: string): Promise<Track[]> {
 
   try {
     const url = `${JAMENDO_BASE}?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=20&namesearch=${encodeURIComponent(query)}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) throw new Error(`Jamendo ${res.status}`);
-    const json = await res.json() as { results?: JamendoTrack[] };
-    const results = json.results ?? [];
-    const tracks = results.map((jt) => jamendoToTrack(jt, "Trending"));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`Jamendo ${res.status}`);
+      const json = await res.json() as { results?: JamendoTrack[] };
+      const results = json.results ?? [];
+      const tracks = results.map((jt) => jamendoToTrack(jt, "Trending"));
 
-    memCache.set(cacheKey, { data: tracks, ts: Date.now() });
-    return tracks;
+      memCache.set(cacheKey, { data: tracks, ts: Date.now() });
+      return tracks;
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     return searchTracks(query);
   }
@@ -242,17 +254,23 @@ export async function fetchDeezerChart(countryCode: string): Promise<Track[]> {
 
   try {
     const url = `${API_BASE}/music/trending?country=${encodeURIComponent(countryCode)}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(12_000) });
-    if (!res.ok) throw new Error(`Proxy ${res.status}`);
-    const json = await res.json() as { tracks?: DeezerApiTrack[] };
-    const rawTracks = json.tracks ?? [];
-    const tracks = rawTracks.map((dt, i) => deezerToTrack(dt, i + 1));
-    if (tracks.length === 0) throw new Error("Empty response");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const res = await fetch(url, { signal: controller.signal });
+      if (!res.ok) throw new Error(`Proxy ${res.status}`);
+      const json = await res.json() as { tracks?: DeezerApiTrack[] };
+      const rawTracks = json.tracks ?? [];
+      const tracks = rawTracks.map((dt, i) => deezerToTrack(dt, i + 1));
+      if (tracks.length === 0) throw new Error("Empty response");
 
-    const entry = { data: tracks, ts: Date.now() };
-    memCache.set(cacheKey, entry);
-    AsyncStorage.setItem(cacheKey, JSON.stringify(entry)).catch(() => {});
-    return tracks;
+      const entry = { data: tracks, ts: Date.now() };
+      memCache.set(cacheKey, entry);
+      AsyncStorage.setItem(cacheKey, JSON.stringify(entry)).catch(() => {});
+      return tracks;
+    } finally {
+      clearTimeout(timer);
+    }
   } catch {
     return [];
   }
