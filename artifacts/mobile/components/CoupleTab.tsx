@@ -74,7 +74,7 @@ type CoupleStatus =
   | { status: "none" }
   | { status: "pending_sent"; pending: CoupleLink }
   | { status: "pending_received"; pendingRequests: PendingRequest[] }
-  | { status: "coupled"; couple: CoupleLink; partner: Partner };
+  | { status: "coupled"; couple: CoupleLink; partner: Partner; myProfile: Partner | null };
 
 // ─── Pulsing heart ────────────────────────────────────────────────────────────
 
@@ -305,7 +305,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
 
   // ── Coupled home ─────────────────────────────────────────────────────────────
   if (status?.status === "coupled") {
-    const { couple, partner } = status;
+    const { couple, partner, myProfile } = status;
     const coupleId = couple.id;
     const partnerName = partner?.full_name || partner?.username || "Your partner";
     const partnerFirst = partnerName.split(" ")[0];
@@ -322,7 +322,7 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         {/* ── Header ────────────────────────────────────────────────────── */}
         <View style={s.headerWrap}>
           <View style={s.avatarRow}>
-            <MonoAvatar uri={null} />
+            <MonoAvatar uri={myProfile?.avatar_url ?? null} />
             <PulsingHeart />
             <MonoAvatar uri={partner?.avatar_url ?? null} />
           </View>

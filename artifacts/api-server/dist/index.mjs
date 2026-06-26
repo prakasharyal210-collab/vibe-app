@@ -64884,8 +64884,11 @@ router35.get("/status", async (req, res) => {
     const { data: link } = await sb.from("couple_links").select("*").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).eq("status", "accepted").order("accepted_at", { ascending: false }).maybeSingle();
     if (link) {
       const partnerId = link.requester_id === userId ? link.receiver_id : link.requester_id;
-      const { data: partner } = await sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", partnerId).maybeSingle();
-      res.json({ status: "coupled", couple: link, partner });
+      const [{ data: partner }, { data: myProfile }] = await Promise.all([
+        sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", partnerId).maybeSingle(),
+        sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", userId).maybeSingle()
+      ]);
+      res.json({ status: "coupled", couple: link, partner, myProfile });
       return;
     }
     const { data: pending } = await sb.from("couple_links").select("*").eq("receiver_id", userId).eq("status", "pending").order("created_at", { ascending: false });

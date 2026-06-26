@@ -212,13 +212,12 @@ router.get("/status", async (req, res) => {
 
     if (link) {
       const partnerId = (link as any).requester_id === userId ? (link as any).receiver_id : (link as any).requester_id;
-      const { data: partner } = await sb
-        .from("profiles")
-        .select("id, username, avatar_url, full_name")
-        .eq("id", partnerId)
-        .maybeSingle();
+      const [{ data: partner }, { data: myProfile }] = await Promise.all([
+        sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", partnerId).maybeSingle(),
+        sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", userId).maybeSingle(),
+      ]);
 
-      res.json({ status: "coupled", couple: link, partner });
+      res.json({ status: "coupled", couple: link, partner, myProfile });
       return;
     }
 
