@@ -60346,18 +60346,18 @@ router33.post("/accept", async (req, res) => {
     const { data, error } = await sb.from("couple_links").update({ status: "accepted", accepted_at: now }).eq("id", coupleId).select().single();
     if (error) throw error;
     const [reqUpdate, recUpdate] = await Promise.all([
-      sb.from("profiles").update({ show_in_matching: false }).eq("id", link.requester_id),
-      sb.from("profiles").update({ show_in_matching: false }).eq("id", userId)
+      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", link.requester_id),
+      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", userId)
     ]);
     if (reqUpdate.error) {
       req.log.error({ err: reqUpdate.error.message, userId: link.requester_id }, "couple/accept: failed to set show_in_matching=false for requester");
     } else {
-      req.log.info({ userId: link.requester_id }, "couple/accept: show_in_matching=false set for requester");
+      req.log.info({ userId: link.requester_id }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for requester");
     }
     if (recUpdate.error) {
       req.log.error({ err: recUpdate.error.message, userId }, "couple/accept: failed to set show_in_matching=false for receiver");
     } else {
-      req.log.info({ userId }, "couple/accept: show_in_matching=false set for receiver");
+      req.log.info({ userId }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for receiver");
     }
     res.json({ success: true, couple: data });
   } catch (err) {
@@ -60396,18 +60396,18 @@ router33.delete("/unlink", async (req, res) => {
     }
     await sb.from("couple_links").delete().eq("id", coupleId);
     const [reqRestore, recRestore] = await Promise.all([
-      sb.from("profiles").update({ show_in_matching: true }).eq("id", link.requester_id),
-      sb.from("profiles").update({ show_in_matching: true }).eq("id", link.receiver_id)
+      sb.from("profiles").update({ show_in_matching: true, relationship_status: "Single" }).eq("id", link.requester_id),
+      sb.from("profiles").update({ show_in_matching: true, relationship_status: "Single" }).eq("id", link.receiver_id)
     ]);
     if (reqRestore.error) {
       req.log.error({ err: reqRestore.error.message, userId: link.requester_id }, "couple/unlink: failed to restore show_in_matching for requester");
     } else {
-      req.log.info({ userId: link.requester_id }, "couple/unlink: show_in_matching=true restored for requester");
+      req.log.info({ userId: link.requester_id }, "couple/unlink: show_in_matching=true + relationship_status=Single restored for requester");
     }
     if (recRestore.error) {
       req.log.error({ err: recRestore.error.message, userId: link.receiver_id }, "couple/unlink: failed to restore show_in_matching for receiver");
     } else {
-      req.log.info({ userId: link.receiver_id }, "couple/unlink: show_in_matching=true restored for receiver");
+      req.log.info({ userId: link.receiver_id }, "couple/unlink: show_in_matching=true + relationship_status=Single restored for receiver");
     }
     res.json({ success: true });
   } catch (err) {

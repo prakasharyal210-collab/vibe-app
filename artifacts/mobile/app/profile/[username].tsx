@@ -729,7 +729,7 @@ export default function UserProfileScreen() {
 
             {/* 4 ── Vibe status pill */}
             {profile?.vibe_status ? <VibeStatusPill vibeStatus={profile.vibe_status} /> : null}
-            {profile?.relationship_status ? (
+            {profile?.relationship_status && !(profile as any)?.partner ? (
               <RelationshipStatusBadge status={profile.relationship_status} />
             ) : null}
             {(profile as any)?.zodiac_sign ? (

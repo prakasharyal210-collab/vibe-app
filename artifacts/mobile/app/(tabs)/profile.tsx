@@ -1228,7 +1228,7 @@ export default function ProfileScreen() {
           <UserAvatar username={displayUsername} url={profile.avatar_url} size={88} showBorder />
           <View style={styles.profileInfo}>
             {profile.bio ? <Text style={[styles.bio, { color: colors.mutedForeground }]}>{profile.bio}</Text> : null}
-            {(profile as any).relationship_status ? (
+            {(profile as any).relationship_status && coupleInfo.coupleStatus !== "coupled" ? (
               <RelationshipStatusBadge status={(profile as any).relationship_status} />
             ) : null}
             {(profile as any).zodiac_sign ? (

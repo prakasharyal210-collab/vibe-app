@@ -100,19 +100,20 @@ router.post("/accept", async (req, res) => {
 
     // CRITICAL: coupled users must never appear in matching.
     // Set show_in_matching = false for BOTH partners immediately on accept.
+    // Also sync relationship_status → "In a Relationship" so the profile pill stays consistent.
     const [reqUpdate, recUpdate] = await Promise.all([
-      sb.from("profiles").update({ show_in_matching: false }).eq("id", (link as any).requester_id),
-      sb.from("profiles").update({ show_in_matching: false }).eq("id", userId),
+      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", (link as any).requester_id),
+      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", userId),
     ]);
     if (reqUpdate.error) {
       req.log.error({ err: reqUpdate.error.message, userId: (link as any).requester_id }, "couple/accept: failed to set show_in_matching=false for requester");
     } else {
-      req.log.info({ userId: (link as any).requester_id }, "couple/accept: show_in_matching=false set for requester");
+      req.log.info({ userId: (link as any).requester_id }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for requester");
     }
     if (recUpdate.error) {
       req.log.error({ err: recUpdate.error.message, userId }, "couple/accept: failed to set show_in_matching=false for receiver");
     } else {
-      req.log.info({ userId }, "couple/accept: show_in_matching=false set for receiver");
+      req.log.info({ userId }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for receiver");
     }
 
     res.json({ success: true, couple: data });
@@ -169,19 +170,20 @@ router.delete("/unlink", async (req, res) => {
 
     // CRITICAL: coupled users must never appear in matching.
     // Restore show_in_matching = true for BOTH partners on unlink so they re-enter the dating pool.
+    // Also reset relationship_status → "Single" so the profile pill stays consistent.
     const [reqRestore, recRestore] = await Promise.all([
-      sb.from("profiles").update({ show_in_matching: true }).eq("id", (link as any).requester_id),
-      sb.from("profiles").update({ show_in_matching: true }).eq("id", (link as any).receiver_id),
+      sb.from("profiles").update({ show_in_matching: true, relationship_status: "Single" }).eq("id", (link as any).requester_id),
+      sb.from("profiles").update({ show_in_matching: true, relationship_status: "Single" }).eq("id", (link as any).receiver_id),
     ]);
     if (reqRestore.error) {
       req.log.error({ err: reqRestore.error.message, userId: (link as any).requester_id }, "couple/unlink: failed to restore show_in_matching for requester");
     } else {
-      req.log.info({ userId: (link as any).requester_id }, "couple/unlink: show_in_matching=true restored for requester");
+      req.log.info({ userId: (link as any).requester_id }, "couple/unlink: show_in_matching=true + relationship_status=Single restored for requester");
     }
     if (recRestore.error) {
       req.log.error({ err: recRestore.error.message, userId: (link as any).receiver_id }, "couple/unlink: failed to restore show_in_matching for receiver");
     } else {
-      req.log.info({ userId: (link as any).receiver_id }, "couple/unlink: show_in_matching=true restored for receiver");
+      req.log.info({ userId: (link as any).receiver_id }, "couple/unlink: show_in_matching=true + relationship_status=Single restored for receiver");
     }
 
     res.json({ success: true });
