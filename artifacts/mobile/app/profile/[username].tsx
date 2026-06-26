@@ -742,12 +742,12 @@ export default function UserProfileScreen() {
             {profile?.relationship_status && !(profile as any)?.partner ? (
               <RelationshipStatusBadge status={profile.relationship_status} />
             ) : null}
-            {(profile as any)?.zodiac_sign ? (
-              <ZodiacSignBadge sign={(profile as any).zodiac_sign} />
+            {profile?.zodiac_sign ? (
+              <ZodiacSignBadge sign={profile.zodiac_sign} />
             ) : null}
-            {(profile as any)?.pronouns ? (
+            {profile?.pronouns ? (
               <View style={styles.pronounsBadge}>
-                <Text style={styles.pronounsText}>{(profile as any).pronouns}</Text>
+                <Text style={styles.pronounsText}>{profile.pronouns}</Text>
               </View>
             ) : null}
 

@@ -60220,8 +60220,8 @@ router13.get("/profile/:username", async (req, res) => {
   const viewerId = req.query["viewer_id"]?.trim() || void 0;
   const sb = makeSupabase8();
   req.log.info({ username }, "profile lookup");
-  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship";
-  const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private";
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, pronouns, show_relationship";
+  const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, zodiac_sign, pronouns";
   try {
     let selectCols = PROFILE_COLS_FULL;
     let profile = null;

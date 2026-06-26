@@ -2393,6 +2393,7 @@ export interface PublicProfile {
   id: string;
   username: string;
   display_name?: string;
+  full_name?: string;
   bio?: string;
   avatar_url?: string;
   cover_url?: string;
@@ -2405,6 +2406,9 @@ export interface PublicProfile {
   posts_count?: number;
   vibe_status?: string;
   relationship_status?: string;
+  zodiac_sign?: string;
+  pronouns?: string;
+  show_relationship?: boolean;
 }
 
 export async function lookupProfileByUsername(username: string, viewerId?: string): Promise<PublicProfile | null> {

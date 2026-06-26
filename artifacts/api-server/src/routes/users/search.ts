@@ -113,8 +113,8 @@ router.get("/profile/:username", async (req, res) => {
   // PROFILE_COLS_FULL includes columns added by optional migrations. If those migrations have not
   // been run yet, PostgREST returns a 42703 "column does not exist" error. We fall back to
   // PROFILE_COLS_BASE so the route never returns 500 for a profile that actually exists.
-  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship";
-  const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private";
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, pronouns, show_relationship";
+  const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, zodiac_sign, pronouns";
 
   try {
     let selectCols = PROFILE_COLS_FULL;
