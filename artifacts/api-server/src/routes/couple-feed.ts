@@ -492,4 +492,107 @@ router.post("/posts/:postId/comments", async (req, res) => {
   }
 });
 
+// ── GET /notifications ────────────────────────────────────────────────────────
+// Returns recent reactions + comments on confessions authored by userId.
+// Anonymous-safe: never reveals who reacted/commented.
+
+router.get("/notifications", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const [{ data: myPosts }, { data: profile }] = await Promise.all([
+      sb.from("couple_feed_posts").select("id, content, category").eq("author_id", userId),
+      sb.from("profiles").select("last_seen_notifications_at").eq("id", userId).maybeSingle(),
+    ]);
+
+    const postIds = ((myPosts ?? []) as any[]).map((p: any) => p.id);
+    const postMap = Object.fromEntries(((myPosts ?? []) as any[]).map((p: any) => [p.id, p]));
+    const lastSeen: string | null = (profile as any)?.last_seen_notifications_at ?? null;
+
+    if (postIds.length === 0) {
+      res.json({ notifications: [], unreadCount: 0 });
+      return;
+    }
+
+    const [{ data: reactions }, { data: comments }] = await Promise.all([
+      sb.from("couple_feed_likes")
+        .select("id, post_id, reaction, created_at, liker_id")
+        .in("post_id", postIds)
+        .neq("liker_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      sb.from("couple_feed_comments")
+        .select("id, post_id, content, created_at, author_id")
+        .in("post_id", postIds)
+        .neq("author_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+
+    const REACTION_EMOJI: Record<string, string> = {
+      support: "🫂", relate: "🥲", strength: "💪", love: "❤️",
+    };
+
+    const reactionNotifs = ((reactions ?? []) as any[]).map((r: any) => ({
+      id: `reaction-${r.id}`,
+      type: "reaction" as const,
+      post_id: r.post_id,
+      post_content: ((postMap[r.post_id]?.content ?? "") as string).slice(0, 100),
+      post_category: postMap[r.post_id]?.category ?? "Confession",
+      reaction: r.reaction,
+      created_at: r.created_at,
+      label: `${REACTION_EMOJI[r.reaction] ?? "❤️"} Someone reacted to your confession`,
+    }));
+
+    const commentNotifs = ((comments ?? []) as any[]).map((c: any) => ({
+      id: `comment-${c.id}`,
+      type: "comment" as const,
+      post_id: c.post_id,
+      post_content: ((postMap[c.post_id]?.content ?? "") as string).slice(0, 100),
+      post_category: postMap[c.post_id]?.category ?? "Confession",
+      comment_preview: ((c.content ?? "") as string).slice(0, 80),
+      created_at: c.created_at,
+      label: "💬 Someone commented on your confession",
+    }));
+
+    const all = [...reactionNotifs, ...commentNotifs]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 50);
+
+    const unreadCount = lastSeen
+      ? all.filter((n) => new Date(n.created_at) > new Date(lastSeen)).length
+      : all.length;
+
+    res.json({ notifications: all, unreadCount });
+  } catch (err: any) {
+    req.log.error({ err: err.message }, "couple-feed/notifications GET error");
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
+
+// ── POST /notifications/mark-seen ─────────────────────────────────────────────
+
+router.post("/notifications/mark-seen", async (req, res) => {
+  const { userId } = req.body as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    await sb
+      .from("profiles")
+      .update({ last_seen_notifications_at: new Date().toISOString() })
+      .eq("id", userId);
+    res.json({ success: true });
+  } catch (err: any) {
+    req.log.error({ err: err.message }, "couple-feed/notifications mark-seen error");
+    res.status(500).json({ error: "Failed to mark seen" });
+  }
+});
+
 export default router;

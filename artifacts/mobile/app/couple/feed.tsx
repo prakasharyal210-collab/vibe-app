@@ -306,7 +306,22 @@ export default function CoupleFeedScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>("All");
+  const [unreadCount, setUnreadCount] = useState(0);
   const genRef = useRef(0);
+
+  const fetchUnread = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/couple-feed/notifications?userId=${encodeURIComponent(userId)}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      const data = await res.json();
+      setUnreadCount(data.unreadCount ?? 0);
+    } catch {
+      // silently ignore
+    }
+  }, [userId, token]);
 
   const fetchPosts = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -326,7 +341,8 @@ export default function CoupleFeedScreen() {
   }, [coupleId, token]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
-  useFocusEffect(useCallback(() => { fetchPosts(true); }, [fetchPosts]));
+  useEffect(() => { fetchUnread(); }, [fetchUnread]);
+  useFocusEffect(useCallback(() => { fetchPosts(true); fetchUnread(); }, [fetchPosts, fetchUnread]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -372,6 +388,22 @@ export default function CoupleFeedScreen() {
           <Ionicons name="arrow-back" size={22} color="#ffffff" />
         </TouchableOpacity>
         <Text style={s.headerTitle}>Confessions</Text>
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: "/couple/feed-notifications",
+              params: { coupleId: coupleId ?? "", userId: userId ?? "" },
+            } as any)
+          }
+          style={s.bellBtn}
+        >
+          <Ionicons name="notifications-outline" size={22} color="#ffffff" />
+          {unreadCount > 0 && (
+            <View style={s.badge}>
+              <Text style={s.badgeText}>{unreadCount > 9 ? "9+" : String(unreadCount)}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
         <TouchableOpacity
           onPress={() =>
             router.push({
@@ -459,6 +491,9 @@ const s = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, gap: 10 },
   backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#141414", alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 18, color: "#ffffff" },
+  bellBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#141414", alignItems: "center", justifyContent: "center" },
+  badge: { position: "absolute", top: 4, right: 4, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: "#ef4444", alignItems: "center", justifyContent: "center", paddingHorizontal: 3 },
+  badgeText: { fontSize: 9, color: "#ffffff", fontFamily: "Poppins_700Bold", lineHeight: 16 },
   shareBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: "#ffffff" },
   shareBtnText: { fontFamily: "Poppins_700Bold", fontSize: 13, color: "#000000" },
   filterScroll: { flexGrow: 0, maxHeight: 44 },

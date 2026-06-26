@@ -65537,6 +65537,78 @@ router36.post("/posts/:postId/comments", async (req, res) => {
     res.status(500).json({ error: "Failed to add comment" });
   }
 });
+router36.get("/notifications", async (req, res) => {
+  const userId = req.query["userId"];
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase31();
+  try {
+    const [{ data: myPosts }, { data: profile }] = await Promise.all([
+      sb.from("couple_feed_posts").select("id, content, category").eq("author_id", userId),
+      sb.from("profiles").select("last_seen_notifications_at").eq("id", userId).maybeSingle()
+    ]);
+    const postIds = (myPosts ?? []).map((p) => p.id);
+    const postMap = Object.fromEntries((myPosts ?? []).map((p) => [p.id, p]));
+    const lastSeen = profile?.last_seen_notifications_at ?? null;
+    if (postIds.length === 0) {
+      res.json({ notifications: [], unreadCount: 0 });
+      return;
+    }
+    const [{ data: reactions }, { data: comments }] = await Promise.all([
+      sb.from("couple_feed_likes").select("id, post_id, reaction, created_at, liker_id").in("post_id", postIds).neq("liker_id", userId).order("created_at", { ascending: false }).limit(50),
+      sb.from("couple_feed_comments").select("id, post_id, content, created_at, author_id").in("post_id", postIds).neq("author_id", userId).order("created_at", { ascending: false }).limit(50)
+    ]);
+    const REACTION_EMOJI = {
+      support: "\u{1FAC2}",
+      relate: "\u{1F972}",
+      strength: "\u{1F4AA}",
+      love: "\u2764\uFE0F"
+    };
+    const reactionNotifs = (reactions ?? []).map((r) => ({
+      id: `reaction-${r.id}`,
+      type: "reaction",
+      post_id: r.post_id,
+      post_content: (postMap[r.post_id]?.content ?? "").slice(0, 100),
+      post_category: postMap[r.post_id]?.category ?? "Confession",
+      reaction: r.reaction,
+      created_at: r.created_at,
+      label: `${REACTION_EMOJI[r.reaction] ?? "\u2764\uFE0F"} Someone reacted to your confession`
+    }));
+    const commentNotifs = (comments ?? []).map((c) => ({
+      id: `comment-${c.id}`,
+      type: "comment",
+      post_id: c.post_id,
+      post_content: (postMap[c.post_id]?.content ?? "").slice(0, 100),
+      post_category: postMap[c.post_id]?.category ?? "Confession",
+      comment_preview: (c.content ?? "").slice(0, 80),
+      created_at: c.created_at,
+      label: "\u{1F4AC} Someone commented on your confession"
+    }));
+    const all = [...reactionNotifs, ...commentNotifs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 50);
+    const unreadCount = lastSeen ? all.filter((n) => new Date(n.created_at) > new Date(lastSeen)).length : all.length;
+    res.json({ notifications: all, unreadCount });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/notifications GET error");
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
+router36.post("/notifications/mark-seen", async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase31();
+  try {
+    await sb.from("profiles").update({ last_seen_notifications_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", userId);
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-feed/notifications mark-seen error");
+    res.status(500).json({ error: "Failed to mark seen" });
+  }
+});
 var couple_feed_default = router36;
 
 // src/routes/index.ts

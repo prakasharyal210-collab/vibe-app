@@ -1,0 +1,33 @@
+Add an in-app notification system to the Confession Room (NOT push notifications - just in-app, so it works in Expo Go). When someone reacts to or comments on a confession that the current user authored, they should see it.
+
+FIRST, inspect the existing schema so you use correct names:
+- Look at how confession reactions are stored (the table for the 🫂🥲💪❤️ reactions on couple_feed_posts - find the actual table and columns)
+- Look at how confession comments are stored (couple_feed_comments or similar - find actual columns)
+- Look at couple_feed_posts to confirm the author column (author_id)
+Do NOT assume column names - check the real ones first and report them.
+
+THEN BUILD:
+
+1. API endpoint: GET /api/couple-feed/notifications?userId=XXX
+   - Returns a list of recent activity on confessions authored by userId:
+     - Reactions on the user's confessions (who reacted, which reaction type, which post, when)
+     - Comments on the user's confessions (comment text preview, which post, when)
+   - Exclude the user's own reactions/comments on their own posts (don't notify yourself)
+   - Order by most recent first, limit ~50
+   - Each item should include: type ('reaction' or 'comment'), post_id, the reaction type or comment preview, created_at, and an isAnonymous-safe label (don't reveal who reacted since confessions are anonymous - just say "Someone reacted" / "Someone commented")
+   - Return an unreadCount too (count of items newer than the user's last-seen timestamp)
+
+2. Track "last seen": simplest approach - store a last_seen_notifications_at timestamp per user (a column on profiles, or a small table). 
+   - GET /api/couple-feed/notifications/mark-seen (POST) updates it to now.
+   - unreadCount = number of notification items with created_at > last_seen_notifications_at.
+
+3. Mobile (artifacts/mobile/app/couple/feed.tsx):
+   - Add a bell icon (Ionicons "notifications-outline") in the Confession Room header, next to the Share button.
+   - Show a small RED badge/dot on the bell with the unread count when unreadCount > 0.
+   - Tapping the bell opens a notifications list (a new screen or a modal/sheet): each row shows the activity, e.g. "🫂 Someone reacted to your confession" or "💬 Someone commented on your confession: '<preview>'" with a relative timestamp (2h ago).
+   - Tapping a notification row navigates to that confession. If it's a comment notification, open the comments view for that post (feed-comments.tsx with the post id). If it's a reaction, just open/scroll to that post.
+   - When the notifications list is opened, call mark-seen so the red badge clears.
+
+Keep the black & white design (black bg, white text, gray secondary, red badge for unread). Match the existing Confession Room style.
+
+Tell me: what are the actual reaction/comment table+column names you found? What endpoints did you add? What did you change in the mobile screens?
