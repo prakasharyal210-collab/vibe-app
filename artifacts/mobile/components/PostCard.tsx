@@ -44,11 +44,9 @@ import {
   checkAchievements,
   checkFavourited,
   checkLiked,
-  checkReposted,
   recordEngagement,
   toggleFavourite,
   toggleLike,
-  toggleRepost,
   trackUserInterest,
   updateCreatorAnalytics,
 } from "@/lib/db";
@@ -156,7 +154,6 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [achievement, setAchievement] = useState<Achievement | null>(null);
   const [showViewer, setShowViewer] = useState(false);
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
-  const [reposted, setReposted] = useState(false);
   const [favourited, setFavourited] = useState(false);
   const [following, setFollowing] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -234,7 +231,6 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   useEffect(() => {
     if (!userId) return;
     checkLiked(post.id, userId).then(setLiked).catch(() => {});
-    checkReposted(post.id, userId).then(setReposted).catch(() => {});
     checkFavourited(post.id, userId).then(setFavourited).catch(() => {});
   }, [post.id, userId]);
 
@@ -564,9 +560,6 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               <TouchableOpacity onPress={() => { if (requireAuth()) return; setShowShare(true); }} style={styles.actionBtn}>
                 <Ionicons name="paper-plane-outline" size={24} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={() => { if (requireAuth()) return; const nowR = !reposted; setReposted(nowR); if (userId) toggleRepost(post.id, userId, nowR); }}>
-                <Ionicons name={reposted ? "repeat" : "repeat-outline"} size={24} color={reposted ? "#10B981" : "#fff"} />
-              </TouchableOpacity>
             </View>
             <View style={styles.rightIcons}>
               <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowF = !favourited; setFavourited(nowF); if (userId) { toggleFavourite(post.id, userId, nowF); if (nowF && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); } }}>
@@ -788,18 +781,6 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
           <TouchableOpacity onPress={() => { if (requireAuth()) return; setShowShare(true); }} style={styles.actionBtn}>
             <Ionicons name="paper-plane-outline" size={24} color={colors.foreground} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => {
-              if (requireAuth()) return;
-              const nowR = !reposted;
-              setReposted(nowR);
-              if (userId) toggleRepost(post.id, userId, nowR);
-            }}
-          >
-            <Ionicons name={reposted ? "repeat" : "repeat-outline"} size={24} color={reposted ? "#10B981" : colors.foreground} />
           </TouchableOpacity>
         </View>
 
