@@ -69,29 +69,48 @@ interface Post {
   age: number | null;
   location: string | null;
   coupleName: string;
-  author: { name: string; avatar: string | null } | null;
-  partner: { name: string; avatar: string | null } | null;
+  author: { id: string; name: string; username: string | null; avatar: string | null } | null;
+  partner: { id: string; name: string; username: string | null; avatar: string | null } | null;
 }
 
-function AvatarPair({ author, partner }: { author: Post["author"]; partner: Post["partner"] }) {
+function AvatarPair({
+  author,
+  partner,
+  onPressAuthor,
+  onPressPartner,
+}: {
+  author: Post["author"];
+  partner: Post["partner"];
+  onPressAuthor?: () => void;
+  onPressPartner?: () => void;
+}) {
   return (
     <View style={{ flexDirection: "row" }}>
-      {author?.avatar ? (
-        <Image source={{ uri: author.avatar }} style={s.avatar} />
-      ) : (
-        <View style={[s.avatar, s.avatarPlaceholder]}>
-          <Ionicons name="person" size={14} color="#555555" />
-        </View>
-      )}
-      <View style={{ marginLeft: -8 }}>
-        {partner?.avatar ? (
-          <Image source={{ uri: partner.avatar }} style={s.avatar} />
+      <TouchableOpacity onPress={onPressAuthor} activeOpacity={onPressAuthor ? 0.7 : 1} disabled={!onPressAuthor}>
+        {author?.avatar ? (
+          <Image source={{ uri: author.avatar }} style={s.avatar} />
         ) : (
           <View style={[s.avatar, s.avatarPlaceholder]}>
             <Ionicons name="person" size={14} color="#555555" />
           </View>
         )}
-      </View>
+      </TouchableOpacity>
+      {partner && (
+        <TouchableOpacity
+          onPress={onPressPartner}
+          activeOpacity={onPressPartner ? 0.7 : 1}
+          disabled={!onPressPartner}
+          style={{ marginLeft: -8 }}
+        >
+          {partner.avatar ? (
+            <Image source={{ uri: partner.avatar }} style={s.avatar} />
+          ) : (
+            <View style={[s.avatar, s.avatarPlaceholder]}>
+              <Ionicons name="person" size={14} color="#555555" />
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -213,8 +232,19 @@ function PostCard({
       </View>
 
       <View style={s.authorRow}>
-        <AvatarPair author={post.author} partner={post.partner} />
-        <Text style={s.coupleName} numberOfLines={1}>{post.coupleName}</Text>
+        <AvatarPair
+          author={post.author}
+          partner={post.partner}
+          onPressAuthor={post.author?.username ? () => router.push(`/profile/${post.author!.username}`) : undefined}
+          onPressPartner={post.partner?.username ? () => router.push(`/profile/${post.partner!.username}`) : undefined}
+        />
+        <TouchableOpacity
+          onPress={post.author?.username ? () => router.push(`/profile/${post.author!.username}`) : undefined}
+          activeOpacity={post.author?.username ? 0.7 : 1}
+          style={{ flex: 1 }}
+        >
+          <Text style={s.coupleName} numberOfLines={1}>{post.coupleName}</Text>
+        </TouchableOpacity>
         <Text style={s.timeAgo}>{timeAgo(post.created_at)}</Text>
       </View>
       {(post.age || post.location) && (

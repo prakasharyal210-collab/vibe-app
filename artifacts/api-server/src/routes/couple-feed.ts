@@ -14,8 +14,8 @@ const router = Router();
 
 async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, coupleId?: string) {
   // Always fetch the real author profile — confessions are never anonymous.
-  let authorData: { name: string; avatar: string | null } | null = null;
-  let partnerData: { name: string; avatar: string | null } | null = null;
+  let authorData: { id: string; name: string; username: string | null; avatar: string | null } | null = null;
+  let partnerData: { id: string; name: string; username: string | null; avatar: string | null } | null = null;
   let coupleName = "Unknown";
 
   const { data: author } = await sb
@@ -26,7 +26,9 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
 
   if (author) {
     authorData = {
+      id: (author as any).id,
       name: (author as any).full_name || (author as any).username || "User",
+      username: (author as any).username ?? null,
       avatar: (author as any).avatar_url ?? null,
     };
     coupleName = (author as any).full_name || (author as any).username || "User";
@@ -54,7 +56,9 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
 
       if (partner) {
         partnerData = {
+          id: (partner as any).id,
           name: (partner as any).full_name || (partner as any).username || "User",
+          username: (partner as any).username ?? null,
           avatar: (partner as any).avatar_url ?? null,
         };
         const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];

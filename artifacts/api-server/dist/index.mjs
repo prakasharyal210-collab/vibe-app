@@ -65230,7 +65230,9 @@ async function enrichPost(sb, post2, coupleId) {
   const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
   if (author) {
     authorData = {
+      id: author.id,
       name: author.full_name || author.username || "User",
+      username: author.username ?? null,
       avatar: author.avatar_url ?? null
     };
     coupleName = author.full_name || author.username || "User";
@@ -65242,7 +65244,9 @@ async function enrichPost(sb, post2, coupleId) {
       const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
       if (partner) {
         partnerData = {
+          id: partner.id,
           name: partner.full_name || partner.username || "User",
+          username: partner.username ?? null,
           avatar: partner.avatar_url ?? null
         };
         const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
