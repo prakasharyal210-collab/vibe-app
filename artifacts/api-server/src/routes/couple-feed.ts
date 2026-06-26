@@ -471,11 +471,10 @@ router.get("/posts/:postId/comments", async (req, res) => {
 
 router.post("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
-  const { coupleId, authorId, content, isAnonymous } = req.body as {
+  const { coupleId, authorId, content } = req.body as {
     coupleId?: string;
     authorId?: string;
     content?: string;
-    isAnonymous?: boolean;
   };
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
@@ -483,43 +482,49 @@ router.post("/posts/:postId/comments", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
+    // Insert only the columns that exist on couple_feed_comments:
+    // id, post_id, author_id, content, created_at.
+    // couple_id and is_anonymous do NOT exist — omitting them prevents the 42703 insert crash.
     const { data: comment, error } = await sb
       .from("couple_feed_comments")
       .insert({
         post_id: postId,
-        couple_id: coupleId,
         author_id: authorId,
         content,
-        is_anonymous: isAnonymous === true,
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      req.log.error({
+        code: error.code,
+        message: error.message,
+        details: (error as any).details,
+        hint: (error as any).hint,
+      }, "couple-feed/comments insert error");
+      throw error;
+    }
 
     const { data: current } = await sb.from("couple_feed_posts").select("comment_count").eq("id", postId).maybeSingle();
     const newCount = ((current as any)?.comment_count ?? 0) + 1;
     await sb.from("couple_feed_posts").update({ comment_count: newCount }).eq("id", postId);
 
-    const isAnon = isAnonymous === true;
+    // Fetch author info so the mobile can display it immediately without a refetch.
     let authorInfo: { name: string; avatar: string | null } | null = null;
-    if (!isAnon) {
-      const { data: author } = await sb
-        .from("profiles")
-        .select("id, full_name, username, avatar_url")
-        .eq("id", authorId)
-        .maybeSingle();
-      if (author) {
-        authorInfo = { name: (author as any).full_name || (author as any).username, avatar: (author as any).avatar_url ?? null };
-      }
+    const { data: author } = await sb
+      .from("profiles")
+      .select("id, full_name, username, avatar_url")
+      .eq("id", authorId)
+      .maybeSingle();
+    if (author) {
+      authorInfo = { name: (author as any).full_name || (author as any).username || "User", avatar: (author as any).avatar_url ?? null };
     }
 
     res.json({
       success: true,
       comment: {
         ...(comment as any),
-        isAnonymous: isAnon,
-        author: isAnon ? null : authorInfo,
+        author: authorInfo,
       },
       comment_count: newCount,
     });

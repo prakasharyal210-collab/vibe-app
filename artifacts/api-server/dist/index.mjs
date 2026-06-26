@@ -65523,7 +65523,7 @@ router36.get("/posts/:postId/comments", async (req, res) => {
 });
 router36.post("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
-  const { coupleId, authorId, content, isAnonymous } = req.body;
+  const { coupleId, authorId, content } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
     return;
@@ -65532,29 +65532,31 @@ router36.post("/posts/:postId/comments", async (req, res) => {
   try {
     const { data: comment, error } = await sb.from("couple_feed_comments").insert({
       post_id: postId,
-      couple_id: coupleId,
       author_id: authorId,
-      content,
-      is_anonymous: isAnonymous === true
+      content
     }).select().single();
-    if (error) throw error;
+    if (error) {
+      req.log.error({
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      }, "couple-feed/comments insert error");
+      throw error;
+    }
     const { data: current } = await sb.from("couple_feed_posts").select("comment_count").eq("id", postId).maybeSingle();
     const newCount = (current?.comment_count ?? 0) + 1;
     await sb.from("couple_feed_posts").update({ comment_count: newCount }).eq("id", postId);
-    const isAnon = isAnonymous === true;
     let authorInfo = null;
-    if (!isAnon) {
-      const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", authorId).maybeSingle();
-      if (author) {
-        authorInfo = { name: author.full_name || author.username, avatar: author.avatar_url ?? null };
-      }
+    const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", authorId).maybeSingle();
+    if (author) {
+      authorInfo = { name: author.full_name || author.username || "User", avatar: author.avatar_url ?? null };
     }
     res.json({
       success: true,
       comment: {
         ...comment,
-        isAnonymous: isAnon,
-        author: isAnon ? null : authorInfo
+        author: authorInfo
       },
       comment_count: newCount
     });
