@@ -530,8 +530,9 @@ router.post("/posts/:postId/comments", async (req, res) => {
 });
 
 // ── GET /notifications ────────────────────────────────────────────────────────
-// Returns recent reactions + comments on confessions authored by userId.
-// Anonymous-safe: never reveals who reacted/commented.
+// Returns recent reactions + comments on ALL confessions belonging to the
+// user's couple — so both partners get notified, not just the author.
+// Each partner's unread state is tracked independently via last_seen_notifications_at.
 
 router.get("/notifications", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
@@ -541,31 +542,55 @@ router.get("/notifications", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    const [{ data: myPosts }, { data: profile }] = await Promise.all([
-      sb.from("couple_feed_posts").select("id, content, category").eq("author_id", userId),
+    // Step 1: resolve the user's couple_id (they may be requester or receiver).
+    const [{ data: coupleRow }, { data: profile }] = await Promise.all([
+      sb.from("couple_links")
+        .select("id, requester_id, receiver_id")
+        .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
+        .maybeSingle(),
       sb.from("profiles").select("last_seen_notifications_at").eq("id", userId).maybeSingle(),
     ]);
 
-    const postIds = ((myPosts ?? []) as any[]).map((p: any) => p.id);
-    const postMap = Object.fromEntries(((myPosts ?? []) as any[]).map((p: any) => [p.id, p]));
     const lastSeen: string | null = (profile as any)?.last_seen_notifications_at ?? null;
+
+    // Step 2: if no couple found, fall back to own posts only (graceful degradation).
+    let couplePosts: any[];
+    if (coupleRow) {
+      const coupleId = (coupleRow as any).id;
+      const { data: coupledPosts } = await sb
+        .from("couple_feed_posts")
+        .select("id, content, category, author_id")
+        .eq("couple_id", coupleId);
+      couplePosts = (coupledPosts ?? []) as any[];
+    } else {
+      const { data: ownPosts } = await sb
+        .from("couple_feed_posts")
+        .select("id, content, category, author_id")
+        .eq("author_id", userId);
+      couplePosts = (ownPosts ?? []) as any[];
+    }
+
+    const postIds = couplePosts.map((p: any) => p.id);
+    const postMap = Object.fromEntries(couplePosts.map((p: any) => [p.id, p]));
 
     if (postIds.length === 0) {
       res.json({ notifications: [], unreadCount: 0 });
       return;
     }
 
+    // Step 3: fetch reactions and comments on ALL couple posts,
+    // excluding the requesting user's own actions.
     const [{ data: reactions }, { data: comments }] = await Promise.all([
       sb.from("couple_feed_likes")
         .select("id, post_id, reaction, created_at, liker_id")
         .in("post_id", postIds)
-        .neq("liker_id", userId)
+        .neq("liker_id", userId)          // exclude user's own reactions
         .order("created_at", { ascending: false })
         .limit(50),
       sb.from("couple_feed_comments")
         .select("id, post_id, content, created_at, author_id")
         .in("post_id", postIds)
-        .neq("author_id", userId)
+        .neq("author_id", userId)          // exclude user's own comments
         .order("created_at", { ascending: false })
         .limit(50),
     ]);

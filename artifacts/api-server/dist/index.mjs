@@ -65571,13 +65571,22 @@ router36.get("/notifications", async (req, res) => {
   }
   const sb = makeSupabase31();
   try {
-    const [{ data: myPosts }, { data: profile }] = await Promise.all([
-      sb.from("couple_feed_posts").select("id, content, category").eq("author_id", userId),
+    const [{ data: coupleRow }, { data: profile }] = await Promise.all([
+      sb.from("couple_links").select("id, requester_id, receiver_id").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle(),
       sb.from("profiles").select("last_seen_notifications_at").eq("id", userId).maybeSingle()
     ]);
-    const postIds = (myPosts ?? []).map((p) => p.id);
-    const postMap = Object.fromEntries((myPosts ?? []).map((p) => [p.id, p]));
     const lastSeen = profile?.last_seen_notifications_at ?? null;
+    let couplePosts;
+    if (coupleRow) {
+      const coupleId = coupleRow.id;
+      const { data: coupledPosts } = await sb.from("couple_feed_posts").select("id, content, category, author_id").eq("couple_id", coupleId);
+      couplePosts = coupledPosts ?? [];
+    } else {
+      const { data: ownPosts } = await sb.from("couple_feed_posts").select("id, content, category, author_id").eq("author_id", userId);
+      couplePosts = ownPosts ?? [];
+    }
+    const postIds = couplePosts.map((p) => p.id);
+    const postMap = Object.fromEntries(couplePosts.map((p) => [p.id, p]));
     if (postIds.length === 0) {
       res.json({ notifications: [], unreadCount: 0 });
       return;
