@@ -215,15 +215,15 @@ router.post("/posts", async (req, res) => {
       return;
     }
 
-    // Build base row without age/location (those columns may not exist yet if the
-    // migration hasn't been run). We add them conditionally below.
+    // Build base row with only columns confirmed to exist on couple_feed_posts.
+    // is_anonymous does NOT exist as a column — all confessions are always anonymous.
+    // age/location are added conditionally below (may not exist until migration runs).
     const baseRow: Record<string, unknown> = {
       couple_id: coupleId,
       author_id: authorId,
       content,
       photo_url: photoUrl ?? null,
       category: cat,
-      is_anonymous: isAnonymous !== false,
     };
 
     // Only include age/location when they carry actual values.

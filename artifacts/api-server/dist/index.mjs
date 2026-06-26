@@ -65349,8 +65349,7 @@ router36.post("/posts", async (req, res) => {
       author_id: authorId,
       content,
       photo_url: photoUrl ?? null,
-      category: cat,
-      is_anonymous: isAnonymous !== false
+      category: cat
     };
     const ageVal = age != null && !isNaN(Number(age)) ? Number(age) : null;
     const locVal = location2?.trim() || null;
