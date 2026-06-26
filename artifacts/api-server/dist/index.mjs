@@ -65308,7 +65308,7 @@ router36.get("/posts", async (req, res) => {
   const category = req.query["category"];
   const sb = makeSupabase31();
   try {
-    let query = sb.from("couple_feed_posts").select("*").order("post_number", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    let query = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
     if (category && category !== "All") {
       query = query.eq("category", category);
     }

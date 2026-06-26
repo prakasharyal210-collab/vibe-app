@@ -155,8 +155,6 @@ router.get("/posts", async (req, res) => {
     let query = sb
       .from("couple_feed_posts")
       .select("*")
-      // newest post_number first; fall back to created_at for posts without one
-      .order("post_number", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
