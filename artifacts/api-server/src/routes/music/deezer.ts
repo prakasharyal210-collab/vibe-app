@@ -1,6 +1,13 @@
 import { Router } from "express";
+import { createClient } from "@supabase/supabase-js";
 
 const router = Router();
+
+function makeSupabase() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
 
 const memCache = new Map<string, { data: unknown; ts: number }>();
 const CACHE_TTL = 60 * 60 * 1000;
@@ -114,6 +121,30 @@ router.get("/trending", async (req, res) => {
   } catch (err) {
     req.log.error({ err }, "Failed to fetch trending music");
     res.status(500).json({ error: "Failed to fetch music" });
+  }
+});
+
+// POST /api/music/track
+// Upsert a music track into the music_tracks table (saves user-selected tracks server-side).
+// body: { id, title, artist, coverUrl, audioUrl, duration, category }
+router.post("/track", async (req, res) => {
+  const { id, title, artist, coverUrl, audioUrl, duration, category } = req.body as {
+    id?: string; title?: string; artist?: string; coverUrl?: string;
+    audioUrl?: string; duration?: number; category?: string;
+  };
+  if (!id || !title) { res.status(400).json({ error: "id and title required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { error } = await sb.from("music_tracks").upsert(
+      { id, title, artist: artist ?? "", cover_url: coverUrl ?? null, audio_url: audioUrl ?? null,
+        duration: duration ?? 0, category: category ?? "trending", is_free: true },
+      { onConflict: "id" }
+    );
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "music/track upsert error");
+    res.status(500).json({ error: "Failed to save track" });
   }
 });
 

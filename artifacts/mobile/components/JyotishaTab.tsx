@@ -2601,16 +2601,18 @@ function JyotishaTabInner({ userId }: { userId?: string }) {
   const handleSetup = async (p: KundaliProfile) => {
     setProfile(p);
     await AsyncStorage.setItem(KUNDALI_KEY, JSON.stringify(p)).catch(() => {});
-    // Best-effort sync to Supabase if logged in
+    // Best-effort sync to API server (uses service-role key, bypasses RLS)
     if (userId) {
-      // Save full_name to the main profiles table
-      void supabase.from("profiles").update({ full_name: p.fullName }).eq("id", userId);
-      // Save birth details to kundali_profiles
-      void supabase.from("kundali_profiles").upsert({
-        user_id: userId, birth_date: p.birthDate, birth_time: p.birthTime,
-        birth_place: p.birthPlace, rashi: p.rashi, lagna: p.lagna,
-        nakshatra: p.nakshatra, dasha_period: p.dasha,
-      });
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+      fetch(`${apiBase}/users/jyotisha/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId, fullName: p.fullName, birthDate: p.birthDate, birthTime: p.birthTime,
+          birthPlace: p.birthPlace, rashi: p.rashi, lagna: p.lagna,
+          nakshatra: p.nakshatra, dasha: p.dasha,
+        }),
+      }).catch(() => {});
     }
   };
 

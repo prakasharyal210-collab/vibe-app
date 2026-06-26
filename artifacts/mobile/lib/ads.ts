@@ -149,6 +149,8 @@ export function insertAdsInReels<T>(reels: T[], ads: AdItem[]): (T | AdItem)[] {
   return result;
 }
 
+const ADS_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/ads";
+
 export async function loadFeedAds(
   userId: string | undefined,
   adType: "feed_post" | "reel" = "feed_post"
@@ -156,13 +158,11 @@ export async function loadFeedAds(
   const fallback = adType === "reel" ? HOUSE_REEL_ADS : HOUSE_ADS;
   if (!userId) return fallback;
   try {
-    const { data } = await supabase.rpc("get_feed_ads", {
-      p_user_id: userId,
-      p_ad_type: adType,
-      p_limit: 5,
-    });
-    if (data && Array.isArray(data) && data.length > 0) {
-      return (data as AdItem[]).map((d) => ({ ...d, isAd: true as const }));
+    const res = await fetch(`${ADS_API}/feed?userId=${encodeURIComponent(userId)}&adType=${adType}`);
+    const json = await res.json() as any;
+    const data = json.ads as AdItem[] | undefined;
+    if (data && data.length > 0) {
+      return data.map((d) => ({ ...d, isAd: true as const }));
     }
   } catch {}
   return fallback;
@@ -174,11 +174,10 @@ export async function trackAdImpression(
 ) {
   if (!userId || adId.startsWith("house-")) return;
   try {
-    await supabase.rpc("track_ad_impression", {
-      p_ad_id: adId,
-      p_user_id: userId,
-      p_impression_type: "view",
-      p_watch_duration: 0,
+    await fetch(`${ADS_API}/impression`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adId, userId }),
     });
   } catch {}
 }
@@ -189,9 +188,10 @@ export async function trackAdClick(
 ) {
   if (!userId || adId.startsWith("house-")) return;
   try {
-    await supabase.rpc("track_ad_click", {
-      p_ad_id: adId,
-      p_user_id: userId,
+    await fetch(`${ADS_API}/click`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adId, userId }),
     });
   } catch {}
 }
@@ -218,8 +218,10 @@ export function handleAdCta(ctaUrl: string) {
 export async function hideAd(adId: string, userId: string | undefined) {
   if (!userId || adId.startsWith("house-")) return;
   try {
-    await supabase
-      .from("hidden_ads")
-      .upsert({ user_id: userId, ad_id: adId });
+    await fetch(`${ADS_API}/hide`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adId, userId }),
+    });
   } catch {}
 }

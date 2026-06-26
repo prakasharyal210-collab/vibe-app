@@ -884,13 +884,15 @@ export default function ProfileScreen() {
     // The API stats endpoint uses the service-role key, so it bypasses RLS and
     // returns accurate COUNT(*) values — never relies on denormalized counter columns.
     const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
-    const [supabaseResult, statsResult] = await Promise.allSettled([
-      supabase.from("profiles").select("*").eq("id", uid).single(),
+    const [profileResult, statsResult] = await Promise.allSettled([
+      fetch(`${apiBase}/users/profile/by-id/${encodeURIComponent(uid)}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+        .then((j: any) => ({ data: j.profile ?? null })),
       fetch(`${apiBase}/users/stats?userId=${encodeURIComponent(uid)}`, { cache: "no-store" }),
     ]);
 
     const profileData =
-      supabaseResult.status === "fulfilled" ? supabaseResult.value.data : null;
+      profileResult.status === "fulfilled" ? profileResult.value.data : null;
 
     // Start from Supabase profile data if available, otherwise use current state.
     let liveCounts = {

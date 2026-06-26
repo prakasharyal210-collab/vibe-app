@@ -392,6 +392,60 @@ router.post("/activity", async (req, res) => {
   }
 });
 
+// GET /api/messages/requests?userId=
+// Returns conversations where is_request=true for the given user.
+router.get("/requests", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ conversations: [] }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("conversations")
+      .select(
+        "id, last_message, last_message_at, created_at, unread_count_1, unread_count_2, user1_id, user2_id, is_request," +
+        " user1:profiles!conversations_user1_id_fkey(id, username, avatar_url)," +
+        " user2:profiles!conversations_user2_id_fkey(id, username, avatar_url)"
+      )
+      .eq("is_request", true)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .order("last_message_at", { ascending: false });
+    if (error) throw error;
+    res.json({ conversations: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "messages/requests error");
+    res.json({ conversations: [] });
+  }
+});
+
+// PATCH /api/messages/conversations/:id/accept
+// Accept a message request — sets is_request=false on the conversation.
+router.patch("/conversations/:id/accept", async (req, res) => {
+  const { id } = req.params;
+  const sb = makeSupabase();
+  try {
+    const { error } = await sb.from("conversations").update({ is_request: false }).eq("id", id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "messages/conversations accept error");
+    res.status(500).json({ error: "Failed to accept request" });
+  }
+});
+
+// DELETE /api/messages/conversations/:id
+router.delete("/conversations/:id", async (req, res) => {
+  const { id } = req.params;
+  const sb = makeSupabase();
+  try {
+    const { error } = await sb.from("conversations").delete().eq("id", id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "messages/conversations delete error");
+    res.status(500).json({ error: "Failed to delete conversation" });
+  }
+});
+
 // GET /api/messages/activity?userId=
 router.get("/activity", async (req, res) => {
   const { userId } = req.query as { userId?: string };

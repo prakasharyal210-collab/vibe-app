@@ -172,4 +172,37 @@ router.patch("/reports/:id", async (req, res) => {
   }
 });
 
+// POST /api/moderation/restrict
+// body: { myId, theirId }
+router.post("/restrict", async (req, res) => {
+  const { myId, theirId } = req.body as { myId?: string; theirId?: string };
+  if (!myId || !theirId) { res.status(400).json({ error: "myId and theirId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("restricted_users").upsert(
+      { restrictor_id: myId, restricted_id: theirId },
+      { onConflict: "restrictor_id,restricted_id" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "moderation/restrict error");
+    res.status(500).json({ error: "Failed to restrict user" });
+  }
+});
+
+// DELETE /api/moderation/restrict
+// body: { myId, theirId }
+router.delete("/restrict", async (req, res) => {
+  const { myId, theirId } = req.body as { myId?: string; theirId?: string };
+  if (!myId || !theirId) { res.status(400).json({ error: "myId and theirId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("restricted_users").delete().eq("restrictor_id", myId).eq("restricted_id", theirId);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "moderation/unrestrict error");
+    res.status(500).json({ error: "Failed to unrestrict user" });
+  }
+});
+
 export default router;

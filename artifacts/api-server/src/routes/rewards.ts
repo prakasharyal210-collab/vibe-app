@@ -78,4 +78,23 @@ router.get("/achievements", async (req, res) => {
   }
 });
 
+// GET /api/leaderboard?period=weekly|monthly|alltime
+router.get("/leaderboard", async (req, res) => {
+  const { period = "weekly" } = req.query as { period?: string };
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("leaderboard")
+      .select("*, profiles!user_id(username, avatar_url)")
+      .eq("period", period)
+      .order("rank", { ascending: true })
+      .limit(10);
+    if (error) throw error;
+    res.json({ entries: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "leaderboard get error");
+    res.json({ entries: [] });
+  }
+});
+
 export default router;

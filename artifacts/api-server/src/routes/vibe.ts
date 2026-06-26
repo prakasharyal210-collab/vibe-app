@@ -757,5 +757,139 @@ router.get("/discover", async (req, res) => {
   res.json({ profiles: [] });
 });
 
+// GET /api/vibe/swipe-count?userId=
+// Returns the number of vibe swipes the user has made in the last 24 hours.
+router.get("/swipe-count", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ count: 0 }); return; }
+  const sb = makeSupabase();
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count, error } = await sb
+      .from("vibe_swipes")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", since);
+    if (error) throw error;
+    res.json({ count: count ?? 0 });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/swipe-count error");
+    res.json({ count: 0 });
+  }
+});
+
+// GET /api/vibe/cooldown?userId=&limit=
+// Returns the most recent N vibe_swipes for the user so the client can evaluate cooldown locally.
+router.get("/cooldown", async (req, res) => {
+  const { userId, limit: limitStr } = req.query as { userId?: string; limit?: string };
+  if (!userId) { res.json({ swipes: [] }); return; }
+  const limit = Math.min(parseInt(limitStr ?? "20", 10), 50);
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("vibe_swipes")
+      .select("direction, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    res.json({ swipes: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/cooldown error");
+    res.json({ swipes: [] });
+  }
+});
+
+// GET /api/vibe/preferences?userId=
+router.get("/preferences", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb.from("vibe_preferences").select("*").eq("user_id", userId).maybeSingle();
+    if (error) throw error;
+    res.json({ preferences: data ?? null });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/preferences get error");
+    res.json({ preferences: null });
+  }
+});
+
+// PUT /api/vibe/preferences
+// body: { userId, gender, interestedIn, lookingFor, age, ageMin, ageMax, maxDistance }
+router.put("/preferences", async (req, res) => {
+  const { userId, gender, interestedIn, lookingFor, age, ageMin, ageMax, maxDistance } = req.body as {
+    userId?: string; gender?: string; interestedIn?: string[]; lookingFor?: string;
+    age?: number; ageMin?: number; ageMax?: number; maxDistance?: number;
+  };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await Promise.all([
+      sb.from("vibe_preferences").upsert(
+        { user_id: userId, gender, interested_in: interestedIn, looking_for: lookingFor,
+          age, age_min: ageMin, age_max: ageMax, max_distance_km: maxDistance,
+          updated_at: new Date().toISOString() },
+        { onConflict: "user_id" }
+      ),
+      gender ? sb.from("profiles").update({ gender }).eq("id", userId) : Promise.resolve(),
+    ]);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/preferences put error");
+    res.status(500).json({ error: "Failed to save preferences" });
+  }
+});
+
+// GET /api/vibe/goals?userId=
+router.get("/goals", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ goals: [] }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data } = await sb.from("user_relationship_goals").select("goals").eq("user_id", userId).maybeSingle();
+    res.json({ goals: (data as any)?.goals ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/goals get error");
+    res.json({ goals: [] });
+  }
+});
+
+// POST /api/vibe/goals
+// body: { userId, goals }
+router.post("/goals", async (req, res) => {
+  const { userId, goals } = req.body as { userId?: string; goals?: string[] };
+  if (!userId || !Array.isArray(goals)) { res.status(400).json({ error: "userId and goals required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("user_relationship_goals").upsert(
+      { user_id: userId, goals, primary_goal: goals[0] ?? null, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe/goals post error");
+    res.status(500).json({ error: "Failed to save goals" });
+  }
+});
+
+// POST /api/vibe/compat-score
+// body: { userId, targetId, score }
+router.post("/compat-score", async (req, res) => {
+  const { userId, targetId, score } = req.body as { userId?: string; targetId?: string; score?: number };
+  if (!userId || !targetId || score === undefined) { res.status(400).json({ error: "userId, targetId, score required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("vibe_compat_scores").upsert(
+      { user_id: userId, target_id: targetId, score, computed_at: new Date().toISOString() },
+      { onConflict: "user_id,target_id" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.warn({ err: err?.message }, "vibe/compat-score upsert failed");
+    res.json({ ok: true });
+  }
+});
+
 export default router;
 

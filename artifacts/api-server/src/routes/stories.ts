@@ -395,6 +395,179 @@ router.get("/:storyId/insights", async (req, res) => {
 });
 
 // ─── DELETE /api/stories/:storyId ─────────────────────────────────────────────
+// GET /api/stories/active-user-ids
+// Returns user_ids that have active (non-expired) stories excluding the caller.
+router.get("/active-user-ids", async (req, res) => {
+  const { userId, since } = req.query as { userId?: string; since?: string };
+  const expiry = since ?? new Date().toISOString();
+  const supabase = makeSupabase();
+  try {
+    let q = supabase.from("stories").select("user_id").gt("expires_at", expiry);
+    if (userId) q = q.neq("user_id", userId);
+    const { data } = await q;
+    const userIds = [...new Set((data ?? []).map((s: any) => s.user_id as string))];
+    res.json({ userIds });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/active-user-ids error");
+    res.json({ userIds: [] });
+  }
+});
+
+// GET /api/stories/my?userId=
+// Returns the user's own stories for the highlight picker.
+router.get("/my", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ stories: [] }); return; }
+  const supabase = makeSupabase();
+  try {
+    const { data } = await supabase
+      .from("stories")
+      .select("id, media_url, caption, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    res.json({ stories: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/my error");
+    res.json({ stories: [] });
+  }
+});
+
+// ── Story Highlights ──────────────────────────────────────────────────────────
+
+// GET /api/stories/highlights?userId=
+router.get("/highlights", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ highlights: [] }); return; }
+  const supabase = makeSupabase();
+  try {
+    const { data, error } = await supabase
+      .from("story_highlights")
+      .select("id, user_id, title, cover_url, stories_count, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    res.json({ highlights: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/highlights get error");
+    res.json({ highlights: [] });
+  }
+});
+
+// POST /api/stories/highlights
+// body: { userId, title, coverUrl }
+router.post("/highlights", async (req, res) => {
+  const { userId, title, coverUrl } = req.body as { userId?: string; title?: string; coverUrl?: string };
+  if (!userId || !title) { res.status(400).json({ error: "userId and title required" }); return; }
+  const supabase = makeSupabase();
+  try {
+    const { data, error } = await supabase
+      .from("story_highlights")
+      .insert({ user_id: userId, title, cover_url: coverUrl ?? null })
+      .select("id, user_id, title, cover_url, stories_count, created_at")
+      .single();
+    if (error) throw error;
+    res.json({ highlight: data });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/highlights post error");
+    res.status(500).json({ error: "Failed to create highlight" });
+  }
+});
+
+// DELETE /api/stories/highlights/:id
+router.delete("/highlights/:id", async (req, res) => {
+  const { id } = req.params;
+  const supabase = makeSupabase();
+  try {
+    const { error } = await supabase.from("story_highlights").delete().eq("id", id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/highlights delete error");
+    res.status(500).json({ error: "Failed to delete highlight" });
+  }
+});
+
+// GET /api/stories/highlights/:id/stories
+router.get("/highlights/:id/stories", async (req, res) => {
+  const { id } = req.params;
+  const supabase = makeSupabase();
+  try {
+    const { data, error } = await supabase
+      .from("highlight_stories")
+      .select("story_id, stories(id, media_url, caption, created_at)")
+      .eq("highlight_id", id)
+      .order("id", { ascending: true });
+    if (error) throw error;
+    const stories = (data ?? []).map((row: any) => row.stories).filter(Boolean);
+    res.json({ stories });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/highlights/:id/stories get error");
+    res.json({ stories: [] });
+  }
+});
+
+// POST /api/stories/highlights/:id/stories
+// body: { storyId }
+router.post("/highlights/:id/stories", async (req, res) => {
+  const { id } = req.params;
+  const { storyId } = req.body as { storyId?: string };
+  if (!storyId) { res.status(400).json({ error: "storyId required" }); return; }
+  const supabase = makeSupabase();
+  try {
+    const { error } = await supabase
+      .from("highlight_stories")
+      .upsert({ highlight_id: id, story_id: storyId }, { onConflict: "highlight_id,story_id" });
+    res.json({ ok: !error });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/highlights/:id/stories post error");
+    res.status(500).json({ error: "Failed to add story to highlight" });
+  }
+});
+
+// DELETE /api/stories/highlights/:id/stories/:storyId
+router.delete("/highlights/:id/stories/:storyId", async (req, res) => {
+  const { id, storyId } = req.params;
+  const supabase = makeSupabase();
+  try {
+    const { error } = await supabase
+      .from("highlight_stories")
+      .delete()
+      .eq("highlight_id", id)
+      .eq("story_id", storyId);
+    res.json({ ok: !error });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/highlights/:id/stories/:storyId delete error");
+    res.status(500).json({ error: "Failed to remove story from highlight" });
+  }
+});
+
+// POST /api/stories/interaction
+// body: { storyId, userId, interactionType, response }
+router.post("/interaction", async (req, res) => {
+  const { storyId, userId, interactionType, response } = req.body as {
+    storyId?: string; userId?: string; interactionType?: string; response?: Record<string, unknown>;
+  };
+  if (!storyId || !userId || !interactionType) {
+    res.status(400).json({ error: "storyId, userId, interactionType required" });
+    return;
+  }
+  const supabase = makeSupabase();
+  try {
+    const { error } = await supabase.from("story_interactions").insert({
+      story_id: storyId,
+      user_id: userId,
+      interaction_type: interactionType,
+      response: response ?? {},
+    });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "stories/interaction insert error");
+    res.status(500).json({ error: "Failed to save interaction" });
+  }
+});
+
 router.delete("/:storyId", async (req, res) => {
   const { storyId } = req.params;
   const { userId } = req.body as { userId?: string };

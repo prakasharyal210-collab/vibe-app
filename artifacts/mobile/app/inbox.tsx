@@ -57,15 +57,14 @@ type ConvoStatus = "new_snap" | "new_chat" | "snap_delivered" | "chat_delivered"
 
 async function fetchStreaks(userId: string): Promise<Map<string, number>> {
   try {
-    const { data } = await supabase
-      .from("snap_streaks")
-      .select("user1_id, user2_id, streak_count")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiBase}/snaps/streaks?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
     const map = new Map<string, number>();
-    (data ?? []).forEach((row: any) => {
-      const otherId = row.user1_id === userId ? row.user2_id : row.user1_id;
-      map.set(otherId, row.streak_count ?? 0);
-    });
+    const streaks = json.streaks as Record<string, number> | undefined;
+    if (streaks) {
+      Object.entries(streaks).forEach(([otherId, count]) => map.set(otherId, count));
+    }
     return map;
   } catch {
     return new Map();
@@ -1309,12 +1308,12 @@ export default function InboxScreen() {
   const loadStories = useCallback(async () => {
     if (!userId) return;
     try {
-      const { data } = await supabase
-        .from("stories")
-        .select("user_id")
-        .gt("expires_at", new Date().toISOString())
-        .neq("user_id", userId);
-      setUsersWithStories(new Set((data ?? []).map((s: any) => s.user_id as string)));
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+      const res = await fetch(
+        `${apiBase}/stories/active-user-ids?userId=${encodeURIComponent(userId)}`
+      );
+      const json = await res.json() as any;
+      setUsersWithStories(new Set((json.userIds ?? []) as string[]));
     } catch {}
   }, [userId]);
 

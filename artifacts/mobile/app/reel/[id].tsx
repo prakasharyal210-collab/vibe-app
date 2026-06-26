@@ -65,7 +65,12 @@ export default function ReelDetailScreen() {
     setLiked(!wasLiked);
     setLikesCount((n) => wasLiked ? n - 1 : n + 1);
     try {
-      await supabase.rpc("toggle_reel_like", { p_user_id: session.user.id, p_reel_id: id });
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+      await fetch(`${apiBase}/reels/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: session.user.id, reelId: id }),
+      });
     } catch {}
   };
 

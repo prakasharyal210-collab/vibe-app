@@ -153,15 +153,13 @@ export interface SearchHistoryItem {
   created_at: string;
 }
 
+const SEARCH_API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/users";
+
 export async function loadSearchHistory(userId: string): Promise<SearchHistoryItem[]> {
   try {
-    const { data, error } = await supabase
-      .from("search_history")
-      .select("id, query, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (!error && data) return data as SearchHistoryItem[];
+    const res = await fetch(`${SEARCH_API}/search-history?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.history ?? []) as SearchHistoryItem[];
   } catch {}
   return [];
 }
@@ -170,21 +168,23 @@ export async function saveSearchHistory(userId: string, query: string): Promise<
   const q = query.trim();
   if (!q) return;
   try {
-    await supabase
-      .from("search_history")
-      .upsert({ user_id: userId, query: q }, { onConflict: "user_id,query" });
+    await fetch(`${SEARCH_API}/search-history`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, query: q }),
+    });
   } catch {}
 }
 
 export async function clearSearchHistory(userId: string): Promise<void> {
   try {
-    await supabase.from("search_history").delete().eq("user_id", userId);
+    await fetch(`${SEARCH_API}/search-history?userId=${encodeURIComponent(userId)}`, { method: "DELETE" });
   } catch {}
 }
 
 export async function deleteSearchHistoryItem(id: string): Promise<void> {
   try {
-    await supabase.from("search_history").delete().eq("id", id);
+    await fetch(`${SEARCH_API}/search-history/${encodeURIComponent(id)}`, { method: "DELETE" });
   } catch {}
 }
 
@@ -535,15 +535,10 @@ export interface BlockedUser {
 
 export async function getBlockedUsers(userId: string): Promise<BlockedUser[]> {
   try {
-    const { data, error } = await supabase
-      .from("blocks")
-      .select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, full_name, avatar_url)")
-      .eq("blocker_id", userId);
-    if (error || !data) return [];
-    return (data as any[]).map((row: any) => {
-      const p = row.profiles ?? {};
-      return { id: row.blocked_id, username: p.username ?? "user", full_name: p.full_name, avatar_url: p.avatar_url };
-    });
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/users/blocked?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.users ?? []) as BlockedUser[];
   } catch { return []; }
 }
 
@@ -556,27 +551,32 @@ export interface RestrictedUser {
 
 export async function getRestrictedUsers(userId: string): Promise<RestrictedUser[]> {
   try {
-    const { data, error } = await supabase
-      .from("restricted_users")
-      .select("restricted_id, profiles!restricted_users_restricted_id_fkey(id, username, full_name, avatar_url)")
-      .eq("restrictor_id", userId);
-    if (error || !data) return [];
-    return (data as any[]).map((row: any) => {
-      const p = row.profiles ?? {};
-      return { id: row.restricted_id, username: p.username ?? "user", full_name: p.full_name, avatar_url: p.avatar_url };
-    });
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/users/restricted?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.users ?? []) as RestrictedUser[];
   } catch { return []; }
 }
 
 export async function restrictUser(myId: string, theirId: string): Promise<void> {
   try {
-    await supabase.from("restricted_users").upsert({ restrictor_id: myId, restricted_id: theirId }, { onConflict: "restrictor_id,restricted_id" });
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/moderation/restrict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ myId, theirId }),
+    });
   } catch {}
 }
 
 export async function unrestrictUser(myId: string, theirId: string): Promise<void> {
   try {
-    await supabase.from("restricted_users").delete().eq("restrictor_id", myId).eq("restricted_id", theirId);
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/moderation/restrict`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ myId, theirId }),
+    });
   } catch {}
 }
 
@@ -701,19 +701,14 @@ export async function createLiveStream(
   title: string,
 ): Promise<string | null> {
   try {
-    const { data, error } = await supabase
-      .from("live_streams")
-      .insert({
-        user_id: userId,
-        title,
-        status: "live",
-        started_at: new Date().toISOString(),
-        viewer_count: 0,
-        coins_earned: 0,
-      })
-      .select("id")
-      .single();
-    if (!error && data) return (data as any).id;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/live/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, title }),
+    });
+    const json = await res.json() as any;
+    return (json.streamId ?? null) as string | null;
   } catch {}
   return null;
 }
@@ -724,15 +719,12 @@ export async function endLiveStream(
   coinsEarned: number,
 ): Promise<void> {
   try {
-    await supabase
-      .from("live_streams")
-      .update({
-        status: "ended",
-        ended_at: new Date().toISOString(),
-        viewer_count: viewerCount,
-        coins_earned: coinsEarned,
-      })
-      .eq("id", streamId);
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/live/stream/${encodeURIComponent(streamId)}/end`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ viewerCount, coinsEarned }),
+    });
   } catch {}
 }
 
@@ -972,15 +964,12 @@ export async function searchProfiles(query: string, viewerId?: string): Promise<
 }
 
 export async function searchHashtags(query: string): Promise<Hashtag[]> {
-  if (!query.trim()) return MOCK_HASHTAGS;
   try {
-    const { data, error } = await supabase
-      .from("hashtags")
-      .select("name, posts_count")
-      .ilike("name", `%${query}%`)
-      .order("posts_count", { ascending: false })
-      .limit(20);
-    if (!error && data && data.length > 0) {
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/users/hashtags?query=${encodeURIComponent(query.trim())}`);
+    const json = await res.json() as any;
+    const data: any[] = json.hashtags ?? [];
+    if (data.length > 0) {
       return data.map((h: any) => ({
         tag: h.name,
         count: formatCount(h.posts_count ?? 0) + " posts",
@@ -988,6 +977,7 @@ export async function searchHashtags(query: string): Promise<Hashtag[]> {
       }));
     }
   } catch {}
+  if (!query.trim()) return MOCK_HASHTAGS;
   return MOCK_HASHTAGS.filter((h) =>
     h.tag.toLowerCase().includes(query.toLowerCase())
   );
@@ -1156,13 +1146,11 @@ export interface LeaderboardEntry {
 
 export async function fetchLeaderboard(period = 'weekly'): Promise<LeaderboardEntry[]> {
   try {
-    const { data, error } = await supabase
-      .from('leaderboard')
-      .select('*, profiles!user_id(username, avatar_url)')
-      .eq('period', period)
-      .order('rank', { ascending: true })
-      .limit(10);
-    if (!error && data && data.length > 0) return data as LeaderboardEntry[];
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/rewards/leaderboard?period=${encodeURIComponent(period)}`);
+    const json = await res.json() as any;
+    const data: any[] = json.entries ?? [];
+    if (data.length > 0) return data as LeaderboardEntry[];
   } catch {}
   return [];
 }
@@ -1479,10 +1467,12 @@ export async function markPostSeen(userId: string, postId: string): Promise<void
 
 export async function saveTabPreference(userId: string, tab: string): Promise<void> {
   try {
-    await supabase.from('user_tab_preferences').upsert(
-      { user_id: userId, last_tab: tab, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
-    );
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/users/tab-preference`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, tab }),
+    });
   } catch {}
 }
 
@@ -1902,37 +1892,33 @@ export async function updateVibePreferences(
   }
 ): Promise<void> {
   try {
-    await supabase.from('vibe_preferences').upsert(
-      {
-        user_id: userId,
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/vibe/preferences`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
         gender: prefs.gender,
-        interested_in: prefs.interestedIn,
-        looking_for: prefs.lookingFor,
+        interestedIn: prefs.interestedIn,
+        lookingFor: prefs.lookingFor,
         age: prefs.age,
-        age_min: prefs.ageMin,
-        age_max: prefs.ageMax,
-        max_distance_km: prefs.maxDistance,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
-    await supabase.from('profiles').update({ gender: prefs.gender }).eq('id', userId);
+        ageMin: prefs.ageMin,
+        ageMax: prefs.ageMax,
+        maxDistance: prefs.maxDistance,
+      }),
+    });
     if (prefs.goals?.length) {
       saveUserGoals(userId, prefs.goals).catch(() => {});
     }
-  } catch {
-  }
+  } catch {}
 }
 
 export async function getVibePreferences(userId: string): Promise<VibePrefsRow | null> {
   try {
-    const { data, error } = await supabase
-      .from('vibe_preferences')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (error || !data) return null;
-    return data as VibePrefsRow;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/vibe/preferences?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.preferences ?? null) as VibePrefsRow | null;
   } catch {
     return null;
   }
@@ -1940,21 +1926,21 @@ export async function getVibePreferences(userId: string): Promise<VibePrefsRow |
 
 export async function saveUserGoals(userId: string, goals: string[]): Promise<void> {
   try {
-    await supabase.from("user_relationship_goals").upsert(
-      { user_id: userId, goals, primary_goal: goals[0] ?? null, updated_at: new Date().toISOString() },
-      { onConflict: "user_id" }
-    );
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/vibe/goals`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, goals }),
+    });
   } catch {}
 }
 
 export async function getUserGoals(userId: string): Promise<string[]> {
   try {
-    const { data } = await supabase
-      .from("user_relationship_goals")
-      .select("goals")
-      .eq("user_id", userId)
-      .maybeSingle();
-    return (data as any)?.goals ?? [];
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/vibe/goals?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.goals ?? []) as string[];
   } catch {}
   return [];
 }
@@ -2218,49 +2204,43 @@ export async function amIBlockedBy(myId: string, theirId: string): Promise<boole
 
 export async function fetchMessageRequests(userId: string): Promise<Conversation[]> {
   try {
-    const { data, error } = await supabase
-      .from("conversations")
-      .select(
-        "id, last_message, last_message_at, created_at, unread_count_1, unread_count_2, user1_id, user2_id, is_request," +
-        " user1:profiles!conversations_user1_id_fkey(id, username, avatar_url)," +
-        " user2:profiles!conversations_user2_id_fkey(id, username, avatar_url)"
-      )
-      .eq("is_request", true)
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-      .order("last_message_at", { ascending: false });
-    if (!error && data && data.length > 0) {
-      return (data as any[]).map((row: any) => {
-        const isUser1 = row.user1_id === userId;
-        const otherUser = isUser1 ? row.user2 : row.user1;
-        const unreadCount = isUser1
-          ? (row.unread_count_1 ?? 0)
-          : (row.unread_count_2 ?? 0);
-        return {
-          id: row.id,
-          other_user: {
-            id: otherUser?.id ?? "",
-            username: otherUser?.username ?? "User",
-            avatar_url: otherUser?.avatar_url,
-          },
-          last_message: row.last_message ?? "",
-          last_message_at: row.last_message_at ?? row.created_at ?? "",
-          unread_count: unreadCount,
-        };
-      });
-    }
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/messages/requests?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    const rows: any[] = json.conversations ?? [];
+    return rows.map((row: any) => {
+      const isUser1 = row.user1_id === userId;
+      const otherUser = isUser1 ? row.user2 : row.user1;
+      const unreadCount = isUser1
+        ? (row.unread_count_1 ?? 0)
+        : (row.unread_count_2 ?? 0);
+      return {
+        id: row.id,
+        other_user: {
+          id: otherUser?.id ?? "",
+          username: otherUser?.username ?? "User",
+          avatar_url: otherUser?.avatar_url,
+        },
+        last_message: row.last_message ?? "",
+        last_message_at: row.last_message_at ?? row.created_at ?? "",
+        unread_count: unreadCount,
+      };
+    });
   } catch {}
   return [];
 }
 
 export async function acceptMessageRequest(conversationId: string): Promise<void> {
   try {
-    await supabase.from("conversations").update({ is_request: false }).eq("id", conversationId);
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/messages/conversations/${encodeURIComponent(conversationId)}/accept`, { method: "PATCH" });
   } catch {}
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
   try {
-    await supabase.from("conversations").delete().eq("id", conversationId);
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/messages/conversations/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
   } catch {}
 }
 
@@ -2706,13 +2686,10 @@ export async function recordVibeSwipe(
  */
 export async function getDailySwipeCount(userId: string): Promise<number> {
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { count } = await supabase
-      .from('vibe_swipes')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', since);
-    return count ?? 0;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/vibe/swipe-count?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.count ?? 0) as number;
   } catch {
     return 0;
   }
@@ -2731,12 +2708,10 @@ export interface StoryHighlight {
 
 export async function fetchHighlights(userId: string): Promise<StoryHighlight[]> {
   try {
-    const { data, error } = await supabase
-      .from('story_highlights')
-      .select('id, user_id, title, cover_url, stories_count, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (!error && data) return data as StoryHighlight[];
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/highlights?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.highlights ?? []) as StoryHighlight[];
   } catch {}
   return [];
 }
@@ -2747,23 +2722,23 @@ export async function createHighlight(
   coverUrl?: string,
 ): Promise<StoryHighlight | null> {
   try {
-    const { data, error } = await supabase
-      .from('story_highlights')
-      .insert({ user_id: userId, title, cover_url: coverUrl ?? null })
-      .select('id, user_id, title, cover_url, stories_count, created_at')
-      .single();
-    if (!error && data) return data as StoryHighlight;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/highlights`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, title, coverUrl }),
+    });
+    const json = await res.json() as any;
+    return (json.highlight ?? null) as StoryHighlight | null;
   } catch {}
   return null;
 }
 
 export async function deleteHighlight(highlightId: string): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('story_highlights')
-      .delete()
-      .eq('id', highlightId);
-    return !error;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/highlights/${encodeURIComponent(highlightId)}`, { method: "DELETE" });
+    return res.ok;
   } catch {
     return false;
   }
@@ -2781,15 +2756,10 @@ export interface HighlightStory {
 /** Fetch all stories pinned to a highlight via highlight_stories join table */
 export async function fetchHighlightStories(highlightId: string): Promise<HighlightStory[]> {
   try {
-    const { data, error } = await supabase
-      .from('highlight_stories')
-      .select('story_id, stories(id, media_url, caption, created_at)')
-      .eq('highlight_id', highlightId)
-      .order('id', { ascending: true });
-    if (error || !data) return [];
-    return (data as any[])
-      .map((row: any) => row.stories)
-      .filter(Boolean) as HighlightStory[];
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/highlights/${encodeURIComponent(highlightId)}/stories`);
+    const json = await res.json() as any;
+    return (json.stories ?? []) as HighlightStory[];
   } catch {}
   return [];
 }
@@ -2797,10 +2767,13 @@ export async function fetchHighlightStories(highlightId: string): Promise<Highli
 /** Add a story to a highlight (idempotent — silently ignores duplicates) */
 export async function addStoryToHighlight(highlightId: string, storyId: string): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('highlight_stories')
-      .upsert({ highlight_id: highlightId, story_id: storyId }, { onConflict: 'highlight_id,story_id' });
-    return !error;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/highlights/${encodeURIComponent(highlightId)}/stories`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storyId }),
+    });
+    return res.ok;
   } catch {}
   return false;
 }
@@ -2808,12 +2781,12 @@ export async function addStoryToHighlight(highlightId: string, storyId: string):
 /** Remove a story from a highlight */
 export async function removeStoryFromHighlight(highlightId: string, storyId: string): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('highlight_stories')
-      .delete()
-      .eq('highlight_id', highlightId)
-      .eq('story_id', storyId);
-    return !error;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(
+      `${apiUrl}/stories/highlights/${encodeURIComponent(highlightId)}/stories/${encodeURIComponent(storyId)}`,
+      { method: "DELETE" }
+    );
+    return res.ok;
   } catch {}
   return false;
 }
@@ -2821,14 +2794,10 @@ export async function removeStoryFromHighlight(highlightId: string, storyId: str
 /** Fetch this user's own stories (story archive for the highlight picker) */
 export async function fetchMyStories(userId: string): Promise<HighlightStory[]> {
   try {
-    const { data, error } = await supabase
-      .from('stories')
-      .select('id, media_url, caption, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(100);
-    if (error || !data) return [];
-    return data as HighlightStory[];
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/my?userId=${encodeURIComponent(userId)}`);
+    const json = await res.json() as any;
+    return (json.stories ?? []) as HighlightStory[];
   } catch {}
   return [];
 }
@@ -2837,11 +2806,13 @@ export async function fetchMyStories(userId: string): Promise<HighlightStory[]> 
 
 export async function togglePinPost(postId: string, isPinned: boolean): Promise<boolean> {
   try {
-    const { error } = await supabase
-      .from('posts')
-      .update({ is_pinned: isPinned })
-      .eq('id', postId);
-    return !error;
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/posts/${encodeURIComponent(postId)}/pin`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPinned }),
+    });
+    return res.ok;
   } catch {
     return false;
   }
@@ -2869,13 +2840,13 @@ export async function saveStoryInteraction(
   response: Record<string, unknown>,
 ): Promise<boolean> {
   try {
-    const { error } = await supabase.from('story_interactions').insert({
-      story_id: storyId,
-      user_id: userId,
-      interaction_type: interactionType,
-      response,
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(`${apiUrl}/stories/interaction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ storyId, userId, interactionType, response }),
     });
-    return !error;
+    return res.ok;
   } catch {
     return false;
   }
@@ -2888,18 +2859,14 @@ export async function saveStoryInteraction(
  */
 export async function checkConsecutiveLeftCooldown(userId: string): Promise<boolean> {
   try {
-    const { data } = await supabase
-      .from('vibe_swipes')
-      .select('direction, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(COOLDOWN_CONSECUTIVE_LEFTS);
-
-    if (!data || data.length < COOLDOWN_CONSECUTIVE_LEFTS) return false;
-    if (!data.every((s: any) => s.direction === 'left')) return false;
-
-    // 20th-most-recent swipe triggers the cooldown window
-    const oldest = new Date(data[COOLDOWN_CONSECUTIVE_LEFTS - 1].created_at).getTime();
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const res = await fetch(
+      `${apiUrl}/vibe/cooldown?userId=${encodeURIComponent(userId)}&limit=${COOLDOWN_CONSECUTIVE_LEFTS}`
+    );
+    const json = await res.json() as any;
+    if (!json.swipes || json.swipes.length < COOLDOWN_CONSECUTIVE_LEFTS) return false;
+    if (!json.swipes.every((s: any) => s.direction === 'left')) return false;
+    const oldest = new Date(json.swipes[COOLDOWN_CONSECUTIVE_LEFTS - 1].created_at).getTime();
     return Date.now() - oldest < COOLDOWN_DURATION_MS;
   } catch {
     return false;
@@ -2915,10 +2882,12 @@ export async function saveVibeScore(
   score: number,
 ): Promise<void> {
   try {
-    await supabase.from('vibe_compat_scores').upsert(
-      { user_id: userId, target_id: targetId, score, computed_at: new Date().toISOString() },
-      { onConflict: 'user_id,target_id' },
-    );
+    const apiUrl = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiUrl}/vibe/compat-score`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, targetId, score }),
+    });
   } catch {}
 }
 

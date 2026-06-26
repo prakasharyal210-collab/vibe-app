@@ -781,10 +781,10 @@ export default function FindVibeSettings() {
 
     (async () => {
       try {
-        const { data } = await supabase.from("profiles")
-          .select("full_name, username, age, interests, avatar_url")
-          .eq("id", userId)
-          .maybeSingle();
+        const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+        const res = await fetch(`${apiBase}/users/profile/by-id/${encodeURIComponent(userId)}`);
+        const json = await res.json() as any;
+        const data = json.profile ?? null;
         if (data) {
           setPreviewProfile({
             name:       (data.full_name as string | null) || (data.username as string | null) || "You",

@@ -1,0 +1,35 @@
+CRITICAL AUDIT: Find and fix ALL direct Supabase calls in the mobile app code. 
+
+CONTEXT: Direct supabase.from() and supabase.rpc() calls from mobile using the anon key hang INDEFINITELY under RLS - this causes screens to freeze forever on loading spinners. We've already found and fixed these freeze bugs in analytics.tsx (3 calls) and the repost button. There are likely more hidden in other screens.
+
+DO A COMPLETE SWEEP:
+
+1. Search ALL files in artifacts/mobile/ for:
+   - supabase.from(
+   - supabase.rpc(
+   - Any direct supabase client database reads/writes
+
+2. For EACH one found, report:
+   - The file and line
+   - What it's doing (reading/writing what table)
+   - Whether it's a read (SELECT) or write (INSERT/UPDATE/DELETE)
+
+3. For EACH direct call, FIX it by routing through the API server:
+   - If an equivalent API endpoint already exists, switch the mobile code to call that endpoint via fetch(`${EXPO_PUBLIC_API_URL}/...`)
+   - If no endpoint exists, CREATE one in artifacts/api-server that uses the service-role key, then call it from mobile
+   - NEVER leave a direct supabase.from/rpc call in mobile code that touches the database under RLS
+
+4. EXCEPTIONS (these are OK to leave as direct calls):
+   - supabase.auth.* (auth calls are fine - signUp, signIn, resetPassword, getSession)
+   - supabase storage uploads IF they're already working (but prefer routing through API)
+   - Realtime subscriptions (supabase.channel / .subscribe) - these are fine
+
+5. Add timeouts to any remaining fetch calls so screens NEVER spin forever - show an error + retry instead.
+
+IMPORTANT: Go file by file, be thorough. List every direct call you found and what you did with each. This is about preventing app-freezing bugs before launch.
+
+After all fixes: rebuild dist, commit, push, and give me a complete report of:
+- How many direct calls were found
+- Which files had them
+- What endpoint each now uses
+- Confirm zero direct supabase.from/rpc database calls remain in mobile (except the allowed exceptions)

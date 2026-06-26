@@ -11,6 +11,23 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// PATCH /api/posts/:id/pin
+// Body: { isPinned: boolean }  (no userId required — service-role key used server-side)
+router.patch("/:id/pin", async (req, res) => {
+  const { id } = req.params;
+  const { isPinned } = req.body as { isPinned?: boolean };
+  if (typeof isPinned !== "boolean") { res.status(400).json({ error: "isPinned boolean required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { error } = await sb.from("posts").update({ is_pinned: isPinned }).eq("id", id);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "posts/:id/pin error");
+    res.status(500).json({ error: "Failed to pin post" });
+  }
+});
+
 // PATCH /api/posts/:id
 // Body: { userId: string, [field]: value, ... }
 //

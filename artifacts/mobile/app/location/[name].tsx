@@ -15,7 +15,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 const ITEM = (W - 3) / 3;
@@ -46,15 +45,16 @@ export default function LocationScreen() {
     (async () => {
       setLoading(true);
       try {
-        const { data, count: c } = await supabase
-          .from("posts")
-          .select("id, media_url, likes_count, is_reel", { count: "exact" })
-          .ilike("location", `%${decoded}%`)
-          .order("created_at", { ascending: false })
-          .limit(60);
-        setPosts(data ?? []);
-        setCount(c ?? 0);
-        if (!data?.length) throw new Error("empty");
+        const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+        const res = await fetch(
+          `${apiBase}/posts/by-location?location=${encodeURIComponent(decoded)}&limit=60`
+        );
+        const json = await res.json() as any;
+        const data: GridPost[] = json.posts ?? [];
+        const c: number = json.count ?? 0;
+        setPosts(data);
+        setCount(c);
+        if (!data.length) throw new Error("empty");
       } catch {
         const mock = Array.from({ length: 9 }, (_, i) => ({
           id: String(i),

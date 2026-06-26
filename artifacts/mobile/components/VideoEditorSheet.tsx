@@ -322,10 +322,6 @@ export function VideoEditorSheet({ uri, isPhoto, initialMusic, initialFilter, te
       if (!res.ok) throw new Error(`API error ${res.status}`);
       const data = await res.json() as { captions: string[]; hashtags: string[] };
       setAiCaptions(data.captions ?? []); setAiHashtags(data.hashtags ?? []);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from("ai_caption_requests").insert({ user_id: user.id, media_type: isPhoto ? "photo" : "video", captions_generated: data.captions?.length ?? 0 });
-      }
     } catch {
       setShowAISheet(false);
       Alert.alert("AI Caption Error", "Could not generate captions. Please try again.");

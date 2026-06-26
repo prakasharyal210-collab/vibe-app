@@ -106,19 +106,22 @@ export default function AdvertiseScreen() {
     try {
       const userId = session?.user?.id;
       if (userId) {
-        await supabase.from("ad_campaigns").insert({
-          user_id: userId,
-          advertiser_name: businessName.trim(),
-          title: adTitle.trim(),
-          description: adDesc.trim(),
-          cta_text: ctaText,
-          cta_url: ctaUrl.trim(),
-          ad_type: adType,
-          daily_budget: budget,
-          duration_days: duration,
-          target_gender: targetGender,
-          status: "pending_review",
-          created_at: new Date().toISOString(),
+        const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+        await fetch(`${apiBase}/ads/campaign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            advertiserName: businessName.trim(),
+            title: adTitle.trim(),
+            description: adDesc.trim(),
+            ctaText,
+            ctaUrl: ctaUrl.trim(),
+            adType,
+            dailyBudget: budget,
+            durationDays: duration,
+            targetGender,
+          }),
         });
       }
     } catch {}

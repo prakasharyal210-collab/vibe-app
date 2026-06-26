@@ -311,4 +311,171 @@ router.patch("/profile/:userId", async (req, res) => {
   }
 });
 
+// GET /api/users/hashtags?query=
+router.get("/hashtags", async (req, res) => {
+  const { query = "" } = req.query as { query?: string };
+  const sb = makeSupabase();
+  try {
+    let q = sb.from("hashtags").select("name, posts_count").order("posts_count", { ascending: false }).limit(20);
+    if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
+    const { data, error } = await q;
+    if (error) throw error;
+    res.json({ hashtags: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "users/hashtags error");
+    res.json({ hashtags: [] });
+  }
+});
+
+// GET /api/users/search-history?userId=
+router.get("/search-history", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ history: [] }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("search_history")
+      .select("id, query, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (error) throw error;
+    res.json({ history: data ?? [] });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "search-history get error");
+    res.json({ history: [] });
+  }
+});
+
+// POST /api/users/search-history
+// body: { userId, query }
+router.post("/search-history", async (req, res) => {
+  const { userId, query } = req.body as { userId?: string; query?: string };
+  if (!userId || !query?.trim()) { res.json({ ok: true }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("search_history").upsert(
+      { user_id: userId, query: query.trim() },
+      { onConflict: "user_id,query" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "search-history post error");
+    res.json({ ok: true });
+  }
+});
+
+// DELETE /api/users/search-history?userId=   — clear all history for user
+// DELETE /api/users/search-history/:id        — delete one item by row id
+router.delete("/search-history/:id", async (req, res) => {
+  const { id } = req.params;
+  const sb = makeSupabase();
+  try {
+    await sb.from("search_history").delete().eq("id", id);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "search-history delete-one error");
+    res.json({ ok: true });
+  }
+});
+
+router.delete("/search-history", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("search_history").delete().eq("user_id", userId);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "search-history clear error");
+    res.json({ ok: true });
+  }
+});
+
+// POST /api/users/tab-preference
+// body: { userId, tab }
+router.post("/tab-preference", async (req, res) => {
+  const { userId, tab } = req.body as { userId?: string; tab?: string };
+  if (!userId || !tab) { res.status(400).json({ error: "userId and tab required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await sb.from("user_tab_preferences").upsert(
+      { user_id: userId, last_tab: tab, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "tab-preference upsert error");
+    res.json({ ok: true });
+  }
+});
+
+// GET /api/users/blocked?userId=
+router.get("/blocked", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ users: [] }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("blocks")
+      .select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, full_name, avatar_url)")
+      .eq("blocker_id", userId);
+    if (error) throw error;
+    const users = (data ?? []).map((row: any) => {
+      const p = row.profiles ?? {};
+      return { id: row.blocked_id, username: p.username ?? "user", full_name: p.full_name, avatar_url: p.avatar_url };
+    });
+    res.json({ users });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "users/blocked get error");
+    res.json({ users: [] });
+  }
+});
+
+// GET /api/users/restricted?userId=
+router.get("/restricted", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ users: [] }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("restricted_users")
+      .select("restricted_id, profiles!restricted_users_restricted_id_fkey(id, username, full_name, avatar_url)")
+      .eq("restrictor_id", userId);
+    if (error) throw error;
+    const users = (data ?? []).map((row: any) => {
+      const p = row.profiles ?? {};
+      return { id: row.restricted_id, username: p.username ?? "user", full_name: p.full_name, avatar_url: p.avatar_url };
+    });
+    res.json({ users });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "users/restricted get error");
+    res.json({ users: [] });
+  }
+});
+
+// POST /api/jyotisha/save  (mounted under /users for simplicity)
+// body: { userId, fullName, birthDate, birthTime, birthPlace, rashi, lagna, nakshatra, dasha }
+router.post("/jyotisha/save", async (req, res) => {
+  const { userId, fullName, birthDate, birthTime, birthPlace, rashi, lagna, nakshatra, dasha } = req.body as {
+    userId?: string; fullName?: string; birthDate?: string; birthTime?: string;
+    birthPlace?: string; rashi?: string; lagna?: string; nakshatra?: string; dasha?: string;
+  };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const sb = makeSupabase();
+  try {
+    await Promise.all([
+      fullName ? sb.from("profiles").update({ full_name: fullName }).eq("id", userId) : Promise.resolve(),
+      sb.from("kundali_profiles").upsert({
+        user_id: userId, birth_date: birthDate, birth_time: birthTime, birth_place: birthPlace,
+        rashi, lagna, nakshatra, dasha_period: dasha,
+      }, { onConflict: "user_id" }),
+    ]);
+    res.json({ ok: true });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "jyotisha/save error");
+    res.status(500).json({ error: "Failed to save jyotisha profile" });
+  }
+});
+
 export default router;

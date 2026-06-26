@@ -737,6 +737,27 @@ router.post("/:postId/view", async (req, res) => {
   res.status(204).end();
 });
 
+// GET /api/posts/by-location?location=&limit=
+// Returns posts matching a location string (bypasses RLS via service-role key).
+router.get("/by-location", async (req, res) => {
+  const { location = "", limit: limitStr } = req.query as { location?: string; limit?: string };
+  const limit = Math.min(parseInt(limitStr ?? "60", 10) || 60, 100);
+  const sb = makeSupabase();
+  try {
+    const { data, count, error } = await sb
+      .from("posts")
+      .select("id, media_url, likes_count, is_reel", { count: "exact" })
+      .ilike("location", `%${location}%`)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    res.json({ posts: data ?? [], count: count ?? 0 });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "posts/by-location error");
+    res.json({ posts: [], count: 0 });
+  }
+});
+
 // GET /api/posts/:postId — fetch a single post by ID, bypassing RLS.
 // Maps media_url → image_url so clients that read image_url always get the URL.
 router.get("/:postId", async (req, res) => {

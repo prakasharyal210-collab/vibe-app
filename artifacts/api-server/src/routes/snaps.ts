@@ -167,4 +167,27 @@ router.patch("/:id", async (req, res) => {
   }
 });
 
+// GET /api/snaps/streaks?userId=
+// Returns a map of { partnerId: streakCount } for all snap streaks of the user.
+router.get("/streaks", async (req, res) => {
+  const { userId } = req.query as { userId?: string };
+  if (!userId) { res.json({ streaks: {} }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data } = await sb
+      .from("snap_streaks")
+      .select("user1_id, user2_id, streak_count")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+    const streaks: Record<string, number> = {};
+    (data ?? []).forEach((row: any) => {
+      const otherId = row.user1_id === userId ? row.user2_id : row.user1_id;
+      streaks[otherId] = row.streak_count ?? 0;
+    });
+    res.json({ streaks });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "snaps/streaks error");
+    res.json({ streaks: {} });
+  }
+});
+
 export default router;

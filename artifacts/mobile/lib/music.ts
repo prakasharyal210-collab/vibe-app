@@ -167,19 +167,20 @@ export async function searchTracksOnJamendo(query: string): Promise<Track[]> {
 
 export async function saveTrackToSupabase(track: Track, category: string): Promise<void> {
   try {
-    await supabase.from("music_tracks").upsert(
-      {
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    await fetch(`${apiBase}/music/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         id: track.id,
         title: track.title,
         artist: track.artist,
-        cover_url: track.coverUrl ?? null,
-        audio_url: track.previewUrl,
+        coverUrl: track.coverUrl ?? null,
+        audioUrl: track.previewUrl,
         duration: track.durationSecs,
         category,
-        is_free: true,
-      },
-      { onConflict: "id" }
-    );
+      }),
+    });
   } catch {}
 }
 
