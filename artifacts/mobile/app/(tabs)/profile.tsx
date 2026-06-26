@@ -11,6 +11,7 @@ import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -142,6 +143,67 @@ function formatCount(n: number) {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
   if (n >= 1000) return (n / 1000).toFixed(1) + "K";
   return String(n);
+}
+
+function GridPageCell({
+  item,
+  onPress,
+  onLongPress,
+}: {
+  item: GridItem;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={{ position: "relative", width: GRID_ITEM, height: GRID_ITEM }}
+      onPress={onPress}
+      onLongPress={onLongPress}
+    >
+      {item.is_video && (item.media_url ?? item.image_url) ? (
+        <VideoGridCell
+          videoUri={(item.media_url ?? item.image_url)!}
+          thumbUrl={item.thumbnail_url}
+          style={styles.gridImage}
+        />
+      ) : (
+        <Image
+          source={{ uri: item.media_url ?? item.image_url ?? undefined }}
+          style={styles.gridImage}
+          resizeMode="cover"
+        />
+      )}
+      {(item as any).is_pinned && (
+        <View style={styles.pinBadge}>
+          <Ionicons name="location" size={10} color="#fff" />
+        </View>
+      )}
+      {(item.isReel || item.is_video) && (
+        <View style={styles.reelBadge}>
+          <Ionicons name="play" size={12} color="#fff" />
+        </View>
+      )}
+      {!item.isReel && item.visibility && item.visibility !== "public" && (
+        <View style={styles.visibilityBadge}>
+          <Text style={styles.visibilityBadgeText}>
+            {item.visibility === "private" ? "🔒" : "👥"}
+          </Text>
+        </View>
+      )}
+      {item.duration != null && (
+        <View style={styles.durationBadge}>
+          <Text style={styles.durationBadgeText}>
+            {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
+          </Text>
+        </View>
+      )}
+      <View style={styles.gridOverlay}>
+        <Ionicons name="heart" size={12} color="#fff" />
+        <Text style={styles.gridLikes}>{formatCount(item.likes ?? 0)}</Text>
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 function fmtTime(s: number) {
@@ -826,6 +888,15 @@ export default function ProfileScreen() {
   });
   const [liveEngagement, setLiveEngagement] = useState({ total_likes: 0, total_views: 0 });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
+  const pagerRef = useRef<ScrollView>(null);
+  const tabScrollX = useRef(new Animated.Value(0)).current;
+
+  const handleTabPress = useCallback((index: number) => {
+    const tabs: ProfileTab[] = ["posts", "reels", "saved"];
+    setActiveTab(tabs[index] ?? "posts");
+    pagerRef.current?.scrollTo({ x: index * W, animated: true });
+  }, []);
+
   const [myPosts, setMyPosts] = useState<GridItem[]>([]);
   const [taggedPosts, setTaggedPosts] = useState<GridItem[]>([]);
   const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
@@ -961,6 +1032,51 @@ export default function ProfileScreen() {
     setMyPosts(results.map(p => ({ ...p, isOwn: true })));
   }, []);
 
+  const handleGridLongPress = useCallback((item: GridItem) => {
+    const isReel = item.isReel || item.id.startsWith("reel_");
+    const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    const uid = session?.user?.id;
+    if (isReel) {
+      Alert.alert("Reel options", undefined, [
+        { text: "Delete Reel", style: "destructive", onPress: () =>
+          Alert.alert("Delete Reel", "This can't be undone.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: async () => {
+              const reelId = item.id.replace(/^reel_/, "");
+              try {
+                const res = await fetch(`${apiBase}/reels/${encodeURIComponent(reelId)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid }) });
+                if (res.ok) setMyPosts(prev => prev.filter(p => p.id !== item.id));
+                else Alert.alert("Delete failed", (await res.json().catch(() => ({}))).error ?? "Please try again.");
+              } catch { Alert.alert("Delete failed", "Please try again."); }
+            }},
+          ]),
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    } else {
+      const isPinned = (item as any).is_pinned;
+      Alert.alert("Post options", undefined, [
+        { text: isPinned ? "Unpin Post" : "Pin Post", onPress: async () => {
+          const ok = await togglePinPost(item.id, !isPinned);
+          if (ok && uid) await loadMyPosts(uid);
+        }},
+        { text: "Delete Post", style: "destructive", onPress: () =>
+          Alert.alert("Delete Post", "This can't be undone.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Delete", style: "destructive", onPress: async () => {
+              try {
+                const res = await fetch(`${apiBase}/posts/${encodeURIComponent(item.id)}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid }) });
+                if (res.ok) setMyPosts(prev => prev.filter(p => p.id !== item.id));
+                else Alert.alert("Delete failed", (await res.json().catch(() => ({}))).error ?? "Please try again.");
+              } catch { Alert.alert("Delete failed", "Please try again."); }
+            }},
+          ]),
+        },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
+  }, [session?.user?.id, loadMyPosts]);
+
   useEffect(() => {
     if (!session?.user?.id) return;
     setPostsLoading(true);
@@ -1024,10 +1140,16 @@ export default function ProfileScreen() {
   const postsOnly = myPosts.filter((p) => !p.isReel);
   const reelsOnly = myPosts.filter((p) => p.isReel);
 
-  const gridData: GridItem[] =
-    activeTab === "reels" ? reelsOnly :
-    activeTab === "saved" ? savedPosts :
-    postsOnly;
+  // Height for the horizontal pager container: tallest of the three pages so
+  // the outer FlatList / ScrollView has enough room to show everything without
+  // clipping. Each row is GRID_ITEM tall + 1.5px gap; minimum 320 for empty states.
+  const ROW_H = GRID_ITEM + 1.5;
+  const pageH = (n: number) => Math.max(320, Math.ceil(n / 3) * ROW_H);
+  const pagerHeight = Math.max(
+    pageH(postsOnly.length),
+    pageH(reelsOnly.length),
+    pageH(savedPosts.length),
+  );
 
   // ── Derived stats — read from live backend (all posts), not client-side page ─
   const totalLikes = liveEngagement.total_likes;
@@ -1049,146 +1171,6 @@ export default function ProfileScreen() {
     (vibeFields.filter(Boolean).length / vibeFields.length) * 100
   );
 
-  // ── Stable renderItem (prevents FlatList cells from seeing a new function
-  //    reference on every ProfileScreen re-render, which causes Ionicons class
-  //    instances to remount and re-run their fontIsLoaded check). ────────────
-  const renderGridItem = useCallback(
-    ({ item, index }: { item: GridItem; index: number }) => (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={{ position: "relative" }}
-        onPress={() => openPhoto(gridData, index)}
-        onLongPress={() => {
-          const isReel = item.isReel || item.id.startsWith("reel_");
-          const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
-          const uid = session?.user?.id;
-
-          if (isReel) {
-            // ── Reel long-press ──────────────────────────────────────────
-            Alert.alert("Reel options", undefined, [
-              {
-                text: "Delete Reel",
-                style: "destructive",
-                onPress: () =>
-                  Alert.alert("Delete Reel", "This can't be undone.", [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: async () => {
-                        const reelId = item.id.replace(/^reel_/, "");
-                        try {
-                          const res = await fetch(
-                            `${apiBase}/reels/${encodeURIComponent(reelId)}`,
-                            {
-                              method: "DELETE",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ userId: uid }),
-                            },
-                          );
-                          if (res.ok) {
-                            setMyPosts((prev) => prev.filter((p) => p.id !== item.id));
-                          } else {
-                            const body = await res.json().catch(() => ({}));
-                            Alert.alert("Delete failed", (body as any).error ?? "Please try again.");
-                          }
-                        } catch {
-                          Alert.alert("Delete failed", "Please try again.");
-                        }
-                      },
-                    },
-                  ]),
-              },
-              { text: "Cancel", style: "cancel" },
-            ]);
-          } else {
-            // ── Post long-press ──────────────────────────────────────────
-            const isPinned = (item as any).is_pinned;
-            Alert.alert("Post options", undefined, [
-              {
-                text: isPinned ? "Unpin Post" : "Pin Post",
-                onPress: async () => {
-                  const ok = await togglePinPost(item.id, !isPinned);
-                  if (ok && uid) await loadMyPosts(uid);
-                },
-              },
-              {
-                text: "Delete Post",
-                style: "destructive",
-                onPress: () =>
-                  Alert.alert("Delete Post", "This can't be undone.", [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: async () => {
-                        try {
-                          const res = await fetch(
-                            `${apiBase}/posts/${encodeURIComponent(item.id)}`,
-                            {
-                              method: "DELETE",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ userId: uid }),
-                            },
-                          );
-                          if (res.ok) {
-                            setMyPosts((prev) => prev.filter((p) => p.id !== item.id));
-                          } else {
-                            const body = await res.json().catch(() => ({}));
-                            Alert.alert("Delete failed", (body as any).error ?? "Please try again.");
-                          }
-                        } catch {
-                          Alert.alert("Delete failed", "Please try again.");
-                        }
-                      },
-                    },
-                  ]),
-              },
-              { text: "Cancel", style: "cancel" },
-            ]);
-          }
-        }}
-      >
-        {item.is_video && (item.media_url ?? item.image_url) ? (
-          <VideoGridCell videoUri={(item.media_url ?? item.image_url)!} thumbUrl={item.thumbnail_url} style={styles.gridImage} />
-        ) : (
-          <Image source={{ uri: item.media_url ?? item.image_url ?? undefined }} style={styles.gridImage} resizeMode="cover" />
-        )}
-        {(item as any).is_pinned && (
-          <View style={styles.pinBadge}>
-            <Ionicons name="location" size={10} color="#fff" />
-          </View>
-        )}
-        {(item.isReel || item.is_video) && (
-          <View style={styles.reelBadge}>
-            <Ionicons name="play" size={12} color="#fff" />
-          </View>
-        )}
-        {!item.isReel && item.visibility && item.visibility !== "public" && (
-          <View style={styles.visibilityBadge}>
-            <Text style={styles.visibilityBadgeText}>
-              {item.visibility === "private" ? "🔒" : "👥"}
-            </Text>
-          </View>
-        )}
-        {item.duration != null && (
-          <View style={styles.durationBadge}>
-            <Text style={styles.durationBadgeText}>
-              {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, "0")}
-            </Text>
-          </View>
-        )}
-        <View style={styles.gridOverlay}>
-          <Ionicons name="heart" size={12} color="#fff" />
-          <Text style={styles.gridLikes}>{formatCount(item.likes ?? 0)}</Text>
-        </View>
-      </TouchableOpacity>
-    ),
-    // gridData and openPhoto must be in deps so the callback always closes
-    // over the current values, but the reference only changes when these change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gridData, session?.user?.id]
-  );
 
   if (!isLoggedIn) {
     return (
@@ -1369,20 +1351,126 @@ export default function ProfileScreen() {
         </ScrollView>
       </View>
 
-      {/* ── Content shelf: subtle raised surface with rounded top corners ── */}
+      {/* ── Content shelf: tab bar with animated sliding indicator ── */}
       <View style={[styles.contentShelf, { backgroundColor: "rgba(255,255,255,0.025)" }]}>
-        <View style={[styles.gridTabRow, { borderBottomColor: colors.border }]}>
+        <View style={[styles.gridTabRow, { borderBottomColor: colors.border, position: "relative" }]}>
           {([
-            { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
-            { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
-            { key: "saved" as ProfileTab, icon: "star-outline", label: "Saved" },
+            { key: "posts" as ProfileTab, icon: "grid-outline", idx: 0 },
+            { key: "reels" as ProfileTab, icon: "play-circle-outline", idx: 1 },
+            { key: "saved" as ProfileTab, icon: "star-outline", idx: 2 },
           ]).map((tab) => (
-            <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
-              style={[styles.gridTab, { flex: 1 }, activeTab === tab.key && { borderBottomColor: "#8B5CF6", borderBottomWidth: 2.5 }]}>
+            <TouchableOpacity key={tab.key} onPress={() => handleTabPress(tab.idx)}
+              style={[styles.gridTab, { flex: 1 }]}>
               <Ionicons name={tab.icon as any} size={21} color={activeTab === tab.key ? "#8B5CF6" : colors.mutedForeground} />
             </TouchableOpacity>
           ))}
+          {/* Animated underline indicator — moves continuously while swiping */}
+          <Animated.View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: W / 3,
+              height: 2.5,
+              backgroundColor: "#8B5CF6",
+              transform: [{
+                translateX: tabScrollX.interpolate({
+                  inputRange: [0, W, W * 2],
+                  outputRange: [0, W / 3, (W / 3) * 2],
+                  extrapolate: "clamp",
+                }),
+              }],
+            }}
+          />
         </View>
+      </View>
+
+      {/* ── Horizontal swipeable pager ─────────────────────────────────────── */}
+      {/* Each page is the full screen width. The outer FlatList handles         */}
+      {/* vertical scrolling; the pager handles horizontal swiping only.         */}
+      <View style={{ height: pagerHeight }}>
+        <ScrollView
+          ref={pagerRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          onScroll={(e) => {
+            tabScrollX.setValue(e.nativeEvent.contentOffset.x);
+          }}
+          onMomentumScrollEnd={(e) => {
+            const idx = Math.round(e.nativeEvent.contentOffset.x / W);
+            const tabs: ProfileTab[] = ["posts", "reels", "saved"];
+            setActiveTab(tabs[idx] ?? "posts");
+          }}
+          style={{ width: W }}
+          contentContainerStyle={{ width: W * 3 }}
+        >
+          {/* Page 0 – Posts */}
+          <View style={{ width: W }}>
+            {postsLoading ? (
+              <SkeletonGrid />
+            ) : postsOnly.length === 0 ? (
+              <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
+            ) : (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 1.5 }}>
+                {postsOnly.map((item, i) => (
+                  <GridPageCell
+                    key={item.id}
+                    item={item}
+                    onPress={() => openPhoto(postsOnly, i)}
+                    onLongPress={() => handleGridLongPress(item)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Page 1 – Reels */}
+          <View style={{ width: W }}>
+            {reelsOnly.length === 0 ? (
+              <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
+            ) : (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 1.5 }}>
+                {reelsOnly.map((item, i) => (
+                  <GridPageCell
+                    key={item.id}
+                    item={item}
+                    onPress={() => openPhoto(reelsOnly, i)}
+                    onLongPress={() => handleGridLongPress(item)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Page 2 – Saved */}
+          <View style={{ width: W }}>
+            {savedPosts.length === 0 ? (
+              <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
+                <Text style={{ fontSize: 44 }}>⭐</Text>
+                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>
+                  No saved posts yet
+                </Text>
+                <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
+                  Tap the star on any post to save it
+                </Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 1.5 }}>
+                {savedPosts.map((item, i) => (
+                  <GridPageCell
+                    key={item.id}
+                    item={item}
+                    onPress={() => openPhoto(savedPosts, i)}
+                    onLongPress={() => {}}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -1390,28 +1478,13 @@ export default function ProfileScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
       <FlatList
-        key={activeTab}
-        data={gridData}
-        keyExtractor={(item) => item.id}
-        numColumns={3}
+        data={[]}
+        keyExtractor={() => ""}
         ListHeaderComponent={ListHeader}
         contentContainerStyle={{ paddingBottom: bottomInset }}
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        ListEmptyComponent={
-          activeTab === "saved"
-            ? <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
-                <Text style={{ fontSize: 44 }}>⭐</Text>
-                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No saved posts yet</Text>
-                <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Tap the star on any post to save it</Text>
-              </View>
-            : postsLoading
-              ? <SkeletonGrid />
-              : <EmptyGrid onCreatePost={() => router.navigate("/(tabs)/create" as any)} />
-        }
-        renderItem={renderGridItem}
-        ItemSeparatorComponent={() => <View style={{ height: 1.5 }} />}
-        columnWrapperStyle={{ gap: 1.5 }}
+        renderItem={() => null}
         showsVerticalScrollIndicator={false}
       />
 

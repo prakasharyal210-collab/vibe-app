@@ -282,11 +282,11 @@ const ppStyles = StyleSheet.create({
 function ContentTabBar({
   activeTab,
   onTabChange,
-  tabAnim,
+  tabScrollX,
 }: {
   activeTab: string;
   onTabChange: (tab: "posts" | "reels" | "tagged") => void;
-  tabAnim: Animated.Value;
+  tabScrollX: Animated.Value;
 }) {
   const tabWidth = W / TAB_DEFS.length;
   return (
@@ -312,15 +312,17 @@ function ContentTabBar({
           );
         })}
       </View>
+      {/* Indicator moves continuously with scroll, not just on tab settle */}
       <Animated.View
         style={[
           ctStyles.indicator,
           {
             width: tabWidth,
             transform: [{
-              translateX: tabAnim.interpolate({
-                inputRange: [0, 1, 2],
+              translateX: tabScrollX.interpolate({
+                inputRange: [0, W, W * 2],
                 outputRange: [0, tabWidth, tabWidth * 2],
+                extrapolate: "clamp",
               }),
             }],
           },
@@ -524,8 +526,9 @@ export default function UserProfileScreen() {
   const [mutuals, setMutuals] = useState<{ usernames: string[]; count: number }>({ usernames: [], count: 0 });
   const [vibeScore, setVibeScore] = useState<number | null>(null);
 
-  // Animations
-  const tabAnim = useRef(new Animated.Value(0)).current;
+  // Animations — pagerRef + tabScrollX drive the tab indicator continuously
+  const pagerRef = useRef<ScrollView>(null);
+  const tabScrollX = useRef(new Animated.Value(0)).current;
 
   const u = username ?? "";
   const topPad = Platform.OS === "web" ? 16 : insets.top;
@@ -554,8 +557,8 @@ export default function UserProfileScreen() {
 
   const handleTabChange = (tab: "posts" | "reels" | "tagged") => {
     const idx = TAB_DEFS.findIndex((t) => t.id === tab);
-    Animated.timing(tabAnim, { toValue: idx, duration: 220, useNativeDriver: true }).start();
     setActiveTab(tab);
+    pagerRef.current?.scrollTo({ x: idx * W, animated: true });
   };
 
   const handleFollow = async () => {
@@ -649,6 +652,13 @@ export default function UserProfileScreen() {
     isPinned: p.is_pinned,
     username: u,
   }));
+
+  const gridPosts = gridData.filter(item => !item.isVideo);
+  const gridReels = gridData.filter(item => !!item.isVideo);
+
+  const ROW_H = GRID_SIZE + 1.5;
+  const uPageH = (n: number) => Math.max(320, Math.ceil(n / 3) * ROW_H);
+  const pagerHeight = Math.max(uPageH(gridPosts.length), uPageH(gridReels.length), 320);
 
   const pinnedPost = gridData.find((p) => p.isPinned) ?? null;
   const pinnedIndex = pinnedPost ? gridData.findIndex((p) => p.isPinned) : -1;
@@ -802,18 +812,77 @@ export default function UserProfileScreen() {
             <ContentTabBar
               activeTab={activeTab}
               onTabChange={handleTabChange}
-              tabAnim={tabAnim}
+              tabScrollX={tabScrollX}
             />
 
-            {/* Grid */}
-            <View style={styles.grid}>
-              {gridData.map((item, i) => (
-                <ProfileGridThumb
-                  key={item.id}
-                  item={item}
-                  onPress={() => setMediaViewer({ visible: true, startIndex: i })}
-                />
-              ))}
+            {/* Horizontal swipeable pager — each page is W wide */}
+            <View style={{ height: pagerHeight }}>
+              <ScrollView
+                ref={pagerRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                scrollEventThrottle={16}
+                decelerationRate="fast"
+                onScroll={(e) => {
+                  tabScrollX.setValue(e.nativeEvent.contentOffset.x);
+                }}
+                onMomentumScrollEnd={(e) => {
+                  const idx = Math.round(e.nativeEvent.contentOffset.x / W);
+                  const tabs: ("posts" | "reels" | "tagged")[] = ["posts", "reels", "tagged"];
+                  setActiveTab(tabs[idx] ?? "posts");
+                }}
+                style={{ width: W }}
+                contentContainerStyle={{ width: W * 3 }}
+              >
+                {/* Page 0 – Posts */}
+                <View style={{ width: W }}>
+                  {gridPosts.length === 0 ? (
+                    <View style={{ alignItems: "center", paddingVertical: 48 }}>
+                      <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.18)" />
+                    </View>
+                  ) : (
+                    <View style={styles.grid}>
+                      {gridPosts.map((item) => (
+                        <ProfileGridThumb
+                          key={item.id}
+                          item={item}
+                          onPress={() => setMediaViewer({ visible: true, startIndex: gridData.findIndex(d => d.id === item.id) })}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Page 1 – Reels */}
+                <View style={{ width: W }}>
+                  {gridReels.length === 0 ? (
+                    <View style={{ alignItems: "center", paddingVertical: 48 }}>
+                      <Ionicons name="play-circle-outline" size={48} color="rgba(255,255,255,0.18)" />
+                    </View>
+                  ) : (
+                    <View style={styles.grid}>
+                      {gridReels.map((item) => (
+                        <ProfileGridThumb
+                          key={item.id}
+                          item={item}
+                          onPress={() => setMediaViewer({ visible: true, startIndex: gridData.findIndex(d => d.id === item.id) })}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                {/* Page 2 – Tagged */}
+                <View style={{ width: W }}>
+                  <View style={{ alignItems: "center", paddingVertical: 48 }}>
+                    <Ionicons name="pricetag-outline" size={48} color="rgba(255,255,255,0.18)" />
+                    <Text style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 8 }}>
+                      No tagged posts yet
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
             </View>
           </>
         )}
