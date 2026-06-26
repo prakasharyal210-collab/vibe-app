@@ -734,6 +734,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            nestedScrollEnabled
             contentContainerStyle={p.addToPostScroll}
           >
             <AddPostBtn
@@ -1254,9 +1255,9 @@ const p = StyleSheet.create({
   filterLabelActive: { color: "#A78BFA" },
 
   // Add to post card
-  addToPostCard: { marginHorizontal: 16, marginTop: 18, backgroundColor: "#0F0F1E", borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", paddingTop: 16, paddingBottom: 12, overflow: "hidden" },
+  addToPostCard: { marginHorizontal: 16, marginTop: 18, backgroundColor: "#0F0F1E", borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", paddingTop: 16, paddingBottom: 12 },
   addToPostHeader: { color: "rgba(255,255,255,0.38)", fontFamily: "Poppins_600SemiBold", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", paddingHorizontal: 16, marginBottom: 12 },
-  addToPostScroll: { paddingHorizontal: 12, gap: 4 },
+  addToPostScroll: { paddingLeft: 12, paddingRight: 20, gap: 8 },
 
   // Add post buttons (rendered at module scope as AddPostBtn component)
   addBtn: { alignItems: "center", gap: 6, width: 68, paddingVertical: 4 },
