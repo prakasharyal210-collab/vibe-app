@@ -114,7 +114,6 @@ const REPORT_REASONS = [
 const TAB_DEFS = [
   { id: "posts" as const, icon: "grid-outline" as const, label: "Posts" },
   { id: "reels" as const, icon: "play-circle-outline" as const, label: "Reels" },
-  { id: "tagged" as const, icon: "pricetag-outline" as const, label: "Tagged" },
 ];
 
 // ─── VibeRing (SVG arc) ───────────────────────────────────────────────────────
@@ -285,7 +284,7 @@ function ContentTabBar({
   tabScrollX,
 }: {
   activeTab: string;
-  onTabChange: (tab: "posts" | "reels" | "tagged") => void;
+  onTabChange: (tab: "posts" | "reels") => void;
   tabScrollX: Animated.Value;
 }) {
   const tabWidth = W / TAB_DEFS.length;
@@ -519,7 +518,7 @@ export default function UserProfileScreen() {
   const [openingChat, setOpeningChat] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfileGridItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged">("posts");
+  const [activeTab, setActiveTab] = useState<"posts" | "reels">("posts");
   const [showMenu, setShowMenu] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; startIndex: number }>({ visible: false, startIndex: 0 });
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -561,7 +560,7 @@ export default function UserProfileScreen() {
     getVibeCompatibility(myId, profile.id).then(setVibeScore).catch(() => {});
   }, [myId, profile?.id]);
 
-  const handleTabChange = (tab: "posts" | "reels" | "tagged") => {
+  const handleTabChange = (tab: "posts" | "reels") => {
     const idx = TAB_DEFS.findIndex((t) => t.id === tab);
     setActiveTab(tab);
     pagerRef.current?.scrollTo({ x: idx * W, animated: true });
@@ -835,11 +834,11 @@ export default function UserProfileScreen() {
                 }}
                 onMomentumScrollEnd={(e) => {
                   const idx = Math.round(e.nativeEvent.contentOffset.x / W);
-                  const tabs: ("posts" | "reels" | "tagged")[] = ["posts", "reels", "tagged"];
+                  const tabs: ("posts" | "reels")[] = ["posts", "reels"];
                   setActiveTab(tabs[idx] ?? "posts");
                 }}
                 style={{ width: W }}
-                contentContainerStyle={{ width: W * 3 }}
+                contentContainerStyle={{ width: W * 2 }}
               >
                 {/* Page 0 – Posts */}
                 <View style={{ width: W }}>
@@ -877,16 +876,6 @@ export default function UserProfileScreen() {
                       ))}
                     </View>
                   )}
-                </View>
-
-                {/* Page 2 – Tagged */}
-                <View style={{ width: W }}>
-                  <View style={{ alignItems: "center", paddingVertical: 48 }}>
-                    <Ionicons name="pricetag-outline" size={48} color="rgba(255,255,255,0.18)" />
-                    <Text style={{ color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 13, marginTop: 8 }}>
-                      No tagged posts yet
-                    </Text>
-                  </View>
                 </View>
               </ScrollView>
             </View>
