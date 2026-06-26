@@ -65224,33 +65224,30 @@ function makeSupabase31() {
 }
 var router36 = (0, import_express36.Router)();
 async function enrichPost(sb, post2, coupleId) {
-  const isAnon = post2.is_anonymous !== false;
   let authorData = null;
   let partnerData = null;
-  let coupleName = "Anonymous \u{1F495}";
-  if (!isAnon) {
-    const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
-    if (author) {
-      authorData = {
-        name: author.full_name || author.username,
-        avatar: author.avatar_url ?? null
-      };
-      coupleName = author.full_name || author.username || "Unknown";
-    }
-    if (post2.couple_id) {
-      const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
-      if (couple) {
-        const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
-        const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
-        if (partner) {
-          partnerData = {
-            name: partner.full_name || partner.username,
-            avatar: partner.avatar_url ?? null
-          };
-          const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
-          const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
-          coupleName = `${authorFirst} & ${partnerFirst}`;
-        }
+  let coupleName = "Unknown";
+  const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
+  if (author) {
+    authorData = {
+      name: author.full_name || author.username || "User",
+      avatar: author.avatar_url ?? null
+    };
+    coupleName = author.full_name || author.username || "User";
+  }
+  if (post2.couple_id) {
+    const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
+    if (couple) {
+      const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
+      const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
+      if (partner) {
+        partnerData = {
+          name: partner.full_name || partner.username || "User",
+          avatar: partner.avatar_url ?? null
+        };
+        const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
+        const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
+        coupleName = `${authorFirst} & ${partnerFirst}`;
       }
     }
   }
@@ -65267,11 +65264,11 @@ async function enrichPost(sb, post2, coupleId) {
   };
   return {
     ...post2,
-    isAnonymous: isAnon,
+    isAnonymous: false,
     postNumber: post2.post_number ?? null,
-    author: isAnon ? null : authorData,
-    partner: isAnon ? null : partnerData,
-    coupleName: isAnon ? "Anonymous \u{1F495}" : coupleName,
+    author: authorData,
+    partner: partnerData,
+    coupleName,
     likedByMe: myReaction !== null,
     myReaction,
     reactions,

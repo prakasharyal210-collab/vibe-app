@@ -213,19 +213,8 @@ function PostCard({
       </View>
 
       <View style={s.authorRow}>
-        {post.isAnonymous ? (
-          <>
-            <View style={[s.avatar, s.anonAvatar]}>
-              <Ionicons name="person" size={14} color="#555555" />
-            </View>
-            <Text style={s.anonLabel}>Anonymous</Text>
-          </>
-        ) : (
-          <>
-            <AvatarPair author={post.author} partner={post.partner} />
-            <Text style={s.coupleName} numberOfLines={1}>{post.coupleName}</Text>
-          </>
-        )}
+        <AvatarPair author={post.author} partner={post.partner} />
+        <Text style={s.coupleName} numberOfLines={1}>{post.coupleName}</Text>
         <Text style={s.timeAgo}>{timeAgo(post.created_at)}</Text>
       </View>
       {(post.age || post.location) && (
@@ -517,8 +506,6 @@ const s = StyleSheet.create({
   authorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
   avatar: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: "#000000" },
   avatarPlaceholder: { backgroundColor: "#1f1f1f", alignItems: "center", justifyContent: "center" },
-  anonAvatar: { backgroundColor: "#1f1f1f", alignItems: "center", justifyContent: "center" },
-  anonLabel: { fontFamily: "Poppins_500Medium", fontSize: 13, color: "#888888", flex: 1 },
   coupleName: { fontFamily: "Poppins_600SemiBold", fontSize: 13, color: "#ffffff", flex: 1 },
   timeAgo: { fontFamily: "Poppins_400Regular", fontSize: 11, color: "#555555" },
   content: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#ffffff", lineHeight: 22, marginBottom: 12 },

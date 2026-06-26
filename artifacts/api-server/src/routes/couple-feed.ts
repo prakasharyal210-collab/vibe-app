@@ -13,56 +13,53 @@ const router = Router();
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, coupleId?: string) {
-  const isAnon = post.is_anonymous !== false; // default true
-
+  // Always fetch the real author profile — confessions are never anonymous.
   let authorData: { name: string; avatar: string | null } | null = null;
   let partnerData: { name: string; avatar: string | null } | null = null;
-  let coupleName = "Anonymous 💕";
+  let coupleName = "Unknown";
 
-  if (!isAnon) {
-    const { data: author } = await sb
-      .from("profiles")
-      .select("id, full_name, username, avatar_url")
-      .eq("id", post.author_id)
+  const { data: author } = await sb
+    .from("profiles")
+    .select("id, full_name, username, avatar_url")
+    .eq("id", post.author_id)
+    .maybeSingle();
+
+  if (author) {
+    authorData = {
+      name: (author as any).full_name || (author as any).username || "User",
+      avatar: (author as any).avatar_url ?? null,
+    };
+    coupleName = (author as any).full_name || (author as any).username || "User";
+  }
+
+  // couple_id may be null if the couple unlinked (ON DELETE SET NULL).
+  // Gracefully skip partner lookup rather than crashing.
+  if (post.couple_id) {
+    const { data: couple } = await sb
+      .from("couple_links")
+      .select("requester_id, receiver_id")
+      .eq("id", post.couple_id)
       .maybeSingle();
 
-    if (author) {
-      authorData = {
-        name: (author as any).full_name || (author as any).username,
-        avatar: (author as any).avatar_url ?? null,
-      };
-      coupleName = (author as any).full_name || (author as any).username || "Unknown";
-    }
-
-    // couple_id may be null if the couple unlinked (ON DELETE SET NULL).
-    // Gracefully skip partner lookup rather than crashing.
-    if (post.couple_id) {
-      const { data: couple } = await sb
-        .from("couple_links")
-        .select("requester_id, receiver_id")
-        .eq("id", post.couple_id)
+    if (couple) {
+      const partnerId =
+        post.author_id === (couple as any).requester_id
+          ? (couple as any).receiver_id
+          : (couple as any).requester_id;
+      const { data: partner } = await sb
+        .from("profiles")
+        .select("id, full_name, username, avatar_url")
+        .eq("id", partnerId)
         .maybeSingle();
 
-      if (couple) {
-        const partnerId =
-          post.author_id === (couple as any).requester_id
-            ? (couple as any).receiver_id
-            : (couple as any).requester_id;
-        const { data: partner } = await sb
-          .from("profiles")
-          .select("id, full_name, username, avatar_url")
-          .eq("id", partnerId)
-          .maybeSingle();
-
-        if (partner) {
-          partnerData = {
-            name: (partner as any).full_name || (partner as any).username,
-            avatar: (partner as any).avatar_url ?? null,
-          };
-          const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];
-          const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
-          coupleName = `${authorFirst} & ${partnerFirst}`;
-        }
+      if (partner) {
+        partnerData = {
+          name: (partner as any).full_name || (partner as any).username || "User",
+          avatar: (partner as any).avatar_url ?? null,
+        };
+        const authorFirst = ((author as any)?.full_name || (author as any)?.username || "?").split(" ")[0];
+        const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
+        coupleName = `${authorFirst} & ${partnerFirst}`;
       }
     }
   }
@@ -87,11 +84,11 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
 
   return {
     ...post,
-    isAnonymous: isAnon,
+    isAnonymous: false,
     postNumber: post.post_number ?? null,
-    author: isAnon ? null : authorData,
-    partner: isAnon ? null : partnerData,
-    coupleName: isAnon ? "Anonymous 💕" : coupleName,
+    author: authorData,
+    partner: partnerData,
+    coupleName,
     likedByMe: myReaction !== null,
     myReaction,
     reactions,
