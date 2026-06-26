@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { addComment, addReelComment, fetchComments, fetchReelComments } from "@/lib/db";
@@ -149,6 +150,7 @@ export function CommentsSheet({
   contentType = "post",
 }: CommentsSheetProps) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
   const [comment, setComment] = useState("");
@@ -282,73 +284,78 @@ export function CommentsSheet({
           { transform: [{ translateY }] },
         ]}
       >
-        <View style={[styles.handle, { backgroundColor: colors.border }]} />
+        {/* KeyboardAvoidingView wraps ALL sheet content so the FlatList shrinks
+            when the keyboard rises, keeping the input bar always visible */}
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-        {/* Header with sort toggle */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.foreground }]}>
-            Comments {comments.length > 0 ? `(${comments.length})` : ""}
-          </Text>
-          <View style={styles.sortRow}>
-            <TouchableOpacity
-              onPress={() => setSortMode("top")}
-              style={[styles.sortBtn, sortMode === "top" && { backgroundColor: "rgba(139,92,246,0.15)" }]}
-            >
-              <Text style={[styles.sortText, { color: sortMode === "top" ? "#8B5CF6" : colors.mutedForeground }]}>
-                Top
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setSortMode("recent")}
-              style={[styles.sortBtn, sortMode === "recent" && { backgroundColor: "rgba(139,92,246,0.15)" }]}
-            >
-              <Text style={[styles.sortText, { color: sortMode === "recent" ? "#8B5CF6" : colors.mutedForeground }]}>
-                Recent
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onClose} style={{ marginLeft: 8 }}>
-              <Ionicons name="close" size={22} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color="#8B5CF6" />
-          </View>
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={sortedComments}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <CommentItem
-                commentId={item.id}
-                username={item.profiles?.username ?? "user"}
-                text={item.text}
-                time={timeAgo(item.created_at)}
-                likes={item.likes_count ?? 0}
-                userId={item.user_id}
-                initialLiked={likedIds.has(item.id)}
-                isReply={!!item.parent_comment_id}
-                onReply={() => handleReply(item.id, item.profiles?.username ?? "user")}
-                contentType={contentType}
-              />
-            )}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 12 }}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Ionicons name="chatbubble-outline" size={40} color={colors.mutedForeground} />
-                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                  No comments yet. Be the first!
+          {/* Header with sort toggle */}
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              Comments {comments.length > 0 ? `(${comments.length})` : ""}
+            </Text>
+            <View style={styles.sortRow}>
+              <TouchableOpacity
+                onPress={() => setSortMode("top")}
+                style={[styles.sortBtn, sortMode === "top" && { backgroundColor: "rgba(139,92,246,0.15)" }]}
+              >
+                <Text style={[styles.sortText, { color: sortMode === "top" ? "#8B5CF6" : colors.mutedForeground }]}>
+                  Top
                 </Text>
-              </View>
-            }
-          />
-        )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setSortMode("recent")}
+                style={[styles.sortBtn, sortMode === "recent" && { backgroundColor: "rgba(139,92,246,0.15)" }]}
+              >
+                <Text style={[styles.sortText, { color: sortMode === "recent" ? "#8B5CF6" : colors.mutedForeground }]}>
+                  Recent
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={onClose} style={{ marginLeft: 8 }}>
+                <Ionicons name="close" size={22} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+          </View>
 
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          {loading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color="#8B5CF6" />
+            </View>
+          ) : (
+            <FlatList
+              ref={listRef}
+              data={sortedComments}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <CommentItem
+                  commentId={item.id}
+                  username={item.profiles?.username ?? "user"}
+                  text={item.text}
+                  time={timeAgo(item.created_at)}
+                  likes={item.likes_count ?? 0}
+                  userId={item.user_id}
+                  initialLiked={likedIds.has(item.id)}
+                  isReply={!!item.parent_comment_id}
+                  onReply={() => handleReply(item.id, item.profiles?.username ?? "user")}
+                  contentType={contentType}
+                />
+              )}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 12 }}
+              ListEmptyComponent={
+                <View style={styles.empty}>
+                  <Ionicons name="chatbubble-outline" size={40} color={colors.mutedForeground} />
+                  <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                    No comments yet. Be the first!
+                  </Text>
+                </View>
+              }
+            />
+          )}
+
           {/* Reply banner */}
           {replyTo && (
             <View style={[styles.replyBanner, { backgroundColor: colors.muted, borderTopColor: colors.border }]}>
@@ -360,8 +367,17 @@ export function CommentsSheet({
               </TouchableOpacity>
             </View>
           )}
+
+          {/* Input row — paddingBottom lifts it above the system nav bar */}
           <View
-            style={[styles.inputRow, { borderTopColor: colors.border, backgroundColor: colors.card }]}
+            style={[
+              styles.inputRow,
+              {
+                borderTopColor: colors.border,
+                backgroundColor: colors.card,
+                paddingBottom: Math.max(insets.bottom, 10),
+              },
+            ]}
           >
             <UserAvatar username={session?.user?.email?.split("@")[0] ?? "you"} size={32} />
             <TextInput

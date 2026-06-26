@@ -143,7 +143,7 @@ export default function FeedCommentsScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={[s.container, { paddingTop: insets.top }]}>
         <View style={s.header}>
