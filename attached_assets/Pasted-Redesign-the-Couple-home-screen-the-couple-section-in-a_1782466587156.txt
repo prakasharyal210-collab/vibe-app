@@ -1,0 +1,29 @@
+Redesign the Couple home screen (the couple section in artifacts/mobile/app/(tabs)/find.tsx) with a soft, calming LAVENDER aesthetic. The goal: this section (especially the Confession Room) is used heavily by women sharing emotional, private things, so it must FEEL safe, calm, soothing, and mature. Remove the current bright pink/neon glassmorphism look. No harsh neon, no loud pink.
+
+COLOR PALETTE (use these exactly):
+- Page background: #2d2838 (warm dark lavender - cozy, not cold black)
+- Card background: #3d3650 (soft raised lavender)
+- Primary text: #F2EFFB (soft white)
+- Secondary/muted text: #B0A2D4 (muted lavender)
+- Lavender accent: #C4B5E8
+- Calm green accent (for fun features): #A4C9C0
+
+LAYOUT:
+- Top: the two partner avatars centered, each 64px circle with background #3d3650 and a 2px #C4B5E8 border. A small lavender heart icon (ti-heart, color #C4B5E8) between them.
+- Under avatars: "You & [PartnerName]" in #F2EFFB, 19px, font-weight 500, centered
+- Keep the "X days together" line but make it small and muted (#B0A2D4, 13px) - not a big loud box
+- Feature cards (Confession Room, Couple of the Month, Shared Album, Notes, Bucket List): each is a card with background #3d3650, border-radius 14px, padding 16px, with:
+  - A soft rounded icon tile on the left: 42px square, border-radius 12px. 
+    - Confession Room icon tile: background #C4B5E8 (lavender), icon color #26215c
+    - Couple of the Month icon tile: background #A4C9C0 (calm green), icon color #04342c
+    - Other cards: use #C4B5E8 lavender tiles
+  - Title in #F2EFFB (15px, weight 500)
+  - Subtitle in #B0A2D4 (12px). For Confession Room use subtitle "A safe space to share"
+- Generous spacing between cards (10-12px gap). Soft, calm, breathable. Rounded everything.
+- NO neon glows, NO bright pink, NO harsh borders. Muted and soothing throughout.
+
+Also apply the same lavender palette to the Confession Room screen itself (artifacts/mobile/app/couple/feed.tsx and feed-create.tsx) so it feels consistent and safe - soft lavender background #2d2838, lavender accents, muted text. The confession posting screen especially should feel calm and private.
+
+Keep ALL existing functionality and navigation. Only change visual styling/colors/layout.
+
+Tell me what files you changed.
