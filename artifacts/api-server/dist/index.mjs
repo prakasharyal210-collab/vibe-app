@@ -60110,6 +60110,56 @@ router29.post("/creator", async (req, res) => {
     res.json({ ok: false });
   }
 });
+router29.get("/user", async (req, res) => {
+  const userId = req.query["userId"];
+  const days = Math.min(Math.max(parseInt(req.query["days"] || "7", 10) || 7, 1), 90);
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase23();
+  const cutoff = new Date(Date.now() - days * 864e5).toISOString();
+  try {
+    const [postsRes, followersRes, topPostsRes] = await Promise.all([
+      sb.from("posts").select("id").eq("user_id", userId),
+      sb.from("follows").select("id", { count: "exact", head: true }).eq("following_id", userId).gte("created_at", cutoff),
+      sb.from("posts").select("id, caption, likes_count, comments_count, media_url").eq("user_id", userId).order("likes_count", { ascending: false }).limit(5)
+    ]);
+    const postIds = (postsRes.data ?? []).map((p) => p.id).slice(0, 100);
+    const [likesRes, commentsRes, growthRes] = await Promise.all([
+      postIds.length > 0 ? sb.from("likes").select("id", { count: "exact", head: true }).in("post_id", postIds).gte("created_at", cutoff) : Promise.resolve({ count: 0, error: null }),
+      postIds.length > 0 ? sb.from("comments").select("id", { count: "exact", head: true }).in("post_id", postIds).gte("created_at", cutoff) : Promise.resolve({ count: 0, error: null }),
+      sb.from("follows").select("created_at").eq("following_id", userId).gte("created_at", cutoff)
+    ]);
+    const numBars = days <= 7 ? 7 : days <= 30 ? 14 : 12;
+    const bucketMs = days * 864e5 / numBars;
+    const rangeStart = Date.now() - days * 864e5;
+    const followerGrowthBars = Array.from({ length: numBars }, (_, i) => {
+      const from = rangeStart + i * bucketMs;
+      const to = from + bucketMs;
+      return (growthRes.data ?? []).filter((f) => {
+        const t = new Date(f.created_at).getTime();
+        return t >= from && t < to;
+      }).length;
+    });
+    res.json({
+      likes: likesRes.count ?? 0,
+      comments: commentsRes.count ?? 0,
+      newFollowers: followersRes.count ?? 0,
+      topPosts: (topPostsRes.data ?? []).map((p) => ({
+        id: p.id,
+        caption: p.caption ?? "",
+        media_url: p.media_url ?? "",
+        likes: p.likes_count ?? 0,
+        comments: p.comments_count ?? 0
+      })),
+      followerGrowthBars
+    });
+  } catch (err) {
+    req.log.error({ err: err?.message }, "analytics/user error");
+    res.status(500).json({ error: "Failed to load analytics" });
+  }
+});
 var analytics_default = router29;
 
 // src/routes/users/onboarding.ts

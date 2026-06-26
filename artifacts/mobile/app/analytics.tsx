@@ -15,7 +15,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 const { width: W } = Dimensions.get("window");
 
@@ -68,6 +67,7 @@ export default function AnalyticsScreen() {
   const { session } = useAuth();
   const [range, setRange] = useState<Range>("7");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [stats, setStats] = useState<StatCard[]>([]);
   const [topPosts, setTopPosts] = useState<TopPost[]>([]);
   const [followerData, setFollowerData] = useState<number[]>([]);
@@ -78,59 +78,50 @@ export default function AnalyticsScreen() {
   const loadAnalytics = useCallback(async () => {
     if (!session?.user?.id) return;
     setLoading(true);
+    setError(false);
     const uid = session.user.id;
-    const days = parseInt(range);
-    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12_000);
 
     try {
-      // supabase.from("posts") hangs forever under RLS with the anon key,
-      // and Promise.allSettled waits for all — so one hung promise freezes all 4.
-      // Route the posts query through the API server (service-role key) instead.
-      const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
-      const [likesRes, commentsRes, followersRes, postsRes] = await Promise.allSettled([
-        supabase.from("likes").select("id", { count: "exact" }).eq("user_id", uid).gte("created_at", cutoff),
-        supabase.from("comments").select("id", { count: "exact" }).eq("user_id", uid).gte("created_at", cutoff),
-        supabase.from("follows").select("id", { count: "exact" }).eq("following_id", uid).gte("created_at", cutoff),
-        fetch(`${API_BASE}/posts/user/${uid}?limit=5`).then((r) => r.ok ? r.json() : { posts: [] }).catch(() => ({ posts: [] })),
-      ]);
-
-      const likes = likesRes.status === "fulfilled" ? (likesRes.value.count ?? 0) : Math.floor(Math.random() * 800) + 100;
-      const comments = commentsRes.status === "fulfilled" ? (commentsRes.value.count ?? 0) : Math.floor(Math.random() * 200) + 30;
-      const newFollowers = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : Math.floor(Math.random() * 120) + 20;
-      const postsBody = postsRes.status === "fulfilled" ? postsRes.value : { posts: [] };
-      const posts = postsBody.posts ?? postsBody.data ?? [];
-
-      setStats([
-        { icon: "eye-outline", label: "Profile Views", value: Math.floor(Math.random() * 2000) + 500, change: 12, color: "#8B5CF6" },
-        { icon: "people-outline", label: "New Followers", value: newFollowers, change: 8, color: "#EC4899" },
-        { icon: "heart-outline", label: "Total Likes", value: likes, change: 15, color: "#EF4444" },
-        { icon: "chatbubble-outline", label: "Comments", value: comments, change: -3, color: "#F97316" },
-        { icon: "paper-plane-outline", label: "Shares", value: Math.floor(Math.random() * 150) + 20, change: 5, color: "#3B82F6" },
-      ]);
-
-      setTopPosts(posts.map((p: any) => ({
-        id: p.id,
-        image_url: p.media_url ?? "",
-        likes: p.likes_count ?? 0,
-        comments: p.comments_count ?? 0,
-        caption: p.caption ?? "",
-      })));
-
-      const bars = Array.from({ length: days > 30 ? 12 : days > 7 ? 14 : 7 }, (_, i) =>
-        Math.floor(Math.random() * 80) + 10
+      const res = await fetch(
+        `${API_BASE}/analytics/user?userId=${encodeURIComponent(uid)}&days=${range}`,
+        { signal: controller.signal },
       );
-      setFollowerData(bars);
-    } catch {
+      clearTimeout(timeout);
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as {
+        likes: number;
+        comments: number;
+        newFollowers: number;
+        topPosts: { id: string; caption: string; media_url: string; likes: number; comments: number }[];
+        followerGrowthBars: number[];
+      };
+
       setStats([
-        { icon: "eye-outline", label: "Profile Views", value: 1842, change: 12, color: "#8B5CF6" },
-        { icon: "people-outline", label: "New Followers", value: 94, change: 8, color: "#EC4899" },
-        { icon: "heart-outline", label: "Total Likes", value: 2341, change: 15, color: "#EF4444" },
-        { icon: "chatbubble-outline", label: "Comments", value: 187, change: -3, color: "#F97316" },
-        { icon: "paper-plane-outline", label: "Shares", value: 63, change: 5, color: "#3B82F6" },
+        { icon: "eye-outline",       label: "Profile Views",  value: 0,                  change: 0,  color: "#8B5CF6" },
+        { icon: "people-outline",    label: "New Followers",  value: data.newFollowers,  change: 0,  color: "#EC4899" },
+        { icon: "heart-outline",     label: "Total Likes",    value: data.likes,         change: 0,  color: "#EF4444" },
+        { icon: "chatbubble-outline",label: "Comments",       value: data.comments,      change: 0,  color: "#F97316" },
+        { icon: "paper-plane-outline",label: "Shares",        value: 0,                  change: 0,  color: "#3B82F6" },
       ]);
-      setFollowerData([12, 18, 9, 24, 31, 19, 28]);
+      setTopPosts((data.topPosts ?? []).map((p) => ({
+        id: p.id,
+        image_url: p.media_url,
+        likes: p.likes,
+        comments: p.comments,
+        caption: p.caption,
+      })));
+      setFollowerData(data.followerGrowthBars?.length ? data.followerGrowthBars : [0]);
+    } catch {
+      clearTimeout(timeout);
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [session?.user?.id, range]);
 
   useEffect(() => { loadAnalytics(); }, [loadAnalytics]);
@@ -191,6 +182,18 @@ export default function AnalyticsScreen() {
         <View style={styles.loader}>
           <ActivityIndicator size="large" color="#8B5CF6" />
           <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>Loading analytics…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.loader}>
+          <Text style={{ fontSize: 40 }}>📊</Text>
+          <Text style={[styles.loadingText, { color: colors.foreground, fontFamily: "Poppins_600SemiBold" }]}>Couldn't load analytics</Text>
+          <Text style={[styles.loadingText, { color: colors.mutedForeground, fontSize: 13 }]}>Check your connection and try again</Text>
+          <TouchableOpacity
+            onPress={loadAnalytics}
+            style={{ marginTop: 8, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 20, backgroundColor: "#8B5CF6" }}
+          >
+            <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
