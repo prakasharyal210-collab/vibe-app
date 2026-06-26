@@ -206,11 +206,6 @@ function PostCard({
           {post.postNumber != null && (
             <Text style={s.postNumber}>#{post.postNumber}</Text>
           )}
-          {(post.age || post.location) && (
-            <Text style={s.ageLocation}>
-              {[post.age ? `${post.age}` : null, post.location].filter(Boolean).join(" · ")}
-            </Text>
-          )}
         </View>
         <View style={[s.catBadge, { backgroundColor: catColor + "18", borderColor: catColor + "44" }]}>
           <Text style={[s.catText, { color: catColor }]}>{post.category}</Text>
@@ -233,10 +228,15 @@ function PostCard({
         )}
         <Text style={s.timeAgo}>{timeAgo(post.created_at)}</Text>
       </View>
+      {(post.age || post.location) && (
+        <Text style={s.ageLocation}>
+          {[post.age ? `${post.age}` : null, post.location].filter(Boolean).join(" · ")}
+        </Text>
+      )}
 
       <ExpandableText text={post.content} />
 
-      {post.photo_url ? (
+      {post.photo_url?.startsWith("http") ? (
         <Image
           source={{ uri: post.photo_url }}
           style={[s.postPhoto, { height: photoHeight }]}
@@ -476,7 +476,7 @@ const s = StyleSheet.create({
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
   cardTopLeft: { gap: 2 },
   postNumber: { fontFamily: "Poppins_700Bold", fontSize: 20, color: "#ffffff" },
-  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#888888" },
+  ageLocation: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#888888", marginTop: 2, marginBottom: 10 },
   catBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
   catText: { fontFamily: "Poppins_600SemiBold", fontSize: 11 },
   authorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },

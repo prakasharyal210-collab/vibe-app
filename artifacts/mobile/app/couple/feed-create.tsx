@@ -7,7 +7,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -41,7 +40,6 @@ export default function FeedCreateScreen() {
 
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<Category>("Confession");
-  const [isAnonymous, setIsAnonymous] = useState(true);
   const [age, setAge] = useState("");
   const [location, setLocation] = useState("");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -124,7 +122,7 @@ export default function FeedCreateScreen() {
           content: content.trim(),
           photoUrl: uploadedPhotoUrl,
           category,
-          isAnonymous,
+          isAnonymous: true,
           age: ageNum,
           location: location.trim() || undefined,
         }),
@@ -169,25 +167,6 @@ export default function FeedCreateScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Anonymous toggle */}
-          <View style={s.anonRow}>
-            <View style={s.anonLeft}>
-              <View style={s.anonIconWrap}>
-                <Ionicons name="eye-off-outline" size={20} color="#ffffff" />
-              </View>
-              <View>
-                <Text style={s.anonTitle}>Post anonymously</Text>
-                <Text style={s.anonSub}>{isAnonymous ? "Your identity is hidden" : "Your couple name will show"}</Text>
-              </View>
-            </View>
-            <Switch
-              value={isAnonymous}
-              onValueChange={setIsAnonymous}
-              trackColor={{ false: "#1f1f1f", true: "#ffffff" }}
-              thumbColor={isAnonymous ? "#000000" : "#888888"}
-            />
-          </View>
-
           <Text style={s.sectionLabel}>Category</Text>
           <View style={s.catRow}>
             {CATEGORIES.map((cat) => {
@@ -277,11 +256,6 @@ const s = StyleSheet.create({
   headerTitle: { flex: 1, fontFamily: "Poppins_700Bold", fontSize: 17, color: "#ffffff" },
   postBtn: { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 20, backgroundColor: "#ffffff" },
   postBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#000000" },
-  anonRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#141414", borderRadius: 16, padding: 14, marginTop: 8 },
-  anonLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  anonIconWrap: { width: 38, height: 38, borderRadius: 10, backgroundColor: "#1f1f1f", alignItems: "center", justifyContent: "center" },
-  anonTitle: { fontFamily: "Poppins_600SemiBold", fontSize: 14, color: "#ffffff" },
-  anonSub: { fontFamily: "Poppins_400Regular", fontSize: 12, color: "#888888", marginTop: 1 },
   sectionLabel: { fontFamily: "Poppins_700Bold", fontSize: 11, color: "#555555", marginTop: 22, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.8 },
   catRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   catChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
