@@ -1,0 +1,23 @@
+BUG: Posting a new confession fails with "Failed to create post". The POST request to create a couple_feed_posts row is erroring on production (Railway).
+
+This likely broke after recent changes: we added age/location columns and changed posting to always be anonymous (isAnonymous: true hardcoded). Something in the insert no longer matches the table.
+
+DEBUG FIRST:
+1. Find the POST route that creates confessions (POST /api/couple-feed/posts, likely in artifacts/api-server/src/routes/couple-feed.ts).
+2. Add console.error logging of the actual Supabase error (error.message, error.code, error.details, error.hint) in the catch block so the real Postgres error is visible, instead of just "Failed to create post".
+3. Look at exactly what columns the insert writes vs what columns actually exist in couple_feed_posts. Check for:
+   - A field being inserted that has no matching column (e.g. is_anonymous vs isAnonymous, age, location, post_number, couple_id, author_id, content, category, photo_url)
+   - A NOT NULL column that isn't being provided
+   - A type mismatch (e.g. age sent as string but column is integer, or empty string sent for integer age)
+4. Check what the mobile app (artifacts/mobile/app/couple/feed-create.tsx) actually sends in the POST body, and confirm the field names match what the route expects and what the DB columns are.
+
+COMMON LIKELY CAUSE: the route may be trying to insert an "is_anonymous" or "isAnonymous" column that doesn't exist on couple_feed_posts, OR age is being sent as an empty string "" instead of null when left blank (which fails for an integer column).
+
+FIX:
+- Make the insert only include columns that actually exist on the table.
+- For age: if blank/empty, insert null (not ""), since age is an integer column.
+- For location: if blank, insert null or empty is fine (text column).
+- Ensure isAnonymous is stored correctly (find the real column name for it, or if there's no anonymous column, just don't insert it).
+- Make posting work for both: with age+location+photo filled in, AND with them left blank.
+
+Report: what was the actual Postgres error? Which field/column caused it? What did you change? Then rebuild dist (pnpm --filter @workspace/api-server run build), commit, and push so Railway redeploys.

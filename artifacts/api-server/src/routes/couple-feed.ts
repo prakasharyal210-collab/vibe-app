@@ -215,28 +215,61 @@ router.post("/posts", async (req, res) => {
       return;
     }
 
-    const { data: post, error } = await sb
+    // Build base row without age/location (those columns may not exist yet if the
+    // migration hasn't been run). We add them conditionally below.
+    const baseRow: Record<string, unknown> = {
+      couple_id: coupleId,
+      author_id: authorId,
+      content,
+      photo_url: photoUrl ?? null,
+      category: cat,
+      is_anonymous: isAnonymous !== false,
+    };
+
+    // Only include age/location when they carry actual values.
+    // Inserting them as null when the column doesn't exist causes PG error 42703.
+    const ageVal = age != null && !isNaN(Number(age)) ? Number(age) : null;
+    const locVal = location?.trim() || null;
+    if (ageVal != null) baseRow["age"] = ageVal;
+    if (locVal) baseRow["location"] = locVal;
+
+    let { data: post, error } = await sb
       .from("couple_feed_posts")
-      .insert({
-        couple_id: coupleId,
-        author_id: authorId,
-        content,
-        photo_url: photoUrl ?? null,
-        category: cat,
-        is_anonymous: isAnonymous !== false,
-        age: age ?? null,
-        location: location?.trim() || null,
-      })
+      .insert(baseRow)
       .select()
       .single();
 
-    if (error) throw error;
+    // If the insert failed because age/location columns don't exist yet (migration
+    // not run), retry with the safe base row so posting still works.
+    if (error && (error as any).code === "42703" && (ageVal != null || locVal)) {
+      req.log.warn(
+        { code: (error as any).code, detail: (error as any).details, hint: (error as any).hint },
+        "couple-feed: age/location column missing — retrying without them (run migration SQL)",
+      );
+      const safeRow = { ...baseRow };
+      delete safeRow["age"];
+      delete safeRow["location"];
+      const retry = await sb.from("couple_feed_posts").insert(safeRow).select().single();
+      post = retry.data;
+      error = retry.error;
+    }
+
+    if (error) {
+      req.log.error(
+        { code: (error as any).code, msg: error.message, detail: (error as any).details, hint: (error as any).hint },
+        "couple-feed/posts POST insert error",
+      );
+      throw error;
+    }
 
     const enriched = await enrichPost(sb, post, coupleId);
     res.json({ success: true, post: enriched });
   } catch (err: any) {
-    req.log.error({ err: err.message }, "couple-feed/posts POST error");
-    res.status(500).json({ error: "Failed to create post" });
+    req.log.error(
+      { code: err?.code, msg: err?.message, detail: err?.details, hint: err?.hint },
+      "couple-feed/posts POST error",
+    );
+    res.status(500).json({ error: err?.message ?? "Failed to create post" });
   }
 });
 

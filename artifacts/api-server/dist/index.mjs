@@ -65344,22 +65344,46 @@ router36.post("/posts", async (req, res) => {
       res.status(403).json({ error: "Author is not part of this couple" });
       return;
     }
-    const { data: post2, error } = await sb.from("couple_feed_posts").insert({
+    const baseRow = {
       couple_id: coupleId,
       author_id: authorId,
       content,
       photo_url: photoUrl ?? null,
       category: cat,
-      is_anonymous: isAnonymous !== false,
-      age: age ?? null,
-      location: location2?.trim() || null
-    }).select().single();
-    if (error) throw error;
+      is_anonymous: isAnonymous !== false
+    };
+    const ageVal = age != null && !isNaN(Number(age)) ? Number(age) : null;
+    const locVal = location2?.trim() || null;
+    if (ageVal != null) baseRow["age"] = ageVal;
+    if (locVal) baseRow["location"] = locVal;
+    let { data: post2, error } = await sb.from("couple_feed_posts").insert(baseRow).select().single();
+    if (error && error.code === "42703" && (ageVal != null || locVal)) {
+      req.log.warn(
+        { code: error.code, detail: error.details, hint: error.hint },
+        "couple-feed: age/location column missing \u2014 retrying without them (run migration SQL)"
+      );
+      const safeRow = { ...baseRow };
+      delete safeRow["age"];
+      delete safeRow["location"];
+      const retry = await sb.from("couple_feed_posts").insert(safeRow).select().single();
+      post2 = retry.data;
+      error = retry.error;
+    }
+    if (error) {
+      req.log.error(
+        { code: error.code, msg: error.message, detail: error.details, hint: error.hint },
+        "couple-feed/posts POST insert error"
+      );
+      throw error;
+    }
     const enriched = await enrichPost(sb, post2, coupleId);
     res.json({ success: true, post: enriched });
   } catch (err) {
-    req.log.error({ err: err.message }, "couple-feed/posts POST error");
-    res.status(500).json({ error: "Failed to create post" });
+    req.log.error(
+      { code: err?.code, msg: err?.message, detail: err?.details, hint: err?.hint },
+      "couple-feed/posts POST error"
+    );
+    res.status(500).json({ error: err?.message ?? "Failed to create post" });
   }
 });
 router36.delete("/posts/:postId", async (req, res) => {
