@@ -218,8 +218,16 @@ function PostCard({
     lastTapRef.current = now;
   };
 
+  const goToAuthor = post.author?.username
+    ? () => router.push(`/profile/${post.author!.username}` as any)
+    : undefined;
+  const goToPartner = post.partner?.username
+    ? () => router.push(`/profile/${post.partner!.username}` as any)
+    : undefined;
+
   return (
-    <TouchableOpacity onPress={handleCardPress} activeOpacity={1} style={s.card}>
+    <View style={s.card}>
+      {/* Category / post number row */}
       <View style={s.cardTop}>
         <View style={s.cardTopLeft}>
           {post.postNumber != null && (
@@ -231,44 +239,49 @@ function PostCard({
         </View>
       </View>
 
+      {/* Author row — NOT inside outer touchable so taps land on correct targets */}
       <View style={s.authorRow}>
         <AvatarPair
           author={post.author}
           partner={post.partner}
-          onPressAuthor={post.author?.username ? () => router.push(`/profile/${post.author!.username}`) : undefined}
-          onPressPartner={post.partner?.username ? () => router.push(`/profile/${post.partner!.username}`) : undefined}
+          onPressAuthor={goToAuthor}
+          onPressPartner={goToPartner}
         />
         <TouchableOpacity
-          onPress={post.author?.username ? () => router.push(`/profile/${post.author!.username}`) : undefined}
-          activeOpacity={post.author?.username ? 0.7 : 1}
+          onPress={goToAuthor}
+          activeOpacity={goToAuthor ? 0.7 : 1}
           style={{ flex: 1 }}
         >
           <Text style={s.coupleName} numberOfLines={1}>{post.coupleName}</Text>
         </TouchableOpacity>
         <Text style={s.timeAgo}>{timeAgo(post.created_at)}</Text>
       </View>
-      {(post.age || post.location) && (
-        <Text style={s.ageLocation}>
-          {[post.age ? `${post.age}` : null, post.location].filter(Boolean).join(" · ")}
-        </Text>
-      )}
 
-      <ExpandableText text={post.content} />
+      {/* Content area — double-tap here for 🫂 support reaction */}
+      <TouchableOpacity onPress={handleCardPress} activeOpacity={1}>
+        {(post.age || post.location) && (
+          <Text style={s.ageLocation}>
+            {[post.age ? `${post.age}` : null, post.location].filter(Boolean).join(" · ")}
+          </Text>
+        )}
 
-      {post.photo_url?.startsWith("http") ? (
-        <Image
-          source={{ uri: post.photo_url }}
-          style={[s.postPhoto, { height: photoHeight }]}
-          resizeMode="cover"
-          onLoad={(e) => {
-            const { width: w, height: h } = e.nativeEvent.source;
-            if (w && h) {
-              const cardWidth = screenWidth - 32;
-              setPhotoHeight(Math.min((cardWidth / w) * h, MAX_PHOTO_HEIGHT));
-            }
-          }}
-        />
-      ) : null}
+        <ExpandableText text={post.content} />
+
+        {post.photo_url?.startsWith("http") ? (
+          <Image
+            source={{ uri: post.photo_url }}
+            style={[s.postPhoto, { height: photoHeight }]}
+            resizeMode="cover"
+            onLoad={(e) => {
+              const { width: w, height: h } = e.nativeEvent.source;
+              if (w && h) {
+                const cardWidth = screenWidth - 32;
+                setPhotoHeight(Math.min((cardWidth / w) * h, MAX_PHOTO_HEIGHT));
+              }
+            }}
+          />
+        ) : null}
+      </TouchableOpacity>
 
       {/* Reaction bar */}
       <View style={s.reactionBar}>
@@ -302,7 +315,7 @@ function PostCard({
         </TouchableOpacity>
       </View>
 
-      {/* Double-tap 🫂 pop */}
+      {/* Double-tap 🫂 pop overlay */}
       {popVisible && (
         <Animated.View
           pointerEvents="none"
@@ -311,7 +324,7 @@ function PostCard({
           <Animated.Text style={[s.popEmoji, { transform: [{ scale: popScale }] }]}>🫂</Animated.Text>
         </Animated.View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 }
 

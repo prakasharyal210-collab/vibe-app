@@ -65241,17 +65241,19 @@ async function enrichPost(sb, post2, coupleId) {
     const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
     if (couple) {
       const partnerId = post2.author_id === couple.requester_id ? couple.receiver_id : couple.requester_id;
-      const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
-      if (partner) {
-        partnerData = {
-          id: partner.id,
-          name: partner.full_name || partner.username || "User",
-          username: partner.username ?? null,
-          avatar: partner.avatar_url ?? null
-        };
-        const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
-        const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
-        coupleName = `${authorFirst} & ${partnerFirst}`;
+      if (partnerId && partnerId !== post2.author_id) {
+        const { data: partner } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", partnerId).maybeSingle();
+        if (partner) {
+          partnerData = {
+            id: partner.id,
+            name: partner.full_name || partner.username || "User",
+            username: partner.username ?? null,
+            avatar: partner.avatar_url ?? null
+          };
+          const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
+          const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
+          coupleName = `${authorFirst} & ${partnerFirst}`;
+        }
       }
     }
   }

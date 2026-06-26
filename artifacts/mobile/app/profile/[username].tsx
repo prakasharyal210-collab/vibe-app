@@ -534,6 +534,12 @@ export default function UserProfileScreen() {
   const topPad = Platform.OS === "web" ? 16 : insets.top;
   const floatingBarBottom = Platform.OS === "web" ? 84 : Math.max(insets.bottom, 0) + 10 + 68 + 8;
 
+  // Reset stale profile data immediately when navigating to a different username.
+  useEffect(() => {
+    setProfile(null);
+    setProfileLoaded(false);
+  }, [u]);
+
   useEffect(() => {
     if (!u) return;
     lookupProfileByUsername(u, myId ?? undefined)

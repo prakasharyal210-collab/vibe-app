@@ -48,6 +48,8 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
         post.author_id === (couple as any).requester_id
           ? (couple as any).receiver_id
           : (couple as any).requester_id;
+      // Guard: skip partner lookup if it resolves to the author themselves (data integrity issue).
+      if (partnerId && partnerId !== post.author_id) {
       const { data: partner } = await sb
         .from("profiles")
         .select("id, full_name, username, avatar_url")
@@ -65,6 +67,7 @@ async function enrichPost(sb: ReturnType<typeof makeSupabase>, post: any, couple
         const partnerFirst = ((partner as any)?.full_name || (partner as any)?.username || "?").split(" ")[0];
         coupleName = `${authorFirst} & ${partnerFirst}`;
       }
+      } // end if (partnerId && partnerId !== post.author_id)
     }
   }
 
