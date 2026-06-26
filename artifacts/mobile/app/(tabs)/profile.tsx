@@ -1433,7 +1433,7 @@ export default function ProfileScreen() {
             { key: "posts" as ProfileTab, icon: "grid-outline", label: "Posts" },
             { key: "reels" as ProfileTab, icon: "play-circle-outline", label: "Reels" },
             { key: "tagged" as ProfileTab, icon: "pricetag-outline", label: "Tagged" },
-            { key: "saved" as ProfileTab, icon: "bookmark-outline", label: "Saved" },
+            { key: "saved" as ProfileTab, icon: "star-outline", label: "Saved" },
             { key: "archived" as ProfileTab, icon: "archive-outline", label: "Archived" },
           ]).map((tab) => (
             <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key)}
@@ -1460,9 +1460,9 @@ export default function ProfileScreen() {
         ListEmptyComponent={
           activeTab === "saved"
             ? <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
-                <Text style={{ fontSize: 44 }}>🔖</Text>
-                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No saved posts</Text>
-                <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Posts you save will appear here</Text>
+                <Text style={{ fontSize: 44 }}>⭐</Text>
+                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>No saved posts yet</Text>
+                <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>Tap the star on any post to save it</Text>
               </View>
             : activeTab === "archived"
               ? <View style={{ padding: 48, alignItems: "center", gap: 12 }}>

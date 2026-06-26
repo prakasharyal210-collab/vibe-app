@@ -1287,9 +1287,9 @@ export default function PostDetailScreen() {
 
           <TouchableOpacity onPress={handleSave} style={S.actionBtn} activeOpacity={0.7}>
             <Ionicons
-              name={saved ? "bookmark" : "bookmark-outline"}
+              name={saved ? "star" : "star-outline"}
               size={26}
-              color={saved ? "#7C3AED" : colors.foreground}
+              color={saved ? "#EAB308" : colors.foreground}
             />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleShare} style={S.actionBtn} activeOpacity={0.7}>

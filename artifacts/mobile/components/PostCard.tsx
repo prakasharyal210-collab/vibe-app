@@ -154,7 +154,6 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [likesCount, setLikesCount] = useState(post.likes_count);
   const [commentsDisplay, setCommentsDisplay] = useState(post.comments_count);
   const [achievement, setAchievement] = useState<Achievement | null>(null);
-  const [bookmarked, setBookmarked] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewerStartIndex, setViewerStartIndex] = useState(0);
   const [reposted, setReposted] = useState(false);
@@ -236,7 +235,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     if (!userId) return;
     checkLiked(post.id, userId).then(setLiked).catch(() => {});
     checkReposted(post.id, userId).then(setReposted).catch(() => {});
-    checkFavourited(post.id, userId).then(setBookmarked).catch(() => {});
+    checkFavourited(post.id, userId).then(setFavourited).catch(() => {});
   }, [post.id, userId]);
 
   useEffect(() => { setLikesCount(rtCounts.likes_count); }, [rtCounts.likes_count]);
@@ -379,11 +378,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const handleSaveFromSheet = () => {
     setShowOptionsSheet(false);
     if (!isLoggedIn) { onRequireLogin?.(); return; }
-    const nowB = !bookmarked;
-    setBookmarked(nowB);
+    const nowF = !favourited;
+    setFavourited(nowF);
     if (userId) {
-      toggleFavourite(post.id, userId, nowB);
-      if (nowB && post.user_id && post.user_id !== userId) {
+      toggleFavourite(post.id, userId, nowF);
+      if (nowF && post.user_id && post.user_id !== userId) {
         recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {});
       }
     }
@@ -570,11 +569,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               </TouchableOpacity>
             </View>
             <View style={styles.rightIcons}>
-              <TouchableOpacity onPress={() => { if (requireAuth()) return; setFavourited((f) => !f); }}>
+              <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowF = !favourited; setFavourited(nowF); if (userId) { toggleFavourite(post.id, userId, nowF); if (nowF && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); } }}>
                 <Ionicons name={favourited ? "star" : "star-outline"} size={23} color={favourited ? "#EAB308" : "#fff"} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { if (requireAuth()) return; const nowB = !bookmarked; setBookmarked(nowB); if (userId) { toggleFavourite(post.id, userId, nowB); if (nowB && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); } }}>
-                <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={23} color={bookmarked ? "#8B5CF6" : "#fff"} />
               </TouchableOpacity>
             </View>
           </View>
@@ -808,16 +804,13 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </View>
 
         <View style={styles.rightIcons}>
-          <TouchableOpacity onPress={() => { if (requireAuth()) return; setFavourited((f) => !f); }}>
-            <Ionicons name={favourited ? "star" : "star-outline"} size={23} color={favourited ? "#EAB308" : colors.foreground} />
-          </TouchableOpacity>
           <TouchableOpacity onPress={() => {
             if (requireAuth()) return;
-            const nowB = !bookmarked;
-            setBookmarked(nowB);
-            if (userId) { toggleFavourite(post.id, userId, nowB); if (nowB && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); }
+            const nowF = !favourited;
+            setFavourited(nowF);
+            if (userId) { toggleFavourite(post.id, userId, nowF); if (nowF && post.user_id && post.user_id !== userId) recordEngagement(userId, post.user_id, "save", post.id, "post").catch(() => {}); }
           }}>
-            <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={23} color={bookmarked ? "#8B5CF6" : colors.foreground} />
+            <Ionicons name={favourited ? "star" : "star-outline"} size={23} color={favourited ? "#EAB308" : colors.foreground} />
           </TouchableOpacity>
         </View>
       </View>
@@ -895,8 +888,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               <Text style={cardOptS.iconLabel}>QR Code</Text>
             </TouchableOpacity>
             <TouchableOpacity style={cardOptS.iconItem} onPress={handleSaveFromSheet}>
-              <View style={cardOptS.iconCircle}><Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={22} color={bookmarked ? "#8B5CF6" : "#fff"} /></View>
-              <Text style={cardOptS.iconLabel}>{bookmarked ? "Saved" : "Save"}</Text>
+              <View style={cardOptS.iconCircle}><Ionicons name={favourited ? "star" : "star-outline"} size={22} color={favourited ? "#EAB308" : "#fff"} /></View>
+              <Text style={cardOptS.iconLabel}>{favourited ? "Saved" : "Save"}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={cardOptS.iconItem} onPress={handleShareToFindVibes}>
               <View style={cardOptS.iconCircle}><Ionicons name="share-social-outline" size={22} color="#fff" /></View>
