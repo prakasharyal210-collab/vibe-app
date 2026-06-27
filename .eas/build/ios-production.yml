@@ -8,6 +8,8 @@ build:
     - run:
         name: Prebuild
         command: cd artifacts/mobile && pnpm exec expo prebuild --no-install --platform ios
-    - eas/configure_eas_update
+    - run:
+        name: Configure EAS Update
+        command: cd artifacts/mobile && pnpm exec expo-updates runtimeversion:resolve --platform ios || true
     - eas/run_fastlane
     - eas/find_and_upload_build_artifacts
