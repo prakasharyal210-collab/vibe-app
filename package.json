@@ -11,6 +11,8 @@
   },
   "private": true,
   "devDependencies": {
+    "expo": "~54.0.35",
+    "expo-updates": "~29.0.18",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
   }
