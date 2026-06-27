@@ -1,0 +1,14 @@
+build:
+  name: iOS Production build
+  steps:
+    - eas/checkout
+    - run:
+        name: Install dependencies
+        command: pnpm install --no-frozen-lockfile
+    - run:
+        name: Prebuild
+        command: cd artifacts/mobile && pnpm exec expo prebuild --no-install --platform ios
+    - eas/configure_eas_update
+    - eas/inject_ios_credentials
+    - eas/run_fastlane
+    - eas/find_and_upload_build_artifacts
