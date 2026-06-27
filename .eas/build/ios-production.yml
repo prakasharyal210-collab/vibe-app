@@ -1,6 +1,5 @@
 build:
   name: iOS Production build
-  environment: macos-latest
   steps:
     - eas/checkout
     - run:
@@ -12,5 +11,8 @@ build:
     - run:
         name: Configure EAS Update
         command: cd artifacts/mobile && pnpm exec expo-updates runtimeversion:resolve --platform ios || true
+    - run:
+        name: Link iOS project to workspace root
+        command: ln -sf "$(pwd)/artifacts/mobile/ios" ios
     - eas/run_fastlane
     - eas/find_and_upload_build_artifacts
