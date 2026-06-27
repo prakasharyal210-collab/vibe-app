@@ -33,7 +33,8 @@
         "NSContactsUsageDescription": "Vibe uses your contacts to help you find friends on the app.",
         "NSMicrophoneUsageDescription": "Vibe uses your microphone for live streams and video posts.",
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "appleTeamId": "FDHAR55857"
     },
     "android": {
       "package": "com.prakasharyal.gundruk",
