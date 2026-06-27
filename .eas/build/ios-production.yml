@@ -1,6 +1,6 @@
 build:
   name: iOS Production build
-  os: macos
+  environment: macos-latest
   steps:
     - eas/checkout
     - run:
