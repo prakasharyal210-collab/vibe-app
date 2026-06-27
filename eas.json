@@ -12,11 +12,7 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "config": "ios-production.yml",
-      "ios": {
-        "image": "latest"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
