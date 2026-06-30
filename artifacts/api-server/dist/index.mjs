@@ -62032,7 +62032,7 @@ var moderation_default = router19;
 // src/routes/did.ts
 var import_express20 = __toESM(require_express2(), 1);
 var router20 = (0, import_express20.Router)();
-var DID_API_KEY = "cHJha2FzaGFyeWFsMjEwQGdtYWlsLmNvbQ:sA7RSAi7FRvjndyRGgbsA";
+var DID_API_KEY = "cHJha2FzaGFyeWFsMjEwQGdtYWlsLmNvbTpzQTdSU0FpN0ZSdmpuZHlSR2dic0E=";
 router20.post("/create", async (req, res) => {
   try {
     const { script, avatar_url, voice_id } = req.body;

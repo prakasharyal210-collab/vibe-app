@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 const router = Router();
 
-const DID_API_KEY = 'cHJha2FzaGFyeWFsMjEwQGdtYWlsLmNvbQ:sA7RSAi7FRvjndyRGgbsA';
+const DID_API_KEY = 'cHJha2FzaGFyeWFsMjEwQGdtYWlsLmNvbTpzQTdSU0FpN0ZSdmpuZHlSR2dic0E=';
 
 router.post('/create', async (req, res) => {
   try {
