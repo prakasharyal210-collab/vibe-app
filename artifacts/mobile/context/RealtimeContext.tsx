@@ -197,7 +197,6 @@ export const useRealtime = () => useContext(RealtimeContext);
 interface PostCounts {
   likes_count: number;
   comments_count: number;
-  reposts_count?: number;
   views_count?: number;
 }
 
@@ -226,12 +225,10 @@ export function usePostRealtime(postId: string | undefined, initial: PostCounts)
               const bumpKey =
                 (n.likes_count ?? 0) > (prev.likes_count ?? 0) ? "likes_count" :
                 (n.comments_count ?? 0) > (prev.comments_count ?? 0) ? "comments_count" :
-                (n.reposts_count ?? 0) > (prev.reposts_count ?? 0) ? "reposts_count" :
                 null;
               setCounts({
                 likes_count: Math.max(0, n.likes_count ?? prev.likes_count),
                 comments_count: Math.max(0, n.comments_count ?? prev.comments_count),
-                reposts_count: Math.max(0, n.reposts_count ?? prev.reposts_count ?? 0),
                 views_count: Math.max(0, n.views_count ?? prev.views_count ?? 0),
               });
               prevCounts.current = n;

@@ -277,51 +277,6 @@ export async function toggleReelLike(reelId: string, userId: string): Promise<{ 
   return res.json() as Promise<{ liked: boolean; likes: number }>;
 }
 
-// ─── Reposts ──────────────────────────────────────────────────────────────────
-
-export async function checkReposted(postId: string, userId: string): Promise<boolean> {
-  try {
-    const { data } = await supabase
-      .from("reposts")
-      .select("id")
-      .eq("post_id", postId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    return !!data;
-  } catch {
-    return false;
-  }
-}
-
-export async function toggleRepost(
-  postId: string,
-  userId: string,
-  nowReposted: boolean,
-): Promise<void> {
-  try {
-    if (nowReposted) {
-      await supabase.from("reposts").insert({ post_id: postId, user_id: userId });
-    } else {
-      await supabase.from("reposts").delete().eq("post_id", postId).eq("user_id", userId);
-    }
-  } catch {}
-}
-
-export async function fetchRepostedPosts(userId: string): Promise<Post[]> {
-  try {
-    const { data, error } = await supabase
-      .from("reposts")
-      .select("posts(*, profiles:user_id(*))")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(30);
-    if (!error && data && data.length > 0) {
-      return (data as any[]).map((r) => r.posts).filter(Boolean) as Post[];
-    }
-  } catch {}
-  return [];
-}
-
 // ─── Favourites — all calls routed through API server (service-role key bypasses RLS) ──
 // Direct anon-key calls on the favourites table are silently blocked by RLS.
 
@@ -447,7 +402,6 @@ export interface UserSettings {
   notif_likes: boolean;
   notif_comments: boolean;
   notif_follows: boolean;
-  notif_reposts: boolean;
   notif_tags: boolean;
   notif_comment_likes: boolean;
   // ── Messages ───────────────────────────────────────────────────────────────
@@ -489,7 +443,6 @@ export const DEFAULT_SETTINGS: UserSettings = {
   notif_likes: true,
   notif_comments: true,
   notif_follows: true,
-  notif_reposts: true,
   notif_tags: true,
   notif_comment_likes: true,
   notif_messages: true,

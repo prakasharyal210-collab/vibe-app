@@ -44,7 +44,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
 import { useAuth } from "@/context/AuthContext";
-import { checkReelLiked, likeReelOnly, toggleReelLike, checkReposted, toggleLike, toggleRepost, logWatchEvent, reportContent, blockUser } from "@/lib/db";
+import { checkReelLiked, likeReelOnly, toggleReelLike, toggleLike, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 
 const { width: W, height: H } = Dimensions.get("window");

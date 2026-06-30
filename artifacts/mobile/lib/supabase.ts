@@ -101,7 +101,7 @@ export interface Conversation {
 
 export interface Notification {
   id: string;
-  type: "like" | "comment" | "follow" | "vibe" | "mention" | "tag" | "repost" | "save" | "vibe_request" | "vibe_accepted" | "vibe_match";
+  type: "like" | "comment" | "follow" | "vibe" | "mention" | "tag" | "save" | "vibe_request" | "vibe_accepted" | "vibe_match";
   username: string;
   avatar_url?: string | null;
   text: string;

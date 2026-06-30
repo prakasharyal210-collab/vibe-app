@@ -45,7 +45,6 @@ const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> =
   vibe:          { icon: "heart-circle",        color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
   mention:       { icon: "at-circle-outline",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
   tag:           { icon: "pricetag-outline",    color: "#10B981", bg: "rgba(16,185,129,0.15)" },
-  repost:        { icon: "repeat-outline",      color: "#06B6D4", bg: "rgba(6,182,212,0.15)" },
   save:          { icon: "bookmark-outline",    color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
   vibe_request:  { icon: "flash",               color: "#F97316", bg: "rgba(249,115,22,0.15)" },
   vibe_accepted: { icon: "heart-circle",        color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },

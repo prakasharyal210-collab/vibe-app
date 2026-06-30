@@ -52,8 +52,8 @@ router.post("/", async (req, res) => {
 
   const sb = makeSupabase();
 
-  // Fire-and-forget like / repost notifications + push
-  if ((action === "like" || action === "repost") && contentId && contentType === "post") {
+  // Fire-and-forget like notifications + push
+  if (action === "like" && contentId && contentType === "post") {
     void (async () => {
       try {
         // Dedup: don't spam if user un-likes then re-likes (one notification per user+post)
@@ -82,7 +82,7 @@ router.post("/", async (req, res) => {
             recipient_id: creatorId,
             sender_id: userId,
             type: action,
-            message: action === "like" ? "liked your post" : "reposted your post",
+            message: "liked your post",
             post_id: contentId,
             thumbnail_url: thumbnailUrl,
             is_read: false,
@@ -93,12 +93,11 @@ router.post("/", async (req, res) => {
       // Push notification gated by per-category preference
       const { data: actor } = await sb.from("profiles").select("username").eq("id", userId!).maybeSingle();
       const name = actor?.username ?? "Someone";
-      const prefKey = action === "like" ? "notif_likes" : "notif_reposts";
       void sendPushToUser(sb, creatorId, {
-        title: action === "like" ? "New Like" : "New Repost",
-        body: action === "like" ? `@${name} liked your post` : `@${name} reposted your post`,
+        title: "New Like",
+        body: `@${name} liked your post`,
         data: { type: action, actorId: userId, postId: contentId },
-      }, prefKey);
+      }, "notif_likes");
     })();
   }
 

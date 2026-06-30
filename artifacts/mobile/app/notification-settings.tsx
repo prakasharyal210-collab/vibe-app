@@ -117,7 +117,6 @@ export default function NotificationSettingsScreen() {
   const [likes,           setLikes]           = useState(true);
   const [comments,        setComments]        = useState(true);
   const [follows,         setFollows]         = useState(true);
-  const [reposts,         setReposts]         = useState(true);
   const [tags,            setTags]            = useState(true);
   const [commentLikes,    setCommentLikes]    = useState(true);
 
@@ -143,7 +142,6 @@ export default function NotificationSettingsScreen() {
       setLikes(s.notif_likes);
       setComments(s.notif_comments);
       setFollows(s.notif_follows);
-      setReposts(s.notif_reposts);
       setTags(s.notif_tags);
       setCommentLikes(s.notif_comment_likes);
       setDm(s.notif_dm);
@@ -255,13 +253,6 @@ export default function NotificationSettingsScreen() {
               sub="When someone follows you"
               faded={!p}
               rightEl={sw(follows, setFollows, "notif_follows", true, "#0EA5E9")}
-            />
-            <NRow
-              icon="repeat-outline" iconBg="#10B981"
-              label="Reposts & Shares"
-              sub="When someone shares your content"
-              faded={!p}
-              rightEl={sw(reposts, setReposts, "notif_reposts", true, "#10B981")}
             />
             <NRow
               icon="at-outline" iconBg="#F97316"
