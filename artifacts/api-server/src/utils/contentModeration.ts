@@ -139,41 +139,39 @@ export async function checkCaptionText(text: string): Promise<ModerationResult> 
     }
   }
 
-  const openaiKey = process.env["OPENAI_API_KEY"];
-  if (openaiKey) {
+  const anthropicKey = process.env["ANTHROPIC_API_KEY"];
+  if (anthropicKey) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10_000);
-      const res = await fetch("https://api.openai.com/v1/moderations", {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${openaiKey}`,
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
         },
-        body: JSON.stringify({ input: text }),
+        body: JSON.stringify({
+          model: "claude-haiku-4-5",
+          max_tokens: 100,
+          system:
+            "You are a content moderator. Analyze this text and return ONLY a JSON response: { safe: boolean, reason: string }. Flag as unsafe if the text contains: sexual content, violence, hate speech, harassment, threats, self-harm, or explicit language.",
+          messages: [{ role: "user", content: text }],
+        }),
         signal: controller.signal,
       });
       clearTimeout(timer);
 
       const data = await res.json() as Record<string, any>;
-      const result = (data["results"] as any[])?.[0];
-      if (result) {
-        const cats: Record<string, boolean> = result["categories"] ?? {};
-        const CHECKED = [
-          "hate", "hate/threatening",
-          "harassment", "harassment/threatening",
-          "violence", "violence/graphic",
-          "sexual", "sexual/minors",
-          "self-harm",
-        ] as const;
-        for (const cat of CHECKED) {
-          if (cats[cat] === true) {
-            return { safe: false, reason: cat, scores: result["category_scores"] };
-          }
-        }
+      const raw: string = data["content"]?.[0]?.["text"] ?? "";
+      // Strip markdown code fences Claude occasionally adds
+      const jsonStr = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      const parsed = JSON.parse(jsonStr) as { safe: boolean; reason: string };
+      if (parsed.safe === false) {
+        return { safe: false, reason: parsed.reason ?? "policy violation" };
       }
     } catch {
-      // OpenAI Moderation API failure — fail open (don't block upload)
+      // Anthropic API failure — fail open (don't block upload)
     }
   }
 
