@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { GradientButton } from "@/components/GradientButton";
 import { GundrukLogo } from "@/components/GundrukLogo";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
@@ -335,6 +336,8 @@ export default function SignupScreen() {
             disabled={btnDisabled}
           />
         </View>
+
+        <OAuthButtons onError={msg => setFormError(msg)} />
 
         <View style={styles.loginRow}>
           <Text style={[styles.loginText, { color: colors.mutedForeground }]}>

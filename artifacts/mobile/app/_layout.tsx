@@ -30,7 +30,7 @@ const queryClient = new QueryClient();
 const OTA_READY_KEY = "ota_ready";
 
 function RootLayoutNav() {
-  const { session, loading } = useAuth();
+  const { session, loading, needsOnboarding } = useAuth();
 
   // Auth guard: track session transitions and redirect accordingly.
   // undefined = initial state (loading); null = confirmed no session; Session = logged in.
@@ -48,10 +48,14 @@ function RootLayoutNav() {
       // Signed out — go to login
       router.replace("/(auth)/login");
     } else if (prev === null && session !== null) {
-      // Just signed in — go to feed
-      router.replace("/(tabs)/feed");
+      // Just signed in — check if OAuth user needs to pick a username
+      if (needsOnboarding) {
+        router.replace("/(auth)/setup-profile");
+      } else {
+        router.replace("/(tabs)/feed");
+      }
     }
-  }, [session, loading]);
+  }, [session, loading, needsOnboarding]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
