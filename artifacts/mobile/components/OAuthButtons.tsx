@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { signInWithFacebook } from "@/lib/oauth";
 import { GoogleSignInButton } from "./GoogleSignInButton";
 import { AppleSignInButton } from "./AppleSignInButton";
 
@@ -9,19 +8,6 @@ interface Props {
 }
 
 export function OAuthButtons({ onError }: Props) {
-  const [loadingFacebook, setLoadingFacebook] = useState(false);
-
-  const handleFacebook = async () => {
-    setLoadingFacebook(true);
-    try {
-      await signInWithFacebook();
-    } catch (e: any) {
-      onError?.(e?.message ?? "Facebook Sign In failed");
-    } finally {
-      setLoadingFacebook(false);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.dividerRow}>
@@ -31,18 +17,15 @@ export function OAuthButtons({ onError }: Props) {
       </View>
 
       <View style={styles.buttons}>
-        <GoogleSignInButton onError={onError} disabled={loadingFacebook} />
+        <GoogleSignInButton onError={onError} />
 
         <TouchableOpacity
-          onPress={handleFacebook}
-          disabled={loadingFacebook}
-          style={[styles.btn, styles.fbBtn]}
-          activeOpacity={0.75}
+          disabled
+          style={[styles.btn, styles.fbBtn, styles.btnDisabled]}
+          activeOpacity={1}
         >
           <Text style={styles.fbF}>f</Text>
-          <Text style={styles.label}>
-            {loadingFacebook ? "Signing in…" : "Continue with Facebook"}
-          </Text>
+          <Text style={styles.label}>Continue with Facebook · Coming Soon</Text>
         </TouchableOpacity>
 
         <AppleSignInButton onError={onError} />
@@ -84,6 +67,9 @@ const styles = StyleSheet.create({
   fbBtn: {
     borderColor: "rgba(24,119,242,0.25)",
     backgroundColor: "rgba(24,119,242,0.07)",
+  },
+  btnDisabled: {
+    opacity: 0.5,
   },
   fbF: {
     fontSize: 18,
