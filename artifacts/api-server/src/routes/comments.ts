@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "../lib/sendPush";
+import { checkCaptionText, logRejection } from "../utils/contentModeration";
 
 const router = Router();
 
@@ -139,10 +140,18 @@ router.post("/", async (req, res) => {
     return;
   }
 
-  // Profanity gate
+  // Profanity gate (local blocklist)
   const pf = checkProfanity(text);
   if (!pf.ok) {
     res.status(422).json({ error: pf.reason });
+    return;
+  }
+
+  // Extended text moderation (keyword blocklist + Perspective API toxicity)
+  const textScan = await checkCaptionText(text);
+  if (!textScan.safe) {
+    void logRejection(userId, null, "comment", textScan.reason);
+    res.status(400).json({ error: "Your comment violates our community guidelines" });
     return;
   }
 

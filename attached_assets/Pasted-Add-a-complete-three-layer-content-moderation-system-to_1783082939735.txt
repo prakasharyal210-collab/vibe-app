@@ -1,0 +1,157 @@
+Add a complete three-layer content moderation system to Gundruk. 
+Do NOT break any existing functionality. 
+Implement all three layers in order.
+
+LAYER 1 — Image/Video content scanning with Sightengine
+
+1. Sign up at sightengine.com and get free API credentials 
+   (api_user and api_secret) — add them as environment variables:
+   SIGHTENGINE_API_USER=your_api_user
+   SIGHTENGINE_API_SECRET=your_api_secret
+
+2. Create a new utility file: 
+   artifacts/api-server/src/utils/contentModeration.ts
+
+   Add a function called checkImageContent(mediaUrl: string) that:
+   - Calls Sightengine's image moderation API
+   - Checks for these models: nudity, offensive, gore, weapons, 
+     violence, hate-symbols
+   - Returns { safe: boolean, reason: string }
+   - Flags as unsafe if ANY of these scores exceed 0.5:
+     nudity.raw, nudity.partial, offensive.prob, 
+     gore.prob, weapon.prob, violence.prob
+
+   Add a function called checkVideoContent(mediaUrl: string) that:
+   - Calls Sightengine's video moderation API
+   - Checks the same models as image
+   - Returns { safe: boolean, reason: string }
+
+3. In POST /api/posts/create:
+   - After media uploads to Supabase storage
+   - Before saving post to database
+   - Call checkImageContent(mediaUrl)
+   - If unsafe: delete the uploaded file from storage, 
+     return 400 { error: "This content violates Gundruk's 
+     community guidelines" }
+   - If safe: continue with normal post creation
+
+4. In POST /api/reels/create:
+   - Same flow as posts but use checkVideoContent()
+   - If unsafe: delete uploaded file, return 400 error
+
+5. Create this table in Supabase:
+CREATE TABLE IF NOT EXISTS content_moderation_log (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES profiles(id),
+  media_url text,
+  content_type text,
+  rejection_reason text,
+  scores jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+6. Log every rejected upload to content_moderation_log 
+   with the full scores object for review.
+
+LAYER 2 — Caption/text moderation
+
+7. Create a function called checkCaptionText(caption: string) 
+   in the same contentModeration.ts file that:
+   - Checks against a blocked keywords list
+   - Also calls Perspective API (perspectiveapi.com — free) 
+     to check for toxicity, threat, insult, hate speech
+   - Returns { safe: boolean, reason: string }
+   - Flags as unsafe if Perspective API toxicity score > 0.7
+
+8. Blocked keywords list (add these as a minimum):
+   ['rape', 'kill yourself', 'kys', 'suicide', 
+   'bomb', 'terrorist', 'child porn', 'cp', 
+   'n****', 'f****t', 'wh**e used as insult']
+   Note: implement as a case-insensitive check
+
+9. Add PERSPECTIVE_API_KEY to environment variables
+
+10. In POST /api/posts/create:
+    - Check caption with checkCaptionText() before saving
+    - If unsafe: return 400 { error: "Your caption contains 
+      content that violates our community guidelines" }
+
+11. In POST /api/reels/create:
+    - Same caption check
+
+12. In POST /api/comments/ and POST /api/couple-feed/posts:
+    - Check comment/post text with checkCaptionText()
+    - If unsafe: return 400 { error: "Your comment violates 
+      our community guidelines" }
+
+13. Log all text rejections to content_moderation_log 
+    with content_type = 'caption' or 'comment'
+
+LAYER 3 — Enhanced community reporting
+
+14. In the existing reports/content_reports table, 
+    add these columns if they don't exist:
+ALTER TABLE content_reports 
+ADD COLUMN IF NOT EXISTS report_reason text,
+ADD COLUMN IF NOT EXISTS report_category text 
+  CHECK (report_category IN (
+    'sexual_content', 'violence', 'hate_speech', 
+    'harassment', 'spam', 'impersonation', 
+    'self_harm', 'other'
+  )),
+ADD COLUMN IF NOT EXISTS status text DEFAULT 'pending'
+  CHECK (status IN ('pending', 'reviewed', 'actioned', 'dismissed')),
+ADD COLUMN IF NOT EXISTS reviewed_at timestamp with time zone,
+ADD COLUMN IF NOT EXISTS actioned_by uuid;
+
+15. Update POST /api/posts/:postId/report (or wherever 
+    report submission exists) to accept:
+    - report_category (required, from the list above)
+    - report_reason (optional, free text, max 500 chars)
+
+16. Add GET /api/admin/reports endpoint that returns:
+    - All pending reports
+    - Ordered by created_at DESC
+    - Include reporter username, reported content, 
+      category, reason, and the actual post/reel content
+    - Only accessible by admin users 
+      (check if user has is_admin = true on profiles)
+
+17. Add PATCH /api/admin/reports/:reportId endpoint that:
+    - Accepts status: 'actioned' or 'dismissed'
+    - Updates the report status
+    - If actioned: also deletes the reported post/reel 
+      and optionally suspends the user
+
+18. Add is_admin boolean column to profiles if it doesn't exist:
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS is_admin boolean DEFAULT false;
+
+19. Set your account as admin:
+UPDATE profiles 
+SET is_admin = true 
+WHERE username = 'prakasharyal210';
+
+FINAL CHECKS
+
+20. After implementing all three layers, test with:
+    - A clean normal post (should pass all checks)
+    - A post with a blocked caption word (should be rejected)
+    - Confirm content_moderation_log table receives entries
+
+21. Show me every file created or modified with a summary 
+    of what changed in each file.
+
+22. Show me the final list of all new environment variables 
+    needed so I can add them to Railway.
+
+IMPORTANT RULES:
+- Never break existing post/reel creation for clean content
+- Always delete uploaded media from storage if content is rejected
+- Never expose moderation scores to the end user — 
+  only show a generic guideline violation message
+- Apply RLS to content_moderation_log:
+  ALTER TABLE content_moderation_log ENABLE ROW LEVEL SECURITY;
+  CREATE POLICY "service_role_full_access" 
+  ON content_moderation_log
+  FOR ALL TO service_role USING (true) WITH CHECK (true);

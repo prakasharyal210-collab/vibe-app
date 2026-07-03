@@ -14,12 +14,14 @@ function makeSupabase() {
 // ─── POST /api/moderation/report ──────────────────────────────────────────────
 // body: { reporterId, targetType: "post"|"reel"|"comment"|"user", targetId, reason, details? }
 router.post("/report", async (req, res) => {
-  const { reporterId, targetType, targetId, reason, details } = req.body as {
+  const { reporterId, targetType, targetId, reason, details, report_category, report_reason } = req.body as {
     reporterId?: string;
     targetType?: string;
     targetId?: string;
     reason?: string;
     details?: string;
+    report_category?: string;
+    report_reason?: string;
   };
   if (!reporterId || !targetType || !targetId || !reason) {
     res.status(400).json({ error: "reporterId, targetType, targetId, reason required" });
@@ -30,9 +32,12 @@ router.post("/report", async (req, res) => {
     res.status(400).json({ error: "targetType must be one of: " + validTypes.join(", ") });
     return;
   }
+  const validCategories = ["sexual_content", "violence", "hate_speech", "harassment", "spam", "impersonation", "self_harm", "other"];
+  const safeCategory = report_category && validCategories.includes(report_category) ? report_category : null;
+  const safeReason = report_reason ? report_reason.slice(0, 500) : null;
+
   const sb = makeSupabase();
   try {
-    // Insert into content_reports (already exists) and also try the newer reports table
     const { error } = await sb.from("reports").insert({
       reporter_id: reporterId,
       target_type: targetType,
@@ -40,6 +45,8 @@ router.post("/report", async (req, res) => {
       reason,
       details: details ?? null,
       status: "pending",
+      report_category: safeCategory,
+      report_reason: safeReason,
     });
     if (error) {
       // Fallback to the older content_reports table name
@@ -48,6 +55,8 @@ router.post("/report", async (req, res) => {
         content_id: targetId,
         content_type: targetType,
         reason,
+        report_category: safeCategory,
+        report_reason: safeReason,
       });
     }
     res.json({ ok: true });

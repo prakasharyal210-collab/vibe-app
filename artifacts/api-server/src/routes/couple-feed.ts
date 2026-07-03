@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { checkCaptionText, logRejection } from "../utils/contentModeration";
 import { Buffer } from "buffer";
 
 function makeSupabase() {
@@ -216,6 +217,14 @@ router.post("/posts", async (req, res) => {
     const c = couple as any;
     if (authorId !== c.requester_id && authorId !== c.receiver_id) {
       res.status(403).json({ error: "Author is not part of this couple" });
+      return;
+    }
+
+    // Text moderation on couple feed post content
+    const textScan = await checkCaptionText(content);
+    if (!textScan.safe) {
+      void logRejection(authorId, null, "caption", textScan.reason);
+      res.status(400).json({ error: "Your post contains content that violates our community guidelines" });
       return;
     }
 

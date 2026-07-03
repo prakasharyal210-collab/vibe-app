@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { checkVideoContent, checkCaptionText, logRejection } from "../../utils/contentModeration";
 
 const router = Router();
 
@@ -70,11 +71,14 @@ router.post("/create", async (req, res) => {
   const ts = Date.now();
   let videoUrl: string | null = null;
   let thumbnailUrl: string | null = null;
+  let uploadedVideoFilename: string | null = null;
+  let uploadedThumbFilename: string | null = null;
 
   // Upload video — stored under {userId}/{timestamp}.{ext} in the `reels` bucket
   if (videoBase64) {
     try {
       const filename = `${userId}/${ts}.${ext}`;
+      uploadedVideoFilename = filename;
       const buffer = Buffer.from(videoBase64, "base64");
       const { error: upErr } = await sb.storage
         .from("reels")
@@ -95,6 +99,7 @@ router.post("/create", async (req, res) => {
   if (thumbnailBase64) {
     try {
       const thumbFilename = `thumbnails/${userId}/${ts}.jpg`;
+      uploadedThumbFilename = thumbFilename;
       const thumbBuffer = Buffer.from(thumbnailBase64, "base64");
       const { error: thumbErr } = await sb.storage
         .from("reels")
@@ -112,6 +117,30 @@ router.post("/create", async (req, res) => {
       }
     } catch (err) {
       req.log.warn({ err }, "Reel thumbnail upload failed");
+    }
+  }
+
+  // ── Layer 1: Video content scan (Sightengine) ─────────────────────────────
+  if (videoUrl) {
+    const scanResult = await checkVideoContent(videoUrl);
+    if (!scanResult.safe) {
+      const toRemove = [uploadedVideoFilename, uploadedThumbFilename].filter(Boolean) as string[];
+      if (toRemove.length) void sb.storage.from("reels").remove(toRemove);
+      void logRejection(userId, videoUrl, "video", scanResult.reason, scanResult.scores);
+      res.status(400).json({ error: "This content violates Gundruk's community guidelines" });
+      return;
+    }
+  }
+
+  // ── Layer 2: Caption text moderation (keyword + Perspective API) ──────────
+  if (caption) {
+    const captionResult = await checkCaptionText(caption);
+    if (!captionResult.safe) {
+      const toRemove = [uploadedVideoFilename, uploadedThumbFilename].filter(Boolean) as string[];
+      if (toRemove.length) void sb.storage.from("reels").remove(toRemove);
+      void logRejection(userId, null, "caption", captionResult.reason);
+      res.status(400).json({ error: "Your caption contains content that violates our community guidelines" });
+      return;
     }
   }
 

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "../../lib/sendPush";
+import { checkImageContent, checkVideoContent, checkCaptionText, logRejection } from "../../utils/contentModeration";
 
 const router = Router();
 
@@ -356,11 +357,13 @@ router.post("/create", async (req, res) => {
   const sb = createClient(supabaseUrl, serviceKey);
 
   let mediaUrl: string | null = null;
+  let uploadedFilename: string | null = null;
 
   // Upload image/video to storage if base64 provided
   if (imageBase64) {
     try {
       const filename = `${userId}/${Date.now()}.${ext}`;
+      uploadedFilename = filename;
       const buffer = Buffer.from(imageBase64, "base64");
       const { error: upErr } = await sb.storage
         .from("posts")
@@ -395,6 +398,30 @@ router.post("/create", async (req, res) => {
       }
     } catch (err) {
       req.log.warn({ err }, "Thumbnail upload failed (non-fatal)");
+    }
+  }
+
+  // ── Layer 1: Media content scan (Sightengine) ────────────────────────────────
+  if (mediaUrl) {
+    const scanResult = isVideoMime
+      ? await checkVideoContent(mediaUrl)
+      : await checkImageContent(mediaUrl);
+    if (!scanResult.safe) {
+      if (uploadedFilename) void sb.storage.from("posts").remove([uploadedFilename]);
+      void logRejection(userId, mediaUrl, isVideoMime ? "video" : "image", scanResult.reason, scanResult.scores);
+      res.status(400).json({ error: "This content violates Gundruk's community guidelines" });
+      return;
+    }
+  }
+
+  // ── Layer 2: Caption text moderation (keyword + Perspective API) ──────────
+  if (caption) {
+    const captionResult = await checkCaptionText(caption);
+    if (!captionResult.safe) {
+      if (uploadedFilename) void sb.storage.from("posts").remove([uploadedFilename]);
+      void logRejection(userId, null, "caption", captionResult.reason);
+      res.status(400).json({ error: "Your caption contains content that violates our community guidelines" });
+      return;
     }
   }
 

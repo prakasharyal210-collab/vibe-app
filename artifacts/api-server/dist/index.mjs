@@ -24297,27 +24297,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router39;
+    module.exports = Router40;
     module.exports.Route = Route;
-    function Router39(options) {
-      if (!(this instanceof Router39)) {
-        return new Router39(options);
+    function Router40(options) {
+      if (!(this instanceof Router40)) {
+        return new Router40(options);
       }
       const opts = options || {};
-      function router39(req, res, next) {
-        router39.handle(req, res, next);
+      function router40(req, res, next) {
+        router40.handle(req, res, next);
       }
-      Object.setPrototypeOf(router39, this);
-      router39.caseSensitive = opts.caseSensitive;
-      router39.mergeParams = opts.mergeParams;
-      router39.params = {};
-      router39.strict = opts.strict;
-      router39.stack = [];
-      return router39;
+      Object.setPrototypeOf(router40, this);
+      router40.caseSensitive = opts.caseSensitive;
+      router40.mergeParams = opts.mergeParams;
+      router40.params = {};
+      router40.strict = opts.strict;
+      router40.stack = [];
+      return router40;
     }
-    Router39.prototype = function() {
+    Router40.prototype = function() {
     };
-    Router39.prototype.param = function param(name, fn) {
+    Router40.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -24337,7 +24337,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router39.prototype.handle = function handle(req, res, callback) {
+    Router40.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -24464,7 +24464,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router39.prototype.use = function use(handler) {
+    Router40.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -24497,7 +24497,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router39.prototype.route = function route(path) {
+    Router40.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -24512,7 +24512,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router39.prototype[method] = function(path) {
+      Router40.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -24695,13 +24695,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router39 = require_router();
+    var Router40 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router39 = null;
+      var router40 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -24710,13 +24710,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router39 === null) {
-            router39 = new Router39({
+          if (router40 === null) {
+            router40 = new Router40({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router39;
+          return router40;
         }
       });
     };
@@ -24787,15 +24787,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router39 = this.router;
+      var router40 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router39.use(path, fn2);
+          return router40.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router39.use(path, function mounted_app(req, res, next) {
+        router40.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -27368,7 +27368,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router39 = require_router();
+    var Router40 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -27390,8 +27390,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router39.Route;
-    exports.Router = Router39;
+    exports.Route = Router40.Route;
+    exports.Router = Router40;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -45280,12 +45280,12 @@ var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // src/app.ts
-var import_express39 = __toESM(require_express2(), 1);
+var import_express40 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express38 = __toESM(require_express2(), 1);
+var import_express39 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -59070,10 +59070,149 @@ router6.post("/setup", async (req, res) => {
 });
 var setup_default = router6;
 
-// src/routes/music/deezer.ts
+// src/routes/admin/reports.ts
 var import_express7 = __toESM(require_express2(), 1);
 var router7 = (0, import_express7.Router)();
 function makeSupabase3() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
+async function requireAdmin(userId, sb) {
+  if (!userId) return false;
+  try {
+    const { data } = await sb.from("profiles").select("is_admin").eq("id", userId).maybeSingle();
+    return !!data?.is_admin;
+  } catch {
+    return false;
+  }
+}
+router7.get("/reports", async (req, res) => {
+  const userId = req.headers["x-user-id"];
+  const sb = makeSupabase3();
+  if (!await requireAdmin(userId, sb)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  try {
+    const { data: reports, error } = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(200);
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    const rows = reports ?? [];
+    const enriched = await Promise.all(
+      rows.map(async (report) => {
+        let reporterUsername = null;
+        let contentSnippet = null;
+        let contentOwnerUsername = null;
+        let contentOwnerId = null;
+        try {
+          const { data: reporter } = await sb.from("profiles").select("username").eq("id", report.reporter_id).maybeSingle();
+          reporterUsername = reporter?.username ?? null;
+        } catch {
+        }
+        const targetType = report.target_type ?? report.content_type ?? "";
+        const targetId = report.target_id ?? report.content_id ?? "";
+        if (targetId) {
+          try {
+            if (targetType === "post") {
+              const { data: post2 } = await sb.from("posts").select("caption, media_url, user_id").eq("id", targetId).maybeSingle();
+              contentSnippet = post2?.caption ?? null;
+              contentOwnerId = post2?.user_id ?? null;
+            } else if (targetType === "reel") {
+              const { data: reel } = await sb.from("reels").select("caption, video_url, user_id").eq("id", targetId).maybeSingle();
+              contentSnippet = reel?.caption ?? null;
+              contentOwnerId = reel?.user_id ?? null;
+            } else if (targetType === "comment") {
+              const { data: comment } = await sb.from("comments").select("content, user_id").eq("id", targetId).maybeSingle();
+              contentSnippet = comment?.content ?? null;
+              contentOwnerId = comment?.user_id ?? null;
+            } else if (targetType === "user") {
+              const { data: profile } = await sb.from("profiles").select("username, full_name").eq("id", targetId).maybeSingle();
+              contentSnippet = profile?.username ?? null;
+              contentOwnerId = targetId;
+            }
+            if (contentOwnerId) {
+              const { data: owner } = await sb.from("profiles").select("username").eq("id", contentOwnerId).maybeSingle();
+              contentOwnerUsername = owner?.username ?? null;
+            }
+          } catch {
+          }
+        }
+        return {
+          ...report,
+          reporter_username: reporterUsername,
+          content_snippet: contentSnippet,
+          content_owner_username: contentOwnerUsername,
+          content_owner_id: contentOwnerId
+        };
+      })
+    );
+    res.json({ reports: enriched });
+  } catch (err) {
+    res.status(500).json({ error: err?.message ?? "Failed to fetch reports" });
+  }
+});
+router7.patch("/reports/:reportId", async (req, res) => {
+  const userId = req.headers["x-user-id"];
+  const sb = makeSupabase3();
+  if (!await requireAdmin(userId, sb)) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const { reportId } = req.params;
+  const { status, suspendUser } = req.body;
+  if (!status || !["actioned", "dismissed"].includes(status)) {
+    res.status(400).json({ error: "status must be 'actioned' or 'dismissed'" });
+    return;
+  }
+  try {
+    const { data: report, error: fetchErr } = await sb.from("reports").select("*").eq("id", reportId).maybeSingle();
+    if (fetchErr || !report) {
+      res.status(404).json({ error: "Report not found" });
+      return;
+    }
+    const r = report;
+    const targetType = r.target_type ?? r.content_type ?? "";
+    const targetId = r.target_id ?? r.content_id ?? "";
+    let contentOwnerId = null;
+    if (status === "actioned" && targetId) {
+      if (targetType === "post") {
+        const { data: post2 } = await sb.from("posts").select("user_id, media_url").eq("id", targetId).maybeSingle();
+        contentOwnerId = post2?.user_id ?? null;
+        await sb.from("posts").delete().eq("id", targetId);
+      } else if (targetType === "reel") {
+        const { data: reel } = await sb.from("reels").select("user_id, video_url").eq("id", targetId).maybeSingle();
+        contentOwnerId = reel?.user_id ?? null;
+        await sb.from("reels").delete().eq("id", targetId);
+      } else if (targetType === "comment") {
+        const { data: comment } = await sb.from("comments").select("user_id").eq("id", targetId).maybeSingle();
+        contentOwnerId = comment?.user_id ?? null;
+        await sb.from("comments").delete().eq("id", targetId);
+      } else if (targetType === "user") {
+        contentOwnerId = targetId;
+      }
+      if (suspendUser && contentOwnerId) {
+        await sb.from("profiles").update({ is_suspended: true }).eq("id", contentOwnerId);
+      }
+    }
+    await sb.from("reports").update({
+      status,
+      reviewed_at: (/* @__PURE__ */ new Date()).toISOString(),
+      actioned_by: userId ?? null
+    }).eq("id", reportId);
+    res.json({ ok: true, contentDeleted: status === "actioned" && !!targetId, userSuspended: !!(suspendUser && contentOwnerId) });
+  } catch (err) {
+    res.status(500).json({ error: err?.message ?? "Failed to update report" });
+  }
+});
+var reports_default = router7;
+
+// src/routes/music/deezer.ts
+var import_express8 = __toESM(require_express2(), 1);
+var router8 = (0, import_express8.Router)();
+function makeSupabase4() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -59098,7 +59237,7 @@ var SEARCH_URLS = {
   "ES": "https://api.deezer.com/search?q=latin+pop&limit=50",
   "NG": "https://api.deezer.com/search?q=afrobeats&limit=50"
 };
-router7.get("/deezer", async (req, res) => {
+router8.get("/deezer", async (req, res) => {
   const country = req.query["country"] ?? "0";
   const limit = Math.min(Number(req.query["limit"]) || 50, 100);
   const cacheKey = `deezer_${country}_${limit}`;
@@ -59126,7 +59265,7 @@ router7.get("/deezer", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch music" });
   }
 });
-router7.get("/trending", async (req, res) => {
+router8.get("/trending", async (req, res) => {
   const country = (req.query["country"] ?? "0").toUpperCase().replace("GLOBAL", "0");
   const cacheKey = `trending_${country}`;
   const cached = memCache.get(cacheKey);
@@ -59164,13 +59303,13 @@ router7.get("/trending", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch music" });
   }
 });
-router7.post("/track", async (req, res) => {
+router8.post("/track", async (req, res) => {
   const { id, title, artist, coverUrl, audioUrl, duration, category } = req.body;
   if (!id || !title) {
     res.status(400).json({ error: "id and title required" });
     return;
   }
-  const sb = makeSupabase3();
+  const sb = makeSupabase4();
   try {
     const { error } = await sb.from("music_tracks").upsert(
       {
@@ -59192,10 +59331,10 @@ router7.post("/track", async (req, res) => {
     res.status(500).json({ error: "Failed to save track" });
   }
 });
-var deezer_default = router7;
+var deezer_default = router8;
 
 // src/routes/posts/create.ts
-var import_express8 = __toESM(require_express2(), 1);
+var import_express9 = __toESM(require_express2(), 1);
 
 // src/lib/sendPush.ts
 async function sendPushToUser(sb, userId, payload, settingsKey) {
@@ -59236,8 +59375,174 @@ async function sendPushToUser(sb, userId, payload, settingsKey) {
   }
 }
 
+// src/utils/contentModeration.ts
+function makeSupabase5() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
+var SIGHTENGINE_MODELS_IMAGE = "nudity,offensive,gore,weapons,violence,hate-symbols";
+var SIGHTENGINE_MODELS_VIDEO = "nudity,offensive,gore,weapons,violence";
+var THRESHOLD = 0.5;
+async function checkImageContent(mediaUrl) {
+  const apiUser = process.env["SIGHTENGINE_API_USER"];
+  const apiSecret = process.env["SIGHTENGINE_API_SECRET"];
+  if (!apiUser || !apiSecret) return { safe: true, reason: "" };
+  try {
+    const params = new URLSearchParams({
+      url: mediaUrl,
+      models: SIGHTENGINE_MODELS_IMAGE,
+      api_user: apiUser,
+      api_secret: apiSecret
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15e3);
+    const res = await fetch(`https://api.sightengine.com/1.0/check.json?${params}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (data["status"] !== "success") return { safe: true, reason: "" };
+    const scores = {
+      nudity_raw: data["nudity"]?.["raw"] ?? 0,
+      nudity_partial: data["nudity"]?.["partial"] ?? 0,
+      offensive_prob: data["offensive"]?.["prob"] ?? 0,
+      gore_prob: data["gore"]?.["prob"] ?? 0,
+      weapon_prob: data["weapon"]?.["prob"] ?? 0,
+      violence_prob: data["violence"]?.["prob"] ?? 0
+    };
+    const n_raw = scores["nudity_raw"];
+    const n_partial = scores["nudity_partial"];
+    const off = scores["offensive_prob"];
+    const gore = scores["gore_prob"];
+    const weapon = scores["weapon_prob"];
+    const violence = scores["violence_prob"];
+    if (n_raw > THRESHOLD || n_partial > THRESHOLD) return { safe: false, reason: "nudity", scores };
+    if (off > THRESHOLD) return { safe: false, reason: "offensive content", scores };
+    if (gore > THRESHOLD) return { safe: false, reason: "gore", scores };
+    if (weapon > THRESHOLD) return { safe: false, reason: "weapons", scores };
+    if (violence > THRESHOLD) return { safe: false, reason: "violence", scores };
+    return { safe: true, reason: "", scores };
+  } catch {
+    return { safe: true, reason: "" };
+  }
+}
+async function checkVideoContent(mediaUrl) {
+  const apiUser = process.env["SIGHTENGINE_API_USER"];
+  const apiSecret = process.env["SIGHTENGINE_API_SECRET"];
+  if (!apiUser || !apiSecret) return { safe: true, reason: "" };
+  try {
+    const params = new URLSearchParams({
+      stream_url: mediaUrl,
+      models: SIGHTENGINE_MODELS_VIDEO,
+      api_user: apiUser,
+      api_secret: apiSecret
+    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3e4);
+    const res = await fetch(`https://api.sightengine.com/1.0/video/check-sync.json?${params}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+    const data = await res.json();
+    if (data["status"] !== "success") return { safe: true, reason: "" };
+    const frames = data["data"]?.["frames"] ?? [];
+    for (const frame of frames) {
+      const s = {
+        nudity_raw: frame["nudity"]?.["raw"] ?? 0,
+        nudity_partial: frame["nudity"]?.["partial"] ?? 0,
+        offensive_prob: frame["offensive"]?.["prob"] ?? 0,
+        gore_prob: frame["gore"]?.["prob"] ?? 0,
+        weapon_prob: frame["weapon"]?.["prob"] ?? 0,
+        violence_prob: frame["violence"]?.["prob"] ?? 0,
+        frame_offset: frame["offset"]
+      };
+      if (s["nudity_raw"] > THRESHOLD || s["nudity_partial"] > THRESHOLD) return { safe: false, reason: "nudity", scores: s };
+      if (s["offensive_prob"] > THRESHOLD) return { safe: false, reason: "offensive content", scores: s };
+      if (s["gore_prob"] > THRESHOLD) return { safe: false, reason: "gore", scores: s };
+      if (s["weapon_prob"] > THRESHOLD) return { safe: false, reason: "weapons", scores: s };
+      if (s["violence_prob"] > THRESHOLD) return { safe: false, reason: "violence", scores: s };
+    }
+    return { safe: true, reason: "", scores: { frames_checked: frames.length } };
+  } catch {
+    return { safe: true, reason: "" };
+  }
+}
+var BLOCKED_PHRASES = [
+  "rape",
+  "kill yourself",
+  "kys",
+  "suicide",
+  "bomb",
+  "terrorist",
+  "child porn",
+  "cp",
+  "nigger",
+  "faggot",
+  "whore"
+];
+function normalizeForFilter(text) {
+  return text.toLowerCase().replace(/0/g, "o").replace(/1/g, "i").replace(/3/g, "e").replace(/4/g, "a").replace(/5/g, "s").replace(/\$/g, "s").replace(/@/g, "a").replace(/!/g, "i");
+}
+async function checkCaptionText(text) {
+  if (!text?.trim()) return { safe: true, reason: "" };
+  const normalized = normalizeForFilter(text);
+  for (const phrase of BLOCKED_PHRASES) {
+    if (normalized.includes(phrase)) {
+      return { safe: false, reason: `blocked keyword: ${phrase}` };
+    }
+  }
+  const perspectiveKey = process.env["PERSPECTIVE_API_KEY"];
+  if (perspectiveKey) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1e4);
+      const res = await fetch(
+        `https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${perspectiveKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            comment: { text },
+            requestedAttributes: { TOXICITY: {}, THREAT: {}, INSULT: {}, IDENTITY_ATTACK: {} }
+          }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timer);
+      const data = await res.json();
+      const attr = data["attributeScores"];
+      if (attr) {
+        const toxicity = attr["TOXICITY"]?.["summaryScore"]?.["value"] ?? 0;
+        const threat = attr["THREAT"]?.["summaryScore"]?.["value"] ?? 0;
+        const insult = attr["INSULT"]?.["summaryScore"]?.["value"] ?? 0;
+        const identityAttack = attr["IDENTITY_ATTACK"]?.["summaryScore"]?.["value"] ?? 0;
+        if (toxicity > 0.7) return { safe: false, reason: "toxicity" };
+        if (threat > 0.7) return { safe: false, reason: "threat" };
+        if (insult > 0.7) return { safe: false, reason: "insult" };
+        if (identityAttack > 0.7) return { safe: false, reason: "hate speech" };
+      }
+    } catch {
+    }
+  }
+  return { safe: true, reason: "" };
+}
+async function logRejection(userId, mediaUrl, contentType, rejectionReason, scores) {
+  try {
+    const sb = makeSupabase5();
+    await sb.from("content_moderation_log").insert({
+      user_id: userId,
+      media_url: mediaUrl,
+      content_type: contentType,
+      rejection_reason: rejectionReason,
+      scores: scores ?? null
+    });
+  } catch {
+  }
+}
+
 // src/routes/posts/create.ts
-var router8 = (0, import_express8.Router)();
+var router9 = (0, import_express9.Router)();
 var hashtagRpcAvailable = true;
 function extractHashtags(text) {
   const matches = text.match(/#[\w]+/g);
@@ -59261,18 +59566,18 @@ async function savePostHashtags(sb, postId, caption) {
     await sb.from("post_hashtags").upsert(rows, { onConflict: "post_id,hashtag_id" });
   }
 }
-function makeSupabase4() {
+function makeSupabase6() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router8.get("/hashtag/:tag", async (req, res) => {
+router9.get("/hashtag/:tag", async (req, res) => {
   const tag = (req.params["tag"] ?? "").toLowerCase().trim();
   if (!tag) {
     res.status(400).json({ error: "tag required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     if (hashtagRpcAvailable) {
       const { data: rpcData, error: rpcErr } = await sb.rpc("get_hashtag_posts", { p_tag: tag, p_limit: 60 });
@@ -59306,14 +59611,14 @@ router8.get("/hashtag/:tag", async (req, res) => {
     res.status(500).json({ error: "Failed to load hashtag posts" });
   }
 });
-router8.get("/user/:userId", async (req, res) => {
+router9.get("/user/:userId", async (req, res) => {
   const { userId } = req.params;
   const { viewerId, onlyArchived: onlyArchivedRaw } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   const isOwner = !!viewerId && viewerId === userId;
   const onlyArchived = onlyArchivedRaw === "true" && isOwner;
   let viewerFollows = false;
@@ -59369,13 +59674,13 @@ router8.get("/user/:userId", async (req, res) => {
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   res.json({ posts: mergedPosts, reels: mergedReels });
 });
-router8.get("/tagged", async (req, res) => {
+router9.get("/tagged", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     const { data: tagRows, error: tagErr } = await sb.from("post_tags").select("post_id").eq("tagged_user_id", userId).limit(60);
     if (tagErr) {
@@ -59397,7 +59702,7 @@ router8.get("/tagged", async (req, res) => {
     res.status(500).json({ error: e.message ?? "unknown error" });
   }
 });
-router8.get("/user/:userId/more", async (req, res) => {
+router9.get("/user/:userId/more", async (req, res) => {
   const { userId } = req.params;
   const { excludeId, limit: limitStr } = req.query;
   if (!userId) {
@@ -59405,7 +59710,7 @@ router8.get("/user/:userId/more", async (req, res) => {
     return;
   }
   const limit = Math.min(parseInt(limitStr ?? "9", 10) || 9, 18);
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   let query = sb.from("posts").select("id, media_url, caption, likes_count, comments_count, created_at, user_id").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
   if (excludeId) query = query.neq("id", excludeId);
   const { data, error } = await query;
@@ -59419,7 +59724,7 @@ router8.get("/user/:userId/more", async (req, res) => {
   });
   res.json({ posts });
 });
-router8.post("/create", async (req, res) => {
+router9.post("/create", async (req, res) => {
   const {
     userId,
     imageBase64,
@@ -59443,9 +59748,11 @@ router8.post("/create", async (req, res) => {
   }
   const sb = createClient(supabaseUrl, serviceKey);
   let mediaUrl = null;
+  let uploadedFilename = null;
   if (imageBase64) {
     try {
       const filename = `${userId}/${Date.now()}.${ext}`;
+      uploadedFilename = filename;
       const buffer = Buffer.from(imageBase64, "base64");
       const { error: upErr } = await sb.storage.from("posts").upload(filename, buffer, { contentType: mimeType, upsert: true });
       if (!upErr) {
@@ -59473,6 +59780,24 @@ router8.post("/create", async (req, res) => {
       }
     } catch (err) {
       req.log.warn({ err }, "Thumbnail upload failed (non-fatal)");
+    }
+  }
+  if (mediaUrl) {
+    const scanResult = isVideoMime ? await checkVideoContent(mediaUrl) : await checkImageContent(mediaUrl);
+    if (!scanResult.safe) {
+      if (uploadedFilename) void sb.storage.from("posts").remove([uploadedFilename]);
+      void logRejection(userId, mediaUrl, isVideoMime ? "video" : "image", scanResult.reason, scanResult.scores);
+      res.status(400).json({ error: "This content violates Gundruk's community guidelines" });
+      return;
+    }
+  }
+  if (caption) {
+    const captionResult = await checkCaptionText(caption);
+    if (!captionResult.safe) {
+      if (uploadedFilename) void sb.storage.from("posts").remove([uploadedFilename]);
+      void logRejection(userId, null, "caption", captionResult.reason);
+      res.status(400).json({ error: "Your caption contains content that violates our community guidelines" });
+      return;
     }
   }
   let validatedCoupleId = null;
@@ -59623,13 +59948,13 @@ router8.post("/create", async (req, res) => {
   });
   res.json({ id: postId, mediaUrl: mediaUrl ?? "" });
 });
-router8.get("/saved", async (req, res) => {
+router9.get("/saved", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     const { data, error } = await sb.from("favourites").select("post_id, created_at, posts(id, media_url, caption, likes_count, comments_count, user_id, profiles:user_id(username, avatar_url))").eq("user_id", userId).order("created_at", { ascending: false }).limit(50);
     if (error) {
@@ -59653,13 +59978,13 @@ router8.get("/saved", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router8.get("/like-status", async (req, res) => {
+router9.get("/like-status", async (req, res) => {
   const { postId, userId } = req.query;
   if (!postId || !userId) {
     res.status(400).json({ error: "postId and userId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     const [likeRes, saveRes] = await Promise.all([
       sb.from("post_likes").select("id").eq("post_id", postId).eq("user_id", userId).maybeSingle(),
@@ -59671,13 +59996,13 @@ router8.get("/like-status", async (req, res) => {
     res.json({ liked: false, saved: false });
   }
 });
-router8.post("/like", async (req, res) => {
+router9.post("/like", async (req, res) => {
   const { postId, userId } = req.body;
   if (!postId || !userId) {
     res.status(400).json({ error: "postId and userId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     const { data: rpcData, error: rpcErr } = await sb.rpc("toggle_post_like", {
       p_post_id: postId,
@@ -59709,13 +60034,13 @@ router8.post("/like", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router8.post("/save", async (req, res) => {
+router9.post("/save", async (req, res) => {
   const { postId, userId } = req.body;
   if (!postId || !userId) {
     res.status(400).json({ error: "postId and userId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     const { data: existing } = await sb.from("favourites").select("id").eq("post_id", postId).eq("user_id", userId).maybeSingle();
     if (existing) {
@@ -59730,13 +60055,13 @@ router8.post("/save", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router8.post("/:postId/view", async (req, res) => {
+router9.post("/:postId/view", async (req, res) => {
   const { postId } = req.params;
   if (!postId) {
     res.status(400).json({ error: "postId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   const { error: rpcErr } = await sb.rpc("increment_post_views", { post_id: postId });
   if (!rpcErr) {
     res.status(204).end();
@@ -59751,10 +60076,10 @@ router8.post("/:postId/view", async (req, res) => {
   }
   res.status(204).end();
 });
-router8.get("/by-location", async (req, res) => {
+router9.get("/by-location", async (req, res) => {
   const { location: location2 = "", limit: limitStr } = req.query;
   const limit = Math.min(parseInt(limitStr ?? "60", 10) || 60, 100);
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   try {
     const { data, count, error } = await sb.from("posts").select("id, media_url, likes_count, is_reel", { count: "exact" }).ilike("location", `%${location2}%`).order("created_at", { ascending: false }).limit(limit);
     if (error) throw error;
@@ -59764,13 +60089,13 @@ router8.get("/by-location", async (req, res) => {
     res.json({ posts: [], count: 0 });
   }
 });
-router8.get("/:postId", async (req, res) => {
+router9.get("/:postId", async (req, res) => {
   const { postId } = req.params;
   if (!postId) {
     res.status(400).json({ error: "postId required" });
     return;
   }
-  const sb = makeSupabase4();
+  const sb = makeSupabase6();
   const { data, error } = await sb.from("posts").select("*, profiles!user_id(id, username, avatar_url, full_name, is_verified)").eq("id", postId).single();
   if (error || !data) {
     res.status(404).json({ error: error?.message ?? "Post not found" });
@@ -59798,16 +60123,16 @@ router8.get("/:postId", async (req, res) => {
   }
   res.json({ data: post2 });
 });
-var create_default = router8;
+var create_default = router9;
 
 // src/routes/reels/create.ts
-var import_express9 = __toESM(require_express2(), 1);
-var router9 = (0, import_express9.Router)();
+var import_express10 = __toESM(require_express2(), 1);
+var router10 = (0, import_express10.Router)();
 function extractHashtags2(text) {
   const matches = text.match(/#[\w]+/g);
   return matches ? matches.map((h) => h.slice(1).toLowerCase()) : [];
 }
-router9.post("/create", async (req, res) => {
+router10.post("/create", async (req, res) => {
   const {
     userId,
     videoBase64,
@@ -59844,9 +60169,12 @@ router9.post("/create", async (req, res) => {
   const ts = Date.now();
   let videoUrl = null;
   let thumbnailUrl = null;
+  let uploadedVideoFilename = null;
+  let uploadedThumbFilename = null;
   if (videoBase64) {
     try {
       const filename = `${userId}/${ts}.${ext}`;
+      uploadedVideoFilename = filename;
       const buffer = Buffer.from(videoBase64, "base64");
       const { error: upErr } = await sb.storage.from("reels").upload(filename, buffer, { contentType: mimeType, upsert: true });
       if (!upErr) {
@@ -59862,6 +60190,7 @@ router9.post("/create", async (req, res) => {
   if (thumbnailBase64) {
     try {
       const thumbFilename = `thumbnails/${userId}/${ts}.jpg`;
+      uploadedThumbFilename = thumbFilename;
       const thumbBuffer = Buffer.from(thumbnailBase64, "base64");
       const { error: thumbErr } = await sb.storage.from("reels").upload(thumbFilename, thumbBuffer, {
         contentType: "image/jpeg",
@@ -59875,6 +60204,26 @@ router9.post("/create", async (req, res) => {
       }
     } catch (err) {
       req.log.warn({ err }, "Reel thumbnail upload failed");
+    }
+  }
+  if (videoUrl) {
+    const scanResult = await checkVideoContent(videoUrl);
+    if (!scanResult.safe) {
+      const toRemove = [uploadedVideoFilename, uploadedThumbFilename].filter(Boolean);
+      if (toRemove.length) void sb.storage.from("reels").remove(toRemove);
+      void logRejection(userId, videoUrl, "video", scanResult.reason, scanResult.scores);
+      res.status(400).json({ error: "This content violates Gundruk's community guidelines" });
+      return;
+    }
+  }
+  if (caption) {
+    const captionResult = await checkCaptionText(caption);
+    if (!captionResult.safe) {
+      const toRemove = [uploadedVideoFilename, uploadedThumbFilename].filter(Boolean);
+      if (toRemove.length) void sb.storage.from("reels").remove(toRemove);
+      void logRejection(userId, null, "caption", captionResult.reason);
+      res.status(400).json({ error: "Your caption contains content that violates our community guidelines" });
+      return;
     }
   }
   const VALID_VISIBILITIES = ["public", "friends", "private"];
@@ -59941,24 +60290,24 @@ router9.post("/create", async (req, res) => {
     thumbnailUrl: thumbnailUrl ?? null
   });
 });
-var create_default2 = router9;
+var create_default2 = router10;
 
 // src/routes/reels/remove.ts
-var import_express10 = __toESM(require_express2(), 1);
-var router10 = (0, import_express10.Router)();
-function makeSupabase5() {
+var import_express11 = __toESM(require_express2(), 1);
+var router11 = (0, import_express11.Router)();
+function makeSupabase7() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router10.delete("/:reelId", async (req, res) => {
+router11.delete("/:reelId", async (req, res) => {
   const { reelId } = req.params;
   const { userId } = req.body;
   if (!reelId || !userId) {
     res.status(400).json({ error: "reelId and userId are required" });
     return;
   }
-  const sb = makeSupabase5();
+  const sb = makeSupabase7();
   const { data: reel, error: fetchErr } = await sb.from("reels").select("id, user_id").eq("id", reelId).single();
   if (fetchErr || !reel) {
     res.status(404).json({ error: "Reel not found" });
@@ -59983,23 +60332,23 @@ router10.delete("/:reelId", async (req, res) => {
   }
   res.json({ success: true });
 });
-var remove_default2 = router10;
+var remove_default2 = router11;
 
 // src/routes/reels/watch.ts
-var import_express11 = __toESM(require_express2(), 1);
-var router11 = (0, import_express11.Router)();
-function makeSupabase6() {
+var import_express12 = __toESM(require_express2(), 1);
+var router12 = (0, import_express12.Router)();
+function makeSupabase8() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router11.post("/watch", async (req, res) => {
+router12.post("/watch", async (req, res) => {
   const { userId, reelId, watchDuration, videoDuration } = req.body;
   if (!reelId || typeof watchDuration !== "number" || watchDuration <= 0) {
     res.status(400).json({ error: "reelId and watchDuration required" });
     return;
   }
-  const sb = makeSupabase6();
+  const sb = makeSupabase8();
   const insertPromise = sb.from("watch_events").insert({
     user_id: userId ?? null,
     reel_id: reelId,
@@ -60034,23 +60383,23 @@ router11.post("/watch", async (req, res) => {
   await Promise.allSettled([insertPromise, scorePromise, affinityPromise]);
   res.json({ ok: true });
 });
-var watch_default = router11;
+var watch_default = router12;
 
 // src/routes/reels/like.ts
-var import_express12 = __toESM(require_express2(), 1);
-var router12 = (0, import_express12.Router)();
-function makeSupabase7() {
+var import_express13 = __toESM(require_express2(), 1);
+var router13 = (0, import_express13.Router)();
+function makeSupabase9() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router12.get("/liked", async (req, res) => {
+router13.get("/liked", async (req, res) => {
   const { userId, reelId } = req.query;
   if (!userId || !reelId) {
     res.status(400).json({ error: "userId and reelId required" });
     return;
   }
-  const sb = makeSupabase7();
+  const sb = makeSupabase9();
   const { data, error } = await sb.from("reel_likes").select("id").eq("user_id", userId).eq("reel_id", reelId).maybeSingle();
   if (error) {
     res.status(500).json({ error: error.message });
@@ -60058,13 +60407,13 @@ router12.get("/liked", async (req, res) => {
   }
   res.json({ liked: !!data });
 });
-router12.post("/like", async (req, res) => {
+router13.post("/like", async (req, res) => {
   const { userId, reelId } = req.body;
   if (!userId || !reelId) {
     res.status(400).json({ error: "userId and reelId required" });
     return;
   }
-  const sb = makeSupabase7();
+  const sb = makeSupabase9();
   const { data: existing } = await sb.from("reel_likes").select("id").eq("user_id", userId).eq("reel_id", reelId).maybeSingle();
   const alreadyLiked = !!existing;
   if (alreadyLiked) {
@@ -60109,13 +60458,13 @@ router12.post("/like", async (req, res) => {
     likes: updated?.likes_count ?? 0
   });
 });
-router12.post("/like-only", async (req, res) => {
+router13.post("/like-only", async (req, res) => {
   const { userId, reelId } = req.body;
   if (!userId || !reelId) {
     res.status(400).json({ error: "userId and reelId required" });
     return;
   }
-  const sb = makeSupabase7();
+  const sb = makeSupabase9();
   const { data: existing } = await sb.from("reel_likes").select("id").eq("user_id", userId).eq("reel_id", reelId).maybeSingle();
   if (existing) {
     const { data: reel } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
@@ -60137,13 +60486,13 @@ router12.post("/like-only", async (req, res) => {
   const { data: updated } = await sb.from("reels").select("likes_count").eq("id", reelId).maybeSingle();
   res.json({ liked: true, likes: updated?.likes_count ?? 0 });
 });
-router12.get("/:reelId", async (req, res) => {
+router13.get("/:reelId", async (req, res) => {
   const { reelId } = req.params;
   if (!reelId) {
     res.status(400).json({ error: "reelId required" });
     return;
   }
-  const sb = makeSupabase7();
+  const sb = makeSupabase9();
   const { data, error } = await sb.from("reels").select("*, profiles!user_id(id, username, avatar_url, full_name, is_verified)").eq("id", reelId).single();
   if (error || !data) {
     res.status(404).json({ error: error?.message ?? "Reel not found" });
@@ -60151,12 +60500,12 @@ router12.get("/:reelId", async (req, res) => {
   }
   res.json({ data });
 });
-var like_default = router12;
+var like_default = router13;
 
 // src/routes/users/search.ts
-var import_express13 = __toESM(require_express2(), 1);
-var router13 = (0, import_express13.Router)();
-function makeSupabase8() {
+var import_express14 = __toESM(require_express2(), 1);
+var router14 = (0, import_express14.Router)();
+function makeSupabase10() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -60172,7 +60521,7 @@ async function fetchPartner(sb, profileId) {
     return null;
   }
 }
-router13.get("/check-username", async (req, res) => {
+router14.get("/check-username", async (req, res) => {
   const raw = (req.query["username"] ?? "").trim();
   const excludeUserId = req.query["excludeUserId"]?.trim() || void 0;
   const FORMAT_RE = /^[a-zA-Z0-9_]{3,20}$/;
@@ -60180,7 +60529,7 @@ router13.get("/check-username", async (req, res) => {
     res.json({ available: false, reason: "invalid_format" });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     const base = sb.from("profiles").select("id").ilike("username", raw);
     const { data } = excludeUserId ? await base.neq("id", excludeUserId).maybeSingle() : await base.maybeSingle();
@@ -60190,11 +60539,11 @@ router13.get("/check-username", async (req, res) => {
     res.status(500).json({ error: "Check failed" });
   }
 });
-router13.get("/search", async (req, res) => {
+router14.get("/search", async (req, res) => {
   const q = (req.query["q"] ?? "").trim();
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   try {
-    const sb = makeSupabase8();
+    const sb = makeSupabase10();
     let baseQuery = sb.from("profiles").select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private");
     if (q) {
       baseQuery = baseQuery.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
@@ -60211,14 +60560,14 @@ router13.get("/search", async (req, res) => {
     res.json({ profiles: [] });
   }
 });
-router13.get("/profile/:username", async (req, res) => {
+router14.get("/profile/:username", async (req, res) => {
   const { username } = req.params;
   if (!username) {
     res.status(400).json({ error: "username required" });
     return;
   }
   const viewerId = req.query["viewer_id"]?.trim() || void 0;
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   req.log.info({ username }, "profile lookup");
   const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, pronouns, show_relationship";
   const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, zodiac_sign, pronouns";
@@ -60307,13 +60656,13 @@ var VALID_STATUSES = [
   "Divorced",
   "Widowed"
 ];
-router13.get("/profile/by-id/:userId", async (req, res) => {
+router14.get("/profile/by-id/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     const { data, error } = await sb.from("profiles").select("id, username, full_name, bio, avatar_url, cover_url, location, website, pronouns, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, show_relationship").eq("id", userId).maybeSingle();
     if (error) {
@@ -60347,7 +60696,7 @@ router13.get("/profile/by-id/:userId", async (req, res) => {
     res.status(500).json({ error: "Profile load failed" });
   }
 });
-router13.patch("/profile/:userId", async (req, res) => {
+router14.patch("/profile/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -60389,7 +60738,7 @@ router13.patch("/profile/:userId", async (req, res) => {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     const { error } = await sb.from("profiles").update(updates).eq("id", userId);
     if (error) {
@@ -60406,9 +60755,9 @@ router13.patch("/profile/:userId", async (req, res) => {
     res.status(500).json({ error: "Profile update failed" });
   }
 });
-router13.get("/hashtags", async (req, res) => {
+router14.get("/hashtags", async (req, res) => {
   const { query = "" } = req.query;
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     let q = sb.from("hashtags").select("name, posts_count").order("posts_count", { ascending: false }).limit(20);
     if (query.trim()) q = q.ilike("name", `%${query.trim()}%`);
@@ -60420,13 +60769,13 @@ router13.get("/hashtags", async (req, res) => {
     res.json({ hashtags: [] });
   }
 });
-router13.get("/search-history", async (req, res) => {
+router14.get("/search-history", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ history: [] });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     const { data, error } = await sb.from("search_history").select("id, query, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(20);
     if (error) throw error;
@@ -60436,13 +60785,13 @@ router13.get("/search-history", async (req, res) => {
     res.json({ history: [] });
   }
 });
-router13.post("/search-history", async (req, res) => {
+router14.post("/search-history", async (req, res) => {
   const { userId, query } = req.body;
   if (!userId || !query?.trim()) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     await sb.from("search_history").upsert(
       { user_id: userId, query: query.trim() },
@@ -60454,9 +60803,9 @@ router13.post("/search-history", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router13.delete("/search-history/:id", async (req, res) => {
+router14.delete("/search-history/:id", async (req, res) => {
   const { id } = req.params;
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     await sb.from("search_history").delete().eq("id", id);
     res.json({ ok: true });
@@ -60465,13 +60814,13 @@ router13.delete("/search-history/:id", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router13.delete("/search-history", async (req, res) => {
+router14.delete("/search-history", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     await sb.from("search_history").delete().eq("user_id", userId);
     res.json({ ok: true });
@@ -60480,13 +60829,13 @@ router13.delete("/search-history", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router13.post("/tab-preference", async (req, res) => {
+router14.post("/tab-preference", async (req, res) => {
   const { userId, tab } = req.body;
   if (!userId || !tab) {
     res.status(400).json({ error: "userId and tab required" });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     await sb.from("user_tab_preferences").upsert(
       { user_id: userId, last_tab: tab, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
@@ -60498,13 +60847,13 @@ router13.post("/tab-preference", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router13.get("/blocked", async (req, res) => {
+router14.get("/blocked", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ users: [] });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     const { data, error } = await sb.from("blocks").select("blocked_id, profiles!blocks_blocked_id_fkey(id, username, full_name, avatar_url)").eq("blocker_id", userId);
     if (error) throw error;
@@ -60518,13 +60867,13 @@ router13.get("/blocked", async (req, res) => {
     res.json({ users: [] });
   }
 });
-router13.get("/restricted", async (req, res) => {
+router14.get("/restricted", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ users: [] });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     const { data, error } = await sb.from("restricted_users").select("restricted_id, profiles!restricted_users_restricted_id_fkey(id, username, full_name, avatar_url)").eq("restrictor_id", userId);
     if (error) throw error;
@@ -60538,13 +60887,13 @@ router13.get("/restricted", async (req, res) => {
     res.json({ users: [] });
   }
 });
-router13.post("/jyotisha/save", async (req, res) => {
+router14.post("/jyotisha/save", async (req, res) => {
   const { userId, fullName, birthDate, birthTime, birthPlace, rashi, lagna, nakshatra, dasha } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase8();
+  const sb = makeSupabase10();
   try {
     await Promise.all([
       fullName ? sb.from("profiles").update({ full_name: fullName }).eq("id", userId) : Promise.resolve(),
@@ -60565,23 +60914,23 @@ router13.post("/jyotisha/save", async (req, res) => {
     res.status(500).json({ error: "Failed to save jyotisha profile" });
   }
 });
-var search_default = router13;
+var search_default = router14;
 
 // src/routes/users/social.ts
-var import_express14 = __toESM(require_express2(), 1);
-var router14 = (0, import_express14.Router)();
-function makeSupabase9() {
+var import_express15 = __toESM(require_express2(), 1);
+var router15 = (0, import_express15.Router)();
+function makeSupabase11() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router14.get("/follow-status", async (req, res) => {
+router15.get("/follow-status", async (req, res) => {
   const { followerId, followingId } = req.query;
   if (!followerId || !followingId) {
     res.status(400).json({ error: "followerId and followingId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data, error } = await sb.from("follows").select("follower_id").eq("follower_id", followerId).eq("following_id", followingId).maybeSingle();
     if (error) {
@@ -60594,13 +60943,13 @@ router14.get("/follow-status", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.post("/follow", async (req, res) => {
+router15.post("/follow", async (req, res) => {
   const { followerId, followingId } = req.body;
   if (!followerId || !followingId) {
     res.status(400).json({ error: "followerId and followingId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { error } = await sb.from("follows").upsert({ follower_id: followerId, following_id: followingId }, { onConflict: "follower_id,following_id" });
     if (error) {
@@ -60630,13 +60979,13 @@ router14.post("/follow", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.delete("/follow", async (req, res) => {
+router15.delete("/follow", async (req, res) => {
   const { followerId, followingId } = req.body;
   if (!followerId || !followingId) {
     res.status(400).json({ error: "followerId and followingId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { error } = await sb.from("follows").delete().eq("follower_id", followerId).eq("following_id", followingId);
     if (error) {
@@ -60649,13 +60998,13 @@ router14.delete("/follow", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.get("/block-status", async (req, res) => {
+router15.get("/block-status", async (req, res) => {
   const { myId, theirId } = req.query;
   if (!myId || !theirId) {
     res.status(400).json({ error: "myId and theirId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const [b1, b2] = await Promise.all([
       sb.from("blocks").select("id").eq("blocker_id", myId).eq("blocked_id", theirId).maybeSingle(),
@@ -60667,13 +61016,13 @@ router14.get("/block-status", async (req, res) => {
     res.json({ iBlockedThem: false, theyBlockedMe: false });
   }
 });
-router14.post("/conversation", async (req, res) => {
+router15.post("/conversation", async (req, res) => {
   const { userId, otherId } = req.body;
   if (!userId || !otherId) {
     res.status(400).json({ error: "userId and otherId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data: rows } = await sb.from("conversations").select("id").or(
       `and(user1_id.eq.${userId},user2_id.eq.${otherId}),and(user1_id.eq.${otherId},user2_id.eq.${userId})`
@@ -60712,10 +61061,10 @@ router14.post("/conversation", async (req, res) => {
     res.status(500).json({ error: "Failed to create conversation" });
   }
 });
-router14.get("/followers/:username", async (req, res) => {
+router15.get("/followers/:username", async (req, res) => {
   const { username } = req.params;
   const { viewerId } = req.query;
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data: profile, error: profileErr } = await sb.from("profiles").select("id").eq("username", username).maybeSingle();
     if (profileErr || !profile) {
@@ -60774,10 +61123,10 @@ router14.get("/followers/:username", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.get("/following/:username", async (req, res) => {
+router15.get("/following/:username", async (req, res) => {
   const { username } = req.params;
   const { viewerId } = req.query;
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data: profile, error: profileErr } = await sb.from("profiles").select("id").eq("username", username).maybeSingle();
     if (profileErr || !profile) {
@@ -60816,13 +61165,13 @@ router14.get("/following/:username", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.post("/toggle-follow", async (req, res) => {
+router15.post("/toggle-follow", async (req, res) => {
   const { followerId, followingId } = req.body;
   if (!followerId || !followingId) {
     res.status(400).json({ error: "followerId and followingId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data: existing } = await sb.from("follows").select("follower_id").eq("follower_id", followerId).eq("following_id", followingId).maybeSingle();
     if (existing) {
@@ -60857,13 +61206,13 @@ router14.post("/toggle-follow", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.get("/following-ids", async (req, res) => {
+router15.get("/following-ids", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data, error } = await sb.from("follows").select("following_id").eq("follower_id", userId);
     if (error) {
@@ -60876,13 +61225,13 @@ router14.get("/following-ids", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.post("/mute", async (req, res) => {
+router15.post("/mute", async (req, res) => {
   const { muterId, mutedId } = req.body;
   if (!muterId || !mutedId) {
     res.status(400).json({ error: "muterId and mutedId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     await sb.from("muted_users").upsert(
       { muter_id: muterId, muted_id: mutedId },
@@ -60894,13 +61243,13 @@ router14.post("/mute", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.delete("/mute", async (req, res) => {
+router15.delete("/mute", async (req, res) => {
   const { muterId, mutedId } = req.body;
   if (!muterId || !mutedId) {
     res.status(400).json({ error: "muterId and mutedId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     await sb.from("muted_users").delete().eq("muter_id", muterId).eq("muted_id", mutedId);
     res.json({ ok: true });
@@ -60909,13 +61258,13 @@ router14.delete("/mute", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.get("/muted", async (req, res) => {
+router15.get("/muted", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data } = await sb.from("muted_users").select("muted_id").eq("muter_id", userId);
     res.json({ mutedIds: (data ?? []).map((r) => r.muted_id) });
@@ -60923,13 +61272,13 @@ router14.get("/muted", async (req, res) => {
     res.json({ mutedIds: [] });
   }
 });
-router14.get("/mute-status", async (req, res) => {
+router15.get("/mute-status", async (req, res) => {
   const { muterId, mutedId } = req.query;
   if (!muterId || !mutedId) {
     res.json({ muted: false });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data } = await sb.from("muted_users").select("id").eq("muter_id", muterId).eq("muted_id", mutedId).maybeSingle();
     res.json({ muted: !!data });
@@ -60937,13 +61286,13 @@ router14.get("/mute-status", async (req, res) => {
     res.json({ muted: false });
   }
 });
-router14.get("/close-friends", async (req, res) => {
+router15.get("/close-friends", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data } = await sb.from("close_friends").select("friend_id, profiles!close_friends_friend_id_fkey(id, username, avatar_url, is_verified)").eq("user_id", userId).order("created_at", { ascending: false });
     const friends = (data ?? []).map((r) => ({
@@ -60958,13 +61307,13 @@ router14.get("/close-friends", async (req, res) => {
     res.json({ friends: [] });
   }
 });
-router14.post("/close-friends", async (req, res) => {
+router15.post("/close-friends", async (req, res) => {
   const { userId, friendId } = req.body;
   if (!userId || !friendId) {
     res.status(400).json({ error: "userId and friendId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     await sb.from("close_friends").upsert(
       { user_id: userId, friend_id: friendId },
@@ -60976,13 +61325,13 @@ router14.post("/close-friends", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.delete("/close-friends", async (req, res) => {
+router15.delete("/close-friends", async (req, res) => {
   const { userId, friendId } = req.body;
   if (!userId || !friendId) {
     res.status(400).json({ error: "userId and friendId required" });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     await sb.from("close_friends").delete().eq("user_id", userId).eq("friend_id", friendId);
     res.json({ ok: true });
@@ -60991,13 +61340,13 @@ router14.delete("/close-friends", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router14.get("/mutuals", async (req, res) => {
+router15.get("/mutuals", async (req, res) => {
   const { viewerId, targetId } = req.query;
   if (!viewerId || !targetId) {
     res.json({ mutuals: [], count: 0 });
     return;
   }
-  const sb = makeSupabase9();
+  const sb = makeSupabase11();
   try {
     const { data: viewerFollowing } = await sb.from("follows").select("following_id").eq("follower_id", viewerId);
     const viewerSet = new Set((viewerFollowing ?? []).map((r) => r.following_id));
@@ -61024,12 +61373,12 @@ router14.get("/mutuals", async (req, res) => {
     res.json({ mutuals: [], count: 0 });
   }
 });
-var social_default = router14;
+var social_default = router15;
 
 // src/routes/users/notifications.ts
-var import_express15 = __toESM(require_express2(), 1);
-var router15 = (0, import_express15.Router)();
-function makeSupabase10() {
+var import_express16 = __toESM(require_express2(), 1);
+var router16 = (0, import_express16.Router)();
+function makeSupabase12() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -61046,13 +61395,13 @@ function timeAgoShort(iso) {
   if (d < 7) return `${d}d`;
   return `${Math.floor(d / 7)}w`;
 }
-router15.get("/:userId", async (req, res) => {
+router16.get("/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase10();
+  const sb = makeSupabase12();
   try {
     const { data, error } = await sb.from("notifications").select("*").eq("recipient_id", userId).order("created_at", { ascending: false }).limit(50);
     if (error) {
@@ -61091,9 +61440,9 @@ router15.get("/:userId", async (req, res) => {
     res.json({ notifications: [] });
   }
 });
-router15.patch("/:notifId/read", async (req, res) => {
+router16.patch("/:notifId/read", async (req, res) => {
   const { notifId } = req.params;
-  const sb = makeSupabase10();
+  const sb = makeSupabase12();
   try {
     await sb.from("notifications").update({ is_read: true }).eq("id", notifId);
     res.json({ ok: true });
@@ -61102,9 +61451,9 @@ router15.patch("/:notifId/read", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router15.patch("/read-all/:userId", async (req, res) => {
+router16.patch("/read-all/:userId", async (req, res) => {
   const { userId } = req.params;
-  const sb = makeSupabase10();
+  const sb = makeSupabase12();
   try {
     await sb.from("notifications").update({ is_read: true }).eq("recipient_id", userId).eq("is_read", false);
     res.json({ ok: true });
@@ -61113,13 +61462,13 @@ router15.patch("/read-all/:userId", async (req, res) => {
     res.json({ ok: false });
   }
 });
-var notifications_default = router15;
+var notifications_default = router16;
 
 // src/routes/engage.ts
-var import_express16 = __toESM(require_express2(), 1);
-var router16 = (0, import_express16.Router)();
+var import_express17 = __toESM(require_express2(), 1);
+var router17 = (0, import_express17.Router)();
 var bumpAffinityRpcAvailable = true;
-function makeSupabase11() {
+function makeSupabase13() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -61134,7 +61483,7 @@ var DELTAS = {
   skip: -0.2,
   hide: -1.5
 };
-router16.post("/", async (req, res) => {
+router17.post("/", async (req, res) => {
   const { userId, creatorId, action, contentId, contentType } = req.body;
   if (!userId || !creatorId || !action) {
     res.status(400).json({ error: "userId, creatorId, action required" });
@@ -61149,8 +61498,8 @@ router16.post("/", async (req, res) => {
     res.status(400).json({ error: `Unknown action: ${action}` });
     return;
   }
-  const sb = makeSupabase11();
-  if ((action === "like" || action === "repost") && contentId && contentType === "post") {
+  const sb = makeSupabase13();
+  if (action === "like" && contentId && contentType === "post") {
     void (async () => {
       try {
         const { data: existing } = await sb.from("notifications").select("id").eq("recipient_id", creatorId).eq("sender_id", userId).eq("type", action).eq("post_id", contentId).maybeSingle();
@@ -61161,7 +61510,7 @@ router16.post("/", async (req, res) => {
             recipient_id: creatorId,
             sender_id: userId,
             type: action,
-            message: action === "like" ? "liked your post" : "reposted your post",
+            message: "liked your post",
             post_id: contentId,
             thumbnail_url: thumbnailUrl,
             is_read: false
@@ -61171,12 +61520,11 @@ router16.post("/", async (req, res) => {
       }
       const { data: actor } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
       const name = actor?.username ?? "Someone";
-      const prefKey = action === "like" ? "notif_likes" : "notif_reposts";
       void sendPushToUser(sb, creatorId, {
-        title: action === "like" ? "New Like" : "New Repost",
-        body: action === "like" ? `@${name} liked your post` : `@${name} reposted your post`,
+        title: "New Like",
+        body: `@${name} liked your post`,
         data: { type: action, actorId: userId, postId: contentId }
-      }, prefKey);
+      }, "notif_likes");
     })();
   }
   async function bumpAffinity(key, d) {
@@ -61223,12 +61571,12 @@ router16.post("/", async (req, res) => {
     res.json({ ok: true });
   }
 });
-var engage_default = router16;
+var engage_default = router17;
 
 // src/routes/messages.ts
-var import_express17 = __toESM(require_express2(), 1);
-var router17 = (0, import_express17.Router)();
-function makeSupabase12() {
+var import_express18 = __toESM(require_express2(), 1);
+var router18 = (0, import_express18.Router)();
+function makeSupabase14() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -61242,13 +61590,13 @@ function normalise(row) {
   }
   return out;
 }
-router17.get("/", async (req, res) => {
+router18.get("/", async (req, res) => {
   const { myId, otherId, limit = "100" } = req.query;
   if (!myId || !otherId) {
     res.status(400).json({ error: "myId and otherId required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   const { data, error } = await sb.from("messages").select("*").or(
     `and(sender_id.eq.${myId},receiver_id.eq.${otherId}),and(sender_id.eq.${otherId},receiver_id.eq.${myId})`
   ).order("created_at", { ascending: true }).limit(parseInt(limit, 10));
@@ -61258,13 +61606,13 @@ router17.get("/", async (req, res) => {
   }
   res.json({ messages: (data ?? []).map(normalise) });
 });
-router17.post("/", async (req, res) => {
+router18.post("/", async (req, res) => {
   const { senderId, receiverId, text } = req.body;
   if (!senderId || !receiverId || !text) {
     res.status(400).json({ error: "senderId, receiverId, and text required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   const [b1, b2] = await Promise.all([
     sb.from("blocks").select("id").eq("blocker_id", senderId).eq("blocked_id", receiverId).maybeSingle(),
     sb.from("blocks").select("id").eq("blocker_id", receiverId).eq("blocked_id", senderId).maybeSingle()
@@ -61320,13 +61668,13 @@ router17.post("/", async (req, res) => {
   })();
   res.json({ message: normalise(data) });
 });
-router17.patch("/read", async (req, res) => {
+router18.patch("/read", async (req, res) => {
   const { myId, otherId } = req.body;
   if (!myId || !otherId) {
     res.status(400).json({ error: "myId and otherId required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     await sb.from("messages").update({ read_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("sender_id", otherId).eq("receiver_id", myId).is("read_at", null);
     res.json({ ok: true });
@@ -61335,14 +61683,14 @@ router17.patch("/read", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router17.patch("/:id", async (req, res) => {
+router18.patch("/:id", async (req, res) => {
   const { id } = req.params;
   const { content } = req.body;
   if (!id || !content) {
     res.status(400).json({ error: "id and content required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { error } = await sb.from("messages").update({ content }).eq("id", id);
     if (error) {
@@ -61354,13 +61702,13 @@ router17.patch("/:id", async (req, res) => {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
 });
-router17.get("/snaps", async (req, res) => {
+router18.get("/snaps", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { data, error } = await sb.from("messages").select("*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)").or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).like("content", "__SNAP__%").order("created_at", { ascending: false }).limit(200);
     if (error) {
@@ -61387,13 +61735,13 @@ router17.get("/snaps", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router17.get("/conversations", async (req, res) => {
+router18.get("/conversations", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   const [msgRes, unreadRes] = await Promise.all([
     sb.from("messages").select(
       "*, sender:sender_id(id, username, avatar_url), receiver:receiver_id(id, username, avatar_url)"
@@ -61434,13 +61782,13 @@ router17.get("/conversations", async (req, res) => {
   }
   res.json({ conversations: convos });
 });
-router17.post("/react", async (req, res) => {
+router18.post("/react", async (req, res) => {
   const { messageId, userId, emoji } = req.body;
   if (!messageId || !userId || !emoji) {
     res.status(400).json({ error: "messageId, userId, emoji required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { data: existing } = await sb.from("message_reactions").select("id, emoji").eq("message_id", messageId).eq("user_id", userId).maybeSingle();
     if (existing) {
@@ -61460,7 +61808,7 @@ router17.post("/react", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router17.get("/reactions", async (req, res) => {
+router18.get("/reactions", async (req, res) => {
   const { messageIds } = req.query;
   if (!messageIds) {
     res.json({ reactions: {} });
@@ -61471,7 +61819,7 @@ router17.get("/reactions", async (req, res) => {
     res.json({ reactions: {} });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { data } = await sb.from("message_reactions").select("message_id, user_id, emoji").in("message_id", ids);
     const grouped = {};
@@ -61484,13 +61832,13 @@ router17.get("/reactions", async (req, res) => {
     res.json({ reactions: {} });
   }
 });
-router17.post("/activity", async (req, res) => {
+router18.post("/activity", async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     await sb.from("profiles").update({ last_active_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", userId);
     res.json({ ok: true });
@@ -61499,13 +61847,13 @@ router17.post("/activity", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router17.get("/requests", async (req, res) => {
+router18.get("/requests", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ conversations: [] });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { data, error } = await sb.from("conversations").select(
       "id, last_message, last_message_at, created_at, unread_count_1, unread_count_2, user1_id, user2_id, is_request, user1:profiles!conversations_user1_id_fkey(id, username, avatar_url), user2:profiles!conversations_user2_id_fkey(id, username, avatar_url)"
@@ -61517,9 +61865,9 @@ router17.get("/requests", async (req, res) => {
     res.json({ conversations: [] });
   }
 });
-router17.patch("/conversations/:id/accept", async (req, res) => {
+router18.patch("/conversations/:id/accept", async (req, res) => {
   const { id } = req.params;
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { error } = await sb.from("conversations").update({ is_request: false }).eq("id", id);
     if (error) throw error;
@@ -61529,9 +61877,9 @@ router17.patch("/conversations/:id/accept", async (req, res) => {
     res.status(500).json({ error: "Failed to accept request" });
   }
 });
-router17.delete("/conversations/:id", async (req, res) => {
+router18.delete("/conversations/:id", async (req, res) => {
   const { id } = req.params;
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { error } = await sb.from("conversations").delete().eq("id", id);
     if (error) throw error;
@@ -61541,13 +61889,13 @@ router17.delete("/conversations/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete conversation" });
   }
 });
-router17.get("/activity", async (req, res) => {
+router18.get("/activity", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ lastActiveAt: null });
     return;
   }
-  const sb = makeSupabase12();
+  const sb = makeSupabase14();
   try {
     const { data } = await sb.from("profiles").select("last_active_at").eq("id", userId).maybeSingle();
     res.json({ lastActiveAt: data?.last_active_at ?? null });
@@ -61555,23 +61903,23 @@ router17.get("/activity", async (req, res) => {
     res.json({ lastActiveAt: null });
   }
 });
-var messages_default = router17;
+var messages_default = router18;
 
 // src/routes/users/setup.ts
-var import_express18 = __toESM(require_express2(), 1);
-var router18 = (0, import_express18.Router)();
-function makeSupabase13() {
+var import_express19 = __toESM(require_express2(), 1);
+var router19 = (0, import_express19.Router)();
+function makeSupabase15() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router18.post("/setup", async (req, res) => {
+router19.post("/setup", async (req, res) => {
   const { userId, username, email } = req.body;
   if (!userId || !username) {
     res.status(400).json({ error: "userId and username required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   const results = await Promise.allSettled([
     sb.from("profiles").upsert(
       { id: userId, username, show_in_matching: true },
@@ -61597,7 +61945,7 @@ router18.post("/setup", async (req, res) => {
   }
   res.json({ ok: true });
 });
-router18.patch("/profile", async (req, res) => {
+router19.patch("/profile", async (req, res) => {
   const { userId, ...patch } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -61641,7 +61989,7 @@ router18.patch("/profile", async (req, res) => {
     res.status(400).json({ error: "No valid profile fields provided" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   const { error } = await sb.from("profiles").update(safe).eq("id", userId);
   if (error) {
     req.log.error({ err: error.message }, "profile patch error");
@@ -61650,7 +61998,7 @@ router18.patch("/profile", async (req, res) => {
   }
   res.json({ ok: true });
 });
-router18.patch("/settings", async (req, res) => {
+router19.patch("/settings", async (req, res) => {
   const { userId, ...patch } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -61675,7 +62023,7 @@ router18.patch("/settings", async (req, res) => {
     res.status(400).json({ error: "No valid settings fields provided" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   const { error } = await sb.from("user_settings").upsert(
     { user_id: userId, ...safe, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
     { onConflict: "user_id" }
@@ -61687,13 +62035,13 @@ router18.patch("/settings", async (req, res) => {
   }
   res.json({ ok: true });
 });
-router18.post("/push-token", async (req, res) => {
+router19.post("/push-token", async (req, res) => {
   const { userId, token } = req.body;
   if (!userId || !token) {
     res.status(400).json({ error: "userId and token required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   try {
     await sb.from("profiles").update({ push_token: token }).eq("id", userId);
     res.json({ ok: true });
@@ -61702,13 +62050,13 @@ router18.post("/push-token", async (req, res) => {
     res.status(500).json({ error: "Failed to save token" });
   }
 });
-router18.get("/vibe-profile/:userId", async (req, res) => {
+router19.get("/vibe-profile/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   const { data, error } = await sb.from("profiles").select([
     "show_in_matching",
     "find_gundruk_mode",
@@ -61741,13 +62089,13 @@ router18.get("/vibe-profile/:userId", async (req, res) => {
   }
   res.json({ profile: data ?? null });
 });
-router18.get("/settings/:userId", async (req, res) => {
+router19.get("/settings/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   const { data, error } = await sb.from("user_settings").select("*").eq("user_id", userId).maybeSingle();
   if (error) {
     req.log.error({ err: error.message }, "get settings error");
@@ -61756,13 +62104,13 @@ router18.get("/settings/:userId", async (req, res) => {
   }
   res.json({ settings: data ?? null });
 });
-router18.get("/stats", async (req, res) => {
+router19.get("/stats", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   try {
     const [postsRes, reelsRes, followersRes, followingRes, postSumsRes] = await Promise.allSettled([
       sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", userId),
@@ -61790,13 +62138,13 @@ router18.get("/stats", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router18.get("/photos", async (req, res) => {
+router19.get("/photos", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   try {
     const [postsRes, profileRes] = await Promise.all([
       sb.from("posts").select("media_url").eq("user_id", userId).not("media_url", "is", null).order("created_at", { ascending: false }).limit(30),
@@ -61815,13 +62163,13 @@ router18.get("/photos", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch photos" });
   }
 });
-router18.delete("/account", async (req, res) => {
+router19.delete("/account", async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase13();
+  const sb = makeSupabase15();
   req.log.info({ userId }, "delete account: starting");
   try {
     await Promise.allSettled([
@@ -61858,18 +62206,18 @@ router18.delete("/account", async (req, res) => {
     res.status(500).json({ error: "Failed to delete account. Please try again." });
   }
 });
-var setup_default2 = router18;
+var setup_default2 = router19;
 
 // src/routes/moderation.ts
-var import_express19 = __toESM(require_express2(), 1);
-var router19 = (0, import_express19.Router)();
-function makeSupabase14() {
+var import_express20 = __toESM(require_express2(), 1);
+var router20 = (0, import_express20.Router)();
+function makeSupabase16() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router19.post("/report", async (req, res) => {
-  const { reporterId, targetType, targetId, reason, details } = req.body;
+router20.post("/report", async (req, res) => {
+  const { reporterId, targetType, targetId, reason, details, report_category, report_reason } = req.body;
   if (!reporterId || !targetType || !targetId || !reason) {
     res.status(400).json({ error: "reporterId, targetType, targetId, reason required" });
     return;
@@ -61879,7 +62227,10 @@ router19.post("/report", async (req, res) => {
     res.status(400).json({ error: "targetType must be one of: " + validTypes.join(", ") });
     return;
   }
-  const sb = makeSupabase14();
+  const validCategories = ["sexual_content", "violence", "hate_speech", "harassment", "spam", "impersonation", "self_harm", "other"];
+  const safeCategory = report_category && validCategories.includes(report_category) ? report_category : null;
+  const safeReason = report_reason ? report_reason.slice(0, 500) : null;
+  const sb = makeSupabase16();
   try {
     const { error } = await sb.from("reports").insert({
       reporter_id: reporterId,
@@ -61887,14 +62238,18 @@ router19.post("/report", async (req, res) => {
       target_id: targetId,
       reason,
       details: details ?? null,
-      status: "pending"
+      status: "pending",
+      report_category: safeCategory,
+      report_reason: safeReason
     });
     if (error) {
       await sb.from("content_reports").insert({
         reporter_id: reporterId,
         content_id: targetId,
         content_type: targetType,
-        reason
+        reason,
+        report_category: safeCategory,
+        report_reason: safeReason
       });
     }
     res.json({ ok: true });
@@ -61903,7 +62258,7 @@ router19.post("/report", async (req, res) => {
     res.status(500).json({ error: "Failed to submit report" });
   }
 });
-router19.post("/block", async (req, res) => {
+router20.post("/block", async (req, res) => {
   const { blockerId, blockedId } = req.body;
   if (!blockerId || !blockedId) {
     res.status(400).json({ error: "blockerId and blockedId required" });
@@ -61913,7 +62268,7 @@ router19.post("/block", async (req, res) => {
     res.status(400).json({ error: "Cannot block yourself" });
     return;
   }
-  const sb = makeSupabase14();
+  const sb = makeSupabase16();
   try {
     await Promise.all([
       // Insert block record
@@ -61936,13 +62291,13 @@ router19.post("/block", async (req, res) => {
     res.status(500).json({ error: "Failed to block user" });
   }
 });
-router19.delete("/block", async (req, res) => {
+router20.delete("/block", async (req, res) => {
   const { blockerId, blockedId } = req.body;
   if (!blockerId || !blockedId) {
     res.status(400).json({ error: "blockerId and blockedId required" });
     return;
   }
-  const sb = makeSupabase14();
+  const sb = makeSupabase16();
   try {
     await sb.from("blocks").delete().eq("blocker_id", blockerId).eq("blocked_id", blockedId);
     res.json({ ok: true });
@@ -61951,14 +62306,14 @@ router19.delete("/block", async (req, res) => {
     res.status(500).json({ error: "Failed to unblock user" });
   }
 });
-router19.get("/reports", async (req, res) => {
+router20.get("/reports", async (req, res) => {
   const adminSecret = req.headers["x-admin-secret"];
   const expected = process.env["ADMIN_SECRET"] ?? "gundruk-admin-2024";
   if (adminSecret !== expected) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
-  const sb = makeSupabase14();
+  const sb = makeSupabase16();
   try {
     const { data, error } = await sb.from("reports").select("*").order("created_at", { ascending: false }).limit(100);
     if (error) {
@@ -61972,7 +62327,7 @@ router19.get("/reports", async (req, res) => {
     res.json({ reports: [] });
   }
 });
-router19.patch("/reports/:id", async (req, res) => {
+router20.patch("/reports/:id", async (req, res) => {
   const adminSecret = req.headers["x-admin-secret"];
   const expected = process.env["ADMIN_SECRET"] ?? "gundruk-admin-2024";
   if (adminSecret !== expected) {
@@ -61985,7 +62340,7 @@ router19.patch("/reports/:id", async (req, res) => {
     res.status(400).json({ error: "status required" });
     return;
   }
-  const sb = makeSupabase14();
+  const sb = makeSupabase16();
   try {
     await sb.from("reports").update({ status, reviewed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id);
     res.json({ ok: true });
@@ -61994,13 +62349,13 @@ router19.patch("/reports/:id", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router19.post("/restrict", async (req, res) => {
+router20.post("/restrict", async (req, res) => {
   const { myId, theirId } = req.body;
   if (!myId || !theirId) {
     res.status(400).json({ error: "myId and theirId required" });
     return;
   }
-  const sb = makeSupabase14();
+  const sb = makeSupabase16();
   try {
     await sb.from("restricted_users").upsert(
       { restrictor_id: myId, restricted_id: theirId },
@@ -62012,13 +62367,13 @@ router19.post("/restrict", async (req, res) => {
     res.status(500).json({ error: "Failed to restrict user" });
   }
 });
-router19.delete("/restrict", async (req, res) => {
+router20.delete("/restrict", async (req, res) => {
   const { myId, theirId } = req.body;
   if (!myId || !theirId) {
     res.status(400).json({ error: "myId and theirId required" });
     return;
   }
-  const sb = makeSupabase14();
+  const sb = makeSupabase16();
   try {
     await sb.from("restricted_users").delete().eq("restrictor_id", myId).eq("restricted_id", theirId);
     res.json({ ok: true });
@@ -62027,13 +62382,13 @@ router19.delete("/restrict", async (req, res) => {
     res.status(500).json({ error: "Failed to unrestrict user" });
   }
 });
-var moderation_default = router19;
+var moderation_default = router20;
 
 // src/routes/did.ts
-var import_express20 = __toESM(require_express2(), 1);
-var router20 = (0, import_express20.Router)();
+var import_express21 = __toESM(require_express2(), 1);
+var router21 = (0, import_express21.Router)();
 var DID_API_KEY = "cHJha2FzaGFyeWFsMjEwQGdtYWlsLmNvbTpzQTdSU0FpN0ZSdmpuZHlSR2dic0E=";
-router20.post("/create", async (req, res) => {
+router21.post("/create", async (req, res) => {
   try {
     const { script, avatar_url, voice_id } = req.body;
     const response = await fetch("https://api.d-id.com/talks", {
@@ -62061,7 +62416,7 @@ router20.post("/create", async (req, res) => {
     res.status(500).json({ error: "Failed to create video" });
   }
 });
-router20.get("/status/:id", async (req, res) => {
+router21.get("/status/:id", async (req, res) => {
   try {
     const response = await fetch(`https://api.d-id.com/talks/${req.params.id}`, {
       headers: { "Authorization": `Basic ${DID_API_KEY}` }
@@ -62072,17 +62427,17 @@ router20.get("/status/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to check status" });
   }
 });
-var did_default = router20;
+var did_default = router21;
 
 // src/routes/stories.ts
-var import_express21 = __toESM(require_express2(), 1);
-var router21 = (0, import_express21.Router)();
-function makeSupabase15() {
+var import_express22 = __toESM(require_express2(), 1);
+var router22 = (0, import_express22.Router)();
+function makeSupabase17() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router21.post("/", async (req, res) => {
+router22.post("/", async (req, res) => {
   const {
     userId,
     mediaUrl,
@@ -62099,7 +62454,7 @@ router21.post("/", async (req, res) => {
     res.status(400).json({ error: "userId is required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   let finalMediaUrl = mediaUrl ?? null;
   if (imageBase64 && mimeType && ext) {
     const filename = `stories/${userId}/${Date.now()}.${ext}`;
@@ -62141,13 +62496,13 @@ router21.post("/", async (req, res) => {
   }
   res.status(201).json({ id: data.id, mediaUrl: finalMediaUrl });
 });
-router21.get("/", async (req, res) => {
+router22.get("/", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
   const [followingRes, mutedRes, cfRes] = await Promise.allSettled([
     supabase.from("follows").select("following_id").eq("follower_id", userId),
@@ -62195,13 +62550,13 @@ router21.get("/", async (req, res) => {
   }
   res.json({ stories });
 });
-router21.get("/check", async (req, res) => {
+router22.get("/check", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
   const { data, error } = await supabase.from("stories").select("id, story_type, text_content, bg_gradient, caption").eq("user_id", userId).gt("created_at", cutoff).order("created_at", { ascending: false }).limit(1).single();
   if (error || !data) {
@@ -62217,14 +62572,14 @@ router21.get("/check", async (req, res) => {
     caption: data.caption ?? void 0
   });
 });
-router21.post("/:storyId/react", async (req, res) => {
+router22.post("/:storyId/react", async (req, res) => {
   const { storyId } = req.params;
   const { userId, emoji } = req.body;
   if (!userId || !emoji || !storyId) {
     res.status(400).json({ error: "userId, emoji, and storyId are required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const { error } = await supabase.from("story_reactions").upsert(
     { story_id: storyId, user_id: userId, emoji, created_at: (/* @__PURE__ */ new Date()).toISOString() },
     { onConflict: "story_id,user_id" }
@@ -62236,14 +62591,14 @@ router21.post("/:storyId/react", async (req, res) => {
   }
   res.json({ ok: true });
 });
-router21.get("/:storyId/reactions", async (req, res) => {
+router22.get("/:storyId/reactions", async (req, res) => {
   const { storyId } = req.params;
   const userId = req.query["userId"];
   if (!userId || !storyId) {
     res.status(400).json({ error: "userId is required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const { data: storyRow } = await supabase.from("stories").select("user_id").eq("id", storyId).single();
   if (!storyRow || storyRow.user_id !== userId) {
     res.status(403).json({ error: "Not the story owner" });
@@ -62257,14 +62612,14 @@ router21.get("/:storyId/reactions", async (req, res) => {
   }
   res.json({ reactions: data ?? [] });
 });
-router21.post("/:storyId/view", async (req, res) => {
+router22.post("/:storyId/view", async (req, res) => {
   const { storyId } = req.params;
   const { userId } = req.body;
   if (!userId || !storyId) {
     res.status(400).json({ error: "userId and storyId are required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const { error } = await supabase.from("story_views").upsert(
     { story_id: storyId, viewer_id: userId, viewed_at: (/* @__PURE__ */ new Date()).toISOString() },
     { onConflict: "story_id,viewer_id" }
@@ -62276,14 +62631,14 @@ router21.post("/:storyId/view", async (req, res) => {
   }
   res.json({ ok: true });
 });
-router21.get("/:storyId/insights", async (req, res) => {
+router22.get("/:storyId/insights", async (req, res) => {
   const { storyId } = req.params;
   const userId = req.query["userId"];
   if (!userId || !storyId) {
     res.status(400).json({ error: "userId is required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const { data: storyRow } = await supabase.from("stories").select("user_id").eq("id", storyId).single();
   if (!storyRow || storyRow.user_id !== userId) {
     res.status(403).json({ error: "Not the story owner" });
@@ -62314,10 +62669,10 @@ router21.get("/:storyId/insights", async (req, res) => {
     reaction_count: reactionMap.size
   });
 });
-router21.get("/active-user-ids", async (req, res) => {
+router22.get("/active-user-ids", async (req, res) => {
   const { userId, since } = req.query;
   const expiry = since ?? (/* @__PURE__ */ new Date()).toISOString();
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     let q = supabase.from("stories").select("user_id").gt("expires_at", expiry);
     if (userId) q = q.neq("user_id", userId);
@@ -62329,13 +62684,13 @@ router21.get("/active-user-ids", async (req, res) => {
     res.json({ userIds: [] });
   }
 });
-router21.get("/my", async (req, res) => {
+router22.get("/my", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ stories: [] });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { data } = await supabase.from("stories").select("id, media_url, caption, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(100);
     res.json({ stories: data ?? [] });
@@ -62344,13 +62699,13 @@ router21.get("/my", async (req, res) => {
     res.json({ stories: [] });
   }
 });
-router21.get("/highlights", async (req, res) => {
+router22.get("/highlights", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ highlights: [] });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { data, error } = await supabase.from("story_highlights").select("id, user_id, title, cover_url, stories_count, created_at").eq("user_id", userId).order("created_at", { ascending: false });
     if (error) throw error;
@@ -62360,13 +62715,13 @@ router21.get("/highlights", async (req, res) => {
     res.json({ highlights: [] });
   }
 });
-router21.post("/highlights", async (req, res) => {
+router22.post("/highlights", async (req, res) => {
   const { userId, title, coverUrl } = req.body;
   if (!userId || !title) {
     res.status(400).json({ error: "userId and title required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { data, error } = await supabase.from("story_highlights").insert({ user_id: userId, title, cover_url: coverUrl ?? null }).select("id, user_id, title, cover_url, stories_count, created_at").single();
     if (error) throw error;
@@ -62376,9 +62731,9 @@ router21.post("/highlights", async (req, res) => {
     res.status(500).json({ error: "Failed to create highlight" });
   }
 });
-router21.delete("/highlights/:id", async (req, res) => {
+router22.delete("/highlights/:id", async (req, res) => {
   const { id } = req.params;
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { error } = await supabase.from("story_highlights").delete().eq("id", id);
     if (error) throw error;
@@ -62388,9 +62743,9 @@ router21.delete("/highlights/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to delete highlight" });
   }
 });
-router21.get("/highlights/:id/stories", async (req, res) => {
+router22.get("/highlights/:id/stories", async (req, res) => {
   const { id } = req.params;
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { data, error } = await supabase.from("highlight_stories").select("story_id, stories(id, media_url, caption, created_at)").eq("highlight_id", id).order("id", { ascending: true });
     if (error) throw error;
@@ -62401,14 +62756,14 @@ router21.get("/highlights/:id/stories", async (req, res) => {
     res.json({ stories: [] });
   }
 });
-router21.post("/highlights/:id/stories", async (req, res) => {
+router22.post("/highlights/:id/stories", async (req, res) => {
   const { id } = req.params;
   const { storyId } = req.body;
   if (!storyId) {
     res.status(400).json({ error: "storyId required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { error } = await supabase.from("highlight_stories").upsert({ highlight_id: id, story_id: storyId }, { onConflict: "highlight_id,story_id" });
     res.json({ ok: !error });
@@ -62417,9 +62772,9 @@ router21.post("/highlights/:id/stories", async (req, res) => {
     res.status(500).json({ error: "Failed to add story to highlight" });
   }
 });
-router21.delete("/highlights/:id/stories/:storyId", async (req, res) => {
+router22.delete("/highlights/:id/stories/:storyId", async (req, res) => {
   const { id, storyId } = req.params;
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { error } = await supabase.from("highlight_stories").delete().eq("highlight_id", id).eq("story_id", storyId);
     res.json({ ok: !error });
@@ -62428,13 +62783,13 @@ router21.delete("/highlights/:id/stories/:storyId", async (req, res) => {
     res.status(500).json({ error: "Failed to remove story from highlight" });
   }
 });
-router21.post("/interaction", async (req, res) => {
+router22.post("/interaction", async (req, res) => {
   const { storyId, userId, interactionType, response } = req.body;
   if (!storyId || !userId || !interactionType) {
     res.status(400).json({ error: "storyId, userId, interactionType required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   try {
     const { error } = await supabase.from("story_interactions").insert({
       story_id: storyId,
@@ -62449,14 +62804,14 @@ router21.post("/interaction", async (req, res) => {
     res.status(500).json({ error: "Failed to save interaction" });
   }
 });
-router21.delete("/:storyId", async (req, res) => {
+router22.delete("/:storyId", async (req, res) => {
   const { storyId } = req.params;
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
     return;
   }
-  const supabase = makeSupabase15();
+  const supabase = makeSupabase17();
   const { error } = await supabase.from("stories").delete().eq("id", storyId).eq("user_id", userId);
   if (error) {
     res.status(500).json({ error: error.message });
@@ -62464,12 +62819,12 @@ router21.delete("/:storyId", async (req, res) => {
   }
   res.json({ ok: true });
 });
-var stories_default = router21;
+var stories_default = router22;
 
 // src/routes/comments.ts
-var import_express22 = __toESM(require_express2(), 1);
-var router22 = (0, import_express22.Router)();
-function makeSupabase16() {
+var import_express23 = __toESM(require_express2(), 1);
+var router23 = (0, import_express23.Router)();
+function makeSupabase18() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -62521,13 +62876,13 @@ function checkProfanity(text) {
   }
   return { ok: true };
 }
-router22.get("/", async (req, res) => {
+router23.get("/", async (req, res) => {
   const { postId, reelId } = req.query;
   if (!postId && !reelId) {
     res.status(400).json({ error: "postId or reelId required" });
     return;
   }
-  const sb = makeSupabase16();
+  const sb = makeSupabase18();
   try {
     if (reelId) {
       const { data: rpcData, error: rpcErr } = await sb.rpc("get_reel_comments", {
@@ -62572,7 +62927,7 @@ router22.get("/", async (req, res) => {
     res.json({ comments: [] });
   }
 });
-router22.post("/", async (req, res) => {
+router23.post("/", async (req, res) => {
   const { userId, postId, reelId, text, contentType, parentCommentId } = req.body;
   if (!userId || !text?.trim() || !contentType) {
     res.status(400).json({ error: "userId, text, and contentType required" });
@@ -62591,7 +62946,13 @@ router22.post("/", async (req, res) => {
     res.status(422).json({ error: pf.reason });
     return;
   }
-  const sb = makeSupabase16();
+  const textScan = await checkCaptionText(text);
+  if (!textScan.safe) {
+    void logRejection(userId, null, "comment", textScan.reason);
+    res.status(400).json({ error: "Your comment violates our community guidelines" });
+    return;
+  }
+  const sb = makeSupabase18();
   const contentId = contentType === "post" ? postId : reelId;
   const ownerTable = contentType === "post" ? "posts" : "reels";
   try {
@@ -62742,13 +63103,13 @@ router22.post("/", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router22.post("/like", async (req, res) => {
+router23.post("/like", async (req, res) => {
   const { userId, commentId, contentType } = req.body;
   if (!userId || !commentId) {
     res.status(400).json({ error: "userId and commentId required" });
     return;
   }
-  const sb = makeSupabase16();
+  const sb = makeSupabase18();
   const isReel = contentType === "reel";
   const likesTable = isReel ? "reel_comment_likes" : "comment_likes";
   const commentsTable = isReel ? "reel_comments" : "comments";
@@ -62768,7 +63129,7 @@ router22.post("/like", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router22.get("/liked", async (req, res) => {
+router23.get("/liked", async (req, res) => {
   const { userId, commentIds, contentType } = req.query;
   if (!userId || !commentIds) {
     res.json({ likedIds: [] });
@@ -62779,7 +63140,7 @@ router22.get("/liked", async (req, res) => {
     res.json({ likedIds: [] });
     return;
   }
-  const sb = makeSupabase16();
+  const sb = makeSupabase18();
   const table = contentType === "reel" ? "reel_comment_likes" : "comment_likes";
   try {
     const { data } = await sb.from(table).select("comment_id").eq("user_id", userId).in("comment_id", ids);
@@ -62788,22 +63149,22 @@ router22.get("/liked", async (req, res) => {
     res.json({ likedIds: [] });
   }
 });
-var comments_default = router22;
+var comments_default = router23;
 
 // src/routes/storage.ts
-var import_express23 = __toESM(require_express2(), 1);
-var router23 = (0, import_express23.Router)();
-function makeSupabase17() {
+var import_express24 = __toESM(require_express2(), 1);
+var router24 = (0, import_express24.Router)();
+function makeSupabase19() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router23.post("/snap", async (req, res) => {
+router24.post("/snap", async (req, res) => {
   const { base64, userId, mimeType = "image/jpeg" } = req.body;
   if (!base64 || !userId) {
     return res.status(400).json({ error: "base64 and userId are required" });
   }
-  const sb = makeSupabase17();
+  const sb = makeSupabase19();
   const ext = mimeType.includes("png") ? "png" : mimeType.includes("quicktime") || mimeType === "video/mov" ? "mov" : mimeType.includes("webm") ? "webm" : mimeType.startsWith("video/") ? "mp4" : "jpg";
   const fileName = `${userId}/${Date.now()}.${ext}`;
   const buffer = Buffer.from(base64, "base64");
@@ -62815,12 +63176,12 @@ router23.post("/snap", async (req, res) => {
   const { data: urlData } = sb.storage.from("snaps").getPublicUrl(fileName);
   return res.json({ url: urlData.publicUrl });
 });
-router23.post("/avatar", async (req, res) => {
+router24.post("/avatar", async (req, res) => {
   const { base64, userId, mimeType = "image/jpeg" } = req.body;
   if (!base64 || !userId) {
     return res.status(400).json({ error: "base64 and userId are required" });
   }
-  const sb = makeSupabase17();
+  const sb = makeSupabase19();
   const ext = mimeType.includes("png") ? "png" : "jpg";
   const path = `${userId}/avatar.${ext}`;
   const buffer = Buffer.from(base64, "base64");
@@ -62832,12 +63193,12 @@ router23.post("/avatar", async (req, res) => {
   const { data: urlData } = sb.storage.from("avatars").getPublicUrl(path);
   return res.json({ url: `${urlData.publicUrl}?t=${Date.now()}` });
 });
-var storage_default = router23;
+var storage_default = router24;
 
 // src/routes/feed.ts
-var import_express24 = __toESM(require_express2(), 1);
-var router24 = (0, import_express24.Router)();
-function makeSupabase18() {
+var import_express25 = __toESM(require_express2(), 1);
+var router25 = (0, import_express25.Router)();
+function makeSupabase20() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -62921,7 +63282,7 @@ var VALID_FEED_CATEGORIES = /* @__PURE__ */ new Set([
   "education",
   "nature"
 ]);
-router24.get("/foryou", async (req, res) => {
+router25.get("/foryou", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -62949,7 +63310,7 @@ router24.get("/foryou", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   if (!contentType) {
     const { data: v2Data, error: v2Err } = await supabase.rpc(
       "get_for_you_feed_v2",
@@ -62990,7 +63351,7 @@ router24.get("/foryou", async (req, res) => {
     source: "fresh"
   });
 });
-router24.get("/friends", async (req, res) => {
+router25.get("/friends", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -62998,7 +63359,7 @@ router24.get("/friends", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   const { data, error } = await supabase.rpc("get_friends_feed", {
     p_user_id: userId,
     p_limit: limit,
@@ -63018,10 +63379,10 @@ router24.get("/friends", async (req, res) => {
     error: error?.message
   });
 });
-router24.get("/reels", async (req, res) => {
+router25.get("/reels", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   if (userId) {
     const { data: v2Data, error: v2Err } = await supabase.rpc(
       "get_for_you_reels_v2",
@@ -63037,14 +63398,14 @@ router24.get("/reels", async (req, res) => {
   const { data: freshReels } = await supabase.from("reels").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("is_archived.eq.false,is_archived.is.null").order("score", { ascending: false }).order("created_at", { ascending: false }).limit(limit);
   res.json({ data: freshReels ?? [], source: "fresh" });
 });
-router24.get("/following-reels", async (req, res) => {
+router25.get("/following-reels", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   const { data, error } = await supabase.rpc("get_following_reels", {
     p_user_id: userId,
     p_limit: limit
@@ -63058,10 +63419,10 @@ router24.get("/following-reels", async (req, res) => {
   }
   res.json({ data: [], source: "empty", error: error?.message });
 });
-router24.get("/trending", async (req, res) => {
+router25.get("/trending", async (req, res) => {
   const limit = Math.min(Number(req.query["limit"] ?? 9), 50);
   const contentType = req.query["content_type"];
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   try {
     const pool = Math.min(limit * 5, 200);
     let query = supabase.from("posts").select("id, media_url, thumbnail_url, likes_count, views_count, is_video").or("is_archived.eq.false,is_archived.is.null").order("views_count", { ascending: false }).limit(pool);
@@ -63086,7 +63447,7 @@ router24.get("/trending", async (req, res) => {
     res.json({ posts: [] });
   }
 });
-router24.get("/following", async (req, res) => {
+router25.get("/following", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63094,7 +63455,7 @@ router24.get("/following", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   const { data, error } = await supabase.rpc("get_following_feed", {
     p_user_id: userId,
     p_limit: limit,
@@ -63111,7 +63472,7 @@ router24.get("/following", async (req, res) => {
   const followingFresh = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({ data: followingFresh, source: "fresh", error: error?.message });
 });
-router24.get("/nearby", async (req, res) => {
+router25.get("/nearby", async (req, res) => {
   const userId = req.query["userId"];
   const lat = parseFloat(req.query["lat"] || "0");
   const lng = parseFloat(req.query["lng"] || "0");
@@ -63121,7 +63482,7 @@ router24.get("/nearby", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   const { data, error } = await supabase.rpc("get_nearby_feed", {
     p_lat: lat,
     p_lng: lng,
@@ -63140,7 +63501,7 @@ router24.get("/nearby", async (req, res) => {
   const nearbyFresh = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({ data: nearbyFresh, source: "fresh", error: error?.message });
 });
-router24.get("/vibes", async (req, res) => {
+router25.get("/vibes", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63148,7 +63509,7 @@ router24.get("/vibes", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   const { data, error } = await supabase.rpc("get_vibes_feed", {
     p_user_id: userId,
     p_limit: limit,
@@ -63165,7 +63526,7 @@ router24.get("/vibes", async (req, res) => {
   const vibesFresh = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({ data: vibesFresh, source: "fresh", error: error?.message });
 });
-router24.get("/personalized", async (req, res) => {
+router25.get("/personalized", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63173,7 +63534,7 @@ router24.get("/personalized", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   try {
     const { data, error } = await supabase.rpc("get_personalized_feed", {
       p_user_id: userId,
@@ -63194,30 +63555,30 @@ router24.get("/personalized", async (req, res) => {
     res.json({ data: [], source: "error" });
   }
 });
-router24.post("/seen", async (req, res) => {
+router25.post("/seen", async (req, res) => {
   const { userId, postId } = req.body;
   if (!userId || !postId) {
     res.status(204).end();
     return;
   }
-  const supabase = makeSupabase18();
+  const supabase = makeSupabase20();
   try {
     await supabase.rpc("mark_post_seen", { p_user_id: userId, p_post_id: postId });
   } catch {
   }
   res.status(204).end();
 });
-var feed_default = router24;
+var feed_default = router25;
 
 // src/routes/vibe.ts
-var import_express25 = __toESM(require_express2(), 1);
-function makeSupabase19() {
+var import_express26 = __toESM(require_express2(), 1);
+function makeSupabase21() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-var router25 = (0, import_express25.Router)();
-router25.post("/swipe", async (req, res) => {
+var router26 = (0, import_express26.Router)();
+router26.post("/swipe", async (req, res) => {
   const { swiperId, targetId, direction } = req.body;
   if (!swiperId || !targetId || !direction) {
     res.status(400).json({ error: "swiperId, targetId, direction required" });
@@ -63227,7 +63588,7 @@ router25.post("/swipe", async (req, res) => {
     res.status(400).json({ error: "Cannot swipe yourself" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     if (direction !== "left") {
       const { data: targetProfile } = await sb.from("profiles").select("vibe_request_privacy").eq("id", targetId).maybeSingle();
@@ -63341,13 +63702,13 @@ router25.post("/swipe", async (req, res) => {
     res.status(500).json({ error: "Failed to record swipe" });
   }
 });
-router25.get("/deck", async (req, res) => {
+router26.get("/deck", async (req, res) => {
   const { userId, lat, lng } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const [settingsRes, profileRes] = await Promise.all([
       sb.from("user_settings").select("vibe_age_min, vibe_age_max, vibe_max_distance_km, vibe_exclude_connections").eq("user_id", userId).maybeSingle(),
@@ -63470,13 +63831,13 @@ router25.get("/deck", async (req, res) => {
     res.status(500).json({ error: "Failed to load deck" });
   }
 });
-router25.get("/swiped", async (req, res) => {
+router26.get("/swiped", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ targetIds: [] });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const { data } = await sb.from("vibe_swipes").select("target_id").eq("user_id", userId);
     res.json({ targetIds: (data ?? []).map((r) => r.target_id) });
@@ -63484,7 +63845,7 @@ router25.get("/swiped", async (req, res) => {
     res.json({ targetIds: [] });
   }
 });
-router25.get("/compatibility", async (req, res) => {
+router26.get("/compatibility", async (req, res) => {
   const { userId, targetId } = req.query;
   if (!userId || !targetId) {
     res.status(400).json({ error: "userId and targetId required" });
@@ -63494,7 +63855,7 @@ router25.get("/compatibility", async (req, res) => {
     res.json({ score: 100, factors: ["same user"] });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const [followsRes, profilesRes, matchRes] = await Promise.all([
       sb.from("follows").select("follower_id, following_id").or(`and(follower_id.eq.${userId},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${userId})`),
@@ -63534,13 +63895,13 @@ router25.get("/compatibility", async (req, res) => {
     res.json({ score: null, factors: [] });
   }
 });
-router25.get("/matches", async (req, res) => {
+router26.get("/matches", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const [senderRes, receiverRes] = await Promise.all([
       sb.from("vibe_matches").select("id, sender_id, receiver_id, created_at, status").eq("sender_id", userId),
@@ -63599,7 +63960,7 @@ router25.get("/matches", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch matches" });
   }
 });
-router25.get("/by-intention", async (req, res) => {
+router26.get("/by-intention", async (req, res) => {
   const { goal, userId, limit: limitStr } = req.query;
   if (!goal) {
     res.status(400).json({ error: "goal required" });
@@ -63610,7 +63971,7 @@ router25.get("/by-intention", async (req, res) => {
     return;
   }
   const limit = Math.min(parseInt(limitStr ?? "50", 10) || 50, 100);
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   let data = null;
   let queryError = null;
   const orFilter = `relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`;
@@ -63687,13 +64048,13 @@ router25.get("/by-intention", async (req, res) => {
   }));
   res.json({ users });
 });
-router25.post("/reset-deck", async (req, res) => {
+router26.post("/reset-deck", async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const [swipesRes, matchesSenderRes, matchesReceiverRes] = await Promise.all([
       sb.from("vibe_swipes").delete({ count: "exact" }).eq("user_id", userId),
@@ -63715,7 +64076,7 @@ router25.post("/reset-deck", async (req, res) => {
     res.status(500).json({ error: "Failed to reset deck" });
   }
 });
-router25.get("/discover", async (req, res) => {
+router26.get("/discover", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -63727,7 +64088,7 @@ router25.get("/discover", async (req, res) => {
   const ageMin = parseInt(req.query["ageMin"] ?? "18", 10);
   const ageMax = parseInt(req.query["ageMax"] ?? "99", 10);
   const maxDistanceKm = parseFloat(req.query["maxDistanceKm"] ?? "100");
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const { data, error } = await sb.rpc("get_vibe_matches", {
       p_user_id: userId,
@@ -63747,13 +64108,13 @@ router25.get("/discover", async (req, res) => {
   }
   res.json({ profiles: [] });
 });
-router25.get("/swipe-count", async (req, res) => {
+router26.get("/swipe-count", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ count: 0 });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
     const { count, error } = await sb.from("vibe_swipes").select("*", { count: "exact", head: true }).eq("user_id", userId).gte("created_at", since);
@@ -63764,14 +64125,14 @@ router25.get("/swipe-count", async (req, res) => {
     res.json({ count: 0 });
   }
 });
-router25.get("/cooldown", async (req, res) => {
+router26.get("/cooldown", async (req, res) => {
   const { userId, limit: limitStr } = req.query;
   if (!userId) {
     res.json({ swipes: [] });
     return;
   }
   const limit = Math.min(parseInt(limitStr ?? "20", 10), 50);
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const { data, error } = await sb.from("vibe_swipes").select("direction, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
     if (error) throw error;
@@ -63781,13 +64142,13 @@ router25.get("/cooldown", async (req, res) => {
     res.json({ swipes: [] });
   }
 });
-router25.get("/preferences", async (req, res) => {
+router26.get("/preferences", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const { data, error } = await sb.from("vibe_preferences").select("*").eq("user_id", userId).maybeSingle();
     if (error) throw error;
@@ -63797,13 +64158,13 @@ router25.get("/preferences", async (req, res) => {
     res.json({ preferences: null });
   }
 });
-router25.put("/preferences", async (req, res) => {
+router26.put("/preferences", async (req, res) => {
   const { userId, gender, interestedIn, lookingFor, age, ageMin, ageMax, maxDistance } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     await Promise.all([
       sb.from("vibe_preferences").upsert(
@@ -63828,13 +64189,13 @@ router25.put("/preferences", async (req, res) => {
     res.status(500).json({ error: "Failed to save preferences" });
   }
 });
-router25.get("/goals", async (req, res) => {
+router26.get("/goals", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ goals: [] });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     const { data } = await sb.from("user_relationship_goals").select("goals").eq("user_id", userId).maybeSingle();
     res.json({ goals: data?.goals ?? [] });
@@ -63843,13 +64204,13 @@ router25.get("/goals", async (req, res) => {
     res.json({ goals: [] });
   }
 });
-router25.post("/goals", async (req, res) => {
+router26.post("/goals", async (req, res) => {
   const { userId, goals } = req.body;
   if (!userId || !Array.isArray(goals)) {
     res.status(400).json({ error: "userId and goals required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     await sb.from("user_relationship_goals").upsert(
       { user_id: userId, goals, primary_goal: goals[0] ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
@@ -63861,13 +64222,13 @@ router25.post("/goals", async (req, res) => {
     res.status(500).json({ error: "Failed to save goals" });
   }
 });
-router25.post("/compat-score", async (req, res) => {
+router26.post("/compat-score", async (req, res) => {
   const { userId, targetId, score } = req.body;
   if (!userId || !targetId || score === void 0) {
     res.status(400).json({ error: "userId, targetId, score required" });
     return;
   }
-  const sb = makeSupabase19();
+  const sb = makeSupabase21();
   try {
     await sb.from("vibe_compat_scores").upsert(
       { user_id: userId, target_id: targetId, score, computed_at: (/* @__PURE__ */ new Date()).toISOString() },
@@ -63879,18 +64240,18 @@ router25.post("/compat-score", async (req, res) => {
     res.json({ ok: true });
   }
 });
-var vibe_default = router25;
+var vibe_default = router26;
 
 // src/routes/vibe-requests.ts
-var import_express26 = __toESM(require_express2(), 1);
-var router26 = (0, import_express26.Router)();
-function makeSupabase20() {
+var import_express27 = __toESM(require_express2(), 1);
+var router27 = (0, import_express27.Router)();
+function makeSupabase22() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
 var BLOCKED_STATUSES = ["Married", "Engaged", "Widowed"];
-router26.post("/send", async (req, res) => {
+router27.post("/send", async (req, res) => {
   const { senderId, receiverId } = req.body;
   if (!senderId || !receiverId) {
     res.status(400).json({ error: "senderId and receiverId required" });
@@ -63900,7 +64261,7 @@ router26.post("/send", async (req, res) => {
     res.status(400).json({ error: "Cannot send vibe request to yourself" });
     return;
   }
-  const sb = makeSupabase20();
+  const sb = makeSupabase22();
   const { data: receiver } = await sb.from("profiles").select("relationship_status, username").eq("id", receiverId).maybeSingle();
   if (receiver && BLOCKED_STATUSES.includes(receiver.relationship_status ?? "")) {
     res.status(403).json({ error: "This user is not accepting vibe requests" });
@@ -63980,7 +64341,7 @@ router26.post("/send", async (req, res) => {
   });
   res.json({ success: true, result: "pending", requestId });
 });
-router26.post("/respond", async (req, res) => {
+router27.post("/respond", async (req, res) => {
   const { requestId, userId, action } = req.body;
   if (!requestId || !userId || !action) {
     res.status(400).json({ error: "requestId, userId, action required" });
@@ -63990,7 +64351,7 @@ router26.post("/respond", async (req, res) => {
     res.status(400).json({ error: "action must be 'accept' or 'decline'" });
     return;
   }
-  const sb = makeSupabase20();
+  const sb = makeSupabase22();
   const { data: request } = await sb.from("vibe_requests").select("id, sender_id, receiver_id, status").eq("id", requestId).maybeSingle();
   if (!request) {
     res.status(404).json({ error: "Request not found" });
@@ -64031,13 +64392,13 @@ router26.post("/respond", async (req, res) => {
   }
   res.json({ success: true });
 });
-router26.get("/status", async (req, res) => {
+router27.get("/status", async (req, res) => {
   const { senderId, receiverId } = req.query;
   if (!senderId || !receiverId) {
     res.json({ status: "none" });
     return;
   }
-  const sb = makeSupabase20();
+  const sb = makeSupabase22();
   const { data } = await sb.from("vibe_requests").select("id, status").eq("sender_id", senderId).eq("receiver_id", receiverId).maybeSingle();
   if (!data) {
     res.json({ status: "none" });
@@ -64045,13 +64406,13 @@ router26.get("/status", async (req, res) => {
   }
   res.json({ status: data.status, requestId: data.id });
 });
-router26.get("/inbox", async (req, res) => {
+router27.get("/inbox", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ requests: [] });
     return;
   }
-  const sb = makeSupabase20();
+  const sb = makeSupabase22();
   const { data, error } = await sb.from("vibe_requests").select("id, sender_id, created_at").eq("receiver_id", userId).eq("status", "pending").order("created_at", { ascending: false }).limit(20);
   if (error) {
     req.log.warn({ error: error.message }, "vibe-requests inbox error");
@@ -64084,24 +64445,24 @@ router26.get("/inbox", async (req, res) => {
   });
   res.json({ requests });
 });
-var vibe_requests_default = router26;
+var vibe_requests_default = router27;
 
 // src/routes/vibe-rooms.ts
-var import_express27 = __toESM(require_express2(), 1);
-var router27 = (0, import_express27.Router)();
-function makeSupabase21() {
+var import_express28 = __toESM(require_express2(), 1);
+var router28 = (0, import_express28.Router)();
+function makeSupabase23() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router27.get("/status", async (req, res) => {
+router28.get("/status", async (req, res) => {
   const { userId, roomIds } = req.query;
   if (!roomIds) {
     res.status(400).json({ error: "roomIds required" });
     return;
   }
   const ids = roomIds.split(",").map((s) => s.trim()).filter(Boolean);
-  const sb = makeSupabase21();
+  const sb = makeSupabase23();
   const { data: countRows, error: countErr } = await sb.from("vibe_room_members").select("room_id").in("room_id", ids);
   if (countErr) {
     res.status(500).json({ error: countErr.message });
@@ -64122,13 +64483,13 @@ router27.get("/status", async (req, res) => {
   }
   res.json({ rooms });
 });
-router27.get("/joined", async (req, res) => {
+router28.get("/joined", async (req, res) => {
   const { userId, roomId } = req.query;
   if (!userId || !roomId) {
     res.status(400).json({ error: "userId and roomId required" });
     return;
   }
-  const sb = makeSupabase21();
+  const sb = makeSupabase23();
   const { data, error } = await sb.from("vibe_room_members").select("id").eq("user_id", userId).eq("room_id", roomId).maybeSingle();
   if (error) {
     req.log?.warn({ error }, "vibe-rooms joined check failed");
@@ -64137,13 +64498,13 @@ router27.get("/joined", async (req, res) => {
   }
   res.json({ joined: !!data });
 });
-router27.post("/join", async (req, res) => {
+router28.post("/join", async (req, res) => {
   const { userId, roomId } = req.body;
   if (!userId || !roomId) {
     res.status(400).json({ error: "userId and roomId required" });
     return;
   }
-  const sb = makeSupabase21();
+  const sb = makeSupabase23();
   const { error: upsertError } = await sb.from("vibe_room_members").upsert({ user_id: userId, room_id: roomId }, { onConflict: "user_id,room_id" });
   if (upsertError) {
     req.log?.warn({ error: upsertError }, "vibe-rooms join failed");
@@ -64153,9 +64514,9 @@ router27.post("/join", async (req, res) => {
   const { count } = await sb.from("vibe_room_members").select("id", { count: "exact", head: true }).eq("room_id", roomId);
   res.json({ ok: true, memberCount: count ?? 0 });
 });
-router27.get("/:roomId/members/count", async (req, res) => {
+router28.get("/:roomId/members/count", async (req, res) => {
   const { roomId } = req.params;
-  const sb = makeSupabase21();
+  const sb = makeSupabase23();
   const { count, error } = await sb.from("vibe_room_members").select("id", { count: "exact", head: true }).eq("room_id", roomId);
   if (error) {
     res.status(500).json({ error: error.message });
@@ -64163,9 +64524,9 @@ router27.get("/:roomId/members/count", async (req, res) => {
   }
   res.json({ count: count ?? 0 });
 });
-router27.get("/:roomId/messages", async (req, res) => {
+router28.get("/:roomId/messages", async (req, res) => {
   const { roomId } = req.params;
-  const sb = makeSupabase21();
+  const sb = makeSupabase23();
   const { data, error } = await sb.from("vibe_room_messages").select("id, room_id, user_id, text, created_at, profiles!user_id(username, avatar_url)").eq("room_id", roomId).order("created_at", { ascending: true }).limit(100);
   if (error) {
     req.log?.warn({ error }, "vibe-rooms get messages failed");
@@ -64174,14 +64535,14 @@ router27.get("/:roomId/messages", async (req, res) => {
   }
   res.json({ messages: data ?? [] });
 });
-router27.post("/:roomId/messages", async (req, res) => {
+router28.post("/:roomId/messages", async (req, res) => {
   const { roomId } = req.params;
   const { userId, text } = req.body;
   if (!userId || !text?.trim()) {
     res.status(400).json({ error: "userId and text required" });
     return;
   }
-  const sb = makeSupabase21();
+  const sb = makeSupabase23();
   const { data: membership } = await sb.from("vibe_room_members").select("id").eq("user_id", userId).eq("room_id", roomId).maybeSingle();
   if (!membership) {
     res.status(403).json({ error: "Not a member of this room" });
@@ -64195,23 +64556,23 @@ router27.post("/:roomId/messages", async (req, res) => {
   }
   res.json({ ok: true, message: data });
 });
-var vibe_rooms_default = router27;
+var vibe_rooms_default = router28;
 
 // src/routes/snaps.ts
-var import_express28 = __toESM(require_express2(), 1);
-var router28 = (0, import_express28.Router)();
-function makeSupabase22() {
+var import_express29 = __toESM(require_express2(), 1);
+var router29 = (0, import_express29.Router)();
+function makeSupabase24() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router28.post("/", async (req, res) => {
+router29.post("/", async (req, res) => {
   const { senderId, receiverId, mediaUrl, mediaType, duration } = req.body;
   if (!senderId || !receiverId || !mediaUrl || !mediaType) {
     res.status(400).json({ error: "senderId, receiverId, mediaUrl, mediaType required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase24();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString();
   try {
     const { data, error } = await sb.from("snaps").insert({
@@ -64233,13 +64594,13 @@ router28.post("/", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router28.get("/", async (req, res) => {
+router29.get("/", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase24();
   try {
     const { data: snaps, error: snapsErr } = await sb.from("snaps").select("id, sender_id, receiver_id, media_url, media_type, viewed_at, created_at, expires_at").or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).order("created_at", { ascending: false }).limit(200);
     if (snapsErr) {
@@ -64289,13 +64650,13 @@ router28.get("/", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router28.patch("/:id", async (req, res) => {
+router29.patch("/:id", async (req, res) => {
   const { id } = req.params;
   if (!id) {
     res.status(400).json({ error: "id required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase24();
   try {
     const { data, error } = await sb.from("snaps").update({ viewed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select("id");
     if (error) {
@@ -64311,13 +64672,13 @@ router28.patch("/:id", async (req, res) => {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
 });
-router28.get("/streaks", async (req, res) => {
+router29.get("/streaks", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ streaks: {} });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase24();
   try {
     const { data } = await sb.from("snap_streaks").select("user1_id, user2_id, streak_count").or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
     const streaks = {};
@@ -64331,24 +64692,24 @@ router28.get("/streaks", async (req, res) => {
     res.json({ streaks: {} });
   }
 });
-var snaps_default = router28;
+var snaps_default = router29;
 
 // src/routes/rewards.ts
-var import_express29 = __toESM(require_express2(), 1);
-var router29 = (0, import_express29.Router)();
-function makeSupabase23() {
+var import_express30 = __toESM(require_express2(), 1);
+var router30 = (0, import_express30.Router)();
+function makeSupabase25() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router29.post("/claim-daily", async (req, res) => {
+router30.post("/claim-daily", async (req, res) => {
   const { userId } = req.body ?? {};
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase23();
+  const sb = makeSupabase25();
   try {
     const { data, error } = await sb.rpc("claim_daily_reward", { p_user_id: userId });
     if (!error && data) {
@@ -64370,13 +64731,13 @@ router29.post("/claim-daily", async (req, res) => {
     res.status(500).json({ error: "claim failed" });
   }
 });
-router29.get("/achievements", async (req, res) => {
+router30.get("/achievements", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase23();
+  const sb = makeSupabase25();
   try {
     const { data, error } = await sb.rpc("check_achievements", { p_user_id: userId });
     if (!error && Array.isArray(data)) {
@@ -64390,9 +64751,9 @@ router29.get("/achievements", async (req, res) => {
     res.json({ achievements: [] });
   }
 });
-router29.get("/leaderboard", async (req, res) => {
+router30.get("/leaderboard", async (req, res) => {
   const { period = "weekly" } = req.query;
-  const sb = makeSupabase23();
+  const sb = makeSupabase25();
   try {
     const { data, error } = await sb.from("leaderboard").select("*, profiles!user_id(username, avatar_url)").eq("period", period).order("rank", { ascending: true }).limit(10);
     if (error) throw error;
@@ -64402,24 +64763,24 @@ router29.get("/leaderboard", async (req, res) => {
     res.json({ entries: [] });
   }
 });
-var rewards_default = router29;
+var rewards_default = router30;
 
 // src/routes/analytics.ts
-var import_express30 = __toESM(require_express2(), 1);
-var router30 = (0, import_express30.Router)();
-function makeSupabase24() {
+var import_express31 = __toESM(require_express2(), 1);
+var router31 = (0, import_express31.Router)();
+function makeSupabase26() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router30.post("/track-interest", async (req, res) => {
+router31.post("/track-interest", async (req, res) => {
   const { userId, hashtag, interactionType } = req.body ?? {};
   if (!userId || !hashtag || !interactionType) {
     res.status(400).json({ error: "userId, hashtag, interactionType required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase26();
   try {
     const { error } = await sb.rpc("track_user_interest", {
       p_user_id: userId,
@@ -64433,13 +64794,13 @@ router30.post("/track-interest", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router30.post("/vibe-score", async (req, res) => {
+router31.post("/vibe-score", async (req, res) => {
   const { userId, points, reason } = req.body ?? {};
   if (!userId || points === void 0 || !reason) {
     res.status(400).json({ error: "userId, points, reason required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase26();
   try {
     const { error } = await sb.rpc("update_vibe_score", {
       p_user_id: userId,
@@ -64453,13 +64814,13 @@ router30.post("/vibe-score", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router30.get("/spam-check", async (req, res) => {
+router31.get("/spam-check", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase26();
   try {
     const { data, error } = await sb.rpc("detect_spam", { p_user_id: userId });
     if (error) req.log.warn({ error: error.message }, "detect_spam RPC warn");
@@ -64469,13 +64830,13 @@ router30.get("/spam-check", async (req, res) => {
     res.json({ isSpam: false });
   }
 });
-router30.post("/creator", async (req, res) => {
+router31.post("/creator", async (req, res) => {
   const { userId } = req.body ?? {};
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase26();
   try {
     const { error } = await sb.rpc("update_creator_analytics", { p_user_id: userId });
     if (error) req.log.warn({ error: error.message }, "update_creator_analytics RPC warn");
@@ -64485,14 +64846,14 @@ router30.post("/creator", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router30.get("/user", async (req, res) => {
+router31.get("/user", async (req, res) => {
   const userId = req.query["userId"];
   const days = Math.min(Math.max(parseInt(req.query["days"] || "7", 10) || 7, 1), 90);
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase26();
   const cutoff = new Date(Date.now() - days * 864e5).toISOString();
   try {
     const [postsRes, followersRes, topPostsRes] = await Promise.all([
@@ -64535,23 +64896,23 @@ router30.get("/user", async (req, res) => {
     res.status(500).json({ error: "Failed to load analytics" });
   }
 });
-var analytics_default = router30;
+var analytics_default = router31;
 
 // src/routes/ads.ts
-var import_express31 = __toESM(require_express2(), 1);
-var router31 = (0, import_express31.Router)();
-function makeSupabase25() {
+var import_express32 = __toESM(require_express2(), 1);
+var router32 = (0, import_express32.Router)();
+function makeSupabase27() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router31.get("/feed", async (req, res) => {
+router32.get("/feed", async (req, res) => {
   const { userId, adType = "feed_post" } = req.query;
   if (!userId) {
     res.json({ ads: [] });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase27();
   try {
     const { data, error } = await sb.rpc("get_feed_ads", {
       p_user_id: userId,
@@ -64565,13 +64926,13 @@ router31.get("/feed", async (req, res) => {
     res.json({ ads: [] });
   }
 });
-router31.post("/impression", async (req, res) => {
+router32.post("/impression", async (req, res) => {
   const { adId, userId } = req.body;
   if (!adId || !userId || adId.startsWith("house-")) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase27();
   try {
     await sb.rpc("track_ad_impression", {
       p_ad_id: adId,
@@ -64585,13 +64946,13 @@ router31.post("/impression", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router31.post("/click", async (req, res) => {
+router32.post("/click", async (req, res) => {
   const { adId, userId } = req.body;
   if (!adId || !userId || adId.startsWith("house-")) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase27();
   try {
     await sb.rpc("track_ad_click", { p_ad_id: adId, p_user_id: userId });
     res.json({ ok: true });
@@ -64600,7 +64961,7 @@ router31.post("/click", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router31.post("/campaign", async (req, res) => {
+router32.post("/campaign", async (req, res) => {
   const {
     userId,
     advertiserName,
@@ -64617,7 +64978,7 @@ router31.post("/campaign", async (req, res) => {
     res.status(400).json({ error: "userId, title and ctaUrl required" });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase27();
   try {
     const { error } = await sb.from("ad_campaigns").insert({
       user_id: userId,
@@ -64640,13 +65001,13 @@ router31.post("/campaign", async (req, res) => {
     res.status(500).json({ error: "Failed to submit campaign" });
   }
 });
-router31.post("/hide", async (req, res) => {
+router32.post("/hide", async (req, res) => {
   const { adId, userId } = req.body;
   if (!adId || !userId || adId.startsWith("house-")) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase27();
   try {
     await sb.from("hidden_ads").upsert({ user_id: userId, ad_id: adId });
     res.json({ ok: true });
@@ -64655,23 +65016,23 @@ router31.post("/hide", async (req, res) => {
     res.json({ ok: true });
   }
 });
-var ads_default = router31;
+var ads_default = router32;
 
 // src/routes/live.ts
-var import_express32 = __toESM(require_express2(), 1);
-var router32 = (0, import_express32.Router)();
-function makeSupabase26() {
+var import_express33 = __toESM(require_express2(), 1);
+var router33 = (0, import_express33.Router)();
+function makeSupabase28() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router32.post("/stream", async (req, res) => {
+router33.post("/stream", async (req, res) => {
   const { userId, title = "Live Stream" } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase26();
+  const sb = makeSupabase28();
   try {
     const { data, error } = await sb.from("live_streams").insert({
       user_id: userId,
@@ -64688,10 +65049,10 @@ router32.post("/stream", async (req, res) => {
     res.status(500).json({ error: "Failed to create live stream" });
   }
 });
-router32.patch("/stream/:id/end", async (req, res) => {
+router33.patch("/stream/:id/end", async (req, res) => {
   const { id } = req.params;
   const { viewerCount = 0, coinsEarned = 0 } = req.body;
-  const sb = makeSupabase26();
+  const sb = makeSupabase28();
   try {
     const { error } = await sb.from("live_streams").update({
       status: "ended",
@@ -64706,24 +65067,24 @@ router32.patch("/stream/:id/end", async (req, res) => {
     res.status(500).json({ error: "Failed to end live stream" });
   }
 });
-var live_default = router32;
+var live_default = router33;
 
 // src/routes/users/onboarding.ts
-var import_express33 = __toESM(require_express2(), 1);
-var router33 = (0, import_express33.Router)();
-function makeSupabase27() {
+var import_express34 = __toESM(require_express2(), 1);
+var router34 = (0, import_express34.Router)();
+function makeSupabase29() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router33.get("/needs-onboarding", async (req, res) => {
+router34.get("/needs-onboarding", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase29();
   try {
     const { data, error } = await sb.rpc("needs_onboarding", { p_user_id: userId });
     if (error) req.log.warn({ error: error.message }, "needs_onboarding RPC warn");
@@ -64733,13 +65094,13 @@ router33.get("/needs-onboarding", async (req, res) => {
     res.json({ needsOnboarding: false });
   }
 });
-router33.post("/onboarding-interests", async (req, res) => {
+router34.post("/onboarding-interests", async (req, res) => {
   const { userId, interests } = req.body ?? {};
   if (!userId || !Array.isArray(interests)) {
     res.status(400).json({ error: "userId and interests[] required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase29();
   try {
     const { error } = await sb.rpc("save_onboarding_interests", {
       p_user_id: userId,
@@ -64755,18 +65116,18 @@ router33.post("/onboarding-interests", async (req, res) => {
     res.json({ ok: false });
   }
 });
-var onboarding_default = router33;
+var onboarding_default = router34;
 
 // src/routes/users/contacts.ts
-var import_express34 = __toESM(require_express2(), 1);
-var router34 = (0, import_express34.Router)();
-function makeSupabase28() {
+var import_express35 = __toESM(require_express2(), 1);
+var router35 = (0, import_express35.Router)();
+function makeSupabase30() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router34.post("/find-by-contacts", async (req, res) => {
+router35.post("/find-by-contacts", async (req, res) => {
   const { emails, userId } = req.body ?? {};
   if (!userId || !Array.isArray(emails)) {
     res.status(400).json({ error: "userId and emails[] required" });
@@ -64776,7 +65137,7 @@ router34.post("/find-by-contacts", async (req, res) => {
     res.json({ users: [] });
     return;
   }
-  const sb = makeSupabase28();
+  const sb = makeSupabase30();
   try {
     const { data, error } = await sb.rpc("find_users_by_contacts", {
       p_emails: emails.slice(0, 100),
@@ -64794,22 +65155,22 @@ router34.post("/find-by-contacts", async (req, res) => {
     res.json({ users: [] });
   }
 });
-var contacts_default = router34;
+var contacts_default = router35;
 
 // src/routes/sounds.ts
-var import_express35 = __toESM(require_express2(), 1);
-var router35 = (0, import_express35.Router)();
-function makeSupabase29() {
+var import_express36 = __toESM(require_express2(), 1);
+var router36 = (0, import_express36.Router)();
+function makeSupabase31() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router35.get("/trending", async (req, res) => {
+router36.get("/trending", async (req, res) => {
   const limit = Math.min(
     parseInt(req.query["limit"] ?? "20", 10) || 20,
     50
   );
-  const sb = makeSupabase29();
+  const sb = makeSupabase31();
   try {
     const { data, error } = await sb.from("posts").select(
       "id, media_url, thumbnail_url, caption, likes_count, user_id, profiles!user_id(username, avatar_url)"
@@ -64825,17 +65186,17 @@ router35.get("/trending", async (req, res) => {
     res.status(500).json({ error: "Failed to load trending sounds" });
   }
 });
-var sounds_default = router35;
+var sounds_default = router36;
 
 // src/routes/couple.ts
-var import_express36 = __toESM(require_express2(), 1);
-function makeSupabase30() {
+var import_express37 = __toESM(require_express2(), 1);
+function makeSupabase32() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-var router36 = (0, import_express36.Router)();
-router36.post("/request", async (req, res) => {
+var router37 = (0, import_express37.Router)();
+router37.post("/request", async (req, res) => {
   req.log.info({ body: req.body, auth: req.headers["authorization"] ? "present" : "missing" }, "couple/request hit");
   const { requesterId, receiverId, anniversaryDate } = req.body;
   if (!requesterId || !receiverId) {
@@ -64847,7 +65208,7 @@ router36.post("/request", async (req, res) => {
     res.status(400).json({ error: "Cannot send request to yourself" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data: existing } = await sb.from("couple_links").select("id, status").or(
       `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
@@ -64875,13 +65236,13 @@ router36.post("/request", async (req, res) => {
     res.status(500).json({ error: "Failed to send couple request" });
   }
 });
-router36.post("/accept", async (req, res) => {
+router37.post("/accept", async (req, res) => {
   const { coupleId, userId } = req.body;
   if (!coupleId || !userId) {
     res.status(400).json({ error: "coupleId and userId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data: link, error: fetchErr } = await sb.from("couple_links").select("*").eq("id", coupleId).eq("receiver_id", userId).eq("status", "pending").single();
     if (fetchErr || !link) {
@@ -64911,13 +65272,13 @@ router36.post("/accept", async (req, res) => {
     res.status(500).json({ error: "Failed to accept request" });
   }
 });
-router36.post("/decline", async (req, res) => {
+router37.post("/decline", async (req, res) => {
   const { coupleId, userId } = req.body;
   if (!coupleId || !userId) {
     res.status(400).json({ error: "coupleId and userId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { error } = await sb.from("couple_links").update({ status: "declined" }).eq("id", coupleId).eq("receiver_id", userId);
     if (error) throw error;
@@ -64927,13 +65288,13 @@ router36.post("/decline", async (req, res) => {
     res.status(500).json({ error: "Failed to decline" });
   }
 });
-router36.delete("/unlink", async (req, res) => {
+router37.delete("/unlink", async (req, res) => {
   const { coupleId, userId } = req.body;
   if (!coupleId || !userId) {
     res.status(400).json({ error: "coupleId and userId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data: link } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", coupleId).maybeSingle();
     if (!link) {
@@ -64961,13 +65322,13 @@ router36.delete("/unlink", async (req, res) => {
     res.status(500).json({ error: "Failed to unlink" });
   }
 });
-router36.get("/status", async (req, res) => {
+router37.get("/status", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data: link } = await sb.from("couple_links").select("*").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).eq("status", "accepted").order("accepted_at", { ascending: false }).maybeSingle();
     if (link) {
@@ -65002,13 +65363,13 @@ router36.get("/status", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch status" });
   }
 });
-router36.get("/stats", async (req, res) => {
+router37.get("/stats", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data: link, error } = await sb.from("couple_links").select("accepted_at, anniversary_date").eq("id", coupleId).single();
     if (error || !link) {
@@ -65023,13 +65384,13 @@ router36.get("/stats", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
-router36.post("/nudge", async (req, res) => {
+router37.post("/nudge", async (req, res) => {
   const { senderId, partnerId } = req.body;
   if (!senderId || !partnerId) {
     res.status(400).json({ error: "senderId and partnerId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     await sb.from("couple_nudges").insert({ sender_id: senderId, receiver_id: partnerId });
     res.json({ success: true });
@@ -65038,13 +65399,13 @@ router36.post("/nudge", async (req, res) => {
     res.status(500).json({ error: "Failed to send nudge" });
   }
 });
-router36.get("/photos", async (req, res) => {
+router37.get("/photos", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_photos").select("*").eq("couple_id", coupleId).order("created_at", { ascending: false });
     if (error) throw error;
@@ -65054,13 +65415,13 @@ router36.get("/photos", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch photos" });
   }
 });
-router36.post("/photos", async (req, res) => {
+router37.post("/photos", async (req, res) => {
   const { coupleId, uploadedBy, url, caption } = req.body;
   if (!coupleId || !uploadedBy || !url) {
     res.status(400).json({ error: "coupleId, uploadedBy, and url required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_photos").insert({ couple_id: coupleId, uploaded_by: uploadedBy, url, caption: caption ?? null }).select().single();
     if (error) throw error;
@@ -65070,13 +65431,13 @@ router36.post("/photos", async (req, res) => {
     res.status(500).json({ error: "Failed to upload photo" });
   }
 });
-router36.get("/bucketlist", async (req, res) => {
+router37.get("/bucketlist", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_bucketlist").select("*").eq("couple_id", coupleId).order("created_at", { ascending: true });
     if (error) throw error;
@@ -65086,13 +65447,13 @@ router36.get("/bucketlist", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch bucket list" });
   }
 });
-router36.post("/bucketlist", async (req, res) => {
+router37.post("/bucketlist", async (req, res) => {
   const { coupleId, title, createdBy } = req.body;
   if (!coupleId || !title || !createdBy) {
     res.status(400).json({ error: "coupleId, title, and createdBy required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_bucketlist").insert({ couple_id: coupleId, title, created_by: createdBy, completed: false }).select().single();
     if (error) throw error;
@@ -65102,10 +65463,10 @@ router36.post("/bucketlist", async (req, res) => {
     res.status(500).json({ error: "Failed to add item" });
   }
 });
-router36.patch("/bucketlist/:id", async (req, res) => {
+router37.patch("/bucketlist/:id", async (req, res) => {
   const { id } = req.params;
   const { completed } = req.body;
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_bucketlist").update({ completed: !!completed }).eq("id", id).select().single();
     if (error) throw error;
@@ -65115,13 +65476,13 @@ router36.patch("/bucketlist/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to update item" });
   }
 });
-router36.get("/notes", async (req, res) => {
+router37.get("/notes", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_notes").select("*").eq("couple_id", coupleId).order("created_at", { ascending: true });
     if (error) throw error;
@@ -65131,13 +65492,13 @@ router36.get("/notes", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch notes" });
   }
 });
-router36.post("/notes", async (req, res) => {
+router37.post("/notes", async (req, res) => {
   const { coupleId, authorId, content } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.from("couple_notes").insert({ couple_id: coupleId, author_id: authorId, content }).select().single();
     if (error) throw error;
@@ -65151,13 +65512,13 @@ function currentMonthYear() {
   const now = /* @__PURE__ */ new Date();
   return { month: now.getMonth() + 1, year: now.getFullYear() };
 }
-router36.post("/competition/enter", async (req, res) => {
+router37.post("/competition/enter", async (req, res) => {
   const { coupleId, coupleName, coverPhotoUrl } = req.body;
   if (!coupleId || !coupleName) {
     res.status(400).json({ error: "coupleId and coupleName required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   const { month, year } = currentMonthYear();
   try {
     const { data: existing } = await sb.from("couple_competitions").select("id").eq("couple_id", coupleId).eq("month", month).eq("year", year).maybeSingle();
@@ -65173,8 +65534,8 @@ router36.post("/competition/enter", async (req, res) => {
     res.status(500).json({ error: "Failed to enter competition" });
   }
 });
-router36.get("/competition/leaderboard", async (req, res) => {
-  const sb = makeSupabase30();
+router37.get("/competition/leaderboard", async (req, res) => {
+  const sb = makeSupabase32();
   const { month, year } = currentMonthYear();
   try {
     const { data: entries, error } = await sb.from("couple_competitions").select("*").eq("month", month).eq("year", year).order("vote_count", { ascending: false }).limit(10);
@@ -65206,14 +65567,14 @@ router36.get("/competition/leaderboard", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
-router36.post("/competition/vote/:competitionId", async (req, res) => {
+router37.post("/competition/vote/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
   const { voterId } = req.body;
   if (!voterId) {
     res.status(400).json({ error: "voterId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     const { data: existing } = await sb.from("couple_competition_votes").select("id").eq("voter_id", voterId).eq("competition_id", competitionId).maybeSingle();
     if (existing) {
@@ -65230,14 +65591,14 @@ router36.post("/competition/vote/:competitionId", async (req, res) => {
     res.status(500).json({ error: "Failed to vote" });
   }
 });
-router36.delete("/competition/vote/:competitionId", async (req, res) => {
+router37.delete("/competition/vote/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
   const { voterId } = req.body;
   if (!voterId) {
     res.status(400).json({ error: "voterId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   try {
     await sb.from("couple_competition_votes").delete().eq("voter_id", voterId).eq("competition_id", competitionId);
     const { data: current } = await sb.from("couple_competitions").select("vote_count").eq("id", competitionId).single();
@@ -65249,8 +65610,8 @@ router36.delete("/competition/vote/:competitionId", async (req, res) => {
     res.status(500).json({ error: "Failed to unvote" });
   }
 });
-router36.get("/competition/winners", async (req, res) => {
-  const sb = makeSupabase30();
+router37.get("/competition/winners", async (req, res) => {
+  const sb = makeSupabase32();
   try {
     const { data: winners, error } = await sb.from("couple_competition_winners").select("*").order("year", { ascending: false }).order("month", { ascending: false }).order("rank", { ascending: true }).limit(30);
     if (error) throw error;
@@ -65272,14 +65633,14 @@ router36.get("/competition/winners", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch winners" });
   }
 });
-router36.get("/competition/my-entry", async (req, res) => {
+router37.get("/competition/my-entry", async (req, res) => {
   const coupleId = req.query["coupleId"];
   const voterId = req.query["voterId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase32();
   const { month, year } = currentMonthYear();
   try {
     const { data: entry } = await sb.from("couple_competitions").select("*").eq("couple_id", coupleId).eq("month", month).eq("year", year).maybeSingle();
@@ -65300,17 +65661,17 @@ router36.get("/competition/my-entry", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch entry" });
   }
 });
-var couple_default = router36;
+var couple_default = router37;
 
 // src/routes/couple-feed.ts
-var import_express37 = __toESM(require_express2(), 1);
+var import_express38 = __toESM(require_express2(), 1);
 import { Buffer as Buffer2 } from "buffer";
-function makeSupabase31() {
+function makeSupabase33() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-var router37 = (0, import_express37.Router)();
+var router38 = (0, import_express38.Router)();
 async function enrichPost(sb, post2, coupleId) {
   let authorData = null;
   let partnerData = null;
@@ -65369,13 +65730,13 @@ async function enrichPost(sb, post2, coupleId) {
     totalReactions: reactions.support + reactions.relate + reactions.strength + reactions.love
   };
 }
-router37.post("/upload-photo", async (req, res) => {
+router38.post("/upload-photo", async (req, res) => {
   const { base64, mimeType, ext, userId } = req.body;
   if (!base64 || !userId) {
     res.status(400).json({ error: "base64 and userId required" });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const fileExt = (ext ?? "jpg").replace(/^\./, "");
     const mime = mimeType ?? "image/jpeg";
@@ -65395,12 +65756,12 @@ router37.post("/upload-photo", async (req, res) => {
     res.status(500).json({ error: "Failed to upload photo" });
   }
 });
-router37.get("/posts", async (req, res) => {
+router38.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"];
   const limit = Math.min(Number(req.query["limit"] ?? 20), 50);
   const offset = Number(req.query["offset"] ?? 0);
   const category = req.query["category"];
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     let query = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
     if (category && category !== "All") {
@@ -65415,7 +65776,7 @@ router37.get("/posts", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch couple feed" });
   }
 });
-router37.post("/posts", async (req, res) => {
+router38.post("/posts", async (req, res) => {
   const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location: location2 } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content are required" });
@@ -65423,7 +65784,7 @@ router37.post("/posts", async (req, res) => {
   }
   const validCategories = ["Confession", "Story", "Advice", "Milestone", "Venting"];
   const cat = category && validCategories.includes(category) ? category : "Confession";
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const { data: couple, error: coupleErr } = await sb.from("couple_links").select("id, requester_id, receiver_id, status").eq("id", coupleId).eq("status", "accepted").maybeSingle();
     if (coupleErr || !couple) {
@@ -65433,6 +65794,12 @@ router37.post("/posts", async (req, res) => {
     const c = couple;
     if (authorId !== c.requester_id && authorId !== c.receiver_id) {
       res.status(403).json({ error: "Author is not part of this couple" });
+      return;
+    }
+    const textScan = await checkCaptionText(content);
+    if (!textScan.safe) {
+      void logRejection(authorId, null, "caption", textScan.reason);
+      res.status(400).json({ error: "Your post contains content that violates our community guidelines" });
       return;
     }
     const baseRow = {
@@ -65476,14 +65843,14 @@ router37.post("/posts", async (req, res) => {
     res.status(500).json({ error: err?.message ?? "Failed to create post" });
   }
 });
-router37.delete("/posts/:postId", async (req, res) => {
+router38.delete("/posts/:postId", async (req, res) => {
   const { postId } = req.params;
   const { coupleId } = req.body;
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const { error } = await sb.from("couple_feed_posts").delete().eq("id", postId).eq("couple_id", coupleId);
     if (error) throw error;
@@ -65512,7 +65879,7 @@ function makeCountsResponse(post2, myReaction) {
     myReaction
   };
 }
-router37.post("/posts/:postId/react", async (req, res) => {
+router38.post("/posts/:postId/react", async (req, res) => {
   const { postId } = req.params;
   const { coupleId, likerId, reaction } = req.body;
   if (!coupleId || !likerId || !reaction || !VALID_REACTIONS.includes(reaction)) {
@@ -65521,7 +65888,7 @@ router37.post("/posts/:postId/react", async (req, res) => {
   }
   const r = reaction;
   const col = reactionCol(r);
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const { data: existing } = await sb.from("couple_feed_likes").select("id, reaction").eq("post_id", postId).eq("couple_id", coupleId).maybeSingle();
     if (existing) {
@@ -65555,14 +65922,14 @@ router37.post("/posts/:postId/react", async (req, res) => {
     res.status(500).json({ error: "Failed to react" });
   }
 });
-router37.delete("/posts/:postId/react", async (req, res) => {
+router38.delete("/posts/:postId/react", async (req, res) => {
   const { postId } = req.params;
   const { coupleId } = req.body;
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const { data: existing } = await sb.from("couple_feed_likes").select("id, reaction").eq("post_id", postId).eq("couple_id", coupleId).maybeSingle();
     if (!existing) {
@@ -65585,9 +65952,9 @@ router37.delete("/posts/:postId/react", async (req, res) => {
     res.status(500).json({ error: "Failed to remove reaction" });
   }
 });
-router37.get("/posts/:postId/comments", async (req, res) => {
+router38.get("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const { data: comments, error } = await sb.from("couple_feed_comments").select("*").eq("post_id", postId).order("created_at", { ascending: false });
     if (error) throw error;
@@ -65609,14 +65976,14 @@ router37.get("/posts/:postId/comments", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch comments" });
   }
 });
-router37.post("/posts/:postId/comments", async (req, res) => {
+router38.post("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
   const { coupleId, authorId, content } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const { data: comment, error } = await sb.from("couple_feed_comments").insert({
       post_id: postId,
@@ -65653,13 +66020,13 @@ router37.post("/posts/:postId/comments", async (req, res) => {
     res.status(500).json({ error: "Failed to add comment" });
   }
 });
-router37.get("/notifications", async (req, res) => {
+router38.get("/notifications", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     const [{ data: coupleRow }, { data: profile }] = await Promise.all([
       sb.from("couple_links").select("id, requester_id, receiver_id").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle(),
@@ -65719,13 +66086,13 @@ router37.get("/notifications", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch notifications" });
   }
 });
-router37.post("/notifications/mark-seen", async (req, res) => {
+router38.post("/notifications/mark-seen", async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase33();
   try {
     await sb.from("profiles").update({ last_seen_notifications_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", userId);
     res.json({ success: true });
@@ -65734,48 +66101,49 @@ router37.post("/notifications/mark-seen", async (req, res) => {
     res.status(500).json({ error: "Failed to mark seen" });
   }
 });
-var couple_feed_default = router37;
+var couple_feed_default = router38;
 
 // src/routes/index.ts
-var router38 = (0, import_express38.Router)();
-router38.use(health_default);
-router38.use("/ai", caption_default);
-router38.use("/ai", chat_default);
-router38.use("/admin", setup_default);
-router38.use("/music", deezer_default);
-router38.use("/posts", remove_default);
-router38.use("/posts", update_default);
-router38.use("/posts", create_default);
-router38.use("/reels", create_default2);
-router38.use("/reels", remove_default2);
-router38.use("/reels", watch_default);
-router38.use("/reels", like_default);
-router38.use("/users", search_default);
-router38.use("/users/social", social_default);
-router38.use("/users/notifications", notifications_default);
-router38.use("/engage", engage_default);
-router38.use("/messages", messages_default);
-router38.use("/users", setup_default2);
-router38.use("/users", onboarding_default);
-router38.use("/users", contacts_default);
-router38.use("/moderation", moderation_default);
-router38.use("/did", did_default);
-router38.use("/stories", stories_default);
-router38.use("/comments", comments_default);
-router38.use("/storage", storage_default);
-router38.use("/feed", feed_default);
-router38.use("/vibe", vibe_default);
-router38.use("/vibe-requests", vibe_requests_default);
-router38.use("/vibe-rooms", vibe_rooms_default);
-router38.use("/snaps", snaps_default);
-router38.use("/rewards", rewards_default);
-router38.use("/analytics", analytics_default);
-router38.use("/ads", ads_default);
-router38.use("/live", live_default);
-router38.use("/sounds", sounds_default);
-router38.use("/couple", couple_default);
-router38.use("/couple-feed", couple_feed_default);
-var routes_default = router38;
+var router39 = (0, import_express39.Router)();
+router39.use(health_default);
+router39.use("/ai", caption_default);
+router39.use("/ai", chat_default);
+router39.use("/admin", setup_default);
+router39.use("/admin", reports_default);
+router39.use("/music", deezer_default);
+router39.use("/posts", remove_default);
+router39.use("/posts", update_default);
+router39.use("/posts", create_default);
+router39.use("/reels", create_default2);
+router39.use("/reels", remove_default2);
+router39.use("/reels", watch_default);
+router39.use("/reels", like_default);
+router39.use("/users", search_default);
+router39.use("/users/social", social_default);
+router39.use("/users/notifications", notifications_default);
+router39.use("/engage", engage_default);
+router39.use("/messages", messages_default);
+router39.use("/users", setup_default2);
+router39.use("/users", onboarding_default);
+router39.use("/users", contacts_default);
+router39.use("/moderation", moderation_default);
+router39.use("/did", did_default);
+router39.use("/stories", stories_default);
+router39.use("/comments", comments_default);
+router39.use("/storage", storage_default);
+router39.use("/feed", feed_default);
+router39.use("/vibe", vibe_default);
+router39.use("/vibe-requests", vibe_requests_default);
+router39.use("/vibe-rooms", vibe_rooms_default);
+router39.use("/snaps", snaps_default);
+router39.use("/rewards", rewards_default);
+router39.use("/analytics", analytics_default);
+router39.use("/ads", ads_default);
+router39.use("/live", live_default);
+router39.use("/sounds", sounds_default);
+router39.use("/couple", couple_default);
+router39.use("/couple-feed", couple_feed_default);
+var routes_default = router39;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -65796,7 +66164,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express39.default)();
+var app = (0, import_express40.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -65817,8 +66185,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express39.default.json({ limit: "150mb" }));
-app.use(import_express39.default.urlencoded({ extended: true, limit: "150mb" }));
+app.use(import_express40.default.json({ limit: "150mb" }));
+app.use(import_express40.default.urlencoded({ extended: true, limit: "150mb" }));
 app.use((_req, res, next) => {
   const start = Date.now();
   const origEnd = res.end.bind(res);
@@ -65843,7 +66211,7 @@ var SERVER_OPTIONS = {
     params: { eventsPerSecond: -1 }
   }
 };
-function makeSupabase32() {
+function makeSupabase34() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(SUPABASE_URL2, key, SERVER_OPTIONS);
 }
@@ -65855,7 +66223,7 @@ if (typeof globalThis.WebSocket === "undefined") {
 async function ensureSupabaseSetup() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!key) return;
-  const sb = makeSupabase32();
+  const sb = makeSupabase34();
   for (const bucket of ["posts", "reels", "media", "avatars", "snaps"]) {
     const { error } = await sb.storage.createBucket(bucket, { public: true });
     if (error && !error.message.includes("already exists")) {
