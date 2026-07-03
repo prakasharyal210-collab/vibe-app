@@ -78,6 +78,7 @@
     "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
     "expo-contacts": "~15.0.11",
+    "expo-crypto": "~15.0.9",
     "expo-device": "~8.0.10",
     "expo-face-detector": "^13.0.2",
     "expo-file-system": "^19.0.23",
