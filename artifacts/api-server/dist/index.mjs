@@ -59492,35 +59492,41 @@ async function checkCaptionText(text) {
       return { safe: false, reason: `blocked keyword: ${phrase}` };
     }
   }
-  const perspectiveKey = process.env["PERSPECTIVE_API_KEY"];
-  if (perspectiveKey) {
+  const openaiKey = process.env["OPENAI_API_KEY"];
+  if (openaiKey) {
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 1e4);
-      const res = await fetch(
-        `https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${perspectiveKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            comment: { text },
-            requestedAttributes: { TOXICITY: {}, THREAT: {}, INSULT: {}, IDENTITY_ATTACK: {} }
-          }),
-          signal: controller.signal
-        }
-      );
+      const res = await fetch("https://api.openai.com/v1/moderations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({ input: text }),
+        signal: controller.signal
+      });
       clearTimeout(timer);
       const data = await res.json();
-      const attr = data["attributeScores"];
-      if (attr) {
-        const toxicity = attr["TOXICITY"]?.["summaryScore"]?.["value"] ?? 0;
-        const threat = attr["THREAT"]?.["summaryScore"]?.["value"] ?? 0;
-        const insult = attr["INSULT"]?.["summaryScore"]?.["value"] ?? 0;
-        const identityAttack = attr["IDENTITY_ATTACK"]?.["summaryScore"]?.["value"] ?? 0;
-        if (toxicity > 0.7) return { safe: false, reason: "toxicity" };
-        if (threat > 0.7) return { safe: false, reason: "threat" };
-        if (insult > 0.7) return { safe: false, reason: "insult" };
-        if (identityAttack > 0.7) return { safe: false, reason: "hate speech" };
+      const result = data["results"]?.[0];
+      if (result) {
+        const cats = result["categories"] ?? {};
+        const CHECKED = [
+          "hate",
+          "hate/threatening",
+          "harassment",
+          "harassment/threatening",
+          "violence",
+          "violence/graphic",
+          "sexual",
+          "sexual/minors",
+          "self-harm"
+        ];
+        for (const cat of CHECKED) {
+          if (cats[cat] === true) {
+            return { safe: false, reason: cat, scores: result["category_scores"] };
+          }
+        }
       }
     } catch {
     }
