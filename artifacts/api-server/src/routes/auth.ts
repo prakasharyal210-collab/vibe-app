@@ -26,4 +26,30 @@ router.post("/google", async (req, res) => {
   res.json({ user: data.user, session: data.session });
 });
 
+router.post("/apple", async (req, res) => {
+  const { identityToken, fullName } = req.body as {
+    identityToken?: string;
+    fullName?: string;
+  };
+
+  if (!identityToken) {
+    res.status(400).json({ error: "identityToken is required" });
+    return;
+  }
+
+  const sb = makeSupabase();
+  const { data, error } = await sb.auth.signInWithIdToken({
+    provider: "apple",
+    token: identityToken,
+  });
+
+  if (error) {
+    req.log.warn({ err: error.message }, "Apple sign-in failed");
+    res.status(400).json({ error: error.message });
+    return;
+  }
+
+  res.json({ user: data.user, session: data.session });
+});
+
 export default router;

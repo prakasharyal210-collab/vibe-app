@@ -70,8 +70,7 @@ export function OAuthButtons({ onError }: Props) {
       </View>
 
       <View style={styles.buttons}>
-        {/* Google Sign In — temporarily hidden until native build is ready */}
-        {/* <TouchableOpacity
+        <TouchableOpacity
           onPress={handleGoogle}
           disabled={anyLoading}
           style={styles.btn}
@@ -81,7 +80,7 @@ export function OAuthButtons({ onError }: Props) {
           <Text style={styles.label}>
             {loadingGoogle ? "Signing in…" : "Continue with Google"}
           </Text>
-        </TouchableOpacity> */}
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleFacebook}

@@ -3,6 +3,8 @@ import React, { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { supabase } from "@/lib/supabase";
 
+const API_URL = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+
 interface Props {
   onError?: (msg: string) => void;
 }
@@ -19,12 +21,38 @@ export function AppleSignInButton({ onError }: Props) {
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
+
       if (!credential.identityToken) {
         throw new Error("No identity token returned from Apple");
       }
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: "apple",
-        token: credential.identityToken,
+
+      const fullName = [
+        credential.fullName?.givenName,
+        credential.fullName?.familyName,
+      ]
+        .filter(Boolean)
+        .join(" ") || undefined;
+
+      const res = await fetch(`${API_URL}/api/auth/apple`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identityToken: credential.identityToken,
+          ...(fullName ? { fullName } : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error((body as any).error ?? "Apple Sign In failed");
+      }
+
+      const { session } = await res.json();
+      if (!session) throw new Error("No session returned from server");
+
+      const { error } = await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
       });
       if (error) throw error;
     } catch (e: any) {
@@ -44,7 +72,7 @@ export function AppleSignInButton({ onError }: Props) {
     >
       <Text style={styles.icon}></Text>
       <Text style={styles.label}>
-        {loading ? "Signing in…" : "Continue with Apple"}
+        {loading ? "Signing in…" : "Sign in with Apple"}
       </Text>
     </TouchableOpacity>
   );
@@ -57,9 +85,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     height: 52,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#000",
     gap: 10,
   },
   icon: { fontSize: 17, color: "#fff" },

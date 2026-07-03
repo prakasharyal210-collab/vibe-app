@@ -66141,6 +66141,24 @@ router39.post("/google", async (req, res) => {
   }
   res.json({ user: data.user, session: data.session });
 });
+router39.post("/apple", async (req, res) => {
+  const { identityToken, fullName } = req.body;
+  if (!identityToken) {
+    res.status(400).json({ error: "identityToken is required" });
+    return;
+  }
+  const sb = makeSupabase34();
+  const { data, error } = await sb.auth.signInWithIdToken({
+    provider: "apple",
+    token: identityToken
+  });
+  if (error) {
+    req.log.warn({ err: error.message }, "Apple sign-in failed");
+    res.status(400).json({ error: error.message });
+    return;
+  }
+  res.json({ user: data.user, session: data.session });
+});
 var auth_default = router39;
 
 // src/routes/index.ts

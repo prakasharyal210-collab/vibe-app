@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gundruk",
     "slug": "gundruk",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -25,6 +25,8 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.prakasharyal.gundruk",
+      "buildNumber": "2",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Vibe uses your camera to take photos and videos for posts.",
         "NSPhotoLibraryUsageDescription": "Vibe accesses your photo library to share images.",
@@ -38,7 +40,7 @@
     },
     "android": {
       "package": "com.prakasharyal.gundruk",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"

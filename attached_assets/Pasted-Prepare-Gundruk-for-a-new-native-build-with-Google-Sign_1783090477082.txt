@@ -1,0 +1,59 @@
+Prepare Gundruk for a new native build with Google Sign In 
+and Apple Sign In. Do NOT add Facebook Sign In yet.
+
+STEP 1 — Bump version numbers in artifacts/mobile/app.json:
+- "version": "1.0.1"
+- "android": { "versionCode": 2 }
+- "ios": { "buildNumber": "2" }
+
+STEP 2 — Confirm these packages are installed in artifacts/mobile/package.json.
+If any are missing, install them:
+- expo-crypto@~15.0.9
+- expo-auth-session@~6.0.0
+- expo-web-browser@~14.0.0
+- expo-apple-authentication@~7.2.0
+
+Run: cd artifacts/mobile && pnpm install
+
+STEP 3 — Add Apple Sign In to artifacts/mobile/components/OAuthButtons.tsx:
+- Import AppleAuthentication from expo-apple-authentication
+- Add "Sign in with Apple" button that only renders on iOS 
+  (use Platform.OS === 'ios' check)
+- On press: call AppleAuthentication.signInAsync with these scopes:
+  FULL_NAME and EMAIL
+- Send the returned identityToken to a new API route 
+  POST /api/auth/apple
+- On success: store session same way as Google and email login
+- On failure: show error message
+- Button style: black background, white Apple logo, white text
+
+STEP 4 — Create POST /api/auth/apple in artifacts/api-server/src/routes/auth.ts:
+- Accepts { identityToken: string, fullName?: string }
+- Calls supabase.auth.signInWithIdToken({ 
+    provider: 'apple', 
+    token: identityToken 
+  })
+- Returns { user, session }
+- Returns 400 on failure
+
+STEP 5 — Add Apple Sign In configuration to app.json:
+Under "ios" add:
+"usesAppleSignIn": true
+
+STEP 6 — Confirm Google Sign In is still working correctly 
+with expo-crypto installed. 
+Check OAuthButtons.tsx has the Google button and it uses 
+expo-auth-session/providers/google correctly.
+
+STEP 7 — Hide the Google Sign In crash fix — make sure the 
+Google button does NOT crash on load. 
+If OAuthButtons.tsx initializes expo-crypto at module level, 
+wrap it in a try/catch or lazy load it.
+
+STEP 8 — Show me:
+- Every file changed
+- Current contents of app.json (version section)
+- Current contents of package.json (dependencies section)
+- Confirm expo-crypto is in dependencies not devDependencies
+
+Do NOT run the build yet — just prepare all the code changes.
