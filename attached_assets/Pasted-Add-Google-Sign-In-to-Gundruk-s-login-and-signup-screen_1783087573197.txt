@@ -1,0 +1,53 @@
+Add Google Sign In to Gundruk's login and signup screens.
+
+CONTEXT:
+- Google OAuth is already enabled in Supabase with Client ID:
+  375944530592-m00jil1hf5ppqq02mnfgrgiaen3f2a8s.apps.googleusercontent.com
+- Supabase callback URL: https://tatroqgcyebuqqkhmvpa.supabase.co/auth/v1/callback
+- All auth must go through the API server at artifacts/api-server, NOT direct Supabase calls from mobile
+
+WHAT TO BUILD:
+
+1. Install required package:
+expo install expo-auth-session expo-web-browser expo-crypto
+
+2. In artifacts/api-server, create a new route:
+POST /api/auth/google
+- Accepts { idToken: string } from mobile
+- Calls supabase.auth.signInWithIdToken({ provider: 'google', token: idToken })
+- Returns { user, session } on success
+- Returns 400 error on failure
+
+3. In artifacts/mobile/app/(auth)/login.tsx:
+- Add a "Continue with Google" button below the existing email/password form
+- Style it with Google's brand colors (white background, grey border, Google G icon)
+- On press: use expo-auth-session to trigger Google OAuth flow
+- Send the returned idToken to POST /api/auth/google
+- On success: store the session the same way email login does
+- On failure: show error toast/message
+
+4. In artifacts/mobile/app/(auth)/signup.tsx:
+- Add the same "Continue with Google" button
+- Same flow as login — if user already exists, log them in; if new, create account
+- After successful Google auth, check if user has a username set in profiles table
+- If no username: redirect to onboarding/username setup screen
+- If username exists: redirect to main tabs
+
+5. Add the Google Client ID to app.json under:
+"ios": { "googleServicesFile": ... } — skip this for now, just add the web client ID
+"android": { "googleServicesFile": ... } — skip this for now
+
+6. Add this to app.json scheme if not already present:
+"scheme": "gundruk"
+
+This is needed for the OAuth redirect to work on mobile.
+
+7. Handle the OAuth callback in the app — when Supabase redirects back to the app after Google login, the session should be captured and the user logged in automatically.
+
+IMPORTANT RULES:
+- Never call supabase.auth directly from mobile for the sign-in step — always go through /api/auth/google
+- Keep all existing email/password login working exactly as before
+- Show a loading state on the Google button while OAuth is in progress
+- The Google button must work on both iOS and Android
+
+Show me every file changed and what was added.

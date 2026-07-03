@@ -1,26 +1,53 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { signInWithGoogle, signInWithFacebook } from "@/lib/oauth";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { signInWithGoogleIdToken, signInWithFacebook } from "@/lib/oauth";
 import { AppleSignInButton } from "./AppleSignInButton";
+
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_WEB_CLIENT_ID =
+  "375944530592-m00jil1hf5ppqq02mnfgrgiaen3f2a8s.apps.googleusercontent.com";
 
 interface Props {
   onError?: (msg: string) => void;
 }
 
 export function OAuthButtons({ onError }: Props) {
+  const [_request, response, promptAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID,
+    scopes: ["openid", "profile", "email"],
+  });
+
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingFacebook, setLoadingFacebook] = useState(false);
   const anyLoading = loadingGoogle || loadingFacebook;
 
-  const handleGoogle = async () => {
-    setLoadingGoogle(true);
-    try {
-      await signInWithGoogle();
-    } catch (e: any) {
-      onError?.(e?.message ?? "Google Sign In failed");
-    } finally {
+  useEffect(() => {
+    if (!response) return;
+
+    if (response.type === "success") {
+      const idToken = response.authentication?.idToken;
+      if (idToken) {
+        signInWithGoogleIdToken(idToken)
+          .catch((e: any) => onError?.(e?.message ?? "Google Sign In failed"))
+          .finally(() => setLoadingGoogle(false));
+      } else {
+        setLoadingGoogle(false);
+        onError?.("Google Sign In failed: no id_token received");
+      }
+    } else if (response.type === "error") {
+      setLoadingGoogle(false);
+      onError?.(response.error?.message ?? "Google Sign In failed");
+    } else if (response.type === "cancel" || response.type === "dismiss") {
       setLoadingGoogle(false);
     }
+  }, [response]);
+
+  const handleGoogle = async () => {
+    setLoadingGoogle(true);
+    await promptAsync();
   };
 
   const handleFacebook = async () => {

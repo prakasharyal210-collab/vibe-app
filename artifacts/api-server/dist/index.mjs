@@ -24297,27 +24297,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router40;
+    module.exports = Router41;
     module.exports.Route = Route;
-    function Router40(options) {
-      if (!(this instanceof Router40)) {
-        return new Router40(options);
+    function Router41(options) {
+      if (!(this instanceof Router41)) {
+        return new Router41(options);
       }
       const opts = options || {};
-      function router40(req, res, next) {
-        router40.handle(req, res, next);
+      function router41(req, res, next) {
+        router41.handle(req, res, next);
       }
-      Object.setPrototypeOf(router40, this);
-      router40.caseSensitive = opts.caseSensitive;
-      router40.mergeParams = opts.mergeParams;
-      router40.params = {};
-      router40.strict = opts.strict;
-      router40.stack = [];
-      return router40;
+      Object.setPrototypeOf(router41, this);
+      router41.caseSensitive = opts.caseSensitive;
+      router41.mergeParams = opts.mergeParams;
+      router41.params = {};
+      router41.strict = opts.strict;
+      router41.stack = [];
+      return router41;
     }
-    Router40.prototype = function() {
+    Router41.prototype = function() {
     };
-    Router40.prototype.param = function param(name, fn) {
+    Router41.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -24337,7 +24337,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router40.prototype.handle = function handle(req, res, callback) {
+    Router41.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -24464,7 +24464,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router40.prototype.use = function use(handler) {
+    Router41.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -24497,7 +24497,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router40.prototype.route = function route(path) {
+    Router41.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -24512,7 +24512,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router40.prototype[method] = function(path) {
+      Router41.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -24695,13 +24695,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router40 = require_router();
+    var Router41 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router40 = null;
+      var router41 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -24710,13 +24710,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router40 === null) {
-            router40 = new Router40({
+          if (router41 === null) {
+            router41 = new Router41({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router40;
+          return router41;
         }
       });
     };
@@ -24787,15 +24787,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router40 = this.router;
+      var router41 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router40.use(path, fn2);
+          return router41.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router40.use(path, function mounted_app(req, res, next) {
+        router41.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -27368,7 +27368,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router40 = require_router();
+    var Router41 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -27390,8 +27390,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router40.Route;
-    exports.Router = Router40;
+    exports.Route = Router41.Route;
+    exports.Router = Router41;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -45280,12 +45280,12 @@ var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // src/app.ts
-var import_express40 = __toESM(require_express2(), 1);
+var import_express41 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express39 = __toESM(require_express2(), 1);
+var import_express40 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -66101,47 +66101,90 @@ router38.post("/notifications/mark-seen", async (req, res) => {
 });
 var couple_feed_default = router38;
 
-// src/routes/index.ts
+// src/routes/auth.ts
+var import_express39 = __toESM(require_express2(), 1);
+
+// src/lib/supabase.ts
+var SUPABASE_URL2 = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+var SERVER_OPTIONS = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
+  },
+  realtime: {
+    params: { eventsPerSecond: -1 }
+  }
+};
+function makeSupabase34() {
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(SUPABASE_URL2, key, SERVER_OPTIONS);
+}
+
+// src/routes/auth.ts
 var router39 = (0, import_express39.Router)();
-router39.use(health_default);
-router39.use("/ai", caption_default);
-router39.use("/ai", chat_default);
-router39.use("/admin", setup_default);
-router39.use("/admin", reports_default);
-router39.use("/music", deezer_default);
-router39.use("/posts", remove_default);
-router39.use("/posts", update_default);
-router39.use("/posts", create_default);
-router39.use("/reels", create_default2);
-router39.use("/reels", remove_default2);
-router39.use("/reels", watch_default);
-router39.use("/reels", like_default);
-router39.use("/users", search_default);
-router39.use("/users/social", social_default);
-router39.use("/users/notifications", notifications_default);
-router39.use("/engage", engage_default);
-router39.use("/messages", messages_default);
-router39.use("/users", setup_default2);
-router39.use("/users", onboarding_default);
-router39.use("/users", contacts_default);
-router39.use("/moderation", moderation_default);
-router39.use("/did", did_default);
-router39.use("/stories", stories_default);
-router39.use("/comments", comments_default);
-router39.use("/storage", storage_default);
-router39.use("/feed", feed_default);
-router39.use("/vibe", vibe_default);
-router39.use("/vibe-requests", vibe_requests_default);
-router39.use("/vibe-rooms", vibe_rooms_default);
-router39.use("/snaps", snaps_default);
-router39.use("/rewards", rewards_default);
-router39.use("/analytics", analytics_default);
-router39.use("/ads", ads_default);
-router39.use("/live", live_default);
-router39.use("/sounds", sounds_default);
-router39.use("/couple", couple_default);
-router39.use("/couple-feed", couple_feed_default);
-var routes_default = router39;
+router39.post("/google", async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) {
+    res.status(400).json({ error: "idToken is required" });
+    return;
+  }
+  const sb = makeSupabase34();
+  const { data, error } = await sb.auth.signInWithIdToken({
+    provider: "google",
+    token: idToken
+  });
+  if (error) {
+    req.log.warn({ err: error.message }, "Google sign-in failed");
+    res.status(400).json({ error: error.message });
+    return;
+  }
+  res.json({ user: data.user, session: data.session });
+});
+var auth_default = router39;
+
+// src/routes/index.ts
+var router40 = (0, import_express40.Router)();
+router40.use(health_default);
+router40.use("/ai", caption_default);
+router40.use("/ai", chat_default);
+router40.use("/admin", setup_default);
+router40.use("/admin", reports_default);
+router40.use("/music", deezer_default);
+router40.use("/posts", remove_default);
+router40.use("/posts", update_default);
+router40.use("/posts", create_default);
+router40.use("/reels", create_default2);
+router40.use("/reels", remove_default2);
+router40.use("/reels", watch_default);
+router40.use("/reels", like_default);
+router40.use("/users", search_default);
+router40.use("/users/social", social_default);
+router40.use("/users/notifications", notifications_default);
+router40.use("/engage", engage_default);
+router40.use("/messages", messages_default);
+router40.use("/users", setup_default2);
+router40.use("/users", onboarding_default);
+router40.use("/users", contacts_default);
+router40.use("/moderation", moderation_default);
+router40.use("/did", did_default);
+router40.use("/stories", stories_default);
+router40.use("/comments", comments_default);
+router40.use("/storage", storage_default);
+router40.use("/feed", feed_default);
+router40.use("/vibe", vibe_default);
+router40.use("/vibe-requests", vibe_requests_default);
+router40.use("/vibe-rooms", vibe_rooms_default);
+router40.use("/snaps", snaps_default);
+router40.use("/rewards", rewards_default);
+router40.use("/analytics", analytics_default);
+router40.use("/ads", ads_default);
+router40.use("/live", live_default);
+router40.use("/sounds", sounds_default);
+router40.use("/couple", couple_default);
+router40.use("/couple-feed", couple_feed_default);
+router40.use("/auth", auth_default);
+var routes_default = router40;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -66162,7 +66205,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express40.default)();
+var app = (0, import_express41.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -66183,8 +66226,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express40.default.json({ limit: "150mb" }));
-app.use(import_express40.default.urlencoded({ extended: true, limit: "150mb" }));
+app.use(import_express41.default.json({ limit: "150mb" }));
+app.use(import_express41.default.urlencoded({ extended: true, limit: "150mb" }));
 app.use((_req, res, next) => {
   const start = Date.now();
   const origEnd = res.end.bind(res);
@@ -66196,23 +66239,6 @@ app.use((_req, res, next) => {
 });
 app.use("/api", routes_default);
 var app_default = app;
-
-// src/lib/supabase.ts
-var SUPABASE_URL2 = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
-var SERVER_OPTIONS = {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false
-  },
-  realtime: {
-    params: { eventsPerSecond: -1 }
-  }
-};
-function makeSupabase34() {
-  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
-  return createClient(SUPABASE_URL2, key, SERVER_OPTIONS);
-}
 
 // src/index.ts
 if (typeof globalThis.WebSocket === "undefined") {

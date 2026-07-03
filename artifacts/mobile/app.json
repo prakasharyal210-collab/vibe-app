@@ -112,7 +112,8 @@
     "extra": {
       "eas": {
         "projectId": "c60fdd9d-6ced-4370-86de-24d16864e642"
-      }
+      },
+      "googleWebClientId": "375944530592-m00jil1hf5ppqq02mnfgrgiaen3f2a8s.apps.googleusercontent.com"
     },
     "owner": "prakasharyal210"
   }
