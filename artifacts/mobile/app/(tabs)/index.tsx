@@ -470,7 +470,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
             )}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="cloud-download-outline" size={28} color="#fff" style={S.actionIcon} />
+            <Ionicons name="download-outline" size={28} color="#fff" style={S.actionIcon} />
             <Text style={S.actionCount}>Save</Text>
           </TouchableOpacity>
         )}
