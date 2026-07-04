@@ -49,8 +49,12 @@ import { supabase } from "@/lib/supabase";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
-// Used for aspect-ratio comparison inside ReelItem (portrait screen ≈ 0.46 on most phones)
-const SCREEN_ASPECT = W / SCREEN_H;
+// Fixed 9:16 portrait reference ratio used for adaptive resizeMode in ReelItem.
+// Comparing against the DEVICE screen ratio (W/H ≈ 0.46-0.48) was wrong — it caused
+// normal 9:16 footage (0.5625) to exceed the threshold and get CONTAIN+blur.
+// Instead we compare every video against a canonical portrait 9:16 = 0.5625,
+// with a ±20% tolerance to cover 9:19.5, 9:20, and other native phone ratios.
+const PORTRAIT_REFERENCE_ASPECT = 9 / 16; // 0.5625
 
 // Stable viewability config — must be defined outside the component so its
 // reference never changes (React Native throws if it changes after mount).
@@ -364,13 +368,12 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     >
       {/* Background: real video for DB reels, placeholder poster if video not yet loaded */}
       {reel.videoUrl && !videoError ? (() => {
-        // Aspect-ratio comparison: video aspect vs screen aspect.
-        // "close" = within 10% → crop-to-fill (COVER, no distortion for 9:16 content).
-        // "different" → letterbox (CONTAIN) with a blurred copy of the thumbnail as
-        // backdrop so the black bars are replaced by soft ambient colour.
+        // Aspect-ratio comparison: video aspect vs fixed 9:16 portrait reference (0.5625).
+        // ±20% tolerance covers 9:16, 9:19.5, 9:20 native-shot content → COVER (crop-to-fill).
+        // Anything outside that band (4:5, 1:1, 16:9 landscape) → CONTAIN + blurred backdrop.
         const isCloseAspect =
           videoAspect === null ||
-          Math.abs(videoAspect - SCREEN_ASPECT) / SCREEN_ASPECT < 0.10;
+          Math.abs(videoAspect - PORTRAIT_REFERENCE_ASPECT) / PORTRAIT_REFERENCE_ASPECT < 0.20;
         const videoResizeMode = isCloseAspect ? ResizeMode.COVER : ResizeMode.CONTAIN;
         return (
           <>
