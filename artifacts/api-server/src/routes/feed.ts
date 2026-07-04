@@ -565,7 +565,11 @@ router.get("/fresh-faces", async (req, res) => {
   const supabase = makeSupabase();
 
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    // Compute the 24-hour cutoff in UTC milliseconds and as a UTC ISO string.
+    // Using sinceMs for the JS-level safety filter below avoids any local-time
+    // misparse of `created_at` strings that Supabase may return without a Z suffix.
+    const sinceMs = Date.now() - 24 * 60 * 60 * 1000;
+    const since = new Date(sinceMs).toISOString(); // always "...Z"
 
     let query = supabase
       .from("posts")
@@ -583,44 +587,26 @@ router.get("/fresh-faces", async (req, res) => {
 
     const { data, error } = await query;
 
-    if (error && error.message?.includes("is_first_post")) {
-      // Column not yet migrated — fall back to recent posts from new profiles
-      const { data: newProfiles } = await supabase
-        .from("profiles")
-        .select("id")
-        .gte("created_at", since)
-        .limit(50);
-
-      const newUserIds = (newProfiles ?? [])
-        .map((p: any) => p.id as string)
-        .filter((id) => !userId || id !== userId);
-
-      if (!newUserIds.length) {
-        res.json({ posts: [] });
-        return;
-      }
-
-      const { data: fallbackPosts } = await supabase
-        .from("posts")
-        .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
-        .in("user_id", newUserIds)
-        .or("visibility.eq.public,visibility.is.null")
-        .or("is_archived.eq.false,is_archived.is.null")
-        .order("created_at", { ascending: false })
-        .limit(limit);
-
-      const posts = (fallbackPosts ?? []).map((p: any) => ({ ...p, is_first_post: true }));
-      res.json({ posts });
-      return;
-    }
-
     if (error) {
-      req.log.warn({ error: error.message }, "fresh-faces fetch error");
+      req.log.warn({ error: error.message, since }, "fresh-faces fetch error");
       res.json({ posts: [] });
       return;
     }
 
-    const posts = (data ?? []).map((p: any) => ({ ...p, is_first_post: true }));
+    // Defense-in-depth: re-filter in JS after the DB query.
+    // Supabase can return `created_at` without a Z suffix (bare timestamp); parsing
+    // such a string with `new Date()` treats it as LOCAL time on the JS runtime.
+    // Appending Z when no offset is present forces UTC interpretation — the same
+    // pattern used by parseUTCMs in the mobile client.
+    const rows = (data ?? []).filter((p: any) => {
+      const ts = (p.created_at ?? "") as string;
+      const hasOffset = ts.endsWith("Z") || ts.includes("+") || (ts.length > 19 && ts[19] === "-");
+      const ms = new Date(hasOffset ? ts : ts + "Z").getTime();
+      return Number.isFinite(ms) && ms >= sinceMs;
+    });
+
+    req.log.info({ since, rowsFromDb: (data ?? []).length, rowsAfterFilter: rows.length }, "fresh-faces result");
+    const posts = rows.map((p: any) => ({ ...p, is_first_post: true }));
     res.json({ posts });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "fresh-faces exception");

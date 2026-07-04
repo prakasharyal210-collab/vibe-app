@@ -63943,30 +63943,26 @@ router26.get("/fresh-faces", async (req, res) => {
   const limit = Math.min(parseInt(req.query["limit"] ?? "10", 10), 20);
   const supabase = makeSupabase21();
   try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
+    const sinceMs = Date.now() - 24 * 60 * 60 * 1e3;
+    const since = new Date(sinceMs).toISOString();
     let query = supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").eq("is_first_post", true).gte("created_at", since).or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit);
     if (userId) {
       query = query.neq("user_id", userId);
     }
     const { data, error } = await query;
-    if (error && error.message?.includes("is_first_post")) {
-      const { data: newProfiles } = await supabase.from("profiles").select("id").gte("created_at", since).limit(50);
-      const newUserIds = (newProfiles ?? []).map((p) => p.id).filter((id) => !userId || id !== userId);
-      if (!newUserIds.length) {
-        res.json({ posts: [] });
-        return;
-      }
-      const { data: fallbackPosts } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").in("user_id", newUserIds).or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit);
-      const posts2 = (fallbackPosts ?? []).map((p) => ({ ...p, is_first_post: true }));
-      res.json({ posts: posts2 });
-      return;
-    }
     if (error) {
-      req.log.warn({ error: error.message }, "fresh-faces fetch error");
+      req.log.warn({ error: error.message, since }, "fresh-faces fetch error");
       res.json({ posts: [] });
       return;
     }
-    const posts = (data ?? []).map((p) => ({ ...p, is_first_post: true }));
+    const rows = (data ?? []).filter((p) => {
+      const ts = p.created_at ?? "";
+      const hasOffset = ts.endsWith("Z") || ts.includes("+") || ts.length > 19 && ts[19] === "-";
+      const ms = new Date(hasOffset ? ts : ts + "Z").getTime();
+      return Number.isFinite(ms) && ms >= sinceMs;
+    });
+    req.log.info({ since, rowsFromDb: (data ?? []).length, rowsAfterFilter: rows.length }, "fresh-faces result");
+    const posts = rows.map((p) => ({ ...p, is_first_post: true }));
     res.json({ posts });
   } catch (err) {
     req.log.error({ err: err?.message }, "fresh-faces exception");
