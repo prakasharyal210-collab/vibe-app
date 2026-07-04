@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,7 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 export interface PollDraft {
   question?: string;
   options: string[];
-  duration_hours: 24 | 72 | 168;
+  duration_hours: 24 | 72 | 168 | 336 | 720;
 }
 
 interface Props {
@@ -20,10 +21,12 @@ interface Props {
   showQuestionInput?: boolean;
 }
 
-const DURATION_OPTS: { label: string; value: 24 | 72 | 168 }[] = [
+const DURATION_OPTS: { label: string; value: 24 | 72 | 168 | 336 | 720 }[] = [
   { label: "1 day", value: 24 },
   { label: "3 days", value: 72 },
   { label: "7 days", value: 168 },
+  { label: "2 weeks", value: 336 },
+  { label: "1 month", value: 720 },
 ];
 
 export default function PollComposer({ poll, onChange, showQuestionInput = true }: Props) {
@@ -113,9 +116,13 @@ export default function PollComposer({ poll, onChange, showQuestionInput = true 
         </TouchableOpacity>
       )}
 
-      {/* Duration selector */}
+      {/* Duration selector — horizontal scroll so all 5 chips fit on small screens */}
       <Text style={s.durLabel}>Poll length</Text>
-      <View style={s.durRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.durRow}
+      >
         {DURATION_OPTS.map(({ label, value }) => (
           <TouchableOpacity
             key={value}
@@ -136,7 +143,7 @@ export default function PollComposer({ poll, onChange, showQuestionInput = true 
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }

@@ -293,7 +293,7 @@ router.post("/posts", async (req, res) => {
         req.log.warn({ confessionId, validOpts }, "confession poll skipped — fewer than 2 non-empty options");
       } else {
         try {
-          const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+          const durH = [24, 72, 168, 336, 720].includes(poll.duration_hours) ? poll.duration_hours : 24;
           const endsAt = new Date(Date.now() + durH * 3_600_000).toISOString();
           const question = poll.question?.trim() || null;
           const { data: pollRow, error: pollInsertErr } = await sb
