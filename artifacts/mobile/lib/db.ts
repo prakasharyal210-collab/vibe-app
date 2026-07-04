@@ -1518,6 +1518,43 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
   return [];
 }
 
+export interface PollPostItem {
+  id: string;
+  caption: string;
+  likes: number;
+  comments: number;
+  created_at: string;
+  poll: null | {
+    id: string;
+    question: string | null;
+    ends_at: string;
+    options: { id: string; label: string; position: number; votes: number }[];
+    totalVotes: number;
+    viewerVote: string | null;
+  };
+}
+
+export async function fetchUserPolls(userId: string, viewerId?: string): Promise<PollPostItem[]> {
+  try {
+    const url = viewerId
+      ? `${API_BASE}/posts/user/${encodeURIComponent(userId)}/polls?viewerId=${encodeURIComponent(viewerId)}`
+      : `${API_BASE}/posts/user/${encodeURIComponent(userId)}/polls`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const json = await res.json() as { polls?: any[] };
+    return (json.polls ?? []).map((p: any) => ({
+      id: p.id as string,
+      caption: (p.caption as string) ?? "",
+      likes: (p.likes_count as number) ?? 0,
+      comments: (p.comments_count as number) ?? 0,
+      created_at: p.created_at as string,
+      poll: p.poll ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function createTextPost(
   userId: string,
   caption: string,

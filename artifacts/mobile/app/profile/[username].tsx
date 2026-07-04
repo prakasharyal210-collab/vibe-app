@@ -37,14 +37,17 @@ import {
   blockUser,
   checkIsFollowing,
   fetchProfilePosts,
+  fetchUserPolls,
   getOrCreateConversation,
   isUserBlocked,
   lookupProfileByUsername,
+  PollPostItem,
   ProfileGridItem,
   PublicProfile,
   reportContent,
   restrictUser,
 } from "@/lib/db";
+import PollCard, { PollData } from "@/components/PollCard";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/hooks/useColors";
 
@@ -114,6 +117,7 @@ const REPORT_REASONS = [
 const TAB_DEFS = [
   { id: "posts" as const, icon: "grid-outline" as const, label: "Posts" },
   { id: "reels" as const, icon: "play-circle-outline" as const, label: "Reels" },
+  { id: "polls" as const, icon: "bar-chart-outline" as const, label: "Polls" },
 ];
 
 // ─── VibeRing (SVG arc) ───────────────────────────────────────────────────────
@@ -284,7 +288,7 @@ function ContentTabBar({
   tabScrollX,
 }: {
   activeTab: string;
-  onTabChange: (tab: "posts" | "reels") => void;
+  onTabChange: (tab: "posts" | "reels" | "polls") => void;
   tabScrollX: Animated.Value;
 }) {
   const tabWidth = W / TAB_DEFS.length;
@@ -372,6 +376,38 @@ function ProfileGridThumb({ item, onPress }: { item: GridThumbData; onPress: () 
         </Text>
       </View>
     </TouchableOpacity>
+  );
+}
+
+// ─── ProfilePollRow ───────────────────────────────────────────────────────────
+// Defined at module scope to avoid Ionicons glyph re-init on every parent render.
+
+function ProfilePollRow({ item, userId }: { item: PollPostItem; userId: string | null }) {
+  const colors = useColors();
+  if (!item.poll) return null;
+  return (
+    <View style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.07)" }}>
+      {!!item.caption && (
+        <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 14, color: colors.foreground, lineHeight: 20, marginBottom: 10 }}>
+          {item.caption}
+        </Text>
+      )}
+      <PollCard poll={item.poll as PollData} userId={userId} />
+      <View style={{ flexDirection: "row", gap: 16, marginTop: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name="heart-outline" size={13} color="rgba(255,255,255,0.4)" />
+          <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            {item.likes >= 1000 ? `${(item.likes / 1000).toFixed(1)}k` : item.likes}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.4)" />
+          <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            {item.comments >= 1000 ? `${(item.comments / 1000).toFixed(1)}k` : item.comments}
+          </Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -518,7 +554,8 @@ export default function UserProfileScreen() {
   const [openingChat, setOpeningChat] = useState(false);
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<ProfileGridItem[]>([]);
-  const [activeTab, setActiveTab] = useState<"posts" | "reels">("posts");
+  const [profilePolls, setProfilePolls] = useState<PollPostItem[]>([]);
+  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "polls">("posts");
   const [showMenu, setShowMenu] = useState(false);
   const [mediaViewer, setMediaViewer] = useState<{ visible: boolean; startIndex: number }>({ visible: false, startIndex: 0 });
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -549,6 +586,7 @@ export default function UserProfileScreen() {
   useEffect(() => {
     if (!profile?.id) return;
     fetchProfilePosts(profile.id, myId).then(setPosts).catch(() => {});
+    fetchUserPolls(profile.id, myId ?? undefined).then(setProfilePolls).catch(() => {});
   }, [profile?.id]);
 
   useEffect(() => {
@@ -560,7 +598,7 @@ export default function UserProfileScreen() {
     getVibeCompatibility(myId, profile.id).then(setVibeScore).catch(() => {});
   }, [myId, profile?.id]);
 
-  const handleTabChange = (tab: "posts" | "reels") => {
+  const handleTabChange = (tab: "posts" | "reels" | "polls") => {
     const idx = TAB_DEFS.findIndex((t) => t.id === tab);
     setActiveTab(tab);
     pagerRef.current?.scrollTo({ x: idx * W, animated: true });
@@ -663,7 +701,8 @@ export default function UserProfileScreen() {
 
   const ROW_H = GRID_SIZE + 1.5;
   const uPageH = (n: number) => Math.max(320, Math.ceil(n / 3) * ROW_H);
-  const pagerHeight = Math.max(uPageH(gridPosts.length), uPageH(gridReels.length), 320);
+  const pollPageH = (n: number) => Math.max(320, n * 190);
+  const pagerHeight = Math.max(uPageH(gridPosts.length), uPageH(gridReels.length), pollPageH(profilePolls.length), 320);
 
   const pinnedPost = gridData.find((p) => p.isPinned) ?? null;
   const pinnedIndex = pinnedPost ? gridData.findIndex((p) => p.isPinned) : -1;
@@ -834,11 +873,11 @@ export default function UserProfileScreen() {
                 }}
                 onMomentumScrollEnd={(e) => {
                   const idx = Math.round(e.nativeEvent.contentOffset.x / W);
-                  const tabs: ("posts" | "reels")[] = ["posts", "reels"];
+                  const tabs: ("posts" | "reels" | "polls")[] = ["posts", "reels", "polls"];
                   setActiveTab(tabs[idx] ?? "posts");
                 }}
                 style={{ width: W }}
-                contentContainerStyle={{ width: W * 2 }}
+                contentContainerStyle={{ width: W * 3 }}
               >
                 {/* Page 0 – Posts */}
                 <View style={{ width: W }}>
@@ -875,6 +914,22 @@ export default function UserProfileScreen() {
                         />
                       ))}
                     </View>
+                  )}
+                </View>
+
+                {/* Page 2 – Polls */}
+                <View style={{ width: W }}>
+                  {profilePolls.length === 0 ? (
+                    <View style={{ alignItems: "center", paddingVertical: 48, gap: 10 }}>
+                      <Ionicons name="bar-chart-outline" size={48} color="rgba(255,255,255,0.18)" />
+                      <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 14, color: "rgba(255,255,255,0.35)", textAlign: "center" }}>
+                        No polls yet
+                      </Text>
+                    </View>
+                  ) : (
+                    profilePolls.map((item) => (
+                      <ProfilePollRow key={item.id} item={item} userId={myId ?? null} />
+                    ))
                   )}
                 </View>
               </ScrollView>

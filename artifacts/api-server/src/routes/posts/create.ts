@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "../../lib/sendPush";
 import { checkImageContent, checkVideoContent, checkCaptionText, logRejection } from "../../utils/contentModeration";
 import { logger } from "../../lib/logger";
+import { enrichWithPolls } from "../polls";
 
 const router = Router();
 
@@ -252,6 +253,73 @@ router.get("/user/:userId", async (req, res) => {
   ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   res.json({ posts: mergedPosts, reels: mergedReels });
+});
+
+// GET /api/posts/user/:userId/polls
+// Returns the user's public posts that have an attached poll, enriched with live
+// poll data.  Same visibility rules as /user/:userId.
+// Only ever reads from the `posts` table — confession polls live on
+// couple_feed_posts and use confession_post_id; they are structurally excluded
+// because the polls table CHECK constraint guarantees post_id IS NULL for them.
+router.get("/user/:userId/polls", async (req, res) => {
+  const { userId } = req.params;
+  const { viewerId } = req.query as { viewerId?: string };
+  if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+
+  const sb = makeSupabase();
+  const isOwner = !!viewerId && viewerId === userId;
+
+  // Determine follow relationship (same logic as /user/:userId)
+  let viewerFollows = false;
+  if (!isOwner && viewerId) {
+    try {
+      const { data: follow } = await sb
+        .from("follows").select("follower_id")
+        .eq("follower_id", viewerId).eq("following_id", userId).maybeSingle();
+      viewerFollows = !!follow;
+    } catch {}
+  }
+
+  const visFilter = isOwner
+    ? null
+    : viewerFollows
+      ? "visibility.eq.public,visibility.eq.friends,visibility.is.null"
+      : "visibility.eq.public,visibility.is.null";
+
+  // Step 1: fetch the user's non-archived posts, applying visibility filter
+  async function fetchUserPosts(): Promise<any[]> {
+    let q: any = sb.from("posts").select("*")
+      .eq("user_id", userId)
+      .or("is_archived.eq.false,is_archived.is.null")
+      .order("created_at", { ascending: false });
+    if (visFilter) {
+      const { data, error } = await q.or(visFilter);
+      if (!error) return data ?? [];
+      // visibility column missing — retry without it
+      const { data: fallback } = await sb.from("posts").select("*")
+        .eq("user_id", userId)
+        .or("is_archived.eq.false,is_archived.is.null")
+        .order("created_at", { ascending: false });
+      return fallback ?? [];
+    }
+    const { data } = await q;
+    return data ?? [];
+  }
+
+  const posts = await fetchUserPosts();
+  if (!posts.length) { res.json({ polls: [] }); return; }
+
+  // Step 2: which of those posts have a poll?
+  const postIds = (posts as any[]).map((p) => p.id as string);
+  const { data: pollRows } = await sb.from("polls").select("post_id").in("post_id", postIds);
+  const pollPostIdSet = new Set((pollRows ?? []).map((r: any) => r.post_id as string));
+
+  const pollPosts = (posts as any[]).filter((p) => pollPostIdSet.has(p.id as string));
+  if (!pollPosts.length) { res.json({ polls: [] }); return; }
+
+  // Step 3: enrich with live poll data (uses post_id parentIdField by default)
+  const enriched = await enrichWithPolls(sb, pollPosts, viewerId);
+  res.json({ polls: enriched });
 });
 
 // GET /api/posts/tagged?userId=<uuid> — posts the user is tagged in (post_tags table), bypassing RLS

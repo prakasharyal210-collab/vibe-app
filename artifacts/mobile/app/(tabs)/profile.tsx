@@ -39,7 +39,8 @@ import { GradientButton } from "@/components/GradientButton";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { fetchProfilePosts, getProfileStats, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight, fetchMyStories, addStoryToHighlight, HighlightStory } from "@/lib/db";
+import { fetchProfilePosts, fetchUserPolls, getProfileStats, PollPostItem, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight, fetchMyStories, addStoryToHighlight, HighlightStory } from "@/lib/db";
+import PollCard, { PollData } from "@/components/PollCard";
 import QRCode from "react-native-qrcode-svg";
 import { captureRef } from "react-native-view-shot";
 import { buildVibeUrl } from "@/lib/share";
@@ -869,7 +870,39 @@ function GuestProfile() {
   );
 }
 
-type ProfileTab = "posts" | "reels" | "saved";
+// ─── ProfilePollItem ──────────────────────────────────────────────────────────
+// Module-scope to prevent React remounts that cause Ionicons glyph re-init.
+
+function ProfilePollItem({ item, userId }: { item: PollPostItem; userId: string | null }) {
+  const colors = useColors();
+  if (!item.poll) return null;
+  return (
+    <View style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: "rgba(255,255,255,0.07)" }}>
+      {!!item.caption && (
+        <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 14, color: colors.foreground, lineHeight: 20, marginBottom: 10 }}>
+          {item.caption}
+        </Text>
+      )}
+      <PollCard poll={item.poll as PollData} userId={userId} />
+      <View style={{ flexDirection: "row", gap: 16, marginTop: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name="heart-outline" size={13} color="rgba(255,255,255,0.4)" />
+          <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            {item.likes >= 1000 ? `${(item.likes / 1000).toFixed(1)}k` : item.likes}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.4)" />
+          <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 12, color: "rgba(255,255,255,0.4)" }}>
+            {item.comments >= 1000 ? `${(item.comments / 1000).toFixed(1)}k` : item.comments}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+type ProfileTab = "posts" | "reels" | "polls" | "saved";
 
 export default function ProfileScreen() {
   const colors = useColors();
@@ -892,7 +925,7 @@ export default function ProfileScreen() {
   const tabScrollX = useRef(new Animated.Value(0)).current;
 
   const handleTabPress = useCallback((index: number) => {
-    const tabs: ProfileTab[] = ["posts", "reels", "saved"];
+    const tabs: ProfileTab[] = ["posts", "reels", "polls", "saved"];
     setActiveTab(tabs[index] ?? "posts");
     pagerRef.current?.scrollTo({ x: index * W, animated: true });
   }, []);
@@ -900,6 +933,7 @@ export default function ProfileScreen() {
   const [myPosts, setMyPosts] = useState<GridItem[]>([]);
   const [taggedPosts, setTaggedPosts] = useState<GridItem[]>([]);
   const [savedPosts, setSavedPosts] = useState<GridItem[]>([]);
+  const [myPolls, setMyPolls] = useState<PollPostItem[]>([]);
   const [archivedPosts, setArchivedPosts] = useState<GridItem[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -924,6 +958,11 @@ export default function ProfileScreen() {
   const mainTabSwipe = useMainTabSwipe("profile");
 
   const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+
+  useEffect(() => {
+    if (!session?.user?.id || activeTab !== "polls") return;
+    fetchUserPolls(session.user.id, session.user.id).then(setMyPolls).catch(() => {});
+  }, [activeTab, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || activeTab !== "saved") return;
@@ -1145,9 +1184,11 @@ export default function ProfileScreen() {
   // clipping. Each row is GRID_ITEM tall + 1.5px gap; minimum 320 for empty states.
   const ROW_H = GRID_ITEM + 1.5;
   const pageH = (n: number) => Math.max(320, Math.ceil(n / 3) * ROW_H);
+  const pollPageH = (n: number) => Math.max(320, n * 190);
   const pagerHeight = Math.max(
     pageH(postsOnly.length),
     pageH(reelsOnly.length),
+    pollPageH(myPolls.length),
     pageH(savedPosts.length),
   );
 
@@ -1357,7 +1398,8 @@ export default function ProfileScreen() {
           {([
             { key: "posts" as ProfileTab, icon: "grid-outline", idx: 0 },
             { key: "reels" as ProfileTab, icon: "play-circle-outline", idx: 1 },
-            { key: "saved" as ProfileTab, icon: "star-outline", idx: 2 },
+            { key: "polls" as ProfileTab, icon: "bar-chart-outline", idx: 2 },
+            { key: "saved" as ProfileTab, icon: "star-outline", idx: 3 },
           ]).map((tab) => (
             <TouchableOpacity key={tab.key} onPress={() => handleTabPress(tab.idx)}
               style={[styles.gridTab, { flex: 1 }]}>
@@ -1370,13 +1412,13 @@ export default function ProfileScreen() {
               position: "absolute",
               bottom: 0,
               left: 0,
-              width: W / 3,
+              width: W / 4,
               height: 2.5,
               backgroundColor: "#8B5CF6",
               transform: [{
                 translateX: tabScrollX.interpolate({
-                  inputRange: [0, W, W * 2],
-                  outputRange: [0, W / 3, (W / 3) * 2],
+                  inputRange: [0, W, W * 2, W * 3],
+                  outputRange: [0, W / 4, W / 2, (W / 4) * 3],
                   extrapolate: "clamp",
                 }),
               }],
@@ -1401,11 +1443,11 @@ export default function ProfileScreen() {
           }}
           onMomentumScrollEnd={(e) => {
             const idx = Math.round(e.nativeEvent.contentOffset.x / W);
-            const tabs: ProfileTab[] = ["posts", "reels", "saved"];
+            const tabs: ProfileTab[] = ["posts", "reels", "polls", "saved"];
             setActiveTab(tabs[idx] ?? "posts");
           }}
           style={{ width: W }}
-          contentContainerStyle={{ width: W * 3 }}
+          contentContainerStyle={{ width: W * 4 }}
         >
           {/* Page 0 – Posts */}
           <View style={{ width: W }}>
@@ -1445,7 +1487,26 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* Page 2 – Saved */}
+          {/* Page 2 – Polls */}
+          <View style={{ width: W }}>
+            {myPolls.length === 0 ? (
+              <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
+                <Ionicons name="bar-chart-outline" size={48} color="rgba(255,255,255,0.18)" />
+                <Text style={{ fontFamily: "Poppins_600SemiBold", fontSize: 17, color: colors.foreground }}>
+                  No polls yet
+                </Text>
+                <Text style={{ fontFamily: "Poppins_400Regular", fontSize: 13, color: colors.mutedForeground, textAlign: "center" }}>
+                  Create a poll to see it here
+                </Text>
+              </View>
+            ) : (
+              myPolls.map((item) => (
+                <ProfilePollItem key={item.id} item={item} userId={session?.user?.id ?? null} />
+              ))
+            )}
+          </View>
+
+          {/* Page 3 – Saved */}
           <View style={{ width: W }}>
             {savedPosts.length === 0 ? (
               <View style={{ padding: 48, alignItems: "center", gap: 12 }}>
