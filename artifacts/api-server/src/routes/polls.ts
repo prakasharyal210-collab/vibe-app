@@ -13,14 +13,22 @@ function makeSupabase(): SupabaseClient {
 
 // ── Shared batch enrichment ────────────────────────────────────────────────────
 // Fetches poll data for a set of rows and merges it under `row.poll`.
-// parentIdField controls which FK column to match against: post_id (regular posts)
-// or confession_post_id (couple-feed posts).
+//
+// parentIdField: "post_id" for regular feed polls; "confession_post_id" for
+//   couple-feed (confession) polls.
+//
+// viewerUserId: used to find the viewer's vote on regular (per-user) polls.
+//
+// viewerCoupleId: used instead of viewerUserId for confession polls.
+//   When provided and parentIdField === "confession_post_id", viewerVote is
+//   resolved from poll_votes.couple_id so EITHER partner sees the couple's vote.
 
 export async function enrichWithPolls(
   supabase: SupabaseClient,
   rows: any[],
   viewerUserId?: string,
   parentIdField: "post_id" | "confession_post_id" = "post_id",
+  viewerCoupleId?: string,
 ): Promise<any[]> {
   if (!rows.length) return rows;
 
@@ -36,6 +44,25 @@ export async function enrichWithPolls(
 
   const pollIds = (polls as any[]).map((p) => p.id as string);
 
+  // viewerVote lookup strategy:
+  //   confession poll + viewerCoupleId → match on couple_id (both partners see same vote)
+  //   regular poll + viewerUserId      → match on user_id (unchanged)
+  //   neither provided                 → no viewerVote
+  const useCouple = parentIdField === "confession_post_id" && !!viewerCoupleId;
+  const myVotesQuery = useCouple
+    ? supabase
+        .from("poll_votes")
+        .select("poll_id, option_id")
+        .in("poll_id", pollIds)
+        .eq("couple_id", viewerCoupleId!)
+    : viewerUserId
+    ? supabase
+        .from("poll_votes")
+        .select("poll_id, option_id")
+        .in("poll_id", pollIds)
+        .eq("user_id", viewerUserId)
+    : Promise.resolve({ data: [] as any[] });
+
   const [optionsRes, votesRes, myVotesRes] = await Promise.all([
     supabase
       .from("poll_options")
@@ -46,13 +73,7 @@ export async function enrichWithPolls(
       .from("poll_votes")
       .select("poll_id, option_id")
       .in("poll_id", pollIds),
-    viewerUserId
-      ? supabase
-          .from("poll_votes")
-          .select("poll_id, option_id")
-          .in("poll_id", pollIds)
-          .eq("user_id", viewerUserId)
-      : Promise.resolve({ data: [] as any[] }),
+    myVotesQuery,
   ]);
 
   const options = (optionsRes.data ?? []) as any[];
@@ -106,6 +127,15 @@ export async function enrichWithPolls(
 // ── POST /api/polls/:pollId/vote ───────────────────────────────────────────────
 // Body: { optionId: string, userId: string }
 // Returns: { success: true, poll: { id, options, totalVotes, viewerVote } }
+//
+// Voting strategy (DB-enforced):
+//   Confession polls (confession_post_id IS NOT NULL):
+//     Resolve the voter's couple from couple_links (user1_id or user2_id = userId).
+//     If a couple is found → upsert on (poll_id, couple_id): only one vote per couple,
+//       either partner voting or re-voting moves that single row.
+//     If no couple found (edge case: single user browsing) → fall back to per-user upsert.
+//   Regular feed polls (post_id IS NOT NULL):
+//     Per-user upsert on (poll_id, user_id) — unchanged.
 
 router.post("/:pollId/vote", async (req, res) => {
   const { pollId } = req.params;
@@ -121,10 +151,10 @@ router.post("/:pollId/vote", async (req, res) => {
 
   const sb = makeSupabase();
 
-  // Verify poll exists and is still open
+  // Verify poll exists and is still open; fetch type to branch voting strategy
   const { data: poll } = await sb
     .from("polls")
-    .select("id, ends_at")
+    .select("id, ends_at, confession_post_id, post_id")
     .eq("id", pollId)
     .maybeSingle();
 
@@ -150,17 +180,44 @@ router.post("/:pollId/vote", async (req, res) => {
     return;
   }
 
-  // Upsert — UNIQUE(poll_id, user_id) means existing row gets option_id updated
-  const { error: voteErr } = await sb
-    .from("poll_votes")
-    .upsert(
-      { poll_id: pollId, option_id: optionId, user_id: userId },
-      { onConflict: "poll_id,user_id" },
-    );
+  const isConfessionPoll = !!(poll as any).confession_post_id;
+
+  // For confession polls: resolve the voter's couple_id
+  let coupleId: string | null = null;
+  if (isConfessionPoll) {
+    const { data: link } = await sb
+      .from("couple_links")
+      .select("id")
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .maybeSingle();
+    coupleId = (link as any)?.id ?? null;
+  }
+
+  let voteErr: { message: string } | null = null;
+
+  if (coupleId) {
+    // Confession poll with couple → one vote per couple, keyed on (poll_id, couple_id)
+    const result = await sb
+      .from("poll_votes")
+      .upsert(
+        { poll_id: pollId, option_id: optionId, user_id: userId, couple_id: coupleId },
+        { onConflict: "poll_id,couple_id" },
+      );
+    voteErr = result.error as any;
+  } else {
+    // Regular poll or confession without couple → one vote per user
+    const result = await sb
+      .from("poll_votes")
+      .upsert(
+        { poll_id: pollId, option_id: optionId, user_id: userId },
+        { onConflict: "poll_id,user_id" },
+      );
+    voteErr = result.error as any;
+  }
 
   if (voteErr) {
-    req.log.error({ err: voteErr.message }, "poll vote upsert error");
-    res.status(500).json({ error: voteErr.message });
+    req.log.error({ err: (voteErr as any).message }, "poll vote upsert error");
+    res.status(500).json({ error: (voteErr as any).message });
     return;
   }
 
@@ -171,10 +228,10 @@ router.post("/:pollId/vote", async (req, res) => {
   ]);
 
   const opts = (optionsRes.data ?? []) as any[];
-  const votes = (votesRes.data ?? []) as any[];
+  const freshVotes = (votesRes.data ?? []) as any[];
 
   const voteCountByOption = new Map<string, number>();
-  for (const v of votes) {
+  for (const v of freshVotes) {
     voteCountByOption.set(v.option_id as string, (voteCountByOption.get(v.option_id as string) ?? 0) + 1);
   }
 
@@ -188,7 +245,7 @@ router.post("/:pollId/vote", async (req, res) => {
         position: o.position,
         votes: voteCountByOption.get(o.id as string) ?? 0,
       })),
-      totalVotes: votes.length,
+      totalVotes: freshVotes.length,
       viewerVote: optionId,
     },
   });

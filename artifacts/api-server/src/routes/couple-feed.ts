@@ -172,7 +172,8 @@ router.get("/posts", async (req, res) => {
     if (error) throw error;
 
     const enriched = await Promise.all(((posts ?? []) as any[]).map((p) => enrichPost(sb, p, coupleId)));
-    const enrichedPolls = await enrichWithPolls(sb, enriched, undefined, "confession_post_id");
+    // Pass coupleId so both partners see the same viewerVote (couple-scoped voting)
+    const enrichedPolls = await enrichWithPolls(sb, enriched, undefined, "confession_post_id", coupleId);
     res.json({ posts: enrichedPolls });
   } catch (err: any) {
     req.log.error({ err: err.message }, "couple-feed/posts GET error");
