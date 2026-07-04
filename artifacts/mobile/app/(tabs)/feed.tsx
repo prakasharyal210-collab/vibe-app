@@ -652,15 +652,8 @@ export default function FeedScreen() {
     // against the initial unfiltered load).
     const gen = reset ? ++tabLoadGen.current[tab] : tabLoadGen.current[tab];
 
-    if (reset) {
-      // Mark tab as loaded immediately so rapid swipe events (switchToIndex +
-      // onPagerMomentumEnd both firing) don't spawn duplicate concurrent resets.
-      // Pull-to-refresh bypasses this check by calling loadTabData directly.
-      loadedTabs.current.add(tab);
-      updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
-    } else {
-      updateTab(tab, { loadingMore: true });
-    }
+    if (reset) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
+    else updateTab(tab, { loadingMore: true });
 
     try {
       let data: Post[] = [];
@@ -711,6 +704,7 @@ export default function FeedScreen() {
         offset: nextOffset,
         hasMore,
       });
+      loadedTabs.current.add(tab);
     } catch (e: any) {
       console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message);
     } finally {
