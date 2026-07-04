@@ -488,6 +488,14 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
   const isStartingRef = useRef(false);
   const recordPulse = useSharedValue(1);
   const recordRingStyle = useAnimatedStyle(() => ({ transform: [{ scale: recordPulse.value }] }));
+  // Inner circle: animated size + radius for idle→recording transition
+  const innerSize = useSharedValue(64);
+  const innerRadius = useSharedValue(32);
+  const innerAnimStyle = useAnimatedStyle(() => ({
+    width: innerSize.value,
+    height: innerSize.value,
+    borderRadius: innerRadius.value,
+  }));
 
   // ── Display toggles ────────────────────────────────────────────────────────
   const [showGrid, setShowGrid] = useState(false);
@@ -648,17 +656,23 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
   const startPulse = useCallback(() => {
     recordPulse.value = withRepeat(
       withSequence(
-        withTiming(1.18, { duration: 550 }),
-        withTiming(1, { duration: 550 })
+        withTiming(1.12, { duration: 600 }),
+        withTiming(1, { duration: 600 })
       ),
       -1,
       false
     );
+    // Animate inner circle → recording square
+    innerSize.value = withSpring(28, { damping: 14, stiffness: 180 });
+    innerRadius.value = withSpring(8, { damping: 14, stiffness: 180 });
   }, []);
 
   const stopPulse = useCallback(() => {
     cancelAnimation(recordPulse);
     recordPulse.value = withTiming(1, { duration: 150 });
+    // Restore inner circle
+    innerSize.value = withSpring(64, { damping: 14, stiffness: 180 });
+    innerRadius.value = withSpring(32, { damping: 14, stiffness: 180 });
   }, []);
 
   // ── Photo capture ─────────────────────────────────────────────────────────
@@ -1211,29 +1225,34 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
 
             {/* Capture button */}
             <View style={s.recordWrap}>
-              <RAnimated.View style={[s.recordRing, recording && { borderColor: "#EF4444" }, recordRingStyle]} />
+              {/* Outer ring — pure visual, absolute */}
+              <RAnimated.View style={[s.recordRing, recordRingStyle]} pointerEvents="none" />
+              {/* Pressable covers the full ring for easy tapping */}
               <Pressable
                 onPressIn={onRecordPressIn}
                 onPressOut={onRecordPressOut}
                 disabled={timerCount !== null}
                 style={s.recordBtn}
               >
-                {recording ? (
-                  <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#EF4444" }}>
-                    {isVideoMode ? <View style={s.stopSquare} /> : <View style={s.stopSquare} />}
-                  </View>
-                ) : (
-                  <>
-                    <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-                    {captureMode === "Boomerang" && <Text style={s.btnIcon}>⏩</Text>}
-                    {captureMode === "SlowMo" && <Text style={s.btnIcon}>⚡</Text>}
-                    {captureMode === "Panorama" && <Text style={s.btnIcon}>📐</Text>}
-                  </>
-                )}
+                {/* Animated inner circle (idle) → square (recording) */}
+                <RAnimated.View
+                  style={[
+                    s.recordBtnInner,
+                    innerAnimStyle,
+                    { backgroundColor: isVideoMode ? "#FF3B30" : "#ffffff" },
+                  ]}
+                />
+                {/* Mode icons sit above the inner circle */}
+                {!recording && captureMode === "Boomerang" && <Text style={s.btnIcon}>⏩</Text>}
+                {!recording && captureMode === "SlowMo" && <Text style={s.btnIcon}>⚡</Text>}
+                {!recording && captureMode === "Panorama" && <Text style={s.btnIcon}>📐</Text>}
               </Pressable>
-              <RAnimated.Text style={[s.recordHint, controlsStyle]}>
-                {isBoomerang ? "Tap · 2.5 s boomerang" : isVideoMode ? "Tap · start   Tap · stop" : "Tap to capture"}
-              </RAnimated.Text>
+              {/* Hint — video modes only; photo mode needs no explanation */}
+              {isVideoMode && (
+                <RAnimated.Text style={[s.recordHint, controlsStyle]}>
+                  {isBoomerang ? "Tap · 2.5 s boomerang" : "Tap · start   Tap · stop"}
+                </RAnimated.Text>
+              )}
             </View>
 
             {/* Flip */}
@@ -1462,8 +1481,8 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const SIDE_CIRCLE_SIZE = 44;
-const RECORD_BTN_SIZE = 78;
-const RECORD_RING_SIZE = 96;
+const RECORD_RING_SIZE = 80;
+const RECORD_BTN_SIZE = RECORD_RING_SIZE; // pressable matches ring for full hit-target coverage
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#000" },
@@ -1526,12 +1545,12 @@ const s = StyleSheet.create({
   sideActionCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center" },
   sideActionLabel: { color: "rgba(255,255,255,0.8)", fontSize: 11, fontFamily: "Poppins_500Medium" },
 
-  recordWrap: { alignItems: "center", gap: 8 },
-  recordRing: { position: "absolute", width: RECORD_RING_SIZE, height: RECORD_RING_SIZE, borderRadius: RECORD_RING_SIZE / 2, borderWidth: 3, borderColor: "rgba(255,255,255,0.7)" },
-  recordBtn: { width: RECORD_BTN_SIZE, height: RECORD_BTN_SIZE, borderRadius: RECORD_BTN_SIZE / 2, overflow: "hidden", backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
-  stopSquare: { width: 26, height: 26, borderRadius: 5, backgroundColor: "#fff" },
+  recordWrap: { alignItems: "center", gap: 18 },
+  recordRing: { position: "absolute", width: RECORD_RING_SIZE, height: RECORD_RING_SIZE, borderRadius: RECORD_RING_SIZE / 2, borderWidth: 4, borderColor: "#ffffff" },
+  recordBtn: { width: RECORD_BTN_SIZE, height: RECORD_BTN_SIZE, alignItems: "center", justifyContent: "center" },
+  recordBtnInner: { position: "absolute" },
   btnIcon: { fontSize: 22 },
-  recordHint: { color: "rgba(255,255,255,0.55)", fontSize: 10, fontFamily: "Poppins_400Regular", textAlign: "center" },
+  recordHint: { color: "rgba(255,255,255,0.6)", fontSize: 12, fontFamily: "Poppins_400Regular", textAlign: "center" },
 
   modalBackdrop: { flex: 1 },
   textCard: { backgroundColor: "#0F0F1A", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36, gap: 14 },

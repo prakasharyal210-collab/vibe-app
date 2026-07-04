@@ -1,0 +1,22 @@
+Implement a Poll feature for Gundruk in two surfaces: regular feed posts and confession posts. Architecture rules: ALL database access via artifacts/api-server with service-role key; mobile never calls supabase directly; watch for the recurring wrong-column-name/silent-error pattern — verify column names against actual schema before writing queries.
+Database (output a migration SQL file, don't run it):
+
+polls table: id, post_id (nullable FK), confession_post_id (nullable FK — check the actual confession posts table name in the schema first), question (nullable — the post caption may serve as the question), ends_at timestamptz, created_at. RLS enabled + service_role policy, consistent with existing tables.
+poll_options table: id, poll_id FK, label text (max 60 chars), position int
+poll_votes table: id, poll_id FK, option_id FK, user_id FK, created_at, UNIQUE(poll_id, user_id) — one vote per user, changeable (upsert)
+
+API server:
+
+Extend post creation and confession creation endpoints to accept an optional poll object: { options: string[] (2–4), duration_hours: 24|72|168 } — create poll + options atomically with the post
+POST /api/polls/:pollId/vote body { optionId } — upsert vote; reject if past ends_at; return updated counts
+Poll data (options, per-option counts, total votes, viewer's vote, ends_at) must be included when posts/confessions are fetched in feeds — extend existing feed queries efficiently (avoid N+1)
+
+Mobile:
+
+Composer: in the post creation flow (and the confession composer), add a "Poll" option (icon in toolbar) that reveals: 2 option inputs, "+ Add option" up to 4, remove buttons, and a poll length selector (1 day / 3 days / 7 days). Match the app's existing dark/gradient styling — do NOT copy Twitter's blue.
+Poll display in feed/confession cards: before voting — tappable option rows; after voting or poll ended — result bars with percentages (gradient fill on the leading option using the app's brand gradient), viewer's chosen option marked ✓, total vote count + time remaining ("2d left" / "Final results")
+Voting is optimistic-update with rollback on API error
+Confession polls: votes are counted anonymously in the UI (never show who voted), consistent with confession-room privacy expectations
+
+Constraints: don't break existing post creation for non-poll posts; typecheck clean. Report: schema file, endpoints added, mobile files changed, and anything about the confession posts schema that required adaptation.
+
