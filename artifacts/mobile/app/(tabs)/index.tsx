@@ -49,6 +49,8 @@ import { supabase } from "@/lib/supabase";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
+// Used for aspect-ratio comparison inside ReelItem (portrait screen ≈ 0.46 on most phones)
+const SCREEN_ASPECT = W / SCREEN_H;
 
 // Stable viewability config — must be defined outside the component so its
 // reference never changes (React Native throws if it changes after mount).
@@ -177,6 +179,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
   const [showReportReasons, setShowReportReasons] = useState(false);
   const [reporting, setReporting] = useState<string | null>(null);
   const [videoError, setVideoError] = useState(false);
+  // null = not yet known (assume cover until video reports its naturalSize)
+  const [videoAspect, setVideoAspect] = useState<number | null>(null);
 
   // Guard: once the user has tapped like/unlike, the async mount-time checkReelLiked
   // result must NOT overwrite their intent (race condition causes brief flicker + revert).
@@ -359,20 +363,49 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       delayLongPress={400}
     >
       {/* Background: real video for DB reels, placeholder poster if video not yet loaded */}
-      {reel.videoUrl && !videoError ? (
-        <Video
-          source={{ uri: reel.videoUrl }}
-          style={{ position: "absolute", top: 0, left: 0, width: W, height: SCREEN_H }}
-          resizeMode={ResizeMode.COVER}
-          isLooping
-          isMuted={!soundOn}
-          shouldPlay={isActive && !paused}
-          useNativeControls={false}
-          posterSource={{ uri: reel.image }}
-          usePoster
-          onError={() => setVideoError(true)}
-        />
-      ) : (
+      {reel.videoUrl && !videoError ? (() => {
+        // Aspect-ratio comparison: video aspect vs screen aspect.
+        // "close" = within 10% → crop-to-fill (COVER, no distortion for 9:16 content).
+        // "different" → letterbox (CONTAIN) with a blurred copy of the thumbnail as
+        // backdrop so the black bars are replaced by soft ambient colour.
+        const isCloseAspect =
+          videoAspect === null ||
+          Math.abs(videoAspect - SCREEN_ASPECT) / SCREEN_ASPECT < 0.10;
+        const videoResizeMode = isCloseAspect ? ResizeMode.COVER : ResizeMode.CONTAIN;
+        return (
+          <>
+            {/* Blurred backdrop — only rendered when aspect ratio differs significantly */}
+            {!isCloseAspect && (
+              <>
+                <Image
+                  source={{ uri: reel.image }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  blurRadius={24}
+                />
+                {/* Darken the blur so UI elements remain readable */}
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.45)" }]} pointerEvents="none" />
+              </>
+            )}
+            <Video
+              source={{ uri: reel.videoUrl }}
+              style={{ position: "absolute", top: 0, left: 0, width: W, height: SCREEN_H }}
+              resizeMode={videoResizeMode}
+              isLooping
+              isMuted={!soundOn}
+              shouldPlay={isActive && !paused}
+              useNativeControls={false}
+              posterSource={{ uri: reel.image }}
+              usePoster
+              onError={() => setVideoError(true)}
+              onReadyForDisplay={(e) => {
+                const { width: vw, height: vh } = e.naturalSize;
+                if (vw > 0 && vh > 0) setVideoAspect(vw / vh);
+              }}
+            />
+          </>
+        );
+      })() : (
         <Image
           source={{ uri: reel.image }}
           style={StyleSheet.absoluteFill}
