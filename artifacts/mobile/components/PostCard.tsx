@@ -605,11 +605,15 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 activeOpacity={0.7}
               >
                 <View style={styles.nameRow}>
-                  <Text style={[styles.username, { color: colors.foreground }]}>
+                  <Text
+                    style={[styles.username, { color: colors.foreground }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
                     {post.profiles?.username ?? "user"}
                   </Text>
                   {post.profiles?.is_verified && (
-                    <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />
+                    <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" style={{ flexShrink: 0 }} />
                   )}
                   {(post as any).is_first_post && (
                     <View style={newHereBadge.pill}>
@@ -1091,6 +1095,7 @@ const newHereBadge = StyleSheet.create({
     borderColor: "rgba(34,197,94,0.35)",
     paddingHorizontal: 6,
     paddingVertical: 1,
+    flexShrink: 0,
   },
   text: {
     fontSize: 10,
@@ -1120,8 +1125,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerText: { flex: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  username: { fontSize: 15, fontFamily: "Poppins_700Bold" },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1 },
+  username: { fontSize: 15, fontFamily: "Poppins_700Bold", flexShrink: 1 },
   time: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: -1 },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 2, marginTop: -1 },
   location: { fontSize: 11, fontFamily: "Poppins_400Regular" },
