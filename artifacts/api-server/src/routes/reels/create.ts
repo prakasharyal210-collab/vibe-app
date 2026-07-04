@@ -23,6 +23,8 @@ router.post("/create", async (req, res) => {
     originalSoundUsername,
     coupleId,
     isCouplePost,
+    videoWidth,
+    videoHeight,
   } = req.body as {
     userId: string;
     videoBase64?: string;
@@ -36,11 +38,32 @@ router.post("/create", async (req, res) => {
     originalSoundUsername?: string | null;
     coupleId?: string;
     isCouplePost?: boolean;
+    videoWidth?: number;
+    videoHeight?: number;
   };
 
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
     return;
+  }
+
+  // ── Server-side resolution guard (belt-and-braces) ────────────────────────
+  // Dimensions are probed client-side via VideoThumbnails and sent here.
+  // If present and below threshold, reject before any storage write.
+  // Absent dimensions (old clients, probe failure) → skip check, let it through.
+  if (videoWidth && videoHeight && videoWidth > 0 && videoHeight > 0) {
+    const REEL_SHORT = 1080;
+    const REEL_LONG  = 1920;
+    const isPortrait = videoHeight >= videoWidth;
+    const meetsThreshold = isPortrait
+      ? videoWidth >= REEL_SHORT && videoHeight >= REEL_LONG
+      : videoWidth >= REEL_LONG  && videoHeight >= REEL_SHORT;
+    if (!meetsThreshold) {
+      res.status(400).json({
+        error: "This video is below our minimum quality (1080p). Please choose a higher resolution video.",
+      });
+      return;
+    }
   }
 
   const supabaseUrl =

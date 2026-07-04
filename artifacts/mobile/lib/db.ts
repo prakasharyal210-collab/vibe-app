@@ -1744,6 +1744,34 @@ export async function uploadPostMedia(
   }
 }
 
+// ── Reel resolution enforcement ───────────────────────────────────────────────
+// Portrait minimum: 1080 × 1920.  Landscape minimum: 1920 × 1080.
+// Square is treated as portrait (short side must be ≥ 1080, long side ≥ 1920).
+export const REEL_MIN_RESOLUTION = { short: 1080, long: 1920 } as const;
+
+/**
+ * Probes the video's encoded pixel dimensions via VideoThumbnails (runs locally,
+ * no network request, no base64 read — fast and bandwidth-free).
+ * Returns null when probing fails (corrupt file, very short clip, etc.) — in that
+ * case callers should fail-open and let the server validate instead.
+ */
+export async function checkReelVideoResolution(
+  uri: string
+): Promise<{ ok: boolean; width: number; height: number } | null> {
+  try {
+    const { width, height } = await VideoThumbnails.getThumbnailAsync(uri, { time: 500 });
+    if (!width || !height) return null;
+    const isPortrait = height >= width;
+    const ok = isPortrait
+      ? width >= REEL_MIN_RESOLUTION.short && height >= REEL_MIN_RESOLUTION.long
+      : width >= REEL_MIN_RESOLUTION.long && height >= REEL_MIN_RESOLUTION.short;
+    return { ok, width, height };
+  } catch {
+    // Probe failed (e.g. very short clip, unsupported codec) — fail open
+    return null;
+  }
+}
+
 export async function uploadReelMedia(
   userId: string,
   uri: string,
@@ -1752,7 +1780,8 @@ export async function uploadReelMedia(
   visibility?: string,
   originalSoundPostId?: string | null,
   originalSoundUsername?: string | null,
-  coupleOptions?: { coupleId?: string; isCouplePost?: boolean }
+  coupleOptions?: { coupleId?: string; isCouplePost?: boolean },
+  videoDimensions?: { width: number; height: number }
 ): Promise<{ id: string; videoUrl: string; thumbnailUrl?: string } | null> {
   try {
     const cleanUri = uri.split('?')[0];
@@ -1794,7 +1823,7 @@ export async function uploadReelMedia(
       fetch(`${API_BASE}/reels/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration, visibility, originalSoundPostId: originalSoundPostId ?? null, originalSoundUsername: originalSoundUsername ?? null, coupleId: coupleOptions?.coupleId, isCouplePost: coupleOptions?.isCouplePost }),
+        body: JSON.stringify({ userId, videoBase64, thumbnailBase64, mimeType, ext, caption, duration, visibility, originalSoundPostId: originalSoundPostId ?? null, originalSoundUsername: originalSoundUsername ?? null, coupleId: coupleOptions?.coupleId, isCouplePost: coupleOptions?.isCouplePost, videoWidth: videoDimensions?.width, videoHeight: videoDimensions?.height }),
       }),
       120_000,
       'reel create API'

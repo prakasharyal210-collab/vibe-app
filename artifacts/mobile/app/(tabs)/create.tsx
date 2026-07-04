@@ -45,7 +45,7 @@ import { CameraFilterStrip, FilterOverlay, CAMERA_FILTERS, CameraFilter } from "
 import PostPage from "@/components/camera/PostPage";
 import { useAuth } from "@/context/AuthContext";
 import { useCoupleStatus } from "@/context/CoupleContext";
-import { uploadPostMedia, uploadReelMedia } from "@/lib/db";
+import { uploadPostMedia, uploadReelMedia, checkReelVideoResolution } from "@/lib/db";
 import { Track } from "@/lib/music";
 import { callAI, parseAIJson } from "@/lib/ai";
 
@@ -1363,7 +1363,22 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
                       isCouplePost: data.isCouplePost,
                     });
                   } else {
-                    await uploadReelMedia(session.user.id, uri, data.caption ?? "", undefined, visibility, selectedSound?.postId ?? null, selectedSound?.username ?? null, { coupleId: data.coupleId, isCouplePost: data.isCouplePost });
+                    // ── Reel resolution check (client-side, before any upload) ──
+                    const resCheck = await checkReelVideoResolution(uri);
+                    if (resCheck !== null && !resCheck.ok) {
+                      Alert.alert(
+                        "Video quality too low",
+                        "This video is below our minimum quality (1080p). Please choose a higher resolution video."
+                      );
+                      return;
+                    }
+                    await uploadReelMedia(
+                      session.user.id, uri, data.caption ?? "",
+                      undefined, visibility,
+                      selectedSound?.postId ?? null, selectedSound?.username ?? null,
+                      { coupleId: data.coupleId, isCouplePost: data.isCouplePost },
+                      resCheck ?? undefined
+                    );
                   }
                 }
                 setRecordedUri(null); setTextOverlays([]); setStickers([]); setSelectedMusic(null); setSelectedSound(null);
