@@ -368,7 +368,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         <Video
           source={{ uri: reel.videoUrl }}
           style={StyleSheet.absoluteFill}
-          resizeMode={ResizeMode.CONTAIN}
+          resizeMode={ResizeMode.COVER}
           isLooping
           isMuted={!soundOn}
           shouldPlay={isActive && !paused}
@@ -479,7 +479,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           {reel.isVerified && <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />}
         </TouchableOpacity>
 
-        {/* Sound marquee + views folded in on same line */}
+        {/* Sound marquee — views removed from this line */}
         <TouchableOpacity style={S.soundRow} activeOpacity={0.7}>
           <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.75)" />
           <View style={S.soundMarqueeClip}>
@@ -487,7 +487,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
               {reel.sound} · {reel.sound} · {reel.sound} ·{"  "}
             </Animated.Text>
           </View>
-          <Text style={S.viewsInline}>· {fmt(reel.views)}</Text>
         </TouchableOpacity>
 
       </View>
@@ -994,11 +993,9 @@ const S = StyleSheet.create({
   },
   caption: { color: "rgba(255,255,255,0.92)", fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18 },
   moreText: { color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Poppins_500Medium" },
-  soundRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  soundRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
   soundMarqueeClip: { flex: 1, overflow: "hidden" },
   soundText: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Poppins_500Medium", width: 600 },
-  // views folded into the sound line — replaces the old standalone viewsRow
-  viewsInline: { color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: "Poppins_400Regular" },
 
   // sound toggle
   soundToggle: {
