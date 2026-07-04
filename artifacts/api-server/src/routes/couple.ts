@@ -28,14 +28,47 @@ router.post("/request", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
-    const { data: existing } = await sb
+    // Guard: reject if sender OR receiver is already in an accepted couple.
+    // Checks both requester_id and receiver_id columns because either user
+    // can appear in either position.
+    const { data: alreadyCoupled, error: coupledErr } = await sb
+      .from("couple_links")
+      .select("id, requester_id, receiver_id")
+      .eq("status", "accepted")
+      .or(
+        `requester_id.eq.${requesterId},receiver_id.eq.${requesterId},` +
+        `requester_id.eq.${receiverId},receiver_id.eq.${receiverId}`
+      )
+      .limit(1)
+      .maybeSingle();
+    if (coupledErr) {
+      req.log.error({ err: coupledErr.message }, "couple/request: coupled-check query failed");
+      throw coupledErr;
+    }
+    if (alreadyCoupled) {
+      const senderCoupled =
+        (alreadyCoupled as any).requester_id === requesterId ||
+        (alreadyCoupled as any).receiver_id === requesterId;
+      req.log.warn({ requesterId, receiverId, alreadyCoupled }, "couple/request blocked: user already in a couple");
+      res.status(409).json({
+        error: senderCoupled ? "You are already in a couple" : "This user is already in a couple",
+      });
+      return;
+    }
+
+    // Reject if a pending/accepted request already exists between these two users.
+    const { data: existing, error: existErr } = await sb
       .from("couple_links")
       .select("id, status")
       .or(
-        `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
+        `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),` +
+        `and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
       )
       .maybeSingle();
-
+    if (existErr) {
+      req.log.error({ err: existErr.message }, "couple/request: existing-check query failed");
+      throw existErr;
+    }
     if (existing) {
       req.log.info({ existing }, "couple/request already exists");
       res.status(409).json({ error: "Request already exists", status: (existing as any).status });
@@ -67,6 +100,13 @@ router.post("/request", async (req, res) => {
 });
 
 // POST /accept
+// Flow:
+//   1. Fetch the pending link (verifies receiver + status=pending)
+//   2. Guard: reject if EITHER user already has a different accepted couple
+//   3. Accept: UPDATE status=accepted
+//   4. Cleanup: set status=cancelled on ALL other pending rows touching either user
+//   5. Profile: set show_in_matching=false + relationship_status for both partners
+//   6. Fire-and-forget: notify outsiders whose requests were auto-cancelled
 router.post("/accept", async (req, res) => {
   const { coupleId, userId } = req.body as { coupleId?: string; userId?: string };
   if (!coupleId || !userId) {
@@ -75,6 +115,7 @@ router.post("/accept", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
+    // ── Step 1: fetch and verify the pending link ────────────────────────────
     const { data: link, error: fetchErr } = await sb
       .from("couple_links")
       .select("*")
@@ -84,31 +125,97 @@ router.post("/accept", async (req, res) => {
       .single();
 
     if (fetchErr || !link) {
+      req.log.warn({ coupleId, userId, fetchErr }, "couple/accept: pending request not found");
       res.status(404).json({ error: "Couple request not found" });
       return;
     }
 
+    const requesterId = (link as any).requester_id as string;
+
+    // ── Step 2: guard — reject if either user already has an accepted couple ─
+    // Excluding the row we are about to accept (neq coupleId) prevents a false
+    // positive when the row is pending and we're the only accepted check.
+    const { data: alreadyCoupled, error: guardErr } = await sb
+      .from("couple_links")
+      .select("id, requester_id, receiver_id")
+      .eq("status", "accepted")
+      .or(
+        `requester_id.eq.${requesterId},receiver_id.eq.${requesterId},` +
+        `requester_id.eq.${userId},receiver_id.eq.${userId}`
+      )
+      .neq("id", coupleId)
+      .limit(1)
+      .maybeSingle();
+
+    if (guardErr) {
+      req.log.error({ err: guardErr.message }, "couple/accept: guard query failed");
+      throw guardErr;
+    }
+    if (alreadyCoupled) {
+      req.log.warn({ coupleId, requesterId, userId, alreadyCoupled }, "couple/accept blocked: user already in a couple");
+      res.status(409).json({ error: "This user is already in a couple" });
+      return;
+    }
+
+    // ── Step 3: accept the link ──────────────────────────────────────────────
     const now = new Date().toISOString();
-    const { data, error } = await sb
+    const { data: accepted, error: acceptErr } = await sb
       .from("couple_links")
       .update({ status: "accepted", accepted_at: now })
       .eq("id", coupleId)
       .select()
       .single();
 
-    if (error) throw error;
+    if (acceptErr) {
+      req.log.error({ err: acceptErr.message }, "couple/accept: update failed");
+      throw acceptErr;
+    }
 
+    // ── Step 4: cleanup — cancel all other pending rows touching either user ─
+    // Fetch first so we know who to notify, then cancel.
+    const pendingFilter =
+      `requester_id.eq.${requesterId},receiver_id.eq.${requesterId},` +
+      `requester_id.eq.${userId},receiver_id.eq.${userId}`;
+
+    const { data: cancelTargets, error: fetchCancelErr } = await sb
+      .from("couple_links")
+      .select("id, requester_id, receiver_id")
+      .eq("status", "pending")
+      .neq("id", coupleId)
+      .or(pendingFilter);
+
+    if (fetchCancelErr) {
+      req.log.error({ err: fetchCancelErr.message }, "couple/accept: failed to fetch cancellation targets (non-fatal, continuing)");
+    }
+
+    const cancelRows = (cancelTargets ?? []) as { id: string; requester_id: string; receiver_id: string }[];
+
+    if (cancelRows.length > 0) {
+      const cancelIds = cancelRows.map((r) => r.id);
+      const { error: cancelErr } = await sb
+        .from("couple_links")
+        .update({ status: "cancelled" })
+        .in("id", cancelIds);
+
+      if (cancelErr) {
+        req.log.error({ err: cancelErr.message, cancelIds }, "couple/accept: failed to cancel other pending requests (non-fatal, continuing)");
+      } else {
+        req.log.info({ cancelIds, newCoupleId: coupleId, requesterId, receiverId: userId }, `couple/accept: cancelled ${cancelIds.length} other pending request(s)`);
+      }
+    }
+
+    // ── Step 5: profile updates ──────────────────────────────────────────────
     // CRITICAL: coupled users must never appear in matching.
     // Set show_in_matching = false for BOTH partners immediately on accept.
     // Also sync relationship_status → "In a Relationship" so the profile pill stays consistent.
     const [reqUpdate, recUpdate] = await Promise.all([
-      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", (link as any).requester_id),
+      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", requesterId),
       sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", userId),
     ]);
     if (reqUpdate.error) {
-      req.log.error({ err: reqUpdate.error.message, userId: (link as any).requester_id }, "couple/accept: failed to set show_in_matching=false for requester");
+      req.log.error({ err: reqUpdate.error.message, userId: requesterId }, "couple/accept: failed to set show_in_matching=false for requester");
     } else {
-      req.log.info({ userId: (link as any).requester_id }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for requester");
+      req.log.info({ userId: requesterId }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for requester");
     }
     if (recUpdate.error) {
       req.log.error({ err: recUpdate.error.message, userId }, "couple/accept: failed to set show_in_matching=false for receiver");
@@ -116,7 +223,58 @@ router.post("/accept", async (req, res) => {
       req.log.info({ userId }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for receiver");
     }
 
-    res.json({ success: true, couple: data });
+    // Respond before firing notifications so the UI isn't blocked.
+    res.json({ success: true, couple: accepted });
+
+    // ── Step 6: fire-and-forget — notify outsiders whose requests were cancelled
+    // Each cancelled row has one "outsider" (person not in the new couple).
+    // They get a notification explaining their request was closed.
+    if (cancelRows.length > 0) {
+      void (async () => {
+        try {
+          // Fetch display names for the newly-coupled users to personalise messages.
+          const { data: profiles } = await sb
+            .from("profiles")
+            .select("id, full_name, username")
+            .in("id", [requesterId, userId]);
+          const nameMap = Object.fromEntries(
+            ((profiles ?? []) as any[]).map((p: any) => [
+              p.id as string,
+              (p.full_name || p.username || "Someone") as string,
+            ])
+          );
+
+          const notifRows = cancelRows
+            .map((row) => {
+              const ourUser = [requesterId, userId].includes(row.requester_id)
+                ? row.requester_id
+                : row.receiver_id;
+              const outsider = ourUser === row.requester_id ? row.receiver_id : row.requester_id;
+              if (!outsider) return null;
+              return {
+                recipient_id: outsider,
+                sender_id: ourUser,
+                type: "couple_request_cancelled",
+                message: `Your couple request with ${nameMap[ourUser] ?? "someone"} was closed — they're now in a couple 💔`,
+                is_read: false,
+                created_at: new Date().toISOString(),
+              };
+            })
+            .filter((n): n is NonNullable<typeof n> => n !== null);
+
+          if (notifRows.length > 0) {
+            const { error: notifErr } = await sb.from("notifications").insert(notifRows);
+            if (notifErr) {
+              req.log.warn({ err: notifErr.message }, "couple/accept: cancellation notifications insert failed (non-fatal)");
+            } else {
+              req.log.info({ count: notifRows.length }, "couple/accept: cancellation notifications sent");
+            }
+          }
+        } catch (e: any) {
+          req.log.warn({ err: e.message }, "couple/accept: cancellation notifications threw (non-fatal)");
+        }
+      })();
+    }
   } catch (err: any) {
     req.log.error({ err: err.message }, "couple/accept error");
     res.status(500).json({ error: "Failed to accept request" });
