@@ -436,8 +436,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       {/* Avatar/follow removed — author info lives only in the bottom-left stack */}
       <View style={[S.rightActions, { bottom: bottomPad + 8 }]}>
         {/* Like */}
-        <TouchableOpacity style={S.actionBtn} onPress={handleLike} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={32} color={liked ? "#F43F5E" : "#fff"} style={S.actionIcon} />
+        <TouchableOpacity style={S.actionBtn} onPress={handleLike} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={34} color={liked ? "#F43F5E" : "#fff"} style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(likes)}</Text>
         </TouchableOpacity>
 
@@ -445,15 +445,15 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         <TouchableOpacity
           style={S.actionBtn}
           onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } setShowComments(true); }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chatbubble-outline" size={30} color="#fff" style={S.actionIcon} />
+          <Ionicons name="chatbubble" size={34} color="#fff" style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(reel.comments)}</Text>
         </TouchableOpacity>
 
         {/* Share */}
-        <TouchableOpacity style={S.actionBtn} onPress={() => setShowShare(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="arrow-redo-outline" size={28} color="#fff" style={S.actionIcon} />
+        <TouchableOpacity style={S.actionBtn} onPress={() => setShowShare(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Ionicons name="arrow-redo" size={34} color="#fff" style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(reel.shares)}</Text>
         </TouchableOpacity>
 
@@ -972,7 +972,7 @@ const S = StyleSheet.create({
     position: "absolute",
     right: 12,
     alignItems: "center",
-    gap: 18,
+    gap: 16,
   },
   actionBtn: {
     alignItems: "center",
@@ -984,7 +984,7 @@ const S = StyleSheet.create({
     textShadowRadius: 4,
   },
   actionCount: {
-    color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold",
+    color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold",
     textShadowColor: "rgba(0,0,0,0.85)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   musicDisc: {
