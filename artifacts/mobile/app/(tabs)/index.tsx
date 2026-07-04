@@ -454,9 +454,23 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         </TouchableOpacity>
       </View>
 
-      {/* ── Bottom info ──────────────────────────────────────────────────── */}
+      {/* ── Bottom-left overlay: TikTok-style compact stack ──────────────── */}
+      {/* Order: caption (1-line) → @username → sound + views inline       */}
       <View style={[S.bottomInfo, { bottom: bottomPad + 8 }]}>
-        {/* Username */}
+
+        {/* Caption — single line; tapping toggles full-caption expand */}
+        {reel.caption ? (
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setCaptionExpanded((e) => !e)}>
+            <Text style={S.caption} numberOfLines={captionExpanded ? undefined : 1}>
+              {parseCaption(reel.caption, (tag) => router.push(`/search?q=%23${tag}` as any))}
+            </Text>
+            {!captionExpanded && (
+              <Text style={S.moreText}>See more</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
+
+        {/* Username — bold, directly below caption */}
         <TouchableOpacity
           onPress={() => router.push(`/profile/${reel.username}` as any)}
           style={S.usernameRow}
@@ -465,30 +479,17 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           {reel.isVerified && <Ionicons name="checkmark-circle" size={14} color="#7C3AED" />}
         </TouchableOpacity>
 
-        {/* Caption with expandable + hashtags */}
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setCaptionExpanded((e) => !e)}>
-          <Text style={S.caption} numberOfLines={captionExpanded ? undefined : 2}>
-            {parseCaption(reel.caption, (tag) => router.push(`/search?q=%23${tag}` as any))}
-          </Text>
-          {!captionExpanded && (
-            <Text style={S.moreText}>...more</Text>
-          )}
-        </TouchableOpacity>
-
-        {/* Sound row - marquee */}
+        {/* Sound marquee + views folded in on same line */}
         <TouchableOpacity style={S.soundRow} activeOpacity={0.7}>
-          <Ionicons name="musical-notes" size={13} color="rgba(255,255,255,0.8)" />
+          <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.75)" />
           <View style={S.soundMarqueeClip}>
             <Animated.Text style={[S.soundText, marqueeStyle]} numberOfLines={1}>
               {reel.sound} · {reel.sound} · {reel.sound} ·{"  "}
             </Animated.Text>
           </View>
+          <Text style={S.viewsInline}>· {fmt(reel.views)}</Text>
         </TouchableOpacity>
 
-        {/* Views */}
-        <View style={S.viewsRow}>
-          <Text style={S.viewsText}>👁️ {fmt(reel.views)} views</Text>
-        </View>
       </View>
 
       {/* ── Sound toggle (bottom left) ──────────────────────────────────── */}
@@ -979,25 +980,25 @@ const S = StyleSheet.create({
     backgroundColor: "#000", borderRadius: 6, padding: 1,
   },
 
-  // bottom info
+  // bottom info — TikTok compact stack
   bottomInfo: {
     position: "absolute",
     left: 14,
     right: 70,
-    gap: 4,
+    gap: 2,   // tighter row spacing vs old 4
   },
   usernameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   username: {
-    color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold",
+    color: "#fff", fontSize: 14, fontFamily: "Poppins_700Bold",
     textShadowColor: "rgba(0,0,0,0.5)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
-  caption: { color: "rgba(255,255,255,0.92)", fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 19 },
-  moreText: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontFamily: "Poppins_500Medium" },
-  soundRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 },
+  caption: { color: "rgba(255,255,255,0.92)", fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18 },
+  moreText: { color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Poppins_500Medium" },
+  soundRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   soundMarqueeClip: { flex: 1, overflow: "hidden" },
-  soundText: { color: "rgba(255,255,255,0.8)", fontSize: 12, fontFamily: "Poppins_500Medium", width: 600 },
-  viewsRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  viewsText: { color: "rgba(255,255,255,0.6)", fontSize: 11, fontFamily: "Poppins_400Regular" },
+  soundText: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Poppins_500Medium", width: 600 },
+  // views folded into the sound line — replaces the old standalone viewsRow
+  viewsInline: { color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: "Poppins_400Regular" },
 
   // sound toggle
   soundToggle: {
