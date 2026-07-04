@@ -39,6 +39,7 @@ import soundsRouter from "./sounds";
 import coupleRouter from "./couple";
 import coupleFeedRouter from "./couple-feed";
 import authRouter from "./auth";
+import pollsRouter from "./polls";
 
 const router: IRouter = Router();
 
@@ -82,5 +83,6 @@ router.use("/sounds", soundsRouter);
 router.use("/couple", coupleRouter);
 router.use("/couple-feed", coupleFeedRouter);
 router.use("/auth", authRouter);
+router.use("/polls", pollsRouter);
 
 export default router;

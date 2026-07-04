@@ -52,6 +52,7 @@ import {
   updateCreatorAnalytics,
 } from "@/lib/db";
 import { AchievementModal } from "@/components/AchievementModal";
+import PollCard from "@/components/PollCard";
 import { usePostRealtime } from "@/context/RealtimeContext";
 
 // ── Couple header sub-component (module-level to avoid remount on each render) ─
@@ -765,6 +766,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
           </Text>
           <Ionicons name="chevron-forward" size={12} color="rgba(167,139,250,0.4)" />
         </TouchableOpacity>
+      )}
+
+      {/* Poll */}
+      {(post as any).poll && (
+        <PollCard poll={(post as any).poll} userId={userId ?? null} />
       )}
 
       {/* Glassmorphism action bar */}

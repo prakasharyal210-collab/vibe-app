@@ -32,6 +32,7 @@ import { searchVibeUsers, type SocialMatchUser, uploadPostMedia } from "@/lib/db
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import type { Track } from "@/lib/music";
 import { POST_CATEGORIES, type CategoryId } from "@/lib/categories";
+import PollComposer, { type PollDraft } from "@/components/PollComposer";
 
 const { width: W } = Dimensions.get("window");
 const PREVIEW_W = W - 32;
@@ -218,6 +219,9 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   const [category, setCategory] = useState<CategoryId | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
+  // Poll
+  const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
+
   // Couple post
   const { isLinked, coupleId: coupleLinkId } = useCoupleStatus();
   const [postAsCouple, setPostAsCouple] = useState(false);
@@ -356,6 +360,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               category: category ?? undefined,
               coupleId: postAsCouple && coupleLinkId ? coupleLinkId : undefined,
               isCouplePost: postAsCouple && !!coupleLinkId,
+              poll: pollDraft
+                ? {
+                    options: pollDraft.options.filter((o) => o.trim()),
+                    duration_hours: pollDraft.duration_hours,
+                  }
+                : undefined,
             });
           }
         })(),
@@ -371,7 +381,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
       setRawMedia([]); setPreviewIdx(0); setCropRatio("original");
       setActiveFilter(CAMERA_FILTERS[0]!); setVisibility("public");
       setSelectedMusic(null); setFeeling(null); setCategory(null);
-      setPostAsCouple(false);
+      setPollDraft(null); setPostAsCouple(false);
       setPhase("idle");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -583,6 +593,13 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           <Text style={p.charCount}>{caption.length} / 500</Text>
         </View>
 
+        {/* Poll composer */}
+        {pollDraft && (
+          <View style={{ marginHorizontal: 16 }}>
+            <PollComposer poll={pollDraft} onChange={setPollDraft} />
+          </View>
+        )}
+
         {/* ── Category selector (required) ────────────────────────────── */}
         <TouchableOpacity
           style={[p.categoryRow, category && p.categoryRowActive]}
@@ -773,6 +790,18 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               label="Effects"
               active={false}
               onPress={() => Alert.alert("Effects", "AR effects and stickers are coming soon! ✨")}
+            />
+            <AddPostBtn
+              iconName="bar-chart-outline"
+              label="Poll"
+              active={pollDraft !== null}
+              onPress={() =>
+                setPollDraft(
+                  pollDraft
+                    ? null
+                    : { options: ["", ""], duration_hours: 24 },
+                )
+              }
             />
           </ScrollView>
 

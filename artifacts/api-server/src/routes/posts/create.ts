@@ -322,6 +322,7 @@ router.post("/create", async (req, res) => {
     options = {},
     coupleId,
     isCouplePost,
+    poll,
   } = req.body as {
     userId: string;
     imageBase64?: string;
@@ -340,6 +341,7 @@ router.post("/create", async (req, res) => {
     };
     coupleId?: string;
     isCouplePost?: boolean;
+    poll?: { options: string[]; duration_hours: number };
   };
 
   if (!userId) {
@@ -556,6 +558,36 @@ router.post("/create", async (req, res) => {
   }
 
   const postId = (insertData as { id: string }).id;
+
+  // ── Create poll if provided (non-fatal — post already persisted) ──────────────
+  if (poll && Array.isArray(poll.options) && poll.options.length >= 2) {
+    try {
+      const validOpts = (poll.options as string[])
+        .filter((o) => typeof o === "string" && o.trim())
+        .slice(0, 4);
+      if (validOpts.length >= 2) {
+        const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+        const endsAt = new Date(Date.now() + durH * 3_600_000).toISOString();
+        const { data: pollRow } = await sb
+          .from("polls")
+          .insert({ post_id: postId, ends_at: endsAt })
+          .select("id")
+          .single();
+        if (pollRow) {
+          const pollId = (pollRow as { id: string }).id;
+          await sb.from("poll_options").insert(
+            validOpts.map((label, position) => ({
+              poll_id: pollId,
+              label: label.trim().slice(0, 60),
+              position,
+            })),
+          );
+        }
+      }
+    } catch (pe) {
+      req.log.warn({ err: (pe as any)?.message }, "poll creation failed (non-fatal)");
+    }
+  }
 
   // ── Fire-and-forget side-effects ─────────────────────────────────────────────
 

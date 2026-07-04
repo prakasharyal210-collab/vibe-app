@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { enrichWithPolls } from "./polls";
 
 const router = Router();
 
@@ -173,7 +174,8 @@ router.get("/foryou", async (req, res) => {
     if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v2Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p: any) => p.is_archived !== true))));
+      const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
       res.json({ data: out, source: "v2" });
       return;
     }
@@ -186,7 +188,8 @@ router.get("/foryou", async (req, res) => {
     if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v1Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p: any) => p.is_archived !== true))));
+      const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
       res.json({ data: out, source: "v1" });
       return;
     }
@@ -217,8 +220,9 @@ router.get("/foryou", async (req, res) => {
     .range(offset, offset + limit - 1);
 
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
+  const freshPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   res.json({
-    data: freshEnriched,
+    data: freshPolls,
     source: "fresh",
   });
 });

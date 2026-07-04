@@ -1530,6 +1530,7 @@ export async function uploadPostMedia(
     category?: string;
     coupleId?: string;
     isCouplePost?: boolean;
+    poll?: { options: string[]; duration_hours: number };
   }
 ): Promise<{ id: string; mediaUrl: string }> {
   const cleanUri = uri.split('?')[0];
@@ -1609,6 +1610,7 @@ export async function uploadPostMedia(
             options: { ...options, visibility: options?.visibility ?? 'public' },
             coupleId: options?.coupleId,
             isCouplePost: options?.isCouplePost,
+            poll: options?.poll,
           }),
         }),
         25_000,
@@ -1666,6 +1668,7 @@ export async function uploadPostMedia(
           options: { ...options, visibility: options?.visibility ?? 'public' },
           coupleId: options?.coupleId,
           isCouplePost: options?.isCouplePost,
+          poll: options?.poll,
         }),
       }),
       25_000,

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { checkCaptionText, logRejection } from "../utils/contentModeration";
 import { Buffer } from "buffer";
+import { enrichWithPolls } from "./polls";
 
 function makeSupabase() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -171,7 +172,8 @@ router.get("/posts", async (req, res) => {
     if (error) throw error;
 
     const enriched = await Promise.all(((posts ?? []) as any[]).map((p) => enrichPost(sb, p, coupleId)));
-    res.json({ posts: enriched });
+    const enrichedPolls = await enrichWithPolls(sb, enriched, undefined, "confession_post_id");
+    res.json({ posts: enrichedPolls });
   } catch (err: any) {
     req.log.error({ err: err.message }, "couple-feed/posts GET error");
     res.status(500).json({ error: "Failed to fetch couple feed" });
@@ -181,7 +183,7 @@ router.get("/posts", async (req, res) => {
 // ── POST /posts ────────────────────────────────────────────────────────────────
 
 router.post("/posts", async (req, res) => {
-  const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location } = req.body as {
+  const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location, poll } = req.body as {
     coupleId?: string;
     authorId?: string;
     content?: string;
@@ -190,6 +192,7 @@ router.post("/posts", async (req, res) => {
     isAnonymous?: boolean;
     age?: number;
     location?: string;
+    poll?: { options: string[]; duration_hours: number };
   };
 
   if (!coupleId || !authorId || !content) {
@@ -273,6 +276,37 @@ router.post("/posts", async (req, res) => {
         "couple-feed/posts POST insert error",
       );
       throw error;
+    }
+
+    // Create poll if provided (non-fatal — confession already persisted)
+    const confessionId = (post as any).id as string;
+    if (poll && Array.isArray(poll.options) && poll.options.length >= 2) {
+      try {
+        const validOpts = (poll.options as string[])
+          .filter((o) => typeof o === "string" && o.trim())
+          .slice(0, 4);
+        if (validOpts.length >= 2) {
+          const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+          const endsAt = new Date(Date.now() + durH * 3_600_000).toISOString();
+          const { data: pollRow } = await sb
+            .from("polls")
+            .insert({ confession_post_id: confessionId, ends_at: endsAt })
+            .select("id")
+            .single();
+          if (pollRow) {
+            const pollId = (pollRow as { id: string }).id;
+            await sb.from("poll_options").insert(
+              validOpts.map((label, position) => ({
+                poll_id: pollId,
+                label: label.trim().slice(0, 60),
+                position,
+              })),
+            );
+          }
+        }
+      } catch (pe) {
+        req.log.warn({ err: (pe as any)?.message }, "confession poll creation failed (non-fatal)");
+      }
     }
 
     const enriched = await enrichPost(sb, post, coupleId);

@@ -24297,27 +24297,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router42;
+    module.exports = Router43;
     module.exports.Route = Route;
-    function Router42(options) {
-      if (!(this instanceof Router42)) {
-        return new Router42(options);
+    function Router43(options) {
+      if (!(this instanceof Router43)) {
+        return new Router43(options);
       }
       const opts = options || {};
-      function router42(req, res, next) {
-        router42.handle(req, res, next);
+      function router43(req, res, next) {
+        router43.handle(req, res, next);
       }
-      Object.setPrototypeOf(router42, this);
-      router42.caseSensitive = opts.caseSensitive;
-      router42.mergeParams = opts.mergeParams;
-      router42.params = {};
-      router42.strict = opts.strict;
-      router42.stack = [];
-      return router42;
+      Object.setPrototypeOf(router43, this);
+      router43.caseSensitive = opts.caseSensitive;
+      router43.mergeParams = opts.mergeParams;
+      router43.params = {};
+      router43.strict = opts.strict;
+      router43.stack = [];
+      return router43;
     }
-    Router42.prototype = function() {
+    Router43.prototype = function() {
     };
-    Router42.prototype.param = function param(name, fn) {
+    Router43.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -24337,7 +24337,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router42.prototype.handle = function handle(req, res, callback) {
+    Router43.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -24464,7 +24464,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router42.prototype.use = function use(handler) {
+    Router43.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -24497,7 +24497,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router42.prototype.route = function route(path) {
+    Router43.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -24512,7 +24512,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router42.prototype[method] = function(path) {
+      Router43.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -24695,13 +24695,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router42 = require_router();
+    var Router43 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router42 = null;
+      var router43 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -24710,13 +24710,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router42 === null) {
-            router42 = new Router42({
+          if (router43 === null) {
+            router43 = new Router43({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router42;
+          return router43;
         }
       });
     };
@@ -24787,15 +24787,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router42 = this.router;
+      var router43 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router42.use(path, fn2);
+          return router43.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router42.use(path, function mounted_app(req, res, next) {
+        router43.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -27368,7 +27368,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router42 = require_router();
+    var Router43 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -27390,8 +27390,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router42.Route;
-    exports.Router = Router42;
+    exports.Route = Router43.Route;
+    exports.Router = Router43;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -45280,12 +45280,12 @@ var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // src/app.ts
-var import_express42 = __toESM(require_express2(), 1);
+var import_express43 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express41 = __toESM(require_express2(), 1);
+var import_express42 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -59910,7 +59910,8 @@ router10.post("/create", async (req, res) => {
     caption = "",
     options = {},
     coupleId,
-    isCouplePost
+    isCouplePost,
+    poll
   } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
@@ -60082,6 +60083,28 @@ router10.post("/create", async (req, res) => {
     return;
   }
   const postId = insertData.id;
+  if (poll && Array.isArray(poll.options) && poll.options.length >= 2) {
+    try {
+      const validOpts = poll.options.filter((o) => typeof o === "string" && o.trim()).slice(0, 4);
+      if (validOpts.length >= 2) {
+        const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+        const endsAt = new Date(Date.now() + durH * 36e5).toISOString();
+        const { data: pollRow } = await sb.from("polls").insert({ post_id: postId, ends_at: endsAt }).select("id").single();
+        if (pollRow) {
+          const pollId = pollRow.id;
+          await sb.from("poll_options").insert(
+            validOpts.map((label, position) => ({
+              poll_id: pollId,
+              label: label.trim().slice(0, 60),
+              position
+            }))
+          );
+        }
+      }
+    } catch (pe) {
+      req.log.warn({ err: pe?.message }, "poll creation failed (non-fatal)");
+    }
+  }
   if (options.taggedUsers?.length) {
     void (async () => {
       const { data: settingsRows } = await sb.from("user_settings").select("user_id, mention_permission").in("user_id", options.taggedUsers);
@@ -63579,9 +63602,131 @@ router25.post("/avatar", async (req, res) => {
 var storage_default = router25;
 
 // src/routes/feed.ts
+var import_express27 = __toESM(require_express2(), 1);
+
+// src/routes/polls.ts
 var import_express26 = __toESM(require_express2(), 1);
 var router26 = (0, import_express26.Router)();
 function makeSupabase21() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
+async function enrichWithPolls(supabase, rows, viewerUserId, parentIdField = "post_id") {
+  if (!rows.length) return rows;
+  const ids = rows.map((r) => r.id).filter(Boolean);
+  if (!ids.length) return rows;
+  const { data: polls } = await supabase.from("polls").select("id, question, ends_at, post_id, confession_post_id").in(parentIdField, ids);
+  if (!polls?.length) return rows.map((r) => ({ ...r, poll: null }));
+  const pollIds = polls.map((p) => p.id);
+  const [optionsRes, votesRes, myVotesRes] = await Promise.all([
+    supabase.from("poll_options").select("id, poll_id, label, position").in("poll_id", pollIds).order("position"),
+    supabase.from("poll_votes").select("poll_id, option_id").in("poll_id", pollIds),
+    viewerUserId ? supabase.from("poll_votes").select("poll_id, option_id").in("poll_id", pollIds).eq("user_id", viewerUserId) : Promise.resolve({ data: [] })
+  ]);
+  const options = optionsRes.data ?? [];
+  const votes = votesRes.data ?? [];
+  const myVotes = myVotesRes.data ?? [];
+  const optsByPoll = /* @__PURE__ */ new Map();
+  for (const o of options) {
+    const arr = optsByPoll.get(o.poll_id) ?? [];
+    arr.push(o);
+    optsByPoll.set(o.poll_id, arr);
+  }
+  const voteCountByOption = /* @__PURE__ */ new Map();
+  const voteTotalByPoll = /* @__PURE__ */ new Map();
+  for (const v of votes) {
+    voteCountByOption.set(v.option_id, (voteCountByOption.get(v.option_id) ?? 0) + 1);
+    voteTotalByPoll.set(v.poll_id, (voteTotalByPoll.get(v.poll_id) ?? 0) + 1);
+  }
+  const myVoteByPoll = /* @__PURE__ */ new Map();
+  for (const v of myVotes) {
+    myVoteByPoll.set(v.poll_id, v.option_id);
+  }
+  const pollByParentId = /* @__PURE__ */ new Map();
+  for (const p of polls) {
+    const parentId = p[parentIdField];
+    const opts = optsByPoll.get(p.id) ?? [];
+    pollByParentId.set(parentId, {
+      id: p.id,
+      question: p.question,
+      ends_at: p.ends_at,
+      options: opts.map((o) => ({
+        id: o.id,
+        label: o.label,
+        position: o.position,
+        votes: voteCountByOption.get(o.id) ?? 0
+      })),
+      totalVotes: voteTotalByPoll.get(p.id) ?? 0,
+      viewerVote: myVoteByPoll.get(p.id) ?? null
+    });
+  }
+  return rows.map((row) => ({
+    ...row,
+    poll: pollByParentId.get(row.id) ?? null
+  }));
+}
+router26.post("/:pollId/vote", async (req, res) => {
+  const { pollId } = req.params;
+  const { optionId, userId } = req.body;
+  if (!pollId || !optionId || !userId) {
+    res.status(400).json({ error: "pollId, optionId, and userId are required" });
+    return;
+  }
+  const sb = makeSupabase21();
+  const { data: poll } = await sb.from("polls").select("id, ends_at").eq("id", pollId).maybeSingle();
+  if (!poll) {
+    res.status(404).json({ error: "Poll not found" });
+    return;
+  }
+  if (new Date(poll.ends_at) < /* @__PURE__ */ new Date()) {
+    res.status(400).json({ error: "This poll has ended" });
+    return;
+  }
+  const { data: option } = await sb.from("poll_options").select("id").eq("id", optionId).eq("poll_id", pollId).maybeSingle();
+  if (!option) {
+    res.status(400).json({ error: "Option not found for this poll" });
+    return;
+  }
+  const { error: voteErr } = await sb.from("poll_votes").upsert(
+    { poll_id: pollId, option_id: optionId, user_id: userId },
+    { onConflict: "poll_id,user_id" }
+  );
+  if (voteErr) {
+    req.log.error({ err: voteErr.message }, "poll vote upsert error");
+    res.status(500).json({ error: voteErr.message });
+    return;
+  }
+  const [optionsRes, votesRes] = await Promise.all([
+    sb.from("poll_options").select("id, label, position").eq("poll_id", pollId).order("position"),
+    sb.from("poll_votes").select("option_id").eq("poll_id", pollId)
+  ]);
+  const opts = optionsRes.data ?? [];
+  const votes = votesRes.data ?? [];
+  const voteCountByOption = /* @__PURE__ */ new Map();
+  for (const v of votes) {
+    voteCountByOption.set(v.option_id, (voteCountByOption.get(v.option_id) ?? 0) + 1);
+  }
+  res.json({
+    success: true,
+    poll: {
+      id: pollId,
+      options: opts.map((o) => ({
+        id: o.id,
+        label: o.label,
+        position: o.position,
+        votes: voteCountByOption.get(o.id) ?? 0
+      })),
+      totalVotes: votes.length,
+      viewerVote: optionId
+    }
+  });
+});
+var polls_default = router26;
+
+// src/routes/feed.ts
+var router27 = (0, import_express27.Router)();
+function makeSupabase22() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
@@ -63665,7 +63810,7 @@ var VALID_FEED_CATEGORIES = /* @__PURE__ */ new Set([
   "education",
   "nature"
 ]);
-router26.get("/foryou", async (req, res) => {
+router27.get("/foryou", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63693,7 +63838,7 @@ router26.get("/foryou", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   if (!contentType) {
     const { data: v2Data, error: v2Err } = await supabase.rpc(
       "get_for_you_feed_v2",
@@ -63702,7 +63847,8 @@ router26.get("/foryou", async (req, res) => {
     if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v2Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p) => p.is_archived !== true))));
+      const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p) => p.is_archived !== true))));
       res.json({ data: out, source: "v2" });
       return;
     }
@@ -63713,7 +63859,8 @@ router26.get("/foryou", async (req, res) => {
     if (!v1Err && Array.isArray(v1Data) && v1Data.length > 0) {
       const enriched = await enrichWithProfiles(supabase, v1Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedCouple.filter((p) => p.is_archived !== true))));
+      const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p) => p.is_archived !== true))));
       res.json({ data: out, source: "v1" });
       return;
     }
@@ -63729,12 +63876,13 @@ router26.get("/foryou", async (req, res) => {
   }
   const { data: freshData } = await freshQuery.order(sortCol, { ascending: false }).limit(limit).range(offset, offset + limit - 1);
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
+  const freshPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   res.json({
-    data: freshEnriched,
+    data: freshPolls,
     source: "fresh"
   });
 });
-router26.get("/friends", async (req, res) => {
+router27.get("/friends", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63742,7 +63890,7 @@ router26.get("/friends", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   const { data, error } = await supabase.rpc("get_friends_feed", {
     p_user_id: userId,
     p_limit: limit,
@@ -63762,10 +63910,10 @@ router26.get("/friends", async (req, res) => {
     error: error?.message
   });
 });
-router26.get("/reels", async (req, res) => {
+router27.get("/reels", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   if (userId) {
     const { data: v2Data, error: v2Err } = await supabase.rpc(
       "get_for_you_reels_v2",
@@ -63781,14 +63929,14 @@ router26.get("/reels", async (req, res) => {
   const { data: freshReels } = await supabase.from("reels").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("is_archived.eq.false,is_archived.is.null").order("score", { ascending: false }).order("created_at", { ascending: false }).limit(limit);
   res.json({ data: freshReels ?? [], source: "fresh" });
 });
-router26.get("/following-reels", async (req, res) => {
+router27.get("/following-reels", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   const { data, error } = await supabase.rpc("get_following_reels", {
     p_user_id: userId,
     p_limit: limit
@@ -63802,10 +63950,10 @@ router26.get("/following-reels", async (req, res) => {
   }
   res.json({ data: [], source: "empty", error: error?.message });
 });
-router26.get("/trending", async (req, res) => {
+router27.get("/trending", async (req, res) => {
   const limit = Math.min(Number(req.query["limit"] ?? 9), 50);
   const contentType = req.query["content_type"];
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   try {
     const pool = Math.min(limit * 5, 200);
     let query = supabase.from("posts").select("id, media_url, thumbnail_url, likes_count, views_count, is_video").or("is_archived.eq.false,is_archived.is.null").order("views_count", { ascending: false }).limit(pool);
@@ -63830,7 +63978,7 @@ router26.get("/trending", async (req, res) => {
     res.json({ posts: [] });
   }
 });
-router26.get("/following", async (req, res) => {
+router27.get("/following", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63838,7 +63986,7 @@ router26.get("/following", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   const { data, error } = await supabase.rpc("get_following_feed", {
     p_user_id: userId,
     p_limit: limit,
@@ -63855,7 +64003,7 @@ router26.get("/following", async (req, res) => {
   const followingFresh = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({ data: followingFresh, source: "fresh", error: error?.message });
 });
-router26.get("/nearby", async (req, res) => {
+router27.get("/nearby", async (req, res) => {
   const userId = req.query["userId"];
   const lat = parseFloat(req.query["lat"] || "0");
   const lng = parseFloat(req.query["lng"] || "0");
@@ -63865,7 +64013,7 @@ router26.get("/nearby", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   const { data, error } = await supabase.rpc("get_nearby_feed", {
     p_lat: lat,
     p_lng: lng,
@@ -63884,7 +64032,7 @@ router26.get("/nearby", async (req, res) => {
   const nearbyFresh = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({ data: nearbyFresh, source: "fresh", error: error?.message });
 });
-router26.get("/vibes", async (req, res) => {
+router27.get("/vibes", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63892,7 +64040,7 @@ router26.get("/vibes", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   const { data, error } = await supabase.rpc("get_vibes_feed", {
     p_user_id: userId,
     p_limit: limit,
@@ -63909,7 +64057,7 @@ router26.get("/vibes", async (req, res) => {
   const vibesFresh = await enrichWithCoupleData(supabase, freshData ?? []);
   res.json({ data: vibesFresh, source: "fresh", error: error?.message });
 });
-router26.get("/personalized", async (req, res) => {
+router27.get("/personalized", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const offset = parseInt(req.query["offset"] ?? "0", 10);
@@ -63917,7 +64065,7 @@ router26.get("/personalized", async (req, res) => {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   try {
     const { data, error } = await supabase.rpc("get_personalized_feed", {
       p_user_id: userId,
@@ -63938,10 +64086,10 @@ router26.get("/personalized", async (req, res) => {
     res.json({ data: [], source: "error" });
   }
 });
-router26.get("/fresh-faces", async (req, res) => {
+router27.get("/fresh-faces", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "10", 10), 20);
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   try {
     const sinceMs = Date.now() - 24 * 60 * 60 * 1e3;
     const since = new Date(sinceMs).toISOString();
@@ -63969,30 +64117,30 @@ router26.get("/fresh-faces", async (req, res) => {
     res.json({ posts: [] });
   }
 });
-router26.post("/seen", async (req, res) => {
+router27.post("/seen", async (req, res) => {
   const { userId, postId } = req.body;
   if (!userId || !postId) {
     res.status(204).end();
     return;
   }
-  const supabase = makeSupabase21();
+  const supabase = makeSupabase22();
   try {
     await supabase.rpc("mark_post_seen", { p_user_id: userId, p_post_id: postId });
   } catch {
   }
   res.status(204).end();
 });
-var feed_default = router26;
+var feed_default = router27;
 
 // src/routes/vibe.ts
-var import_express27 = __toESM(require_express2(), 1);
-function makeSupabase22() {
+var import_express28 = __toESM(require_express2(), 1);
+function makeSupabase23() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-var router27 = (0, import_express27.Router)();
-router27.post("/swipe", async (req, res) => {
+var router28 = (0, import_express28.Router)();
+router28.post("/swipe", async (req, res) => {
   const { swiperId, targetId, direction } = req.body;
   if (!swiperId || !targetId || !direction) {
     res.status(400).json({ error: "swiperId, targetId, direction required" });
@@ -64002,7 +64150,7 @@ router27.post("/swipe", async (req, res) => {
     res.status(400).json({ error: "Cannot swipe yourself" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     if (direction !== "left") {
       const { data: targetProfile } = await sb.from("profiles").select("vibe_request_privacy").eq("id", targetId).maybeSingle();
@@ -64116,13 +64264,13 @@ router27.post("/swipe", async (req, res) => {
     res.status(500).json({ error: "Failed to record swipe" });
   }
 });
-router27.get("/deck", async (req, res) => {
+router28.get("/deck", async (req, res) => {
   const { userId, lat, lng } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const [settingsRes, profileRes] = await Promise.all([
       sb.from("user_settings").select("vibe_age_min, vibe_age_max, vibe_max_distance_km, vibe_exclude_connections").eq("user_id", userId).maybeSingle(),
@@ -64245,13 +64393,13 @@ router27.get("/deck", async (req, res) => {
     res.status(500).json({ error: "Failed to load deck" });
   }
 });
-router27.get("/swiped", async (req, res) => {
+router28.get("/swiped", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ targetIds: [] });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const { data } = await sb.from("vibe_swipes").select("target_id").eq("user_id", userId);
     res.json({ targetIds: (data ?? []).map((r) => r.target_id) });
@@ -64259,7 +64407,7 @@ router27.get("/swiped", async (req, res) => {
     res.json({ targetIds: [] });
   }
 });
-router27.get("/compatibility", async (req, res) => {
+router28.get("/compatibility", async (req, res) => {
   const { userId, targetId } = req.query;
   if (!userId || !targetId) {
     res.status(400).json({ error: "userId and targetId required" });
@@ -64269,7 +64417,7 @@ router27.get("/compatibility", async (req, res) => {
     res.json({ score: 100, factors: ["same user"] });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const [followsRes, profilesRes, matchRes] = await Promise.all([
       sb.from("follows").select("follower_id, following_id").or(`and(follower_id.eq.${userId},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${userId})`),
@@ -64309,13 +64457,13 @@ router27.get("/compatibility", async (req, res) => {
     res.json({ score: null, factors: [] });
   }
 });
-router27.get("/matches", async (req, res) => {
+router28.get("/matches", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const [senderRes, receiverRes] = await Promise.all([
       sb.from("vibe_matches").select("id, sender_id, receiver_id, created_at, status").eq("sender_id", userId),
@@ -64374,7 +64522,7 @@ router27.get("/matches", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch matches" });
   }
 });
-router27.get("/by-intention", async (req, res) => {
+router28.get("/by-intention", async (req, res) => {
   const { goal, userId, limit: limitStr } = req.query;
   if (!goal) {
     res.status(400).json({ error: "goal required" });
@@ -64385,7 +64533,7 @@ router27.get("/by-intention", async (req, res) => {
     return;
   }
   const limit = Math.min(parseInt(limitStr ?? "50", 10) || 50, 100);
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   let data = null;
   let queryError = null;
   const orFilter = `relationship_goals.cs.{${goal}},relationship_goal.eq.${goal},relationship_goals.is.null`;
@@ -64462,13 +64610,13 @@ router27.get("/by-intention", async (req, res) => {
   }));
   res.json({ users });
 });
-router27.post("/reset-deck", async (req, res) => {
+router28.post("/reset-deck", async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const [swipesRes, matchesSenderRes, matchesReceiverRes] = await Promise.all([
       sb.from("vibe_swipes").delete({ count: "exact" }).eq("user_id", userId),
@@ -64490,7 +64638,7 @@ router27.post("/reset-deck", async (req, res) => {
     res.status(500).json({ error: "Failed to reset deck" });
   }
 });
-router27.get("/discover", async (req, res) => {
+router28.get("/discover", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
@@ -64502,7 +64650,7 @@ router27.get("/discover", async (req, res) => {
   const ageMin = parseInt(req.query["ageMin"] ?? "18", 10);
   const ageMax = parseInt(req.query["ageMax"] ?? "99", 10);
   const maxDistanceKm = parseFloat(req.query["maxDistanceKm"] ?? "100");
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const { data, error } = await sb.rpc("get_vibe_matches", {
       p_user_id: userId,
@@ -64522,13 +64670,13 @@ router27.get("/discover", async (req, res) => {
   }
   res.json({ profiles: [] });
 });
-router27.get("/swipe-count", async (req, res) => {
+router28.get("/swipe-count", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ count: 0 });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
     const { count, error } = await sb.from("vibe_swipes").select("*", { count: "exact", head: true }).eq("user_id", userId).gte("created_at", since);
@@ -64539,14 +64687,14 @@ router27.get("/swipe-count", async (req, res) => {
     res.json({ count: 0 });
   }
 });
-router27.get("/cooldown", async (req, res) => {
+router28.get("/cooldown", async (req, res) => {
   const { userId, limit: limitStr } = req.query;
   if (!userId) {
     res.json({ swipes: [] });
     return;
   }
   const limit = Math.min(parseInt(limitStr ?? "20", 10), 50);
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const { data, error } = await sb.from("vibe_swipes").select("direction, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(limit);
     if (error) throw error;
@@ -64556,13 +64704,13 @@ router27.get("/cooldown", async (req, res) => {
     res.json({ swipes: [] });
   }
 });
-router27.get("/preferences", async (req, res) => {
+router28.get("/preferences", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const { data, error } = await sb.from("vibe_preferences").select("*").eq("user_id", userId).maybeSingle();
     if (error) throw error;
@@ -64572,13 +64720,13 @@ router27.get("/preferences", async (req, res) => {
     res.json({ preferences: null });
   }
 });
-router27.put("/preferences", async (req, res) => {
+router28.put("/preferences", async (req, res) => {
   const { userId, gender, interestedIn, lookingFor, age, ageMin, ageMax, maxDistance } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     await Promise.all([
       sb.from("vibe_preferences").upsert(
@@ -64603,13 +64751,13 @@ router27.put("/preferences", async (req, res) => {
     res.status(500).json({ error: "Failed to save preferences" });
   }
 });
-router27.get("/goals", async (req, res) => {
+router28.get("/goals", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ goals: [] });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     const { data } = await sb.from("user_relationship_goals").select("goals").eq("user_id", userId).maybeSingle();
     res.json({ goals: data?.goals ?? [] });
@@ -64618,13 +64766,13 @@ router27.get("/goals", async (req, res) => {
     res.json({ goals: [] });
   }
 });
-router27.post("/goals", async (req, res) => {
+router28.post("/goals", async (req, res) => {
   const { userId, goals } = req.body;
   if (!userId || !Array.isArray(goals)) {
     res.status(400).json({ error: "userId and goals required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     await sb.from("user_relationship_goals").upsert(
       { user_id: userId, goals, primary_goal: goals[0] ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() },
@@ -64636,13 +64784,13 @@ router27.post("/goals", async (req, res) => {
     res.status(500).json({ error: "Failed to save goals" });
   }
 });
-router27.post("/compat-score", async (req, res) => {
+router28.post("/compat-score", async (req, res) => {
   const { userId, targetId, score } = req.body;
   if (!userId || !targetId || score === void 0) {
     res.status(400).json({ error: "userId, targetId, score required" });
     return;
   }
-  const sb = makeSupabase22();
+  const sb = makeSupabase23();
   try {
     await sb.from("vibe_compat_scores").upsert(
       { user_id: userId, target_id: targetId, score, computed_at: (/* @__PURE__ */ new Date()).toISOString() },
@@ -64654,18 +64802,18 @@ router27.post("/compat-score", async (req, res) => {
     res.json({ ok: true });
   }
 });
-var vibe_default = router27;
+var vibe_default = router28;
 
 // src/routes/vibe-requests.ts
-var import_express28 = __toESM(require_express2(), 1);
-var router28 = (0, import_express28.Router)();
-function makeSupabase23() {
+var import_express29 = __toESM(require_express2(), 1);
+var router29 = (0, import_express29.Router)();
+function makeSupabase24() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
 var BLOCKED_STATUSES = ["Married", "Engaged", "Widowed"];
-router28.post("/send", async (req, res) => {
+router29.post("/send", async (req, res) => {
   const { senderId, receiverId } = req.body;
   if (!senderId || !receiverId) {
     res.status(400).json({ error: "senderId and receiverId required" });
@@ -64675,7 +64823,7 @@ router28.post("/send", async (req, res) => {
     res.status(400).json({ error: "Cannot send vibe request to yourself" });
     return;
   }
-  const sb = makeSupabase23();
+  const sb = makeSupabase24();
   const { data: receiver } = await sb.from("profiles").select("relationship_status, username").eq("id", receiverId).maybeSingle();
   if (receiver && BLOCKED_STATUSES.includes(receiver.relationship_status ?? "")) {
     res.status(403).json({ error: "This user is not accepting vibe requests" });
@@ -64755,7 +64903,7 @@ router28.post("/send", async (req, res) => {
   });
   res.json({ success: true, result: "pending", requestId });
 });
-router28.post("/respond", async (req, res) => {
+router29.post("/respond", async (req, res) => {
   const { requestId, userId, action } = req.body;
   if (!requestId || !userId || !action) {
     res.status(400).json({ error: "requestId, userId, action required" });
@@ -64765,7 +64913,7 @@ router28.post("/respond", async (req, res) => {
     res.status(400).json({ error: "action must be 'accept' or 'decline'" });
     return;
   }
-  const sb = makeSupabase23();
+  const sb = makeSupabase24();
   const { data: request } = await sb.from("vibe_requests").select("id, sender_id, receiver_id, status").eq("id", requestId).maybeSingle();
   if (!request) {
     res.status(404).json({ error: "Request not found" });
@@ -64806,13 +64954,13 @@ router28.post("/respond", async (req, res) => {
   }
   res.json({ success: true });
 });
-router28.get("/status", async (req, res) => {
+router29.get("/status", async (req, res) => {
   const { senderId, receiverId } = req.query;
   if (!senderId || !receiverId) {
     res.json({ status: "none" });
     return;
   }
-  const sb = makeSupabase23();
+  const sb = makeSupabase24();
   const { data } = await sb.from("vibe_requests").select("id, status").eq("sender_id", senderId).eq("receiver_id", receiverId).maybeSingle();
   if (!data) {
     res.json({ status: "none" });
@@ -64820,13 +64968,13 @@ router28.get("/status", async (req, res) => {
   }
   res.json({ status: data.status, requestId: data.id });
 });
-router28.get("/inbox", async (req, res) => {
+router29.get("/inbox", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ requests: [] });
     return;
   }
-  const sb = makeSupabase23();
+  const sb = makeSupabase24();
   const { data, error } = await sb.from("vibe_requests").select("id, sender_id, created_at").eq("receiver_id", userId).eq("status", "pending").order("created_at", { ascending: false }).limit(20);
   if (error) {
     req.log.warn({ error: error.message }, "vibe-requests inbox error");
@@ -64859,24 +65007,24 @@ router28.get("/inbox", async (req, res) => {
   });
   res.json({ requests });
 });
-var vibe_requests_default = router28;
+var vibe_requests_default = router29;
 
 // src/routes/vibe-rooms.ts
-var import_express29 = __toESM(require_express2(), 1);
-var router29 = (0, import_express29.Router)();
-function makeSupabase24() {
+var import_express30 = __toESM(require_express2(), 1);
+var router30 = (0, import_express30.Router)();
+function makeSupabase25() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router29.get("/status", async (req, res) => {
+router30.get("/status", async (req, res) => {
   const { userId, roomIds } = req.query;
   if (!roomIds) {
     res.status(400).json({ error: "roomIds required" });
     return;
   }
   const ids = roomIds.split(",").map((s) => s.trim()).filter(Boolean);
-  const sb = makeSupabase24();
+  const sb = makeSupabase25();
   const { data: countRows, error: countErr } = await sb.from("vibe_room_members").select("room_id").in("room_id", ids);
   if (countErr) {
     res.status(500).json({ error: countErr.message });
@@ -64897,13 +65045,13 @@ router29.get("/status", async (req, res) => {
   }
   res.json({ rooms });
 });
-router29.get("/joined", async (req, res) => {
+router30.get("/joined", async (req, res) => {
   const { userId, roomId } = req.query;
   if (!userId || !roomId) {
     res.status(400).json({ error: "userId and roomId required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase25();
   const { data, error } = await sb.from("vibe_room_members").select("id").eq("user_id", userId).eq("room_id", roomId).maybeSingle();
   if (error) {
     req.log?.warn({ error }, "vibe-rooms joined check failed");
@@ -64912,13 +65060,13 @@ router29.get("/joined", async (req, res) => {
   }
   res.json({ joined: !!data });
 });
-router29.post("/join", async (req, res) => {
+router30.post("/join", async (req, res) => {
   const { userId, roomId } = req.body;
   if (!userId || !roomId) {
     res.status(400).json({ error: "userId and roomId required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase25();
   const { error: upsertError } = await sb.from("vibe_room_members").upsert({ user_id: userId, room_id: roomId }, { onConflict: "user_id,room_id" });
   if (upsertError) {
     req.log?.warn({ error: upsertError }, "vibe-rooms join failed");
@@ -64928,9 +65076,9 @@ router29.post("/join", async (req, res) => {
   const { count } = await sb.from("vibe_room_members").select("id", { count: "exact", head: true }).eq("room_id", roomId);
   res.json({ ok: true, memberCount: count ?? 0 });
 });
-router29.get("/:roomId/members/count", async (req, res) => {
+router30.get("/:roomId/members/count", async (req, res) => {
   const { roomId } = req.params;
-  const sb = makeSupabase24();
+  const sb = makeSupabase25();
   const { count, error } = await sb.from("vibe_room_members").select("id", { count: "exact", head: true }).eq("room_id", roomId);
   if (error) {
     res.status(500).json({ error: error.message });
@@ -64938,9 +65086,9 @@ router29.get("/:roomId/members/count", async (req, res) => {
   }
   res.json({ count: count ?? 0 });
 });
-router29.get("/:roomId/messages", async (req, res) => {
+router30.get("/:roomId/messages", async (req, res) => {
   const { roomId } = req.params;
-  const sb = makeSupabase24();
+  const sb = makeSupabase25();
   const { data, error } = await sb.from("vibe_room_messages").select("id, room_id, user_id, text, created_at, profiles!user_id(username, avatar_url)").eq("room_id", roomId).order("created_at", { ascending: true }).limit(100);
   if (error) {
     req.log?.warn({ error }, "vibe-rooms get messages failed");
@@ -64949,14 +65097,14 @@ router29.get("/:roomId/messages", async (req, res) => {
   }
   res.json({ messages: data ?? [] });
 });
-router29.post("/:roomId/messages", async (req, res) => {
+router30.post("/:roomId/messages", async (req, res) => {
   const { roomId } = req.params;
   const { userId, text } = req.body;
   if (!userId || !text?.trim()) {
     res.status(400).json({ error: "userId and text required" });
     return;
   }
-  const sb = makeSupabase24();
+  const sb = makeSupabase25();
   const { data: membership } = await sb.from("vibe_room_members").select("id").eq("user_id", userId).eq("room_id", roomId).maybeSingle();
   if (!membership) {
     res.status(403).json({ error: "Not a member of this room" });
@@ -64970,23 +65118,23 @@ router29.post("/:roomId/messages", async (req, res) => {
   }
   res.json({ ok: true, message: data });
 });
-var vibe_rooms_default = router29;
+var vibe_rooms_default = router30;
 
 // src/routes/snaps.ts
-var import_express30 = __toESM(require_express2(), 1);
-var router30 = (0, import_express30.Router)();
-function makeSupabase25() {
+var import_express31 = __toESM(require_express2(), 1);
+var router31 = (0, import_express31.Router)();
+function makeSupabase26() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router30.post("/", async (req, res) => {
+router31.post("/", async (req, res) => {
   const { senderId, receiverId, mediaUrl, mediaType, duration } = req.body;
   if (!senderId || !receiverId || !mediaUrl || !mediaType) {
     res.status(400).json({ error: "senderId, receiverId, mediaUrl, mediaType required" });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase26();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1e3).toISOString();
   try {
     const { data, error } = await sb.from("snaps").insert({
@@ -65008,13 +65156,13 @@ router30.post("/", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router30.get("/", async (req, res) => {
+router31.get("/", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase26();
   try {
     const { data: snaps, error: snapsErr } = await sb.from("snaps").select("id, sender_id, receiver_id, media_url, media_type, viewed_at, created_at, expires_at").or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).order("created_at", { ascending: false }).limit(200);
     if (snapsErr) {
@@ -65064,13 +65212,13 @@ router30.get("/", async (req, res) => {
     res.status(500).json({ error: "Failed" });
   }
 });
-router30.patch("/:id", async (req, res) => {
+router31.patch("/:id", async (req, res) => {
   const { id } = req.params;
   if (!id) {
     res.status(400).json({ error: "id required" });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase26();
   try {
     const { data, error } = await sb.from("snaps").update({ viewed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).select("id");
     if (error) {
@@ -65086,13 +65234,13 @@ router30.patch("/:id", async (req, res) => {
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
 });
-router30.get("/streaks", async (req, res) => {
+router31.get("/streaks", async (req, res) => {
   const { userId } = req.query;
   if (!userId) {
     res.json({ streaks: {} });
     return;
   }
-  const sb = makeSupabase25();
+  const sb = makeSupabase26();
   try {
     const { data } = await sb.from("snap_streaks").select("user1_id, user2_id, streak_count").or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
     const streaks = {};
@@ -65106,24 +65254,24 @@ router30.get("/streaks", async (req, res) => {
     res.json({ streaks: {} });
   }
 });
-var snaps_default = router30;
+var snaps_default = router31;
 
 // src/routes/rewards.ts
-var import_express31 = __toESM(require_express2(), 1);
-var router31 = (0, import_express31.Router)();
-function makeSupabase26() {
+var import_express32 = __toESM(require_express2(), 1);
+var router32 = (0, import_express32.Router)();
+function makeSupabase27() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router31.post("/claim-daily", async (req, res) => {
+router32.post("/claim-daily", async (req, res) => {
   const { userId } = req.body ?? {};
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase26();
+  const sb = makeSupabase27();
   try {
     const { data, error } = await sb.rpc("claim_daily_reward", { p_user_id: userId });
     if (!error && data) {
@@ -65145,13 +65293,13 @@ router31.post("/claim-daily", async (req, res) => {
     res.status(500).json({ error: "claim failed" });
   }
 });
-router31.get("/achievements", async (req, res) => {
+router32.get("/achievements", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase26();
+  const sb = makeSupabase27();
   try {
     const { data, error } = await sb.rpc("check_achievements", { p_user_id: userId });
     if (!error && Array.isArray(data)) {
@@ -65165,9 +65313,9 @@ router31.get("/achievements", async (req, res) => {
     res.json({ achievements: [] });
   }
 });
-router31.get("/leaderboard", async (req, res) => {
+router32.get("/leaderboard", async (req, res) => {
   const { period = "weekly" } = req.query;
-  const sb = makeSupabase26();
+  const sb = makeSupabase27();
   try {
     const { data, error } = await sb.from("leaderboard").select("*, profiles!user_id(username, avatar_url)").eq("period", period).order("rank", { ascending: true }).limit(10);
     if (error) throw error;
@@ -65177,24 +65325,24 @@ router31.get("/leaderboard", async (req, res) => {
     res.json({ entries: [] });
   }
 });
-var rewards_default = router31;
+var rewards_default = router32;
 
 // src/routes/analytics.ts
-var import_express32 = __toESM(require_express2(), 1);
-var router32 = (0, import_express32.Router)();
-function makeSupabase27() {
+var import_express33 = __toESM(require_express2(), 1);
+var router33 = (0, import_express33.Router)();
+function makeSupabase28() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router32.post("/track-interest", async (req, res) => {
+router33.post("/track-interest", async (req, res) => {
   const { userId, hashtag, interactionType } = req.body ?? {};
   if (!userId || !hashtag || !interactionType) {
     res.status(400).json({ error: "userId, hashtag, interactionType required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase28();
   try {
     const { error } = await sb.rpc("track_user_interest", {
       p_user_id: userId,
@@ -65208,13 +65356,13 @@ router32.post("/track-interest", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router32.post("/vibe-score", async (req, res) => {
+router33.post("/vibe-score", async (req, res) => {
   const { userId, points, reason } = req.body ?? {};
   if (!userId || points === void 0 || !reason) {
     res.status(400).json({ error: "userId, points, reason required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase28();
   try {
     const { error } = await sb.rpc("update_vibe_score", {
       p_user_id: userId,
@@ -65228,13 +65376,13 @@ router32.post("/vibe-score", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router32.get("/spam-check", async (req, res) => {
+router33.get("/spam-check", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase28();
   try {
     const { data, error } = await sb.rpc("detect_spam", { p_user_id: userId });
     if (error) req.log.warn({ error: error.message }, "detect_spam RPC warn");
@@ -65244,13 +65392,13 @@ router32.get("/spam-check", async (req, res) => {
     res.json({ isSpam: false });
   }
 });
-router32.post("/creator", async (req, res) => {
+router33.post("/creator", async (req, res) => {
   const { userId } = req.body ?? {};
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase28();
   try {
     const { error } = await sb.rpc("update_creator_analytics", { p_user_id: userId });
     if (error) req.log.warn({ error: error.message }, "update_creator_analytics RPC warn");
@@ -65260,14 +65408,14 @@ router32.post("/creator", async (req, res) => {
     res.json({ ok: false });
   }
 });
-router32.get("/user", async (req, res) => {
+router33.get("/user", async (req, res) => {
   const userId = req.query["userId"];
   const days = Math.min(Math.max(parseInt(req.query["days"] || "7", 10) || 7, 1), 90);
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase27();
+  const sb = makeSupabase28();
   const cutoff = new Date(Date.now() - days * 864e5).toISOString();
   try {
     const [postsRes, followersRes, topPostsRes] = await Promise.all([
@@ -65310,23 +65458,23 @@ router32.get("/user", async (req, res) => {
     res.status(500).json({ error: "Failed to load analytics" });
   }
 });
-var analytics_default = router32;
+var analytics_default = router33;
 
 // src/routes/ads.ts
-var import_express33 = __toESM(require_express2(), 1);
-var router33 = (0, import_express33.Router)();
-function makeSupabase28() {
+var import_express34 = __toESM(require_express2(), 1);
+var router34 = (0, import_express34.Router)();
+function makeSupabase29() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router33.get("/feed", async (req, res) => {
+router34.get("/feed", async (req, res) => {
   const { userId, adType = "feed_post" } = req.query;
   if (!userId) {
     res.json({ ads: [] });
     return;
   }
-  const sb = makeSupabase28();
+  const sb = makeSupabase29();
   try {
     const { data, error } = await sb.rpc("get_feed_ads", {
       p_user_id: userId,
@@ -65340,13 +65488,13 @@ router33.get("/feed", async (req, res) => {
     res.json({ ads: [] });
   }
 });
-router33.post("/impression", async (req, res) => {
+router34.post("/impression", async (req, res) => {
   const { adId, userId } = req.body;
   if (!adId || !userId || adId.startsWith("house-")) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase28();
+  const sb = makeSupabase29();
   try {
     await sb.rpc("track_ad_impression", {
       p_ad_id: adId,
@@ -65360,13 +65508,13 @@ router33.post("/impression", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router33.post("/click", async (req, res) => {
+router34.post("/click", async (req, res) => {
   const { adId, userId } = req.body;
   if (!adId || !userId || adId.startsWith("house-")) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase28();
+  const sb = makeSupabase29();
   try {
     await sb.rpc("track_ad_click", { p_ad_id: adId, p_user_id: userId });
     res.json({ ok: true });
@@ -65375,7 +65523,7 @@ router33.post("/click", async (req, res) => {
     res.json({ ok: true });
   }
 });
-router33.post("/campaign", async (req, res) => {
+router34.post("/campaign", async (req, res) => {
   const {
     userId,
     advertiserName,
@@ -65392,7 +65540,7 @@ router33.post("/campaign", async (req, res) => {
     res.status(400).json({ error: "userId, title and ctaUrl required" });
     return;
   }
-  const sb = makeSupabase28();
+  const sb = makeSupabase29();
   try {
     const { error } = await sb.from("ad_campaigns").insert({
       user_id: userId,
@@ -65415,13 +65563,13 @@ router33.post("/campaign", async (req, res) => {
     res.status(500).json({ error: "Failed to submit campaign" });
   }
 });
-router33.post("/hide", async (req, res) => {
+router34.post("/hide", async (req, res) => {
   const { adId, userId } = req.body;
   if (!adId || !userId || adId.startsWith("house-")) {
     res.json({ ok: true });
     return;
   }
-  const sb = makeSupabase28();
+  const sb = makeSupabase29();
   try {
     await sb.from("hidden_ads").upsert({ user_id: userId, ad_id: adId });
     res.json({ ok: true });
@@ -65430,23 +65578,23 @@ router33.post("/hide", async (req, res) => {
     res.json({ ok: true });
   }
 });
-var ads_default = router33;
+var ads_default = router34;
 
 // src/routes/live.ts
-var import_express34 = __toESM(require_express2(), 1);
-var router34 = (0, import_express34.Router)();
-function makeSupabase29() {
+var import_express35 = __toESM(require_express2(), 1);
+var router35 = (0, import_express35.Router)();
+function makeSupabase30() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router34.post("/stream", async (req, res) => {
+router35.post("/stream", async (req, res) => {
   const { userId, title = "Live Stream" } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase29();
+  const sb = makeSupabase30();
   try {
     const { data, error } = await sb.from("live_streams").insert({
       user_id: userId,
@@ -65463,10 +65611,10 @@ router34.post("/stream", async (req, res) => {
     res.status(500).json({ error: "Failed to create live stream" });
   }
 });
-router34.patch("/stream/:id/end", async (req, res) => {
+router35.patch("/stream/:id/end", async (req, res) => {
   const { id } = req.params;
   const { viewerCount = 0, coinsEarned = 0 } = req.body;
-  const sb = makeSupabase29();
+  const sb = makeSupabase30();
   try {
     const { error } = await sb.from("live_streams").update({
       status: "ended",
@@ -65481,24 +65629,24 @@ router34.patch("/stream/:id/end", async (req, res) => {
     res.status(500).json({ error: "Failed to end live stream" });
   }
 });
-var live_default = router34;
+var live_default = router35;
 
 // src/routes/users/onboarding.ts
-var import_express35 = __toESM(require_express2(), 1);
-var router35 = (0, import_express35.Router)();
-function makeSupabase30() {
+var import_express36 = __toESM(require_express2(), 1);
+var router36 = (0, import_express36.Router)();
+function makeSupabase31() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router35.get("/needs-onboarding", async (req, res) => {
+router36.get("/needs-onboarding", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase31();
   try {
     const { data, error } = await sb.rpc("needs_onboarding", { p_user_id: userId });
     if (error) req.log.warn({ error: error.message }, "needs_onboarding RPC warn");
@@ -65508,13 +65656,13 @@ router35.get("/needs-onboarding", async (req, res) => {
     res.json({ needsOnboarding: false });
   }
 });
-router35.post("/onboarding-interests", async (req, res) => {
+router36.post("/onboarding-interests", async (req, res) => {
   const { userId, interests } = req.body ?? {};
   if (!userId || !Array.isArray(interests)) {
     res.status(400).json({ error: "userId and interests[] required" });
     return;
   }
-  const sb = makeSupabase30();
+  const sb = makeSupabase31();
   try {
     const { error } = await sb.rpc("save_onboarding_interests", {
       p_user_id: userId,
@@ -65530,18 +65678,18 @@ router35.post("/onboarding-interests", async (req, res) => {
     res.json({ ok: false });
   }
 });
-var onboarding_default = router35;
+var onboarding_default = router36;
 
 // src/routes/users/contacts.ts
-var import_express36 = __toESM(require_express2(), 1);
-var router36 = (0, import_express36.Router)();
-function makeSupabase31() {
+var import_express37 = __toESM(require_express2(), 1);
+var router37 = (0, import_express37.Router)();
+function makeSupabase32() {
   return createClient(
     process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co",
     process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? ""
   );
 }
-router36.post("/find-by-contacts", async (req, res) => {
+router37.post("/find-by-contacts", async (req, res) => {
   const { emails, userId } = req.body ?? {};
   if (!userId || !Array.isArray(emails)) {
     res.status(400).json({ error: "userId and emails[] required" });
@@ -65551,7 +65699,7 @@ router36.post("/find-by-contacts", async (req, res) => {
     res.json({ users: [] });
     return;
   }
-  const sb = makeSupabase31();
+  const sb = makeSupabase32();
   try {
     const { data, error } = await sb.rpc("find_users_by_contacts", {
       p_emails: emails.slice(0, 100),
@@ -65569,22 +65717,22 @@ router36.post("/find-by-contacts", async (req, res) => {
     res.json({ users: [] });
   }
 });
-var contacts_default = router36;
+var contacts_default = router37;
 
 // src/routes/sounds.ts
-var import_express37 = __toESM(require_express2(), 1);
-var router37 = (0, import_express37.Router)();
-function makeSupabase32() {
+var import_express38 = __toESM(require_express2(), 1);
+var router38 = (0, import_express38.Router)();
+function makeSupabase33() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-router37.get("/trending", async (req, res) => {
+router38.get("/trending", async (req, res) => {
   const limit = Math.min(
     parseInt(req.query["limit"] ?? "20", 10) || 20,
     50
   );
-  const sb = makeSupabase32();
+  const sb = makeSupabase33();
   try {
     const { data, error } = await sb.from("posts").select(
       "id, media_url, thumbnail_url, caption, likes_count, user_id, profiles!user_id(username, avatar_url)"
@@ -65600,17 +65748,17 @@ router37.get("/trending", async (req, res) => {
     res.status(500).json({ error: "Failed to load trending sounds" });
   }
 });
-var sounds_default = router37;
+var sounds_default = router38;
 
 // src/routes/couple.ts
-var import_express38 = __toESM(require_express2(), 1);
-function makeSupabase33() {
+var import_express39 = __toESM(require_express2(), 1);
+function makeSupabase34() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-var router38 = (0, import_express38.Router)();
-router38.post("/request", async (req, res) => {
+var router39 = (0, import_express39.Router)();
+router39.post("/request", async (req, res) => {
   req.log.info({ body: req.body, auth: req.headers["authorization"] ? "present" : "missing" }, "couple/request hit");
   const { requesterId, receiverId, anniversaryDate } = req.body;
   if (!requesterId || !receiverId) {
@@ -65622,7 +65770,7 @@ router38.post("/request", async (req, res) => {
     res.status(400).json({ error: "Cannot send request to yourself" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data: existing } = await sb.from("couple_links").select("id, status").or(
       `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
@@ -65650,13 +65798,13 @@ router38.post("/request", async (req, res) => {
     res.status(500).json({ error: "Failed to send couple request" });
   }
 });
-router38.post("/accept", async (req, res) => {
+router39.post("/accept", async (req, res) => {
   const { coupleId, userId } = req.body;
   if (!coupleId || !userId) {
     res.status(400).json({ error: "coupleId and userId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data: link, error: fetchErr } = await sb.from("couple_links").select("*").eq("id", coupleId).eq("receiver_id", userId).eq("status", "pending").single();
     if (fetchErr || !link) {
@@ -65686,13 +65834,13 @@ router38.post("/accept", async (req, res) => {
     res.status(500).json({ error: "Failed to accept request" });
   }
 });
-router38.post("/decline", async (req, res) => {
+router39.post("/decline", async (req, res) => {
   const { coupleId, userId } = req.body;
   if (!coupleId || !userId) {
     res.status(400).json({ error: "coupleId and userId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { error } = await sb.from("couple_links").update({ status: "declined" }).eq("id", coupleId).eq("receiver_id", userId);
     if (error) throw error;
@@ -65702,13 +65850,13 @@ router38.post("/decline", async (req, res) => {
     res.status(500).json({ error: "Failed to decline" });
   }
 });
-router38.delete("/unlink", async (req, res) => {
+router39.delete("/unlink", async (req, res) => {
   const { coupleId, userId } = req.body;
   if (!coupleId || !userId) {
     res.status(400).json({ error: "coupleId and userId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data: link } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", coupleId).maybeSingle();
     if (!link) {
@@ -65736,13 +65884,13 @@ router38.delete("/unlink", async (req, res) => {
     res.status(500).json({ error: "Failed to unlink" });
   }
 });
-router38.get("/status", async (req, res) => {
+router39.get("/status", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data: link } = await sb.from("couple_links").select("*").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).eq("status", "accepted").order("accepted_at", { ascending: false }).maybeSingle();
     if (link) {
@@ -65777,13 +65925,13 @@ router38.get("/status", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch status" });
   }
 });
-router38.get("/stats", async (req, res) => {
+router39.get("/stats", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data: link, error } = await sb.from("couple_links").select("accepted_at, anniversary_date").eq("id", coupleId).single();
     if (error || !link) {
@@ -65798,13 +65946,13 @@ router38.get("/stats", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
-router38.post("/nudge", async (req, res) => {
+router39.post("/nudge", async (req, res) => {
   const { senderId, partnerId } = req.body;
   if (!senderId || !partnerId) {
     res.status(400).json({ error: "senderId and partnerId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     await sb.from("couple_nudges").insert({ sender_id: senderId, receiver_id: partnerId });
     res.json({ success: true });
@@ -65813,13 +65961,13 @@ router38.post("/nudge", async (req, res) => {
     res.status(500).json({ error: "Failed to send nudge" });
   }
 });
-router38.get("/photos", async (req, res) => {
+router39.get("/photos", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_photos").select("*").eq("couple_id", coupleId).order("created_at", { ascending: false });
     if (error) throw error;
@@ -65829,13 +65977,13 @@ router38.get("/photos", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch photos" });
   }
 });
-router38.post("/photos", async (req, res) => {
+router39.post("/photos", async (req, res) => {
   const { coupleId, uploadedBy, url, caption } = req.body;
   if (!coupleId || !uploadedBy || !url) {
     res.status(400).json({ error: "coupleId, uploadedBy, and url required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_photos").insert({ couple_id: coupleId, uploaded_by: uploadedBy, url, caption: caption ?? null }).select().single();
     if (error) throw error;
@@ -65845,13 +65993,13 @@ router38.post("/photos", async (req, res) => {
     res.status(500).json({ error: "Failed to upload photo" });
   }
 });
-router38.get("/bucketlist", async (req, res) => {
+router39.get("/bucketlist", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_bucketlist").select("*").eq("couple_id", coupleId).order("created_at", { ascending: true });
     if (error) throw error;
@@ -65861,13 +66009,13 @@ router38.get("/bucketlist", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch bucket list" });
   }
 });
-router38.post("/bucketlist", async (req, res) => {
+router39.post("/bucketlist", async (req, res) => {
   const { coupleId, title, createdBy } = req.body;
   if (!coupleId || !title || !createdBy) {
     res.status(400).json({ error: "coupleId, title, and createdBy required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_bucketlist").insert({ couple_id: coupleId, title, created_by: createdBy, completed: false }).select().single();
     if (error) throw error;
@@ -65877,10 +66025,10 @@ router38.post("/bucketlist", async (req, res) => {
     res.status(500).json({ error: "Failed to add item" });
   }
 });
-router38.patch("/bucketlist/:id", async (req, res) => {
+router39.patch("/bucketlist/:id", async (req, res) => {
   const { id } = req.params;
   const { completed } = req.body;
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_bucketlist").update({ completed: !!completed }).eq("id", id).select().single();
     if (error) throw error;
@@ -65890,13 +66038,13 @@ router38.patch("/bucketlist/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to update item" });
   }
 });
-router38.get("/notes", async (req, res) => {
+router39.get("/notes", async (req, res) => {
   const coupleId = req.query["coupleId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_notes").select("*").eq("couple_id", coupleId).order("created_at", { ascending: true });
     if (error) throw error;
@@ -65906,13 +66054,13 @@ router38.get("/notes", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch notes" });
   }
 });
-router38.post("/notes", async (req, res) => {
+router39.post("/notes", async (req, res) => {
   const { coupleId, authorId, content } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data, error } = await sb.from("couple_notes").insert({ couple_id: coupleId, author_id: authorId, content }).select().single();
     if (error) throw error;
@@ -65926,13 +66074,13 @@ function currentMonthYear() {
   const now = /* @__PURE__ */ new Date();
   return { month: now.getMonth() + 1, year: now.getFullYear() };
 }
-router38.post("/competition/enter", async (req, res) => {
+router39.post("/competition/enter", async (req, res) => {
   const { coupleId, coupleName, coverPhotoUrl } = req.body;
   if (!coupleId || !coupleName) {
     res.status(400).json({ error: "coupleId and coupleName required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   const { month, year } = currentMonthYear();
   try {
     const { data: existing } = await sb.from("couple_competitions").select("id").eq("couple_id", coupleId).eq("month", month).eq("year", year).maybeSingle();
@@ -65948,8 +66096,8 @@ router38.post("/competition/enter", async (req, res) => {
     res.status(500).json({ error: "Failed to enter competition" });
   }
 });
-router38.get("/competition/leaderboard", async (req, res) => {
-  const sb = makeSupabase33();
+router39.get("/competition/leaderboard", async (req, res) => {
+  const sb = makeSupabase34();
   const { month, year } = currentMonthYear();
   try {
     const { data: entries, error } = await sb.from("couple_competitions").select("*").eq("month", month).eq("year", year).order("vote_count", { ascending: false }).limit(10);
@@ -65981,14 +66129,14 @@ router38.get("/competition/leaderboard", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch leaderboard" });
   }
 });
-router38.post("/competition/vote/:competitionId", async (req, res) => {
+router39.post("/competition/vote/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
   const { voterId } = req.body;
   if (!voterId) {
     res.status(400).json({ error: "voterId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     const { data: existing } = await sb.from("couple_competition_votes").select("id").eq("voter_id", voterId).eq("competition_id", competitionId).maybeSingle();
     if (existing) {
@@ -66005,14 +66153,14 @@ router38.post("/competition/vote/:competitionId", async (req, res) => {
     res.status(500).json({ error: "Failed to vote" });
   }
 });
-router38.delete("/competition/vote/:competitionId", async (req, res) => {
+router39.delete("/competition/vote/:competitionId", async (req, res) => {
   const { competitionId } = req.params;
   const { voterId } = req.body;
   if (!voterId) {
     res.status(400).json({ error: "voterId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   try {
     await sb.from("couple_competition_votes").delete().eq("voter_id", voterId).eq("competition_id", competitionId);
     const { data: current } = await sb.from("couple_competitions").select("vote_count").eq("id", competitionId).single();
@@ -66024,8 +66172,8 @@ router38.delete("/competition/vote/:competitionId", async (req, res) => {
     res.status(500).json({ error: "Failed to unvote" });
   }
 });
-router38.get("/competition/winners", async (req, res) => {
-  const sb = makeSupabase33();
+router39.get("/competition/winners", async (req, res) => {
+  const sb = makeSupabase34();
   try {
     const { data: winners, error } = await sb.from("couple_competition_winners").select("*").order("year", { ascending: false }).order("month", { ascending: false }).order("rank", { ascending: true }).limit(30);
     if (error) throw error;
@@ -66047,14 +66195,14 @@ router38.get("/competition/winners", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch winners" });
   }
 });
-router38.get("/competition/my-entry", async (req, res) => {
+router39.get("/competition/my-entry", async (req, res) => {
   const coupleId = req.query["coupleId"];
   const voterId = req.query["voterId"];
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase33();
+  const sb = makeSupabase34();
   const { month, year } = currentMonthYear();
   try {
     const { data: entry } = await sb.from("couple_competitions").select("*").eq("couple_id", coupleId).eq("month", month).eq("year", year).maybeSingle();
@@ -66075,17 +66223,17 @@ router38.get("/competition/my-entry", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch entry" });
   }
 });
-var couple_default = router38;
+var couple_default = router39;
 
 // src/routes/couple-feed.ts
-var import_express39 = __toESM(require_express2(), 1);
+var import_express40 = __toESM(require_express2(), 1);
 import { Buffer as Buffer2 } from "buffer";
-function makeSupabase34() {
+function makeSupabase35() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-var router39 = (0, import_express39.Router)();
+var router40 = (0, import_express40.Router)();
 async function enrichPost(sb, post2, coupleId) {
   let authorData = null;
   let partnerData = null;
@@ -66144,13 +66292,13 @@ async function enrichPost(sb, post2, coupleId) {
     totalReactions: reactions.support + reactions.relate + reactions.strength + reactions.love
   };
 }
-router39.post("/upload-photo", async (req, res) => {
+router40.post("/upload-photo", async (req, res) => {
   const { base64, mimeType, ext, userId } = req.body;
   if (!base64 || !userId) {
     res.status(400).json({ error: "base64 and userId required" });
     return;
   }
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const fileExt = (ext ?? "jpg").replace(/^\./, "");
     const mime = mimeType ?? "image/jpeg";
@@ -66170,12 +66318,12 @@ router39.post("/upload-photo", async (req, res) => {
     res.status(500).json({ error: "Failed to upload photo" });
   }
 });
-router39.get("/posts", async (req, res) => {
+router40.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"];
   const limit = Math.min(Number(req.query["limit"] ?? 20), 50);
   const offset = Number(req.query["offset"] ?? 0);
   const category = req.query["category"];
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     let query = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
     if (category && category !== "All") {
@@ -66184,21 +66332,22 @@ router39.get("/posts", async (req, res) => {
     const { data: posts, error } = await query;
     if (error) throw error;
     const enriched = await Promise.all((posts ?? []).map((p) => enrichPost(sb, p, coupleId)));
-    res.json({ posts: enriched });
+    const enrichedPolls = await enrichWithPolls(sb, enriched, void 0, "confession_post_id");
+    res.json({ posts: enrichedPolls });
   } catch (err) {
     req.log.error({ err: err.message }, "couple-feed/posts GET error");
     res.status(500).json({ error: "Failed to fetch couple feed" });
   }
 });
-router39.post("/posts", async (req, res) => {
-  const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location: location2 } = req.body;
+router40.post("/posts", async (req, res) => {
+  const { coupleId, authorId, content, photoUrl, category, isAnonymous, age, location: location2, poll } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content are required" });
     return;
   }
   const validCategories = ["Confession", "Story", "Advice", "Milestone", "Venting"];
   const cat = category && validCategories.includes(category) ? category : "Confession";
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const { data: couple, error: coupleErr } = await sb.from("couple_links").select("id, requester_id, receiver_id, status").eq("id", coupleId).eq("status", "accepted").maybeSingle();
     if (coupleErr || !couple) {
@@ -66247,6 +66396,29 @@ router39.post("/posts", async (req, res) => {
       );
       throw error;
     }
+    const confessionId = post2.id;
+    if (poll && Array.isArray(poll.options) && poll.options.length >= 2) {
+      try {
+        const validOpts = poll.options.filter((o) => typeof o === "string" && o.trim()).slice(0, 4);
+        if (validOpts.length >= 2) {
+          const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+          const endsAt = new Date(Date.now() + durH * 36e5).toISOString();
+          const { data: pollRow } = await sb.from("polls").insert({ confession_post_id: confessionId, ends_at: endsAt }).select("id").single();
+          if (pollRow) {
+            const pollId = pollRow.id;
+            await sb.from("poll_options").insert(
+              validOpts.map((label, position) => ({
+                poll_id: pollId,
+                label: label.trim().slice(0, 60),
+                position
+              }))
+            );
+          }
+        }
+      } catch (pe) {
+        req.log.warn({ err: pe?.message }, "confession poll creation failed (non-fatal)");
+      }
+    }
     const enriched = await enrichPost(sb, post2, coupleId);
     res.json({ success: true, post: enriched });
   } catch (err) {
@@ -66257,14 +66429,14 @@ router39.post("/posts", async (req, res) => {
     res.status(500).json({ error: err?.message ?? "Failed to create post" });
   }
 });
-router39.delete("/posts/:postId", async (req, res) => {
+router40.delete("/posts/:postId", async (req, res) => {
   const { postId } = req.params;
   const { coupleId } = req.body;
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const { error } = await sb.from("couple_feed_posts").delete().eq("id", postId).eq("couple_id", coupleId);
     if (error) throw error;
@@ -66293,7 +66465,7 @@ function makeCountsResponse(post2, myReaction) {
     myReaction
   };
 }
-router39.post("/posts/:postId/react", async (req, res) => {
+router40.post("/posts/:postId/react", async (req, res) => {
   const { postId } = req.params;
   const { coupleId, likerId, reaction } = req.body;
   if (!coupleId || !likerId || !reaction || !VALID_REACTIONS.includes(reaction)) {
@@ -66302,7 +66474,7 @@ router39.post("/posts/:postId/react", async (req, res) => {
   }
   const r = reaction;
   const col = reactionCol(r);
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const { data: existing } = await sb.from("couple_feed_likes").select("id, reaction").eq("post_id", postId).eq("couple_id", coupleId).maybeSingle();
     if (existing) {
@@ -66336,14 +66508,14 @@ router39.post("/posts/:postId/react", async (req, res) => {
     res.status(500).json({ error: "Failed to react" });
   }
 });
-router39.delete("/posts/:postId/react", async (req, res) => {
+router40.delete("/posts/:postId/react", async (req, res) => {
   const { postId } = req.params;
   const { coupleId } = req.body;
   if (!coupleId) {
     res.status(400).json({ error: "coupleId required" });
     return;
   }
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const { data: existing } = await sb.from("couple_feed_likes").select("id, reaction").eq("post_id", postId).eq("couple_id", coupleId).maybeSingle();
     if (!existing) {
@@ -66366,9 +66538,9 @@ router39.delete("/posts/:postId/react", async (req, res) => {
     res.status(500).json({ error: "Failed to remove reaction" });
   }
 });
-router39.get("/posts/:postId/comments", async (req, res) => {
+router40.get("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const { data: comments, error } = await sb.from("couple_feed_comments").select("*").eq("post_id", postId).order("created_at", { ascending: false });
     if (error) throw error;
@@ -66390,14 +66562,14 @@ router39.get("/posts/:postId/comments", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch comments" });
   }
 });
-router39.post("/posts/:postId/comments", async (req, res) => {
+router40.post("/posts/:postId/comments", async (req, res) => {
   const { postId } = req.params;
   const { coupleId, authorId, content } = req.body;
   if (!coupleId || !authorId || !content) {
     res.status(400).json({ error: "coupleId, authorId, and content required" });
     return;
   }
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const { data: comment, error } = await sb.from("couple_feed_comments").insert({
       post_id: postId,
@@ -66434,13 +66606,13 @@ router39.post("/posts/:postId/comments", async (req, res) => {
     res.status(500).json({ error: "Failed to add comment" });
   }
 });
-router39.get("/notifications", async (req, res) => {
+router40.get("/notifications", async (req, res) => {
   const userId = req.query["userId"];
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     const [{ data: coupleRow }, { data: profile }] = await Promise.all([
       sb.from("couple_links").select("id, requester_id, receiver_id").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle(),
@@ -66500,13 +66672,13 @@ router39.get("/notifications", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch notifications" });
   }
 });
-router39.post("/notifications/mark-seen", async (req, res) => {
+router40.post("/notifications/mark-seen", async (req, res) => {
   const { userId } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
-  const sb = makeSupabase34();
+  const sb = makeSupabase35();
   try {
     await sb.from("profiles").update({ last_seen_notifications_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", userId);
     res.json({ success: true });
@@ -66515,10 +66687,10 @@ router39.post("/notifications/mark-seen", async (req, res) => {
     res.status(500).json({ error: "Failed to mark seen" });
   }
 });
-var couple_feed_default = router39;
+var couple_feed_default = router40;
 
 // src/routes/auth.ts
-var import_express40 = __toESM(require_express2(), 1);
+var import_express41 = __toESM(require_express2(), 1);
 
 // src/lib/supabase.ts
 var SUPABASE_URL2 = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -66532,20 +66704,20 @@ var SERVER_OPTIONS = {
     params: { eventsPerSecond: -1 }
   }
 };
-function makeSupabase35() {
+function makeSupabase36() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(SUPABASE_URL2, key, SERVER_OPTIONS);
 }
 
 // src/routes/auth.ts
-var router40 = (0, import_express40.Router)();
-router40.post("/google", async (req, res) => {
+var router41 = (0, import_express41.Router)();
+router41.post("/google", async (req, res) => {
   const { idToken } = req.body;
   if (!idToken) {
     res.status(400).json({ error: "idToken is required" });
     return;
   }
-  const sb = makeSupabase35();
+  const sb = makeSupabase36();
   const { data, error } = await sb.auth.signInWithIdToken({
     provider: "google",
     token: idToken
@@ -66557,13 +66729,13 @@ router40.post("/google", async (req, res) => {
   }
   res.json({ user: data.user, session: data.session });
 });
-router40.post("/apple", async (req, res) => {
+router41.post("/apple", async (req, res) => {
   const { identityToken, fullName } = req.body;
   if (!identityToken) {
     res.status(400).json({ error: "identityToken is required" });
     return;
   }
-  const sb = makeSupabase35();
+  const sb = makeSupabase36();
   const { data, error } = await sb.auth.signInWithIdToken({
     provider: "apple",
     token: identityToken
@@ -66575,54 +66747,55 @@ router40.post("/apple", async (req, res) => {
   }
   res.json({ user: data.user, session: data.session });
 });
-var auth_default = router40;
+var auth_default = router41;
 
 // src/routes/index.ts
-var router41 = (0, import_express41.Router)();
-router41.use(health_default);
-router41.use("/ai", caption_default);
-router41.use("/ai", chat_default);
-router41.use("/admin", setup_default);
-router41.use("/admin", reports_default);
-router41.use("/admin", first_posts_default);
-router41.use("/music", deezer_default);
-router41.use("/posts", remove_default);
-router41.use("/posts", update_default);
-router41.use("/posts", create_default);
-router41.use("/reels", create_default2);
-router41.use("/reels", remove_default2);
-router41.use("/reels", watch_default);
-router41.use("/reels", like_default);
-router41.use("/users", search_default);
-router41.use("/users/social", social_default);
-router41.use("/users/notifications", notifications_default);
-router41.use("/engage", engage_default);
-router41.use("/messages", messages_default);
-router41.use("/users", setup_default2);
-router41.use("/users", onboarding_default);
-router41.use("/users", contacts_default);
-router41.use("/moderation", moderation_default);
-router41.use("/did", did_default);
-router41.use("/stories", stories_default);
-router41.use("/comments", comments_default);
-router41.use("/storage", storage_default);
-router41.use("/feed", feed_default);
-router41.use("/vibe", vibe_default);
-router41.use("/vibe-requests", vibe_requests_default);
-router41.use("/vibe-rooms", vibe_rooms_default);
-router41.use("/snaps", snaps_default);
-router41.use("/rewards", rewards_default);
-router41.use("/analytics", analytics_default);
-router41.use("/ads", ads_default);
-router41.use("/live", live_default);
-router41.use("/sounds", sounds_default);
-router41.use("/couple", couple_default);
-router41.use("/couple-feed", couple_feed_default);
-router41.use("/auth", auth_default);
-var routes_default = router41;
+var router42 = (0, import_express42.Router)();
+router42.use(health_default);
+router42.use("/ai", caption_default);
+router42.use("/ai", chat_default);
+router42.use("/admin", setup_default);
+router42.use("/admin", reports_default);
+router42.use("/admin", first_posts_default);
+router42.use("/music", deezer_default);
+router42.use("/posts", remove_default);
+router42.use("/posts", update_default);
+router42.use("/posts", create_default);
+router42.use("/reels", create_default2);
+router42.use("/reels", remove_default2);
+router42.use("/reels", watch_default);
+router42.use("/reels", like_default);
+router42.use("/users", search_default);
+router42.use("/users/social", social_default);
+router42.use("/users/notifications", notifications_default);
+router42.use("/engage", engage_default);
+router42.use("/messages", messages_default);
+router42.use("/users", setup_default2);
+router42.use("/users", onboarding_default);
+router42.use("/users", contacts_default);
+router42.use("/moderation", moderation_default);
+router42.use("/did", did_default);
+router42.use("/stories", stories_default);
+router42.use("/comments", comments_default);
+router42.use("/storage", storage_default);
+router42.use("/feed", feed_default);
+router42.use("/vibe", vibe_default);
+router42.use("/vibe-requests", vibe_requests_default);
+router42.use("/vibe-rooms", vibe_rooms_default);
+router42.use("/snaps", snaps_default);
+router42.use("/rewards", rewards_default);
+router42.use("/analytics", analytics_default);
+router42.use("/ads", ads_default);
+router42.use("/live", live_default);
+router42.use("/sounds", sounds_default);
+router42.use("/couple", couple_default);
+router42.use("/couple-feed", couple_feed_default);
+router42.use("/auth", auth_default);
+router42.use("/polls", polls_default);
+var routes_default = router42;
 
 // src/app.ts
-var app = (0, import_express42.default)();
+var app = (0, import_express43.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -66643,8 +66816,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express42.default.json({ limit: "150mb" }));
-app.use(import_express42.default.urlencoded({ extended: true, limit: "150mb" }));
+app.use(import_express43.default.json({ limit: "150mb" }));
+app.use(import_express43.default.urlencoded({ extended: true, limit: "150mb" }));
 app.use((_req, res, next) => {
   const start = Date.now();
   const origEnd = res.end.bind(res);
@@ -66761,7 +66934,7 @@ if (typeof globalThis.WebSocket === "undefined") {
 async function ensureSupabaseSetup() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!key) return;
-  const sb = makeSupabase35();
+  const sb = makeSupabase36();
   for (const bucket of ["posts", "reels", "media", "avatars", "snaps"]) {
     const { error } = await sb.storage.createBucket(bucket, { public: true });
     if (error && !error.message.includes("already exists")) {

@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { readAsStringAsync } from "expo-file-system/legacy";
 import { useAuth } from "@/context/AuthContext";
+import PollComposer, { type PollDraft } from "@/components/PollComposer";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 
@@ -44,6 +45,7 @@ export default function FeedCreateScreen() {
   const [location, setLocation] = useState("");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
 
   const pickPhoto = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -125,6 +127,12 @@ export default function FeedCreateScreen() {
           isAnonymous: true,
           age: ageNum,
           location: location.trim() || undefined,
+          poll: pollDraft
+            ? {
+                options: pollDraft.options.filter((o) => o.trim()),
+                duration_hours: pollDraft.duration_hours,
+              }
+            : undefined,
         }),
       });
       const data = await res.json();
@@ -243,6 +251,33 @@ export default function FeedCreateScreen() {
               <Text style={s.photoPickerText}>Tap to add a photo</Text>
             </TouchableOpacity>
           )}
+
+          {/* Poll toggle */}
+          <TouchableOpacity
+            style={[s.pollToggleBtn, pollDraft !== null && s.pollToggleBtnActive]}
+            onPress={() =>
+              setPollDraft(
+                pollDraft
+                  ? null
+                  : { options: ["", ""], duration_hours: 24 },
+              )
+            }
+            activeOpacity={0.75}
+          >
+            <Ionicons
+              name="bar-chart-outline"
+              size={18}
+              color={pollDraft ? "#A78BFA" : "#555555"}
+            />
+            <Text style={[s.pollToggleText, pollDraft !== null && { color: "#A78BFA" }]}>
+              {pollDraft ? "Remove Poll" : "Add Poll"}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Poll composer */}
+          {pollDraft && (
+            <PollComposer poll={pollDraft} onChange={setPollDraft} />
+          )}
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
@@ -271,4 +306,7 @@ const s = StyleSheet.create({
   photoPreviewWrap: { position: "relative" },
   photoPreview: { width: "100%", height: 200, borderRadius: 16 },
   removePhotoBtn: { position: "absolute", top: 8, right: 8 },
+  pollToggleBtn: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 20, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14, borderWidth: 1.5, borderColor: "rgba(255,255,255,0.1)", backgroundColor: "#141414" },
+  pollToggleBtnActive: { borderColor: "rgba(167,139,250,0.35)", backgroundColor: "rgba(124,58,237,0.07)" },
+  pollToggleText: { fontFamily: "Poppins_500Medium", fontSize: 14, color: "#555555" },
 });
