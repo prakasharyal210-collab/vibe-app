@@ -940,9 +940,9 @@ const S = StyleSheet.create({
   // right actions
   rightActions: {
     position: "absolute",
-    right: 10,
+    right: 12,
     alignItems: "center",
-    gap: 20,
+    gap: 18,
   },
   creatorAvatar: { alignItems: "center" },
   avatarRing: { width: 50, height: 50, borderRadius: 25, borderWidth: 2.5, borderColor: "#8B5CF6", overflow: "hidden" },
@@ -957,8 +957,7 @@ const S = StyleSheet.create({
   },
   actionBtn: {
     alignItems: "center",
-    gap: 3,
-    padding: 8,
+    gap: 2,
   },
   actionIcon: {
     textShadowColor: "rgba(0,0,0,0.85)",
