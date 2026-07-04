@@ -1280,8 +1280,9 @@ export async function getForYouFeed(
   contentType: "all" | "photo" | "video" = "all",
   sortOrder: "newest" | "most_liked" | "most_viewed" = "newest",
   category?: string,
+  feedType?: string,
 ): Promise<Post[]> {
-  console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset, 'contentType:', contentType, 'sort:', sortOrder, 'category:', category);
+  console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset, 'contentType:', contentType, 'sort:', sortOrder, 'category:', category, 'type:', feedType);
   try {
     const params = new URLSearchParams({
       userId,
@@ -1291,6 +1292,7 @@ export async function getForYouFeed(
     if (contentType !== "all") params.set("content_type", contentType);
     if (sortOrder !== "newest") params.set("sort", sortOrder);
     if (category) params.set("category", category);
+    if (feedType) params.set("type", feedType);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 25_000);
     let res: Response;

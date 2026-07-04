@@ -119,7 +119,7 @@ const VALID_FEED_CATEGORIES = new Set([
 ]);
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
-// ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed&category=music|...
+// ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed&category=music|...&type=polls
 router.get("/foryou", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
@@ -128,6 +128,7 @@ router.get("/foryou", async (req, res) => {
   const sort = (req.query["sort"] as string) ?? "newest";
   const rawCategory = req.query["category"] as string | undefined;
   const category = rawCategory && VALID_FEED_CATEGORIES.has(rawCategory) ? rawCategory : undefined;
+  const feedType = req.query["type"] as string | undefined;
 
   // Column to order by in the direct fallback query
   const sortCol = sort === "most_liked" ? "likes_count" : sort === "most_viewed" ? "views_count" : "created_at";
@@ -158,6 +159,46 @@ router.get("/foryou", async (req, res) => {
   }
 
   const supabase = makeSupabase();
+
+  // ── Polls filter (?type=polls) ─────────────────────────────────────────────
+  // Returns only posts that have an associated poll row, ordered:
+  //   active polls first (ends_at in the future, desc) then recently-ended.
+  // Sorting by ends_at desc naturally puts future timestamps before past ones.
+  if (feedType === "polls") {
+    const { data: pollRows } = await supabase
+      .from("polls")
+      .select("post_id, ends_at")
+      .not("post_id", "is", null)
+      .order("ends_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    const postIds = (pollRows ?? [])
+      .map((r: any) => r.post_id as string)
+      .filter(Boolean);
+
+    if (!postIds.length) {
+      res.json({ data: [], source: "polls" });
+      return;
+    }
+
+    const { data: pollPosts } = await supabase
+      .from("posts")
+      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+      .in("id", postIds)
+      .or("visibility.eq.public,visibility.is.null")
+      .or("is_archived.eq.false,is_archived.is.null");
+
+    // Preserve the ends_at ordering returned from the polls table.
+    const idOrder = new Map(postIds.map((id: string, i: number) => [id, i]));
+    const sorted = [...(pollPosts ?? [])].sort(
+      (a: any, b: any) => (idOrder.get(a.id as string) ?? 999) - (idOrder.get(b.id as string) ?? 999),
+    );
+
+    const enrichedCouple = await enrichWithCoupleData(supabase, sorted);
+    const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+    res.json({ data: enrichedPolls, source: "polls" });
+    return;
+  }
 
   // When a content-type filter is active the personalised RPCs don't support it
   // at the DB level.  We would have to post-filter a fixed-size page and could

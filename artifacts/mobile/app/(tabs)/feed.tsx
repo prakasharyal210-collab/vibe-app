@@ -64,6 +64,7 @@ interface Category { id: string; label: string }
 const CATEGORIES: Category[] = [
   { id: "explore",  label: "🧭 Explore" },
   { id: "trending", label: "🔥 Trending" },
+  { id: "polls",    label: "📊 Polls" },
   ...POST_CATEGORIES.map((c) => ({ id: c.id, label: `${c.emoji} ${c.label}` })),
 ];
 
@@ -514,6 +515,7 @@ export default function FeedScreen() {
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState("explore");
   const isTrending = activeCategory === "trending";
+  const isPolls = activeCategory === "polls";
 
   const [contentType, setContentType] = useState<ContentType>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
@@ -656,10 +658,11 @@ export default function FeedScreen() {
     try {
       let data: Post[] = [];
       if (tab === "foryou") {
-        const catParam = activeCategoryRef.current !== "explore" && activeCategoryRef.current !== "trending"
+        const catParam = activeCategoryRef.current !== "explore" && activeCategoryRef.current !== "trending" && activeCategoryRef.current !== "polls"
           ? activeCategoryRef.current
           : undefined;
-        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam) : MOCK_FOR_YOU;
+        const typeParam = activeCategoryRef.current === "polls" ? "polls" : undefined;
+        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam, typeParam) : MOCK_FOR_YOU;
         if (!userId) { console.log('[loadTabData] no userId, showing mock'); updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
@@ -886,6 +889,23 @@ export default function FeedScreen() {
     }
     if (tabId === "foryou") {
       if (isTrending) return null;
+      if (isPolls) {
+        return (
+          <View style={emptyStyles.wrap}>
+            <Text style={emptyStyles.emoji}>📊</Text>
+            <Text style={[emptyStyles.title, { color: colors.foreground }]}>No polls yet</Text>
+            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>
+              Be the first to ask a question — create the first poll!
+            </Text>
+            <TouchableOpacity
+              style={emptyStyles.actionBtn}
+              onPress={() => router.push("/create" as any)}
+            >
+              <Text style={emptyStyles.actionBtnText}>Create a poll</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
       return (
         <View style={emptyStyles.wrap}>
           <Text style={emptyStyles.emoji}>📸</Text>
@@ -912,7 +932,7 @@ export default function FeedScreen() {
       );
     }
     return null;
-  }, [tabStates, colors, isTrending, router]);
+  }, [tabStates, colors, isTrending, isPolls, router]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>
