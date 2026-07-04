@@ -192,7 +192,7 @@ router.post("/posts", async (req, res) => {
     isAnonymous?: boolean;
     age?: number;
     location?: string;
-    poll?: { options: string[]; duration_hours: number };
+    poll?: { question?: string; options: string[]; duration_hours: number };
   };
 
   if (!coupleId || !authorId || !content) {
@@ -280,32 +280,57 @@ router.post("/posts", async (req, res) => {
 
     // Create poll if provided (non-fatal — confession already persisted)
     const confessionId = (post as any).id as string;
-    if (poll && Array.isArray(poll.options) && poll.options.length >= 2) {
-      try {
-        const validOpts = (poll.options as string[])
-          .filter((o) => typeof o === "string" && o.trim())
-          .slice(0, 4);
-        if (validOpts.length >= 2) {
+    if (poll && Array.isArray(poll.options)) {
+      const validOpts = (poll.options as string[])
+        .filter((o) => typeof o === "string" && o.trim())
+        .slice(0, 4);
+      req.log.info(
+        { confessionId, rawOptions: poll.options.length, validOptions: validOpts.length, hasQuestion: !!poll.question },
+        "confession poll payload received",
+      );
+      if (validOpts.length < 2) {
+        req.log.warn({ confessionId, validOpts }, "confession poll skipped — fewer than 2 non-empty options");
+      } else {
+        try {
           const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
           const endsAt = new Date(Date.now() + durH * 3_600_000).toISOString();
-          const { data: pollRow } = await sb
+          const question = poll.question?.trim() || null;
+          const { data: pollRow, error: pollInsertErr } = await sb
             .from("polls")
-            .insert({ confession_post_id: confessionId, ends_at: endsAt })
+            .insert({ confession_post_id: confessionId, question, ends_at: endsAt })
             .select("id")
             .single();
-          if (pollRow) {
-            const pollId = (pollRow as { id: string }).id;
-            await sb.from("poll_options").insert(
-              validOpts.map((label, position) => ({
-                poll_id: pollId,
-                label: label.trim().slice(0, 60),
-                position,
-              })),
+          if (pollInsertErr) {
+            // Surface Supabase errors — the client never throws, it returns { data, error }
+            req.log.error(
+              { code: (pollInsertErr as any).code, msg: pollInsertErr.message, detail: (pollInsertErr as any).details, hint: (pollInsertErr as any).hint, confessionId },
+              "confession poll insert failed",
             );
+            throw pollInsertErr;
           }
+          const pollId = (pollRow as { id: string }).id;
+          req.log.info({ pollId, confessionId, optionCount: validOpts.length }, "confession poll row created");
+          const { error: optsInsertErr } = await sb.from("poll_options").insert(
+            validOpts.map((label, position) => ({
+              poll_id: pollId,
+              label: label.trim().slice(0, 60),
+              position,
+            })),
+          );
+          if (optsInsertErr) {
+            req.log.error(
+              { code: (optsInsertErr as any).code, msg: optsInsertErr.message, detail: (optsInsertErr as any).details, pollId },
+              "confession poll_options insert failed",
+            );
+          } else {
+            req.log.info({ pollId, optionCount: validOpts.length }, "confession poll_options inserted");
+          }
+        } catch (pe) {
+          req.log.warn(
+            { code: (pe as any)?.code, msg: (pe as any)?.message, detail: (pe as any)?.details, hint: (pe as any)?.hint, confessionId },
+            "confession poll creation failed (non-fatal)",
+          );
         }
-      } catch (pe) {
-        req.log.warn({ err: (pe as any)?.message }, "confession poll creation failed (non-fatal)");
       }
     }
 
