@@ -361,9 +361,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       style={[S.reelContainer, { height: SCREEN_H }]}
       onPress={handlePress}
       onLongPress={() => {
-        setSlowMo(true);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-        setTimeout(() => setSlowMo(false), 2000);
+        setShowMoreMenu(true);
       }}
       delayLongPress={400}
     >
@@ -458,23 +457,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           <Text style={S.actionCount}>{fmt(reel.shares)}</Text>
         </TouchableOpacity>
 
-        {/* Download — only shown when creator enabled downloads; saving gated
-            until watermarked export ships (ffmpeg-kit pipeline). */}
-        {reel.allowDownload !== false && (
-          <TouchableOpacity
-            style={S.actionBtn}
-            onPress={() => Alert.alert(
-              "Coming soon",
-              "Watermarked downloads are on their way. Stay tuned! 🎬",
-              [{ text: "OK" }],
-            )}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="download-outline" size={28} color="#fff" style={S.actionIcon} />
-            <Text style={S.actionCount}>Save</Text>
-          </TouchableOpacity>
-        )}
-
         {/* Spinning music disc */}
         <TouchableOpacity style={S.musicDisc} onPress={() => router.push("/search" as any)}>
           <UserAvatar username={reel.username} size={36} />
@@ -556,6 +538,19 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           {!showReportReasons ? (
             <>
               {[
+                ...(reel.allowDownload !== false ? [{
+                  icon: "download-outline" as const,
+                  label: "Download",
+                  color: "#fff",
+                  onPress: () => {
+                    setShowMoreMenu(false);
+                    Alert.alert(
+                      "Coming soon",
+                      "Watermarked downloads are on their way. Stay tuned! 🎬",
+                      [{ text: "OK" }],
+                    );
+                  },
+                }] : []),
                 { icon: "flag-outline" as const, label: "Report Reel", color: "#EF4444", onPress: () => setShowReportReasons(true) },
                 { icon: "person-remove-outline" as const, label: `Block @${reel.username}`, color: "#EF4444", onPress: () => {
                   setShowMoreMenu(false);
@@ -1008,7 +1003,7 @@ const S = StyleSheet.create({
     position: "absolute",
     left: 14,
     right: 70,
-    gap: 2,   // tighter row spacing vs old 4
+    gap: 4,   // 4px between every row (caption → username → sound)
   },
   usernameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   username: {
@@ -1017,7 +1012,7 @@ const S = StyleSheet.create({
   },
   caption: { color: "rgba(255,255,255,0.92)", fontSize: 13, fontFamily: "Poppins_400Regular", lineHeight: 18 },
   moreText: { color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Poppins_500Medium" },
-  soundRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6 },
+  soundRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   soundMarqueeClip: { flex: 1, overflow: "hidden" },
   soundText: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Poppins_500Medium", width: 600 },
 
