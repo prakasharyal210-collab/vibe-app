@@ -68,7 +68,6 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
-    "@banuba/react-native": "^2.0.1",
     "@expo-google-fonts/poppins": "^0.4.1",
     "@supabase/supabase-js": "^2.106.2",
     "expo": "~54.0.35",
@@ -91,12 +90,5 @@
     "react-native-fs": "^2.20.0",
     "react-native-qrcode-svg": "^6.3.21",
     "react-native-view-shot": "^5.1.0"
-  },
-  "expo": {
-    "autolinking": {
-      "exclude": [
-        "@banuba/react-native"
-      ]
-    }
   }
 }

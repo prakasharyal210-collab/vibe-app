@@ -236,9 +236,6 @@ importers:
 
   artifacts/mobile:
     dependencies:
-      '@banuba/react-native':
-        specifier: ^2.0.1
-        version: 2.0.1(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       '@expo-google-fonts/poppins':
         specifier: ^0.4.1
         version: 0.4.1
@@ -1252,13 +1249,6 @@ packages:
   '@babel/types@7.29.7':
     resolution: {integrity: sha512-4zBIxpPzowiZpusoFkyGVwakdRJUyuH5PxQ/PrqghfdFWWasvnCdPfQXHrenDai+gyLARulZjZowCOj6fjT4pA==}
     engines: {node: '>=6.9.0'}
-
-  '@banuba/react-native@2.0.1':
-    resolution: {integrity: sha512-2lKIsOqkCFJbpGqNTxxI3JjOaT0QEuTbSQqPkBm5WFMQ3ywtRfbQI12IijFBajGxuH13STK79S1PKE/WO9NNEg==}
-    engines: {node: '>= 18.0.0'}
-    peerDependencies:
-      react: '*'
-      react-native: '*'
 
   '@commander-js/extra-typings@14.0.0':
     resolution: {integrity: sha512-hIn0ncNaJRLkZrxBIp5AsW/eXEHNKYQBh0aPdoUqNgD+Io3NIykQqpKFyKcuasZhicGaEZJX/JBSIkZ4e5x8Dg==}
@@ -6840,14 +6830,6 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
-
-  '@banuba/react-native@2.0.1(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)':
-    dependencies:
-      react: 19.1.0
-      react-native: 0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0)
-      react-native-fs: 2.20.0(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
-    transitivePeerDependencies:
-      - react-native-windows
 
   '@commander-js/extra-typings@14.0.0(commander@14.0.3)':
     dependencies:

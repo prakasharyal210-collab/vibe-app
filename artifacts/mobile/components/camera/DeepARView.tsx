@@ -1,5 +1,4 @@
 // DeepAR removed — placeholder kept so any stale imports don't break the build.
-// Will be replaced with Banuba SDK integration.
 
 import React, { forwardRef, useImperativeHandle } from "react";
 import { View } from "react-native";
