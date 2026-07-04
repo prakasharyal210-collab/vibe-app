@@ -378,19 +378,12 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         const videoResizeMode = isCloseAspect ? ResizeMode.COVER : ResizeMode.CONTAIN;
         return (
           <>
-            {/* Blurred backdrop — only rendered when aspect ratio differs significantly */}
-            {!isCloseAspect && (
-              <>
-                <Image
-                  source={{ uri: reel.image }}
-                  style={StyleSheet.absoluteFill}
-                  contentFit="cover"
-                  blurRadius={24}
-                />
-                {/* Darken the blur so UI elements remain readable */}
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.45)" }]} pointerEvents="none" />
-              </>
-            )}
+            {/* No blurred backdrop: reelContainer already has backgroundColor="#000",
+                which gives true-black letterbox bars in CONTAIN mode.
+                A blurred backdrop painted with absoluteFill + contentFit="cover"
+                floods the entire container with warm video tones that the dark
+                overlay (rgba 0,0,0,0.45) cannot fully suppress — causing the
+                brown/tan letterbox visible in the screenshot. Plain black is correct. */}
             <Video
               source={{ uri: reel.videoUrl }}
               style={{ position: "absolute", top: 0, left: 0, width: W, height: SCREEN_H }}
