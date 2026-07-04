@@ -59373,7 +59373,7 @@ router8.post("/first-posts/:postId/comment", async (req, res) => {
     const { data: comment, error: commentErr } = await sb.from("comments").insert({
       post_id: postId,
       user_id: userId,
-      text: text.trim(),
+      content: text.trim(),
       created_at: (/* @__PURE__ */ new Date()).toISOString()
     }).select("id, post_id, user_id, text, created_at").single();
     if (commentErr) {
@@ -59699,6 +59699,24 @@ async function logRejection(userId, mediaUrl, contentType, rejectionReason, scor
   }
 }
 
+// src/lib/logger.ts
+var import_pino = __toESM(require_pino(), 1);
+var isProduction = process.env.NODE_ENV === "production";
+var logger = (0, import_pino.default)({
+  level: process.env.LOG_LEVEL ?? "info",
+  redact: [
+    "req.headers.authorization",
+    "req.headers.cookie",
+    "res.headers['set-cookie']"
+  ],
+  ...isProduction ? {} : {
+    transport: {
+      target: "pino-pretty",
+      options: { colorize: true }
+    }
+  }
+});
+
 // src/routes/posts/create.ts
 var router10 = (0, import_express10.Router)();
 var hashtagRpcAvailable = true;
@@ -59977,9 +59995,15 @@ router10.post("/create", async (req, res) => {
   }
   let isFirstPost = false;
   try {
-    const { count } = await sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", userId);
-    isFirstPost = (count ?? 0) === 0;
-  } catch {
+    const { count, error: countErr } = await sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", userId);
+    if (countErr) {
+      req.log.warn({ err: countErr.message, userId }, "first-post: count query failed \u2014 treating as non-first-post");
+    } else {
+      isFirstPost = (count ?? 0) === 0;
+      req.log.info({ isFirstPost, count, userId }, "first-post: detection result");
+    }
+  } catch (e) {
+    req.log.warn({ err: e?.message, userId }, "first-post: count query threw \u2014 treating as non-first-post");
   }
   const VALID_VISIBILITIES = ["public", "friends", "private"];
   const safeVisibility = VALID_VISIBILITIES.includes(options.visibility) ? options.visibility : "public";
@@ -60121,54 +60145,106 @@ router10.post("/create", async (req, res) => {
   }).catch(() => {
   });
   if (isFirstPost) {
+    const log = logger.child({ postId, userId, flow: "first-post-welcome" });
+    log.info("first-post: flow starting");
     void (async () => {
       try {
         const { data: authorProfile } = await sb.from("profiles").select("username").eq("id", userId).maybeSingle();
         const authorUsername = authorProfile?.username ?? "someone";
-        const { data: admins } = await sb.from("profiles").select("id").eq("is_admin", true);
-        for (const admin of admins ?? []) {
-          const adminId = admin.id;
-          if (adminId === userId) continue;
-          void sendPushToUser(sb, adminId, {
-            title: "\u{1F44B} New first post!",
-            body: `@${authorUsername} just made their first post \u2014 tap to welcome them`,
-            data: { type: "admin_first_post", authorId: userId, postId }
-          });
+        const { data: admins, error: adminsErr } = await sb.from("profiles").select("id").eq("is_admin", true);
+        if (adminsErr) {
+          log.warn({ err: adminsErr.message }, "first-post: admin lookup failed");
+        } else {
+          const adminList = admins ?? [];
+          log.info({ adminCount: adminList.length, authorUsername }, "first-post: notifying admins");
+          for (const admin of adminList) {
+            const adminId = admin.id;
+            if (adminId === userId) continue;
+            void sendPushToUser(sb, adminId, {
+              title: "\u{1F44B} New first post!",
+              body: `@${authorUsername} just made their first post \u2014 tap to welcome them`,
+              data: { type: "admin_first_post", authorId: userId, postId }
+            });
+          }
         }
-      } catch {
+      } catch (e) {
+        log.error({ err: e?.message }, "first-post: admin notification threw");
       }
     })();
-  }
-  if (isFirstPost) {
     void (async () => {
+      let officialId = null;
+      let officialUsername = "gundruk";
       try {
-        const { data: officialRows } = await sb.from("profiles").select("id, username").in("username", ["gundruk", "prakasharyal210"]).limit(2);
-        const official = (officialRows ?? []).find((p) => p.username === "gundruk") ?? (officialRows ?? [])[0];
-        if (!official) return;
-        const officialId = official.id;
-        const likeDelay = Math.floor(6e4 + Math.random() * 18e4);
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await sb.from("post_likes").insert({ post_id: postId, user_id: officialId });
-              const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
-              const newLikes = (pd?.likes_count ?? 0) + 1;
-              await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
-            } catch {
+        const { data: officialRows, error: officialErr } = await sb.from("profiles").select("id, username").in("username", ["gundruk", "prakasharyal210"]).limit(2);
+        if (officialErr) {
+          log.warn({ err: officialErr.message }, "first-post: official account query failed");
+        } else {
+          const rows = officialRows ?? [];
+          const found = rows.find((p) => p.username === "gundruk") ?? rows[0];
+          if (found) {
+            officialId = found.id;
+            officialUsername = found.username;
+            log.info({ officialId, officialUsername }, "first-post: official account resolved");
+          } else {
+            log.warn("first-post: gundruk/prakasharyal210 not found \u2014 trying is_admin fallback");
+          }
+        }
+        if (!officialId) {
+          const { data: adminRows } = await sb.from("profiles").select("id, username").eq("is_admin", true).neq("id", userId).limit(1);
+          const adminFallback = (adminRows ?? [])[0];
+          if (adminFallback) {
+            officialId = adminFallback.id;
+            officialUsername = adminFallback.username;
+            log.info({ officialId, officialUsername }, "first-post: using is_admin fallback account");
+          } else {
+            log.error("first-post: no official account found \u2014 welcome flow aborted");
+            return;
+          }
+        }
+      } catch (e) {
+        log.error({ err: e?.message }, "first-post: official account lookup threw");
+        return;
+      }
+      const resolvedOfficialId = officialId;
+      const likeDelay = Math.floor(6e4 + Math.random() * 18e4);
+      log.info({ likeDelayMs: likeDelay }, "first-post: auto-like scheduled");
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const { error: likeErr } = await sb.from("post_likes").insert({ post_id: postId, user_id: resolvedOfficialId });
+            if (likeErr) {
+              log.warn({ err: likeErr.message }, "first-post: auto-like insert failed");
+            } else {
+              log.info("first-post: auto-like inserted OK");
+              try {
+                const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
+                const newLikes = (pd?.likes_count ?? 0) + 1;
+                await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
+              } catch (e) {
+                log.warn({ err: e?.message }, "first-post: likes_count update failed");
+              }
             }
-          })();
-        }, likeDelay);
-        const commentDelay = Math.floor(12e4 + Math.random() * 24e4);
-        setTimeout(() => {
-          void (async () => {
-            let commentText = "Welcome to Gundruk! So glad you're here \u2728";
-            if (caption?.trim()) {
+          } catch (e) {
+            log.error({ err: e?.message }, "first-post: auto-like threw");
+          }
+        })();
+      }, likeDelay);
+      const commentDelay = Math.floor(12e4 + Math.random() * 24e4);
+      log.info({ commentDelayMs: commentDelay }, "first-post: welcome comment scheduled");
+      setTimeout(() => {
+        void (async () => {
+          let commentText = "Welcome to Gundruk! So glad you're here \u2728";
+          if (caption?.trim()) {
+            const apiKey = process.env["ANTHROPIC_API_KEY"];
+            if (!apiKey) {
+              log.warn("first-post: ANTHROPIC_API_KEY not set \u2014 using fallback comment text");
+            } else {
               try {
                 const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    "x-api-key": process.env["ANTHROPIC_API_KEY"] ?? "",
+                    "x-api-key": apiKey,
                     "anthropic-version": "2023-06-01"
                   },
                   body: JSON.stringify({
@@ -60180,32 +60256,52 @@ router10.post("/create", async (req, res) => {
                     }]
                   })
                 });
-                const aiJson = await aiRes.json();
-                const aiText = (aiJson?.content?.[0]?.text ?? "").trim();
-                if (aiText && aiText.length > 2 && aiText.length < 150) commentText = aiText;
-              } catch {
+                if (!aiRes.ok) {
+                  log.warn({ status: aiRes.status }, "first-post: Anthropic API returned non-200");
+                } else {
+                  const aiJson = await aiRes.json();
+                  const aiText = (aiJson?.content?.[0]?.text ?? "").trim();
+                  if (aiText && aiText.length > 2 && aiText.length < 150) {
+                    commentText = aiText;
+                    log.info({ commentText }, "first-post: AI comment generated OK");
+                  } else {
+                    log.warn({ aiJson }, "first-post: AI response empty or out-of-range \u2014 using fallback");
+                  }
+                }
+              } catch (e) {
+                log.warn({ err: e?.message }, "first-post: Anthropic fetch threw \u2014 using fallback comment");
               }
             }
-            try {
-              await sb.from("comments").insert({
-                post_id: postId,
-                user_id: officialId,
-                text: commentText
-              });
-              const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
-              const newComments = (pd2?.comments_count ?? 0) + 1;
-              await sb.from("posts").update({ comments_count: newComments }).eq("id", postId);
-            } catch {
-            }
-            void sendPushToUser(sb, userId, {
-              title: "\u{1F389} Your first post is live!",
-              body: "The Gundruk community is welcoming you. Keep creating! \u2728",
-              data: { type: "first_post_welcome", postId }
+          }
+          try {
+            const { error: commentErr } = await sb.from("comments").insert({
+              post_id: postId,
+              user_id: resolvedOfficialId,
+              content: commentText
             });
-          })();
-        }, commentDelay);
-      } catch {
-      }
+            if (commentErr) {
+              log.error({ err: commentErr.message, commentText }, "first-post: comment insert failed");
+            } else {
+              log.info({ commentText }, "first-post: welcome comment posted OK");
+              try {
+                const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
+                const newComments = (pd2?.comments_count ?? 0) + 1;
+                await sb.from("posts").update({ comments_count: newComments }).eq("id", postId);
+              } catch (e) {
+                log.warn({ err: e?.message }, "first-post: comments_count update failed");
+              }
+            }
+          } catch (e) {
+            log.error({ err: e?.message }, "first-post: comment insert threw");
+          }
+          log.info("first-post: sending welcome push to new user");
+          void sendPushToUser(sb, userId, {
+            title: "\u{1F389} Your first post is live!",
+            body: "The Gundruk community is welcoming you. Keep creating! \u2728",
+            data: { type: "first_post_welcome", postId }
+          });
+        })();
+      }, commentDelay);
     })();
   }
   res.json({ id: postId, mediaUrl: mediaUrl ?? "" });
@@ -66503,24 +66599,6 @@ router41.use("/couple", couple_default);
 router41.use("/couple-feed", couple_feed_default);
 router41.use("/auth", auth_default);
 var routes_default = router41;
-
-// src/lib/logger.ts
-var import_pino = __toESM(require_pino(), 1);
-var isProduction = process.env.NODE_ENV === "production";
-var logger = (0, import_pino.default)({
-  level: process.env.LOG_LEVEL ?? "info",
-  redact: [
-    "req.headers.authorization",
-    "req.headers.cookie",
-    "res.headers['set-cookie']"
-  ],
-  ...isProduction ? {} : {
-    transport: {
-      target: "pino-pretty",
-      options: { colorize: true }
-    }
-  }
-});
 
 // src/app.ts
 var app = (0, import_express42.default)();

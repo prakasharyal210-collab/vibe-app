@@ -1,0 +1,11 @@
+The first-post welcome system (auto-like + AI welcome comment from the official account, built earlier in artifacts/api-server POST /api/posts/create) did NOT fire when a brand-new user just created their first post. No like, no comment, no push arrived. Diagnose and fix.
+Diagnosis steps (do these first, report findings):
+
+Query the posts table: show the 3 most recent posts with id, user_id, caption, is_first_post, created_at. Check whether the newest post has is_first_post = true.
+Check which endpoint the mobile app actually calls when creating a feed post — search artifacts/mobile for the post-creation API call and confirm it hits POST /api/posts/create on the API server, not a legacy route or a direct path that bypasses the welcome logic. Also check whether reels/stories use different routes (they should NOT trigger the welcome flow, but confirm the user's post was a feed post).
+Check the official account lookup: query profiles for username gundruk and verify the lookup code matches how it searches (exact match? case sensitivity?). The account was recently created — confirm the lookup finds it.
+Check the server logs / add temporary logging around the first-post detection block: does the count-check run, does it detect first post, do the setTimeout callbacks fire, does the Anthropic call succeed, does the like/comment insert succeed? Look for swallowed errors (the ?? [] / silent 42703 pattern that has bitten this codebase before).
+Verify ANTHROPIC_API_KEY is present in the environment the server is running in.
+
+Then fix whatever is broken. Common suspects: post creation not routed through the endpoint with the welcome logic; official account lookup failing silently; errors in the delayed callbacks being swallowed; is_first_post column write failing. Add clear console logging at each stage of the welcome flow (detection → like scheduled → like executed → comment generated → comment posted) so future failures are visible in Railway logs.
+Report: root cause, what you fixed, and files changed.

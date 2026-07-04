@@ -173,7 +173,7 @@ router.post("/first-posts/:postId/comment", async (req, res) => {
       .insert({
         post_id: postId,
         user_id: userId,
-        text: text.trim(),
+        content: text.trim(),
         created_at: new Date().toISOString(),
       })
       .select("id, post_id, user_id, text, created_at")

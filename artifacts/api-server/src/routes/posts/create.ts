@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { sendPushToUser } from "../../lib/sendPush";
 import { checkImageContent, checkVideoContent, checkCaptionText, logRejection } from "../../utils/contentModeration";
+import { logger } from "../../lib/logger";
 
 const router = Router();
 
@@ -454,12 +455,19 @@ router.post("/create", async (req, res) => {
   // Detect first post before insert so we can flag it in the row
   let isFirstPost = false;
   try {
-    const { count } = await sb
+    const { count, error: countErr } = await sb
       .from("posts")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
-    isFirstPost = (count ?? 0) === 0;
-  } catch {}
+    if (countErr) {
+      req.log.warn({ err: countErr.message, userId }, "first-post: count query failed — treating as non-first-post");
+    } else {
+      isFirstPost = (count ?? 0) === 0;
+      req.log.info({ isFirstPost, count, userId }, "first-post: detection result");
+    }
+  } catch (e: any) {
+    req.log.warn({ err: e?.message, userId }, "first-post: count query threw — treating as non-first-post");
+  }
 
   const VALID_VISIBILITIES = ["public", "friends", "private"] as const;
   const safeVisibility: string = VALID_VISIBILITIES.includes(options.visibility as any)
@@ -630,8 +638,11 @@ router.post("/create", async (req, res) => {
     .catch(() => {}); // non-fatal if RPC not deployed yet
 
   // 4. First-post welcome: auto-like + AI welcome comment + push notification
-  // 4a. Notify all admin users about the new first post (fire-and-forget, immediate)
   if (isFirstPost) {
+    const log = logger.child({ postId, userId, flow: "first-post-welcome" });
+    log.info("first-post: flow starting");
+
+    // 4a. Notify all admin users immediately (fire-and-forget)
     void (async () => {
       try {
         const { data: authorProfile } = await sb
@@ -641,64 +652,128 @@ router.post("/create", async (req, res) => {
           .maybeSingle();
         const authorUsername = (authorProfile as any)?.username ?? "someone";
 
-        const { data: admins } = await sb
+        const { data: admins, error: adminsErr } = await sb
           .from("profiles")
           .select("id")
           .eq("is_admin", true);
 
-        for (const admin of admins ?? []) {
-          const adminId = (admin as any).id as string;
-          if (adminId === userId) continue; // don't ping if the poster is an admin
-          void sendPushToUser(sb, adminId, {
-            title: "👋 New first post!",
-            body: `@${authorUsername} just made their first post — tap to welcome them`,
-            data: { type: "admin_first_post", authorId: userId, postId },
-          });
+        if (adminsErr) {
+          log.warn({ err: adminsErr.message }, "first-post: admin lookup failed");
+        } else {
+          const adminList = admins ?? [];
+          log.info({ adminCount: adminList.length, authorUsername }, "first-post: notifying admins");
+          for (const admin of adminList) {
+            const adminId = (admin as any).id as string;
+            if (adminId === userId) continue;
+            void sendPushToUser(sb, adminId, {
+              title: "👋 New first post!",
+              body: `@${authorUsername} just made their first post — tap to welcome them`,
+              data: { type: "admin_first_post", authorId: userId, postId },
+            });
+          }
         }
-      } catch {}
+      } catch (e: any) {
+        log.error({ err: e?.message }, "first-post: admin notification threw");
+      }
     })();
-  }
 
-  if (isFirstPost) {
+    // 4b. Resolve official account — gundruk preferred, prakasharyal210 fallback,
+    //     then any is_admin profile as last resort.
     void (async () => {
+      let officialId: string | null = null;
+      let officialUsername = "gundruk";
       try {
-        // Resolve official account (gundruk preferred, fallback to prakasharyal210)
-        const { data: officialRows } = await sb
+        const { data: officialRows, error: officialErr } = await sb
           .from("profiles")
           .select("id, username")
           .in("username", ["gundruk", "prakasharyal210"])
           .limit(2);
-        const official =
-          (officialRows ?? []).find((p: any) => p.username === "gundruk") ??
-          (officialRows ?? [])[0];
-        if (!official) return;
-        const officialId = (official as any).id as string;
 
-        // Auto-like with a 1–4 minute human-feel delay
-        const likeDelay = Math.floor(60_000 + Math.random() * 180_000);
-        setTimeout(() => {
-          void (async () => {
-            try {
-              await sb.from("post_likes").insert({ post_id: postId, user_id: officialId });
-              const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
-              const newLikes = ((pd as any)?.likes_count ?? 0) + 1;
-              await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
-            } catch {}
-          })();
-        }, likeDelay);
+        if (officialErr) {
+          log.warn({ err: officialErr.message }, "first-post: official account query failed");
+        } else {
+          const rows = officialRows ?? [];
+          const found =
+            rows.find((p: any) => p.username === "gundruk") ?? rows[0];
+          if (found) {
+            officialId = (found as any).id as string;
+            officialUsername = (found as any).username as string;
+            log.info({ officialId, officialUsername }, "first-post: official account resolved");
+          } else {
+            log.warn("first-post: gundruk/prakasharyal210 not found — trying is_admin fallback");
+          }
+        }
 
-        // AI welcome comment + push with a 2–6 minute delay
-        const commentDelay = Math.floor(120_000 + Math.random() * 240_000);
-        setTimeout(() => {
-          void (async () => {
-            let commentText = "Welcome to Gundruk! So glad you're here ✨";
-            if (caption?.trim()) {
+        // Last-resort fallback: any admin profile (not the poster themselves)
+        if (!officialId) {
+          const { data: adminRows } = await sb
+            .from("profiles")
+            .select("id, username")
+            .eq("is_admin", true)
+            .neq("id", userId)
+            .limit(1);
+          const adminFallback = (adminRows ?? [])[0];
+          if (adminFallback) {
+            officialId = (adminFallback as any).id as string;
+            officialUsername = (adminFallback as any).username as string;
+            log.info({ officialId, officialUsername }, "first-post: using is_admin fallback account");
+          } else {
+            log.error("first-post: no official account found — welcome flow aborted");
+            return;
+          }
+        }
+      } catch (e: any) {
+        log.error({ err: e?.message }, "first-post: official account lookup threw");
+        return;
+      }
+
+      const resolvedOfficialId = officialId;
+
+      // 4c. Auto-like with a 1–4 minute human-feel delay
+      const likeDelay = Math.floor(60_000 + Math.random() * 180_000);
+      log.info({ likeDelayMs: likeDelay }, "first-post: auto-like scheduled");
+      setTimeout(() => {
+        void (async () => {
+          try {
+            const { error: likeErr } = await sb
+              .from("post_likes")
+              .insert({ post_id: postId, user_id: resolvedOfficialId });
+            if (likeErr) {
+              log.warn({ err: likeErr.message }, "first-post: auto-like insert failed");
+            } else {
+              log.info("first-post: auto-like inserted OK");
+              try {
+                const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
+                const newLikes = ((pd as any)?.likes_count ?? 0) + 1;
+                await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
+              } catch (e: any) {
+                log.warn({ err: e?.message }, "first-post: likes_count update failed");
+              }
+            }
+          } catch (e: any) {
+            log.error({ err: e?.message }, "first-post: auto-like threw");
+          }
+        })();
+      }, likeDelay);
+
+      // 4d. AI welcome comment + push with a 2–6 minute delay
+      const commentDelay = Math.floor(120_000 + Math.random() * 240_000);
+      log.info({ commentDelayMs: commentDelay }, "first-post: welcome comment scheduled");
+      setTimeout(() => {
+        void (async () => {
+          // Generate AI comment
+          let commentText = "Welcome to Gundruk! So glad you're here ✨";
+          if (caption?.trim()) {
+            const apiKey = process.env["ANTHROPIC_API_KEY"];
+            if (!apiKey) {
+              log.warn("first-post: ANTHROPIC_API_KEY not set — using fallback comment text");
+            } else {
               try {
                 const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    "x-api-key": process.env["ANTHROPIC_API_KEY"] ?? "",
+                    "x-api-key": apiKey,
                     "anthropic-version": "2023-06-01",
                   },
                   body: JSON.stringify({
@@ -710,30 +785,56 @@ router.post("/create", async (req, res) => {
                     }],
                   }),
                 });
-                const aiJson = await aiRes.json() as any;
-                const aiText = (aiJson?.content?.[0]?.text ?? "").trim();
-                if (aiText && aiText.length > 2 && aiText.length < 150) commentText = aiText;
-              } catch {}
+                if (!aiRes.ok) {
+                  log.warn({ status: aiRes.status }, "first-post: Anthropic API returned non-200");
+                } else {
+                  const aiJson = await aiRes.json() as any;
+                  const aiText = (aiJson?.content?.[0]?.text ?? "").trim();
+                  if (aiText && aiText.length > 2 && aiText.length < 150) {
+                    commentText = aiText;
+                    log.info({ commentText }, "first-post: AI comment generated OK");
+                  } else {
+                    log.warn({ aiJson }, "first-post: AI response empty or out-of-range — using fallback");
+                  }
+                }
+              } catch (e: any) {
+                log.warn({ err: e?.message }, "first-post: Anthropic fetch threw — using fallback comment");
+              }
             }
-            try {
-              await sb.from("comments").insert({
-                post_id: postId,
-                user_id: officialId,
-                text: commentText,
-              });
-              const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
-              const newComments = ((pd2 as any)?.comments_count ?? 0) + 1;
-              await sb.from("posts").update({ comments_count: newComments }).eq("id", postId);
-            } catch {}
-            // Push notification to the new user
-            void sendPushToUser(sb, userId, {
-              title: "🎉 Your first post is live!",
-              body: "The Gundruk community is welcoming you. Keep creating! ✨",
-              data: { type: "first_post_welcome", postId },
+          }
+
+          // Insert comment — DB column is `content` (not `text`)
+          try {
+            const { error: commentErr } = await sb.from("comments").insert({
+              post_id: postId,
+              user_id: resolvedOfficialId,
+              content: commentText,
             });
-          })();
-        }, commentDelay);
-      } catch {}
+            if (commentErr) {
+              log.error({ err: commentErr.message, commentText }, "first-post: comment insert failed");
+            } else {
+              log.info({ commentText }, "first-post: welcome comment posted OK");
+              try {
+                const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
+                const newComments = ((pd2 as any)?.comments_count ?? 0) + 1;
+                await sb.from("posts").update({ comments_count: newComments }).eq("id", postId);
+              } catch (e: any) {
+                log.warn({ err: e?.message }, "first-post: comments_count update failed");
+              }
+            }
+          } catch (e: any) {
+            log.error({ err: e?.message }, "first-post: comment insert threw");
+          }
+
+          // Push notification to the new user
+          log.info("first-post: sending welcome push to new user");
+          void sendPushToUser(sb, userId, {
+            title: "🎉 Your first post is live!",
+            body: "The Gundruk community is welcoming you. Keep creating! ✨",
+            data: { type: "first_post_welcome", postId },
+          });
+        })();
+      }, commentDelay);
     })();
   }
 
