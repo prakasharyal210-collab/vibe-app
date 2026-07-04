@@ -611,6 +611,11 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                   {post.profiles?.is_verified && (
                     <Ionicons name="checkmark-circle" size={14} color="#8B5CF6" />
                   )}
+                  {(post as any).is_first_post && (
+                    <View style={newHereBadge.pill}>
+                      <Text style={newHereBadge.text}>New here 👋</Text>
+                    </View>
+                  )}
                 </View>
               </TouchableOpacity>
               {post.location ? (
@@ -1076,6 +1081,22 @@ const musicCreditStyles = StyleSheet.create({
     backgroundColor: "rgba(139,92,246,0.06)",
   },
   text: { flex: 1, fontSize: 12, fontFamily: "Poppins_500Medium", color: "#A78BFA" },
+});
+
+const newHereBadge = StyleSheet.create({
+  pill: {
+    backgroundColor: "rgba(34,197,94,0.14)",
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: "rgba(34,197,94,0.35)",
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  text: {
+    fontSize: 10,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#4ADE80",
+  },
 });
 
 const styles = StyleSheet.create({

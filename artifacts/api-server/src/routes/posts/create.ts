@@ -451,6 +451,16 @@ router.post("/create", async (req, res) => {
     req.log.warn({ isCouplePost, coupleId }, "couple-post: isCouplePost=true but coupleId is missing");
   }
 
+  // Detect first post before insert so we can flag it in the row
+  let isFirstPost = false;
+  try {
+    const { count } = await sb
+      .from("posts")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId);
+    isFirstPost = (count ?? 0) === 0;
+  } catch {}
+
   const VALID_VISIBILITIES = ["public", "friends", "private"] as const;
   const safeVisibility: string = VALID_VISIBILITIES.includes(options.visibility as any)
     ? (options.visibility as string)
@@ -471,6 +481,7 @@ router.post("/create", async (req, res) => {
     ...(options.location ? { location: options.location } : {}),
     ...(options.category ? { category: options.category } : {}),
     ...(validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}),
+    ...(isFirstPost ? { is_first_post: true } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
@@ -519,6 +530,16 @@ router.post("/create", async (req, res) => {
     const r5 = await sb.from("posts").insert(payloadNoCouple).select("id").single();
     insertData = r5.data as { id: string } | null;
     insertErr = r5.error;
+  }
+  if (insertErr?.message?.includes("is_first_post")) {
+    // is_first_post column not yet migrated — strip and retry
+    const payloadNoFirstPost = { ...payload };
+    delete payloadNoFirstPost.is_first_post;
+    delete payloadNoFirstPost.couple_id;
+    delete payloadNoFirstPost.is_couple_post;
+    const r6 = await sb.from("posts").insert(payloadNoFirstPost).select("id").single();
+    insertData = r6.data as { id: string } | null;
+    insertErr = r6.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");
@@ -607,6 +628,85 @@ router.post("/create", async (req, res) => {
       return undefined;
     })
     .catch(() => {}); // non-fatal if RPC not deployed yet
+
+  // 4. First-post welcome: auto-like + AI welcome comment + push notification
+  if (isFirstPost) {
+    void (async () => {
+      try {
+        // Resolve official account (gundruk preferred, fallback to prakasharyal210)
+        const { data: officialRows } = await sb
+          .from("profiles")
+          .select("id, username")
+          .in("username", ["gundruk", "prakasharyal210"])
+          .limit(2);
+        const official =
+          (officialRows ?? []).find((p: any) => p.username === "gundruk") ??
+          (officialRows ?? [])[0];
+        if (!official) return;
+        const officialId = (official as any).id as string;
+
+        // Auto-like with a 1–4 minute human-feel delay
+        const likeDelay = Math.floor(60_000 + Math.random() * 180_000);
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await sb.from("post_likes").insert({ post_id: postId, user_id: officialId });
+              const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
+              const newLikes = ((pd as any)?.likes_count ?? 0) + 1;
+              await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
+            } catch {}
+          })();
+        }, likeDelay);
+
+        // AI welcome comment + push with a 2–6 minute delay
+        const commentDelay = Math.floor(120_000 + Math.random() * 240_000);
+        setTimeout(() => {
+          void (async () => {
+            let commentText = "Welcome to Gundruk! So glad you're here ✨";
+            if (caption?.trim()) {
+              try {
+                const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": process.env["ANTHROPIC_API_KEY"] ?? "",
+                    "anthropic-version": "2023-06-01",
+                  },
+                  body: JSON.stringify({
+                    model: "claude-haiku-4-5",
+                    max_tokens: 80,
+                    messages: [{
+                      role: "user",
+                      content: `Write a warm welcome comment (max 12 words, exactly 1 emoji at the end, no hashtags) for a new user's very first post on a social platform. Their caption: "${caption.slice(0, 200)}"`,
+                    }],
+                  }),
+                });
+                const aiJson = await aiRes.json() as any;
+                const aiText = (aiJson?.content?.[0]?.text ?? "").trim();
+                if (aiText && aiText.length > 2 && aiText.length < 150) commentText = aiText;
+              } catch {}
+            }
+            try {
+              await sb.from("comments").insert({
+                post_id: postId,
+                user_id: officialId,
+                text: commentText,
+              });
+              const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
+              const newComments = ((pd2 as any)?.comments_count ?? 0) + 1;
+              await sb.from("posts").update({ comments_count: newComments }).eq("id", postId);
+            } catch {}
+            // Push notification to the new user
+            void sendPushToUser(sb, userId, {
+              title: "🎉 Your first post is live!",
+              body: "The Gundruk community is welcoming you. Keep creating! ✨",
+              data: { type: "first_post_welcome", postId },
+            });
+          })();
+        }, commentDelay);
+      } catch {}
+    })();
+  }
 
   res.json({ id: postId, mediaUrl: mediaUrl ?? "" });
 });

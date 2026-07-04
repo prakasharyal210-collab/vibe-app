@@ -59815,6 +59815,12 @@ router9.post("/create", async (req, res) => {
   } else if (isCouplePost) {
     req.log.warn({ isCouplePost, coupleId }, "couple-post: isCouplePost=true but coupleId is missing");
   }
+  let isFirstPost = false;
+  try {
+    const { count } = await sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", userId);
+    isFirstPost = (count ?? 0) === 0;
+  } catch {
+  }
   const VALID_VISIBILITIES = ["public", "friends", "private"];
   const safeVisibility = VALID_VISIBILITIES.includes(options.visibility) ? options.visibility : "public";
   const payload = {
@@ -59831,7 +59837,8 @@ router9.post("/create", async (req, res) => {
     ...options.filterId ? { filter_id: options.filterId } : {},
     ...options.location ? { location: options.location } : {},
     ...options.category ? { category: options.category } : {},
-    ...validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}
+    ...validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {},
+    ...isFirstPost ? { is_first_post: true } : {}
   };
   const r1 = await sb.from("posts").insert(payload).select("id").single();
   let insertData = r1.data;
@@ -59875,6 +59882,15 @@ router9.post("/create", async (req, res) => {
     const r5 = await sb.from("posts").insert(payloadNoCouple).select("id").single();
     insertData = r5.data;
     insertErr = r5.error;
+  }
+  if (insertErr?.message?.includes("is_first_post")) {
+    const payloadNoFirstPost = { ...payload };
+    delete payloadNoFirstPost.is_first_post;
+    delete payloadNoFirstPost.couple_id;
+    delete payloadNoFirstPost.is_couple_post;
+    const r6 = await sb.from("posts").insert(payloadNoFirstPost).select("id").single();
+    insertData = r6.data;
+    insertErr = r6.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");
@@ -59944,6 +59960,75 @@ router9.post("/create", async (req, res) => {
     return void 0;
   }).catch(() => {
   });
+  if (isFirstPost) {
+    void (async () => {
+      try {
+        const { data: officialRows } = await sb.from("profiles").select("id, username").in("username", ["gundruk", "prakasharyal210"]).limit(2);
+        const official = (officialRows ?? []).find((p) => p.username === "gundruk") ?? (officialRows ?? [])[0];
+        if (!official) return;
+        const officialId = official.id;
+        const likeDelay = Math.floor(6e4 + Math.random() * 18e4);
+        setTimeout(() => {
+          void (async () => {
+            try {
+              await sb.from("post_likes").insert({ post_id: postId, user_id: officialId });
+              const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
+              const newLikes = (pd?.likes_count ?? 0) + 1;
+              await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
+            } catch {
+            }
+          })();
+        }, likeDelay);
+        const commentDelay = Math.floor(12e4 + Math.random() * 24e4);
+        setTimeout(() => {
+          void (async () => {
+            let commentText = "Welcome to Gundruk! So glad you're here \u2728";
+            if (caption?.trim()) {
+              try {
+                const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": process.env["ANTHROPIC_API_KEY"] ?? "",
+                    "anthropic-version": "2023-06-01"
+                  },
+                  body: JSON.stringify({
+                    model: "claude-haiku-4-5",
+                    max_tokens: 80,
+                    messages: [{
+                      role: "user",
+                      content: `Write a warm welcome comment (max 12 words, exactly 1 emoji at the end, no hashtags) for a new user's very first post on a social platform. Their caption: "${caption.slice(0, 200)}"`
+                    }]
+                  })
+                });
+                const aiJson = await aiRes.json();
+                const aiText = (aiJson?.content?.[0]?.text ?? "").trim();
+                if (aiText && aiText.length > 2 && aiText.length < 150) commentText = aiText;
+              } catch {
+              }
+            }
+            try {
+              await sb.from("comments").insert({
+                post_id: postId,
+                user_id: officialId,
+                text: commentText
+              });
+              const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
+              const newComments = (pd2?.comments_count ?? 0) + 1;
+              await sb.from("posts").update({ comments_count: newComments }).eq("id", postId);
+            } catch {
+            }
+            void sendPushToUser(sb, userId, {
+              title: "\u{1F389} Your first post is live!",
+              body: "The Gundruk community is welcoming you. Keep creating! \u2728",
+              data: { type: "first_post_welcome", postId }
+            });
+          })();
+        }, commentDelay);
+      } catch {
+      }
+    })();
+  }
   res.json({ id: postId, mediaUrl: mediaUrl ?? "" });
 });
 router9.get("/saved", async (req, res) => {
@@ -63551,6 +63636,41 @@ router25.get("/personalized", async (req, res) => {
   } catch (err) {
     req.log.error({ err: err?.message }, "personalized feed error");
     res.json({ data: [], source: "error" });
+  }
+});
+router25.get("/fresh-faces", async (req, res) => {
+  const userId = req.query["userId"];
+  const limit = Math.min(parseInt(req.query["limit"] ?? "10", 10), 20);
+  const supabase = makeSupabase20();
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1e3).toISOString();
+    let query = supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").eq("is_first_post", true).gte("created_at", since).or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit);
+    if (userId) {
+      query = query.neq("user_id", userId);
+    }
+    const { data, error } = await query;
+    if (error && error.message?.includes("is_first_post")) {
+      const { data: newProfiles } = await supabase.from("profiles").select("id").gte("created_at", since).limit(50);
+      const newUserIds = (newProfiles ?? []).map((p) => p.id).filter((id) => !userId || id !== userId);
+      if (!newUserIds.length) {
+        res.json({ posts: [] });
+        return;
+      }
+      const { data: fallbackPosts } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").in("user_id", newUserIds).or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit);
+      const posts2 = (fallbackPosts ?? []).map((p) => ({ ...p, is_first_post: true }));
+      res.json({ posts: posts2 });
+      return;
+    }
+    if (error) {
+      req.log.warn({ error: error.message }, "fresh-faces fetch error");
+      res.json({ posts: [] });
+      return;
+    }
+    const posts = (data ?? []).map((p) => ({ ...p, is_first_post: true }));
+    res.json({ posts });
+  } catch (err) {
+    req.log.error({ err: err?.message }, "fresh-faces exception");
+    res.json({ posts: [] });
   }
 });
 router25.post("/seen", async (req, res) => {

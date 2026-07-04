@@ -379,6 +379,88 @@ function SuggestedCTA({ colors }: { colors: any }) {
   );
 }
 
+// ─── FreshFacesRail ──────────────────────────────────────────────────────────
+// Horizontal scroll of new-user first posts from the last 24 h.
+// Module-scope so its type identity is stable (prevents remount on re-render).
+type FreshFacesRailProps = { userId?: string; colors: any };
+function FreshFacesRail({ userId, colors }: FreshFacesRailProps) {
+  const [faces, setFaces] = useState<any[]>([]);
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const base = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+    fetch(`${base}/feed/fresh-faces?userId=${encodeURIComponent(userId)}&limit=10`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: any) => { if (!cancelled) setFaces(data?.posts ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  if (faces.length === 0) return null;
+
+  return (
+    <View style={freshFacesStyles.wrap}>
+      <View style={freshFacesStyles.heading}>
+        <LinearGradient
+          colors={["#22C55E", "#16A34A"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={freshFacesStyles.accentBar}
+        />
+        <Text style={[freshFacesStyles.title, { color: colors.foreground }]}>Fresh Faces 👋</Text>
+        <Text style={[freshFacesStyles.newToday, { color: colors.mutedForeground }]}>New today</Text>
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={freshFacesStyles.row}
+      >
+        {faces.map((post: any) => {
+          const profile = post.profiles;
+          if (!profile) return null;
+          return (
+            <TouchableOpacity
+              key={post.id}
+              style={freshFacesStyles.card}
+              activeOpacity={0.82}
+              onPress={() => profile.username && router.push(`/profile/${profile.username}` as any)}
+            >
+              <View style={freshFacesStyles.avatarRing}>
+                <UserAvatar username={profile.username} url={profile.avatar_url} size={52} />
+              </View>
+              <Text style={[freshFacesStyles.cardName, { color: colors.foreground }]} numberOfLines={1}>
+                @{profile.username ?? "user"}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+      <View style={[freshFacesStyles.divider, { backgroundColor: colors.border }]} />
+    </View>
+  );
+}
+const freshFacesStyles = StyleSheet.create({
+  wrap: { paddingBottom: 4 },
+  heading: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 6 },
+  accentBar: { width: 3, height: 16, borderRadius: 2 },
+  title: { fontSize: 15, fontFamily: "Poppins_700Bold", flex: 1 },
+  newToday: { fontSize: 12, fontFamily: "Poppins_500Medium" },
+  row: { paddingHorizontal: 12, paddingBottom: 10, gap: 12 },
+  card: { alignItems: "center", gap: 5, width: 70 },
+  avatarRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "#4ADE80",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  cardName: { fontSize: 11, fontFamily: "Poppins_500Medium", textAlign: "center", width: 70 },
+  divider: { height: 0.5, marginHorizontal: 14, marginTop: 4 },
+});
+
 // ─── Stable FlatList header components ────────────────────────────────────────
 // MUST be defined at module scope so their type identity never changes between
 // renders. If they were inline functions inside TABS.map or ListHeaderComponent,
@@ -390,12 +472,13 @@ type ForYouHeaderProps = {
   isTrending: boolean;
   trendingPosts: TrendingPost[];
   colors: any;
+  userId?: string;
 };
-function ForYouListHeader({ isTrending, trendingPosts, colors }: ForYouHeaderProps) {
+function ForYouListHeader({ isTrending, trendingPosts, colors, userId }: ForYouHeaderProps) {
   if (isTrending) {
     return <TrendingFeed posts={trendingPosts} colors={colors} />;
   }
-  return null;
+  return <FreshFacesRail userId={userId} colors={colors} />;
 }
 
 type FriendsHeaderProps = {
@@ -988,7 +1071,7 @@ export default function FeedScreen() {
                   // (not remounts) them on every FeedScreen state update, preserving
                   // CuratedFeedList's internal state and eliminating the skeleton loop.
                   tab.id === "foryou"
-                    ? <ForYouListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} />
+                    ? <ForYouListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} userId={userId} />
                     : <FriendsListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} stories={friendStories} userId={userId} activeTab={activeTab} onStoryCreated={refreshStories} />
                 }
                 ListEmptyComponent={() => renderEmpty(tab.id)}

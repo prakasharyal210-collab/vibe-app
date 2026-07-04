@@ -554,6 +554,80 @@ router.get("/personalized", async (req, res) => {
   }
 });
 
+// ─── GET /api/feed/fresh-faces ───────────────────────────────────────────────
+// Returns first posts from new users in the last 24 h, newest first.
+// ?userId=<requesting user UUID>&limit=10
+// Requires is_first_post column (scripts/first-post-migration.sql).
+// Falls back to posts from users who joined in the last 24 h if column missing.
+router.get("/fresh-faces", async (req, res) => {
+  const userId = req.query["userId"] as string | undefined;
+  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "10", 10), 20);
+  const supabase = makeSupabase();
+
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    let query = supabase
+      .from("posts")
+      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+      .eq("is_first_post", true)
+      .gte("created_at", since)
+      .or("visibility.eq.public,visibility.is.null")
+      .or("is_archived.eq.false,is_archived.is.null")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (userId) {
+      query = query.neq("user_id", userId) as typeof query;
+    }
+
+    const { data, error } = await query;
+
+    if (error && error.message?.includes("is_first_post")) {
+      // Column not yet migrated — fall back to recent posts from new profiles
+      const { data: newProfiles } = await supabase
+        .from("profiles")
+        .select("id")
+        .gte("created_at", since)
+        .limit(50);
+
+      const newUserIds = (newProfiles ?? [])
+        .map((p: any) => p.id as string)
+        .filter((id) => !userId || id !== userId);
+
+      if (!newUserIds.length) {
+        res.json({ posts: [] });
+        return;
+      }
+
+      const { data: fallbackPosts } = await supabase
+        .from("posts")
+        .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+        .in("user_id", newUserIds)
+        .or("visibility.eq.public,visibility.is.null")
+        .or("is_archived.eq.false,is_archived.is.null")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      const posts = (fallbackPosts ?? []).map((p: any) => ({ ...p, is_first_post: true }));
+      res.json({ posts });
+      return;
+    }
+
+    if (error) {
+      req.log.warn({ error: error.message }, "fresh-faces fetch error");
+      res.json({ posts: [] });
+      return;
+    }
+
+    const posts = (data ?? []).map((p: any) => ({ ...p, is_first_post: true }));
+    res.json({ posts });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "fresh-faces exception");
+    res.json({ posts: [] });
+  }
+});
+
 // ─── POST /api/feed/seen ──────────────────────────────────────────────────────
 // Body: { userId, postId }
 // Fire-and-forget seen tracking so the anon-key RPC never blocks the UI thread.
