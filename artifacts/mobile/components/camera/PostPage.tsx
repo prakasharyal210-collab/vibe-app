@@ -28,7 +28,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useCoupleStatus } from "@/context/CoupleContext";
 import { CAMERA_FILTERS, type CameraFilter } from "@/components/camera/CameraFilterStrip";
-import { searchVibeUsers, type SocialMatchUser, uploadPostMedia } from "@/lib/db";
+import { searchVibeUsers, type SocialMatchUser, uploadPostMedia, createTextPost } from "@/lib/db";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import type { Track } from "@/lib/music";
 import { POST_CATEGORIES, type CategoryId } from "@/lib/categories";
@@ -39,7 +39,7 @@ const PREVIEW_W = W - 32;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type CropRatio = "original" | "1:1" | "4:5";
-type Phase = "idle" | "camera" | "compose" | "uploading";
+type Phase = "idle" | "camera" | "compose" | "uploading" | "poll";
 type Visibility = "public" | "friends" | "private";
 
 const AUDIENCE_OPTIONS: { key: Visibility; icon: string; label: string; desc: string }[] = [
@@ -404,6 +404,29 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     }
   }, [session, rawMedia, cropRatio, activeFilter, caption, location, taggedUsers, visibility, feeling, category, postAsCouple, coupleLinkId]);
 
+  // ── Poll-only post ────────────────────────────────────────────────────────
+  const handlePollPost = useCallback(async () => {
+    if (!session?.user?.id) { Alert.alert("Sign in required"); return; }
+    const filled = (pollDraft?.options ?? []).filter((o) => o.trim());
+    if (filled.length < 2) { Alert.alert("Add at least 2 poll options"); return; }
+    setPhase("uploading");
+    try {
+      await createTextPost(session.user.id, caption.trim() || "What do you think?", {
+        options: filled,
+        duration_hours: pollDraft!.duration_hours,
+      });
+      setCaption(""); setPollDraft(null); setPhase("idle");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Poll posted! 🔥", "Your poll is live on Gundruk.", [
+        { text: "View Profile", onPress: () => router.navigate("/(tabs)/profile" as any) },
+        { text: "Post Another", style: "cancel" },
+      ]);
+    } catch (err) {
+      setPhase("poll");
+      Alert.alert("Post failed", err instanceof Error ? err.message : "Please try again.");
+    }
+  }, [session, caption, pollDraft]);
+
   const discard = useCallback(() => {
     setRawMedia([]); setCaption(""); setLocation("");
     setTaggedUsers([]); setPreviewIdx(0); setCropRatio("original");
@@ -424,7 +447,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         <Text style={p.homeTitle}>Create Post</Text>
         <Text style={p.homeSub}>What do you want to share?</Text>
 
-        {/* ── Two big action cards ── */}
+        {/* ── Top two action cards (Video + Photo) ── */}
         <View style={p.bigCardRow}>
 
           {/* Video Post — gradient card */}
@@ -461,31 +484,106 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
 
         </View>
 
-        {/* ── Quick-access tiles ── */}
-        <Text style={p.quickSectionLabel}>Quick Access</Text>
-        <View style={p.quickRow}>
-
-          <TouchableOpacity style={p.quickTile} onPress={pickFromGallery} activeOpacity={0.8}>
-            <LinearGradient
-              colors={["#EA580C", "#7C3AED"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={p.quickIconCircle}
-            >
-              <Ionicons name="images-outline" size={22} color="#fff" />
-            </LinearGradient>
-            <Text style={p.quickTileLabel}>Gallery</Text>
-            <Text style={p.quickTileSub}>Choose from library</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={p.quickTile} onPress={openCamera} activeOpacity={0.8}>
-            <View style={p.quickIconCircleAccent}>
-              <Ionicons name="camera-outline" size={22} color="#A78BFA" />
+        {/* ── Poll — full-width card ── */}
+        <TouchableOpacity
+          style={p.pollLandCard}
+          onPress={() => {
+            setPollDraft({ options: ["", ""], duration_hours: 24 });
+            setPhase("poll");
+          }}
+          activeOpacity={0.86}
+        >
+          <LinearGradient
+            colors={["#18102e", "#0e0b1e"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[p.pollLandGrad, p.bigCardDark]}
+          >
+            <View style={[p.bigCardIconWrap, { backgroundColor: "rgba(124,58,237,0.2)" }]}>
+              <Ionicons name="bar-chart" size={30} color="#A78BFA" />
             </View>
-            <Text style={p.quickTileLabel}>Camera</Text>
-            <Text style={p.quickTileSub}>Take a photo or video</Text>
-          </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={p.bigCardTitle}>Poll</Text>
+              <Text style={p.bigCardSub}>Ask your people a question</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="rgba(167,139,250,0.4)" />
+          </LinearGradient>
+        </TouchableOpacity>
 
+      </View>
+    );
+  }
+
+  // ── Poll-only composer ───────────────────────────────────────────────────
+  if (phase === "poll" || (phase === "uploading" && rawMedia.length === 0)) {
+    const filledCount = (pollDraft?.options ?? []).filter((o) => o.trim()).length;
+    const canShare = filledCount >= 2;
+    const isSubmitting = phase === "uploading";
+    return (
+      <View style={[p.fill, { paddingTop: topInset }]}>
+        <StatusBar style="light" />
+
+        {/* Header */}
+        <View style={p.header}>
+          <TouchableOpacity
+            onPress={() => { setCaption(""); setPollDraft(null); setPhase("idle"); }}
+            style={p.discardBtn}
+            disabled={isSubmitting}
+          >
+            <Text style={p.discardText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={p.headerTitle}>New Poll</Text>
+          <View style={{ width: 60 }} />
+        </View>
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
+        >
+          {/* Caption / question */}
+          <View style={[p.captionCard, { marginHorizontal: 16, marginTop: 12 }]}>
+            <TextInput
+              value={caption}
+              onChangeText={setCaption}
+              placeholder="Ask your people a question…"
+              placeholderTextColor="rgba(255,255,255,0.22)"
+              multiline
+              maxLength={240}
+              style={p.captionInput}
+              editable={!isSubmitting}
+            />
+            <Text style={p.charCount}>{caption.length} / 240</Text>
+          </View>
+
+          {/* Poll composer (always visible) */}
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <PollComposer
+              poll={pollDraft ?? { options: ["", ""], duration_hours: 24 }}
+              onChange={setPollDraft}
+            />
+          </View>
+        </ScrollView>
+
+        {/* Share button */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: bottomInset + 12 }}>
+          <TouchableOpacity
+            onPress={handlePollPost}
+            disabled={!canShare || isSubmitting}
+            activeOpacity={0.85}
+            style={{ opacity: canShare && !isSubmitting ? 1 : 0.38, borderRadius: 18, overflow: "hidden" }}
+          >
+            <LinearGradient
+              colors={["#7C3AED", "#EA580C"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ paddingVertical: 17, alignItems: "center", justifyContent: "center" }}
+            >
+              {isSubmitting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Share Poll 🔥</Text>
+              }
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -1152,45 +1250,33 @@ const p = StyleSheet.create({
   bigCardTitle: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 15 },
   bigCardSub: { color: "rgba(255,255,255,0.55)", fontFamily: "Poppins_400Regular", fontSize: 11, lineHeight: 17 },
 
-  // Quick-access tiles
-  quickSectionLabel: {
-    color: "rgba(255,255,255,0.28)",
-    fontFamily: "Poppins_600SemiBold",
-    fontSize: 10,
-    textTransform: "uppercase",
-    letterSpacing: 1.4,
-    paddingHorizontal: 20,
-    marginBottom: 12,
+  // Poll landing card (full-width, below the 2-card row)
+  pollLandCard: {
+    marginHorizontal: 16,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#7C3AED",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  quickRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16 },
-  quickTile: {
-    flex: 1,
-    backgroundColor: "#0F0F1E",
-    borderRadius: 18,
+  pollLandGrad: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
     padding: 18,
-    alignItems: "center",
-    gap: 8,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.07)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 4,
+    minHeight: 88,
   },
+
+  // Legacy quick-access style keys — kept so StyleSheet doesn't throw on any residual refs
+  quickSectionLabel: { color: "rgba(255,255,255,0.28)", fontFamily: "Poppins_600SemiBold", fontSize: 10, textTransform: "uppercase" as const, letterSpacing: 1.4, paddingHorizontal: 20, marginBottom: 12 },
+  quickRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16 },
+  quickTile: { flex: 1, backgroundColor: "#0F0F1E", borderRadius: 18, padding: 18, alignItems: "center", gap: 8, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.07)" },
   quickIconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  quickIconCircleAccent: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(124,58,237,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(124,58,237,0.35)",
-  },
+  quickIconCircleAccent: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(124,58,237,0.2)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(124,58,237,0.35)" },
   quickTileLabel: { color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 13 },
-  quickTileSub: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 10, textAlign: "center" },
+  quickTileSub: { color: "rgba(255,255,255,0.3)", fontFamily: "Poppins_400Regular", fontSize: 10, textAlign: "center" as const },
 
   // Legacy fallback keys kept so any residual references don't break
   fallbackEmoji: { fontSize: 44, marginBottom: 12 },

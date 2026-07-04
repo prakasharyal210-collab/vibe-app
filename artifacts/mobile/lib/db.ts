@@ -1516,6 +1516,21 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
   return [];
 }
 
+export async function createTextPost(
+  userId: string,
+  caption: string,
+  poll?: { options: string[]; duration_hours: number },
+): Promise<{ id: string }> {
+  const res = await fetch(`${API_BASE}/posts/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, caption, poll }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error as string);
+  return { id: data.id as string };
+}
+
 export async function uploadPostMedia(
   userId: string,
   uri: string,

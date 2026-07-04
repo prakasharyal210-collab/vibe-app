@@ -247,6 +247,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   }, [bumped]);
 
   const images = post.images && post.images.length > 0 ? post.images : [post.image_url];
+  const hasMedia = !!(images[0]);
 
   const requireAuth = () => {
     if (!isLoggedIn) { onRequireLogin?.(); return true; }
@@ -644,12 +645,14 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
           Container height = CARD_W / realAspectRatio (exact fit, no gaps, no crop).
           Extreme portraits (taller than 1.25× width) are capped + use cover.
           While dimensions are loading, a thin shimmer placeholder avoids a large
-          wrong-size box flashing before the real height is known. */}
-      {mediaAspectRatio === null ? (
-        // Shimmer — shown only for truly first-load images not yet in _ratioCache.
-        // Height is a neutral 56vw so the card isn't massively tall or collapsed.
-        <View style={[styles.imageContainer, styles.shimmer, { height: CARD_W * 0.56 }]} />
-      ) : (() => {
+          wrong-size box flashing before the real height is known.
+          Skipped entirely for media-less posts (polls, text posts). */}
+      {hasMedia ? (
+        mediaAspectRatio === null ? (
+          // Shimmer — shown only for truly first-load images not yet in _ratioCache.
+          // Height is a neutral 56vw so the card isn't massively tall or collapsed.
+          <View style={[styles.imageContainer, styles.shimmer, { height: CARD_W * 0.56 }]} />
+        ) : (() => {
         const isExtremePortrait = (CARD_W / mediaAspectRatio) > MAX_PORTRAIT_H;
         const imgH = isExtremePortrait ? MAX_PORTRAIT_H : CARD_W / mediaAspectRatio;
         // Always cover: the container is already sized to CARD_W × (CARD_W / ratio),
@@ -751,7 +754,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         )}
         </View>
         );
-      })()}
+      })()
+      ) : null}
 
       {/* Music credit */}
       {post.music_title && (
