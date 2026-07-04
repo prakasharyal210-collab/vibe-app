@@ -292,7 +292,8 @@ router.get("/friends", async (req, res) => {
     // Normalise flat RPC shape → nested profiles object + canonical `id` field.
     const normalised = data.map(normaliseFriendsRow);
     const enrichedCouple = await enrichWithCoupleData(supabase, normalised);
-    res.json({ data: enrichedCouple, source: "rpc" });
+    const friendsWithPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+    res.json({ data: friendsWithPolls, source: "rpc" });
     return;
   }
 
@@ -307,8 +308,9 @@ router.get("/friends", async (req, res) => {
     .range(offset, offset + limit - 1);
 
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
+  const freshWithPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   res.json({
-    data: freshEnriched,
+    data: freshWithPolls,
     source: "fresh",
     error: error?.message,
   });
@@ -461,7 +463,8 @@ router.get("/following", async (req, res) => {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
     const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-    res.json({ data: enrichedCouple.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    const followingWithPolls = await enrichWithPolls(supabase, enrichedCouple.filter((p: any) => p.is_archived !== true), userId);
+    res.json({ data: followingWithPolls, source: "rpc" });
     return;
   }
 
@@ -475,7 +478,8 @@ router.get("/following", async (req, res) => {
     .range(offset, offset + limit - 1);
 
   const followingFresh = await enrichWithCoupleData(supabase, freshData ?? []);
-  res.json({ data: followingFresh, source: "fresh", error: error?.message });
+  const followingFreshWithPolls = await enrichWithPolls(supabase, followingFresh, userId);
+  res.json({ data: followingFreshWithPolls, source: "fresh", error: error?.message });
 });
 
 // ─── GET /api/feed/nearby ─────────────────────────────────────────────────────
@@ -507,7 +511,8 @@ router.get("/nearby", async (req, res) => {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
     const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-    res.json({ data: enrichedCouple.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    const nearbyWithPolls = await enrichWithPolls(supabase, enrichedCouple.filter((p: any) => p.is_archived !== true), userId);
+    res.json({ data: nearbyWithPolls, source: "rpc" });
     return;
   }
 
@@ -521,7 +526,8 @@ router.get("/nearby", async (req, res) => {
     .range(offset, offset + limit - 1);
 
   const nearbyFresh = await enrichWithCoupleData(supabase, freshData ?? []);
-  res.json({ data: nearbyFresh, source: "fresh", error: error?.message });
+  const nearbyFreshWithPolls = await enrichWithPolls(supabase, nearbyFresh, userId);
+  res.json({ data: nearbyFreshWithPolls, source: "fresh", error: error?.message });
 });
 
 // ─── GET /api/feed/vibes ──────────────────────────────────────────────────────
@@ -549,7 +555,8 @@ router.get("/vibes", async (req, res) => {
     const needsEnrich = !data[0].username && !data[0].profiles;
     const enriched = needsEnrich ? await enrichWithProfiles(supabase, data) : data;
     const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-    res.json({ data: enrichedCouple.filter((p: any) => p.is_archived !== true), source: "rpc" });
+    const vibesWithPolls = await enrichWithPolls(supabase, enrichedCouple.filter((p: any) => p.is_archived !== true), userId);
+    res.json({ data: vibesWithPolls, source: "rpc" });
     return;
   }
 
@@ -563,7 +570,8 @@ router.get("/vibes", async (req, res) => {
     .range(offset, offset + limit - 1);
 
   const vibesFresh = await enrichWithCoupleData(supabase, freshData ?? []);
-  res.json({ data: vibesFresh, source: "fresh", error: error?.message });
+  const vibesFreshWithPolls = await enrichWithPolls(supabase, vibesFresh, userId);
+  res.json({ data: vibesFreshWithPolls, source: "fresh", error: error?.message });
 });
 
 // ─── GET /api/feed/personalized ──────────────────────────────────────────────
@@ -586,7 +594,8 @@ router.get("/personalized", async (req, res) => {
     });
     if (!error && Array.isArray(data) && data.length > 0) {
       const enrichedCouple = await enrichWithCoupleData(supabase, data);
-      res.json({ data: enrichedCouple, source: "rpc" });
+      const personalizedWithPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+      res.json({ data: personalizedWithPolls, source: "rpc" });
       return;
     }
     if (error) req.log.warn({ error: error.message }, "get_personalized_feed RPC warn");
@@ -598,7 +607,8 @@ router.get("/personalized", async (req, res) => {
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     const personalizedFresh = await enrichWithCoupleData(supabase, fallback ?? []);
-    res.json({ data: personalizedFresh, source: "fresh" });
+    const personalizedFreshWithPolls = await enrichWithPolls(supabase, personalizedFresh, userId);
+    res.json({ data: personalizedFreshWithPolls, source: "fresh" });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "personalized feed error");
     res.json({ data: [], source: "error" });

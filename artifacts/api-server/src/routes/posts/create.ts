@@ -1212,7 +1212,11 @@ router.get("/:postId", async (req, res) => {
     } catch {}
   }
 
-  res.json({ data: post });
+  // Enrich poll data so post detail screen can render PollCard.
+  // viewerId is optional — pass ?viewerId=<uuid> to track per-user vote state.
+  const viewerId = (req.query["viewerId"] as string | undefined) ?? undefined;
+  const [enriched] = await enrichWithPolls(sb, [post], viewerId);
+  res.json({ data: enriched ?? post });
 });
 
 export default router;

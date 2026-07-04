@@ -36,6 +36,7 @@ import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { CoupleHeaderRow } from "@/components/PostCard";
+import PollCard from "@/components/PollCard";
 import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
@@ -477,7 +478,9 @@ export default function PostDetailScreen() {
     setLoading(true);
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(id)}`);
+        const uid = session?.user?.id;
+        const viewerParam = uid ? `?viewerId=${encodeURIComponent(uid)}` : "";
+        const res = await fetch(`${API_BASE}/posts/${encodeURIComponent(id)}${viewerParam}`);
         if (res.ok) {
           const body = await res.json();
           const data = body.data as any;
@@ -1420,6 +1423,13 @@ export default function PostDetailScreen() {
             )}
           </View>
         ) : null}
+
+        {/* ── Poll ────────────────────────────────────────────────────────── */}
+        {(post as any).poll && (
+          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            <PollCard poll={(post as any).poll} userId={session?.user?.id ?? null} />
+          </View>
+        )}
 
         {/* ── Comments preview ─────────────────────────────────────────────── */}
         {previewComments.length > 0 && (
