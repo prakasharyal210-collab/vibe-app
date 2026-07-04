@@ -388,7 +388,8 @@ export default function CoupleFeedScreen() {
   const { session } = useAuth();
   const token = session?.access_token ?? null;
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [newPosts, setNewPosts] = useState<Post[]>([]);
+  const [hotPosts, setHotPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>("All");
@@ -413,14 +414,20 @@ export default function CoupleFeedScreen() {
     if (!silent) setLoading(true);
     const gen = ++genRef.current;
     try {
-      const url = `${API_BASE}/api/couple-feed/posts?coupleId=${encodeURIComponent(coupleId ?? "")}&limit=50`;
+      const url = `${API_BASE}/api/couple-feed/posts?coupleId=${encodeURIComponent(coupleId ?? "")}`;
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json();
-      if (gen === genRef.current) setPosts(data.posts ?? []);
+      if (gen === genRef.current) {
+        setNewPosts(data.newPosts ?? []);
+        setHotPosts(data.hotPosts ?? []);
+      }
     } catch {
-      if (gen === genRef.current) setPosts([]);
+      if (gen === genRef.current) {
+        setNewPosts([]);
+        setHotPosts([]);
+      }
     } finally {
       if (gen === genRef.current) setLoading(false);
     }
@@ -442,13 +449,14 @@ export default function CoupleFeedScreen() {
     reactions: Post["reactions"],
     totalReactions: number,
   ) => {
-    setPosts((prev) =>
+    const updater = (prev: Post[]) =>
       prev.map((p) =>
         p.id === postId
           ? { ...p, myReaction, reactions, totalReactions, likedByMe: myReaction !== null, like_count: totalReactions }
           : p
-      )
-    );
+      );
+    setNewPosts(updater);
+    setHotPosts(updater);
   };
 
   const handleComment = (post: Post) => {
@@ -463,9 +471,20 @@ export default function CoupleFeedScreen() {
     } as any);
   };
 
-  const filtered = activeCategory === "All"
-    ? posts
-    : posts.filter((p) => p.category === activeCategory);
+  const filteredNew = activeCategory === "All"
+    ? newPosts
+    : newPosts.filter((p) => p.category === activeCategory);
+
+  const filteredHot = activeCategory === "All"
+    ? hotPosts
+    : hotPosts.filter((p) => p.category === activeCategory);
+
+  type DividerItem = { _divider: true; id: string };
+  type ListItem = Post | DividerItem;
+
+  const listData: ListItem[] = filteredHot.length > 0
+    ? [...filteredNew, { _divider: true as const, id: "__trending_divider__" }, ...filteredHot]
+    : [...filteredNew];
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
@@ -531,7 +550,7 @@ export default function CoupleFeedScreen() {
         <View style={s.center}>
           <ActivityIndicator color="#ffffff" size="large" />
         </View>
-      ) : filtered.length === 0 ? (
+      ) : listData.length === 0 ? (
         <View style={s.empty}>
           <Text style={s.emptyEmoji}>💬</Text>
           <Text style={s.emptyTitle}>{activeCategory === "All" ? "No confessions yet" : `No ${activeCategory} posts`}</Text>
@@ -549,19 +568,30 @@ export default function CoupleFeedScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(p) => p.id}
-          renderItem={({ item }) => (
-            <PostCard
-              post={item}
-              coupleId={coupleId ?? ""}
-              authorId={userId ?? ""}
-              token={token}
-              onReact={handleReact}
-              onComment={handleComment}
-            />
-          )}
+        <FlatList<ListItem>
+          data={listData}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => {
+            if ("_divider" in item) {
+              return (
+                <View style={s.trendingDivider}>
+                  <View style={s.trendingLine} />
+                  <Text style={s.trendingLabel}>Trending 🔥</Text>
+                  <View style={s.trendingLine} />
+                </View>
+              );
+            }
+            return (
+              <PostCard
+                post={item}
+                coupleId={coupleId ?? ""}
+                authorId={userId ?? ""}
+                token={token}
+                onReact={handleReact}
+                onComment={handleComment}
+              />
+            );
+          }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 28, paddingTop: 8 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />}
@@ -593,6 +623,9 @@ const s = StyleSheet.create({
   emptySub: { fontFamily: "Poppins_400Regular", fontSize: 14, color: "#888888", textAlign: "center" },
   emptyBtn: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20, backgroundColor: "#ffffff" },
   emptyBtnText: { fontFamily: "Poppins_700Bold", fontSize: 14, color: "#000000" },
+  trendingDivider: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 8 },
+  trendingLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.10)" },
+  trendingLabel: { fontFamily: "Poppins_600SemiBold", fontSize: 12, color: "#555555", letterSpacing: 0.5 },
   card: { backgroundColor: "#141414", borderRadius: 16, padding: 16, overflow: "hidden" },
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
   cardTopLeft: { gap: 2 },

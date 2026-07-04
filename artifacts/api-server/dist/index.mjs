@@ -59725,17 +59725,19 @@ function makeSupabase7() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(url, key);
 }
-async function enrichWithPolls(supabase, rows, viewerUserId, parentIdField = "post_id") {
+async function enrichWithPolls(supabase, rows, viewerUserId, parentIdField = "post_id", viewerCoupleId) {
   if (!rows.length) return rows;
   const ids = rows.map((r) => r.id).filter(Boolean);
   if (!ids.length) return rows;
   const { data: polls } = await supabase.from("polls").select("id, question, ends_at, post_id, confession_post_id").in(parentIdField, ids);
   if (!polls?.length) return rows.map((r) => ({ ...r, poll: null }));
   const pollIds = polls.map((p) => p.id);
+  const useCouple = parentIdField === "confession_post_id" && !!viewerCoupleId;
+  const myVotesQuery = useCouple ? supabase.from("poll_votes").select("poll_id, option_id").in("poll_id", pollIds).eq("couple_id", viewerCoupleId) : viewerUserId ? supabase.from("poll_votes").select("poll_id, option_id").in("poll_id", pollIds).eq("user_id", viewerUserId) : Promise.resolve({ data: [] });
   const [optionsRes, votesRes, myVotesRes] = await Promise.all([
     supabase.from("poll_options").select("id, poll_id, label, position").in("poll_id", pollIds).order("position"),
     supabase.from("poll_votes").select("poll_id, option_id").in("poll_id", pollIds),
-    viewerUserId ? supabase.from("poll_votes").select("poll_id, option_id").in("poll_id", pollIds).eq("user_id", viewerUserId) : Promise.resolve({ data: [] })
+    myVotesQuery
   ]);
   const options = optionsRes.data ?? [];
   const votes = votesRes.data ?? [];
@@ -59787,7 +59789,7 @@ router10.post("/:pollId/vote", async (req, res) => {
     return;
   }
   const sb = makeSupabase7();
-  const { data: poll } = await sb.from("polls").select("id, ends_at").eq("id", pollId).maybeSingle();
+  const { data: poll } = await sb.from("polls").select("id, ends_at, confession_post_id, post_id").eq("id", pollId).maybeSingle();
   if (!poll) {
     res.status(404).json({ error: "Poll not found" });
     return;
@@ -59801,10 +59803,26 @@ router10.post("/:pollId/vote", async (req, res) => {
     res.status(400).json({ error: "Option not found for this poll" });
     return;
   }
-  const { error: voteErr } = await sb.from("poll_votes").upsert(
-    { poll_id: pollId, option_id: optionId, user_id: userId },
-    { onConflict: "poll_id,user_id" }
-  );
+  const isConfessionPoll = !!poll.confession_post_id;
+  let coupleId = null;
+  if (isConfessionPoll) {
+    const { data: link } = await sb.from("couple_links").select("id").eq("status", "accepted").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).maybeSingle();
+    coupleId = link?.id ?? null;
+  }
+  let voteErr = null;
+  if (coupleId) {
+    const result = await sb.from("poll_votes").upsert(
+      { poll_id: pollId, option_id: optionId, user_id: userId, couple_id: coupleId },
+      { onConflict: "poll_id,couple_id" }
+    );
+    voteErr = result.error;
+  } else {
+    const result = await sb.from("poll_votes").upsert(
+      { poll_id: pollId, option_id: optionId, user_id: userId },
+      { onConflict: "poll_id,user_id" }
+    );
+    voteErr = result.error;
+  }
   if (voteErr) {
     req.log.error({ err: voteErr.message }, "poll vote upsert error");
     res.status(500).json({ error: voteErr.message });
@@ -59815,9 +59833,9 @@ router10.post("/:pollId/vote", async (req, res) => {
     sb.from("poll_votes").select("option_id").eq("poll_id", pollId)
   ]);
   const opts = optionsRes.data ?? [];
-  const votes = votesRes.data ?? [];
+  const freshVotes = votesRes.data ?? [];
   const voteCountByOption = /* @__PURE__ */ new Map();
-  for (const v of votes) {
+  for (const v of freshVotes) {
     voteCountByOption.set(v.option_id, (voteCountByOption.get(v.option_id) ?? 0) + 1);
   }
   res.json({
@@ -59830,7 +59848,7 @@ router10.post("/:pollId/vote", async (req, res) => {
         position: o.position,
         votes: voteCountByOption.get(o.id) ?? 0
       })),
-      totalVotes: votes.length,
+      totalVotes: freshVotes.length,
       viewerVote: optionId
     }
   });
@@ -60252,7 +60270,7 @@ router11.post("/create", async (req, res) => {
     try {
       const validOpts = poll.options.filter((o) => typeof o === "string" && o.trim()).slice(0, 4);
       if (validOpts.length >= 2) {
-        const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+        const durH = [24, 72, 168, 336, 720].includes(poll.duration_hours) ? poll.duration_hours : 24;
         const endsAt = new Date(Date.now() + durH * 36e5).toISOString();
         const pollQuestion = typeof poll.question === "string" && poll.question.trim() ? poll.question.trim().slice(0, 100) : null;
         const { data: pollRow } = await sb.from("polls").insert({ post_id: postId, ends_at: endsAt, question: pollQuestion }).select("id").single();
@@ -65834,9 +65852,28 @@ router39.post("/request", async (req, res) => {
   }
   const sb = makeSupabase34();
   try {
-    const { data: existing } = await sb.from("couple_links").select("id, status").or(
+    const { data: alreadyCoupled, error: coupledErr } = await sb.from("couple_links").select("id, requester_id, receiver_id").eq("status", "accepted").or(
+      `requester_id.eq.${requesterId},receiver_id.eq.${requesterId},requester_id.eq.${receiverId},receiver_id.eq.${receiverId}`
+    ).limit(1).maybeSingle();
+    if (coupledErr) {
+      req.log.error({ err: coupledErr.message }, "couple/request: coupled-check query failed");
+      throw coupledErr;
+    }
+    if (alreadyCoupled) {
+      const senderCoupled = alreadyCoupled.requester_id === requesterId || alreadyCoupled.receiver_id === requesterId;
+      req.log.warn({ requesterId, receiverId, alreadyCoupled }, "couple/request blocked: user already in a couple");
+      res.status(409).json({
+        error: senderCoupled ? "You are already in a couple" : "This user is already in a couple"
+      });
+      return;
+    }
+    const { data: existing, error: existErr } = await sb.from("couple_links").select("id, status").or(
       `and(requester_id.eq.${requesterId},receiver_id.eq.${receiverId}),and(requester_id.eq.${receiverId},receiver_id.eq.${requesterId})`
     ).maybeSingle();
+    if (existErr) {
+      req.log.error({ err: existErr.message }, "couple/request: existing-check query failed");
+      throw existErr;
+    }
     if (existing) {
       req.log.info({ existing }, "couple/request already exists");
       res.status(409).json({ error: "Request already exists", status: existing.status });
@@ -65870,27 +65907,95 @@ router39.post("/accept", async (req, res) => {
   try {
     const { data: link, error: fetchErr } = await sb.from("couple_links").select("*").eq("id", coupleId).eq("receiver_id", userId).eq("status", "pending").single();
     if (fetchErr || !link) {
+      req.log.warn({ coupleId, userId, fetchErr }, "couple/accept: pending request not found");
       res.status(404).json({ error: "Couple request not found" });
       return;
     }
+    const requesterId = link.requester_id;
+    const { data: alreadyCoupled, error: guardErr } = await sb.from("couple_links").select("id, requester_id, receiver_id").eq("status", "accepted").or(
+      `requester_id.eq.${requesterId},receiver_id.eq.${requesterId},requester_id.eq.${userId},receiver_id.eq.${userId}`
+    ).neq("id", coupleId).limit(1).maybeSingle();
+    if (guardErr) {
+      req.log.error({ err: guardErr.message }, "couple/accept: guard query failed");
+      throw guardErr;
+    }
+    if (alreadyCoupled) {
+      req.log.warn({ coupleId, requesterId, userId, alreadyCoupled }, "couple/accept blocked: user already in a couple");
+      res.status(409).json({ error: "This user is already in a couple" });
+      return;
+    }
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    const { data, error } = await sb.from("couple_links").update({ status: "accepted", accepted_at: now }).eq("id", coupleId).select().single();
-    if (error) throw error;
+    const { data: accepted, error: acceptErr } = await sb.from("couple_links").update({ status: "accepted", accepted_at: now }).eq("id", coupleId).select().single();
+    if (acceptErr) {
+      req.log.error({ err: acceptErr.message }, "couple/accept: update failed");
+      throw acceptErr;
+    }
+    const pendingFilter = `requester_id.eq.${requesterId},receiver_id.eq.${requesterId},requester_id.eq.${userId},receiver_id.eq.${userId}`;
+    const { data: cancelTargets, error: fetchCancelErr } = await sb.from("couple_links").select("id, requester_id, receiver_id").eq("status", "pending").neq("id", coupleId).or(pendingFilter);
+    if (fetchCancelErr) {
+      req.log.error({ err: fetchCancelErr.message }, "couple/accept: failed to fetch cancellation targets (non-fatal, continuing)");
+    }
+    const cancelRows = cancelTargets ?? [];
+    if (cancelRows.length > 0) {
+      const cancelIds = cancelRows.map((r) => r.id);
+      const { error: cancelErr } = await sb.from("couple_links").update({ status: "cancelled" }).in("id", cancelIds);
+      if (cancelErr) {
+        req.log.error({ err: cancelErr.message, cancelIds }, "couple/accept: failed to cancel other pending requests (non-fatal, continuing)");
+      } else {
+        req.log.info({ cancelIds, newCoupleId: coupleId, requesterId, receiverId: userId }, `couple/accept: cancelled ${cancelIds.length} other pending request(s)`);
+      }
+    }
     const [reqUpdate, recUpdate] = await Promise.all([
-      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", link.requester_id),
+      sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", requesterId),
       sb.from("profiles").update({ show_in_matching: false, relationship_status: "In a Relationship" }).eq("id", userId)
     ]);
     if (reqUpdate.error) {
-      req.log.error({ err: reqUpdate.error.message, userId: link.requester_id }, "couple/accept: failed to set show_in_matching=false for requester");
+      req.log.error({ err: reqUpdate.error.message, userId: requesterId }, "couple/accept: failed to set show_in_matching=false for requester");
     } else {
-      req.log.info({ userId: link.requester_id }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for requester");
+      req.log.info({ userId: requesterId }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for requester");
     }
     if (recUpdate.error) {
       req.log.error({ err: recUpdate.error.message, userId }, "couple/accept: failed to set show_in_matching=false for receiver");
     } else {
       req.log.info({ userId }, "couple/accept: show_in_matching=false + relationship_status=In a Relationship set for receiver");
     }
-    res.json({ success: true, couple: data });
+    res.json({ success: true, couple: accepted });
+    if (cancelRows.length > 0) {
+      void (async () => {
+        try {
+          const { data: profiles } = await sb.from("profiles").select("id, full_name, username").in("id", [requesterId, userId]);
+          const nameMap = Object.fromEntries(
+            (profiles ?? []).map((p) => [
+              p.id,
+              p.full_name || p.username || "Someone"
+            ])
+          );
+          const notifRows = cancelRows.map((row) => {
+            const ourUser = [requesterId, userId].includes(row.requester_id) ? row.requester_id : row.receiver_id;
+            const outsider = ourUser === row.requester_id ? row.receiver_id : row.requester_id;
+            if (!outsider) return null;
+            return {
+              recipient_id: outsider,
+              sender_id: ourUser,
+              type: "couple_request_cancelled",
+              message: `Your couple request with ${nameMap[ourUser] ?? "someone"} was closed \u2014 they're now in a couple \u{1F494}`,
+              is_read: false,
+              created_at: (/* @__PURE__ */ new Date()).toISOString()
+            };
+          }).filter((n) => n !== null);
+          if (notifRows.length > 0) {
+            const { error: notifErr } = await sb.from("notifications").insert(notifRows);
+            if (notifErr) {
+              req.log.warn({ err: notifErr.message }, "couple/accept: cancellation notifications insert failed (non-fatal)");
+            } else {
+              req.log.info({ count: notifRows.length }, "couple/accept: cancellation notifications sent");
+            }
+          }
+        } catch (e) {
+          req.log.warn({ err: e.message }, "couple/accept: cancellation notifications threw (non-fatal)");
+        }
+      })();
+    }
   } catch (err) {
     req.log.error({ err: err.message }, "couple/accept error");
     res.status(500).json({ error: "Failed to accept request" });
@@ -66380,22 +66485,88 @@ router40.post("/upload-photo", async (req, res) => {
     res.status(500).json({ error: "Failed to upload photo" });
   }
 });
+function parseUTCMs(s) {
+  const ts = /[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s : s + "Z";
+  return new Date(ts).getTime();
+}
+var HOT_WINDOW = 200;
+var NEW_VOICES_MS = 24 * 60 * 60 * 1e3;
 router40.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"];
-  const limit = Math.min(Number(req.query["limit"] ?? 20), 50);
-  const offset = Number(req.query["offset"] ?? 0);
   const category = req.query["category"];
   const sb = makeSupabase35();
   try {
-    let query = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+    let rawQuery = sb.from("couple_feed_posts").select("*").order("created_at", { ascending: false }).limit(HOT_WINDOW);
     if (category && category !== "All") {
-      query = query.eq("category", category);
+      rawQuery = rawQuery.eq("category", category);
     }
-    const { data: posts, error } = await query;
-    if (error) throw error;
-    const enriched = await Promise.all((posts ?? []).map((p) => enrichPost(sb, p, coupleId)));
-    const enrichedPolls = await enrichWithPolls(sb, enriched, void 0, "confession_post_id");
-    res.json({ posts: enrichedPolls });
+    const { data: rawPosts, error: rawErr } = await rawQuery;
+    if (rawErr) {
+      req.log.error({ err: rawErr.message }, "couple-feed/posts GET: raw fetch failed");
+      res.status(500).json({ error: "Failed to fetch couple feed" });
+      return;
+    }
+    const posts = rawPosts ?? [];
+    const pollScoreMap = /* @__PURE__ */ new Map();
+    if (posts.length > 0) {
+      const allIds = posts.map((p) => p.id);
+      const { data: polls, error: pollsErr } = await sb.from("polls").select("id, confession_post_id, ends_at").in("confession_post_id", allIds);
+      if (pollsErr) {
+        req.log.warn({ err: pollsErr.message }, "couple-feed/posts GET: polls fetch failed (non-fatal)");
+      }
+      const pollRows = polls ?? [];
+      if (pollRows.length > 0) {
+        const pollIds = pollRows.map((p) => p.id);
+        const { data: votes, error: votesErr } = await sb.from("poll_votes").select("poll_id").in("poll_id", pollIds);
+        if (votesErr) {
+          req.log.warn({ err: votesErr.message }, "couple-feed/posts GET: poll_votes fetch failed (non-fatal)");
+        }
+        const votesByPoll = /* @__PURE__ */ new Map();
+        for (const v of votes ?? []) {
+          votesByPoll.set(v.poll_id, (votesByPoll.get(v.poll_id) ?? 0) + 1);
+        }
+        for (const poll of pollRows) {
+          pollScoreMap.set(poll.confession_post_id, {
+            totalVotes: votesByPoll.get(poll.id) ?? 0,
+            endsAt: poll.ends_at
+          });
+        }
+      }
+    }
+    const now = Date.now();
+    const newVoices = [];
+    const trending = [];
+    for (const p of posts) {
+      const createdAtMs = parseUTCMs(p.created_at);
+      const ageMs = now - createdAtMs;
+      const reactions = (p.reaction_support ?? 0) + (p.reaction_relate ?? 0) + (p.reaction_strength ?? 0) + (p.reaction_love ?? 0);
+      const comments = p.comment_count ?? 0;
+      const pollInfo = pollScoreMap.get(p.id);
+      const pollVotes = pollInfo?.totalVotes ?? 0;
+      const activePollBonus = pollInfo?.endsAt && parseUTCMs(pollInfo.endsAt) > now ? 5 : 0;
+      const hoursSince = Math.max(0, ageMs / 36e5);
+      const score = (reactions + comments * 2 + pollVotes * 1.5 + activePollBonus) / Math.pow(hoursSince + 2, 1.5);
+      if (ageMs < NEW_VOICES_MS) {
+        newVoices.push({ post: p, score, createdAtMs });
+      } else {
+        trending.push({ post: p, score, createdAtMs });
+      }
+    }
+    newVoices.sort((a, b) => b.createdAtMs - a.createdAtMs);
+    trending.sort((a, b) => b.score - a.score);
+    const newRaw = newVoices.map((e) => e.post);
+    const trendRaw = trending.map((e) => e.post);
+    const allRaw = [...newRaw, ...trendRaw];
+    const enriched = await Promise.all(allRaw.map((p) => enrichPost(sb, p, coupleId)));
+    const enrichedPolls = await enrichWithPolls(sb, enriched, void 0, "confession_post_id", coupleId);
+    const enrichedNew = enrichedPolls.slice(0, newRaw.length);
+    const enrichedHot = enrichedPolls.slice(newRaw.length);
+    const topHotScore = trending[0]?.score ?? 0;
+    req.log.info(
+      { newCount: newRaw.length, hotCount: trendRaw.length, topHotScore: Number(topHotScore.toFixed(3)) },
+      "confession-feed ranked"
+    );
+    res.json({ newPosts: enrichedNew, hotPosts: enrichedHot });
   } catch (err) {
     req.log.error({ err: err.message }, "couple-feed/posts GET error");
     res.status(500).json({ error: "Failed to fetch couple feed" });
@@ -66469,7 +66640,7 @@ router40.post("/posts", async (req, res) => {
         req.log.warn({ confessionId, validOpts }, "confession poll skipped \u2014 fewer than 2 non-empty options");
       } else {
         try {
-          const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
+          const durH = [24, 72, 168, 336, 720].includes(poll.duration_hours) ? poll.duration_hours : 24;
           const endsAt = new Date(Date.now() + durH * 36e5).toISOString();
           const question = poll.question?.trim() || null;
           const { data: pollRow, error: pollInsertErr } = await sb.from("polls").insert({ confession_post_id: confessionId, question, ends_at: endsAt }).select("id").single();
