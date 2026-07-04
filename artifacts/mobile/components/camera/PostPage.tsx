@@ -412,8 +412,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     if (filled.length < 2) { Alert.alert("Add at least 2 poll options"); return; }
     setPhase("uploading");
     try {
-      await createTextPost(session.user.id, caption.trim() || "What do you think?", {
-        question: pollDraft!.question?.trim() || undefined,
+      // caption text IS the poll question in this flow.
+      // Send empty post caption so it doesn't appear twice on the feed card
+      // (PostCard renders post.caption AND poll.question separately).
+      const pollQuestion = caption.trim() || undefined;
+      await createTextPost(session.user.id, "", {
+        question: pollQuestion,
         options: filled,
         duration_hours: pollDraft!.duration_hours,
       });
@@ -557,11 +561,12 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
             <Text style={p.charCount}>{caption.length} / 240</Text>
           </View>
 
-          {/* Poll composer (always visible) */}
+          {/* Poll composer — question input hidden; caption box above IS the question */}
           <View style={{ marginHorizontal: 16, marginTop: 12 }}>
             <PollComposer
               poll={pollDraft ?? { options: ["", ""], duration_hours: 24 }}
               onChange={setPollDraft}
+              showQuestionInput={false}
             />
           </View>
         </ScrollView>

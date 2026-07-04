@@ -17,6 +17,7 @@ export interface PollDraft {
 interface Props {
   poll: PollDraft;
   onChange: (poll: PollDraft | null) => void;
+  showQuestionInput?: boolean;
 }
 
 const DURATION_OPTS: { label: string; value: 24 | 72 | 168 }[] = [
@@ -25,7 +26,7 @@ const DURATION_OPTS: { label: string; value: 24 | 72 | 168 }[] = [
   { label: "7 days", value: 168 },
 ];
 
-export default function PollComposer({ poll, onChange }: Props) {
+export default function PollComposer({ poll, onChange, showQuestionInput = true }: Props) {
   const update = (patch: Partial<PollDraft>) =>
     onChange({ ...poll, ...patch });
 
@@ -63,15 +64,17 @@ export default function PollComposer({ poll, onChange }: Props) {
         </TouchableOpacity>
       </View>
 
-      {/* Question input */}
-      <TextInput
-        style={s.questionInput}
-        value={poll.question ?? ""}
-        onChangeText={(t) => update({ question: t })}
-        placeholder="Ask a question... (optional)"
-        placeholderTextColor="rgba(255,255,255,0.25)"
-        maxLength={100}
-      />
+      {/* Question input — hidden in poll-first flow (caption IS the question) */}
+      {showQuestionInput && (
+        <TextInput
+          style={s.questionInput}
+          value={poll.question ?? ""}
+          onChangeText={(t) => update({ question: t })}
+          placeholder="Ask a question... (optional)"
+          placeholderTextColor="rgba(255,255,255,0.25)"
+          maxLength={100}
+        />
+      )}
 
       {/* Option inputs */}
       {poll.options.map((opt, i) => (
