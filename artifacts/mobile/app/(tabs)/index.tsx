@@ -167,7 +167,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
   const [liked, setLiked] = useState(false);
   const [likes, setLikes] = useState(reel.likes);
-  const [following, setFollowing] = useState(false);
+
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -341,11 +341,6 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
     }
   }, [liked, isLoggedIn, userId, reel.id]);
 
-  const handleFollow = useCallback(() => {
-    if (!isLoggedIn) { onRequireLogin(); return; }
-    setFollowing((f) => !f);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [isLoggedIn]);
 
   const topPad = Platform.OS === "web" ? 20 : insets.top;
   // Tab bar top edge = insets.bottom + 78. Buttons/text overlays must sit above it.
@@ -409,20 +404,8 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       </Animated.View>
 
       {/* ── Right actions ─────────────────────────────────────────────────── */}
+      {/* Avatar/follow removed — author info lives only in the bottom-left stack */}
       <View style={[S.rightActions, { bottom: bottomPad + 8 }]}>
-        {/* Creator avatar + follow */}
-        <TouchableOpacity
-          onPress={() => router.push(`/profile/${reel.username}` as any)}
-          style={S.creatorAvatar}
-        >
-          <View style={S.avatarRing}>
-            <UserAvatar username={reel.username} size={44} />
-          </View>
-          <TouchableOpacity onPress={handleFollow} style={[S.followDot, following && { backgroundColor: "#EA580C" }]}>
-            <Ionicons name={following ? "checkmark" : "add"} size={12} color="#fff" />
-          </TouchableOpacity>
-        </TouchableOpacity>
-
         {/* Like */}
         <TouchableOpacity style={S.actionBtn} onPress={handleLike} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name={liked ? "heart" : "heart-outline"} size={32} color={liked ? "#F43F5E" : "#fff"} style={S.actionIcon} />
@@ -944,17 +927,6 @@ const S = StyleSheet.create({
     right: 12,
     alignItems: "center",
     gap: 18,
-  },
-  creatorAvatar: { alignItems: "center" },
-  avatarRing: { width: 50, height: 50, borderRadius: 25, borderWidth: 2.5, borderColor: "#8B5CF6", overflow: "hidden" },
-  followDot: {
-    position: "absolute",
-    bottom: -8,
-    alignSelf: "center",
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: "#8B5CF6",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 2, borderColor: "#080810",
   },
   actionBtn: {
     alignItems: "center",
