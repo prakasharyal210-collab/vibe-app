@@ -185,9 +185,11 @@ router.post("/:pollId/vote", async (req, res) => {
   // For confession polls: resolve the voter's couple_id
   let coupleId: string | null = null;
   if (isConfessionPoll) {
+    // Only accepted couple links count — pending/declined must not be treated as a couple.
     const { data: link } = await sb
       .from("couple_links")
       .select("id")
+      .eq("status", "accepted")
       .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
       .maybeSingle();
     coupleId = (link as any)?.id ?? null;

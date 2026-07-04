@@ -28,6 +28,7 @@ FROM polls p,
 WHERE pv.poll_id = p.id
   AND p.confession_post_id IS NOT NULL   -- only confession polls
   AND pv.couple_id IS NULL               -- not yet stamped
+  AND cl.status = 'accepted'
   AND (cl.requester_id = pv.user_id OR cl.receiver_id = pv.user_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────

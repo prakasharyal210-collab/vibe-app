@@ -1,0 +1,10 @@
+Production issue: on a regular feed poll, (a) re-voting by tapping a different option does nothing, and (b) the count shows 2 votes possibly from a single user. The couple-vote changes were pushed to Railway, but the poll-votes-couple-migration.sql may not have been run on the live DB — meaning the deployed vote endpoint may reference a couple_id column that doesn't exist. Diagnose all of it against the LIVE Supabase DB (service role) and fix:
+
+Live schema check: SELECT column_name FROM information_schema.columns WHERE table_name = 'poll_votes'; — does couple_id exist? Report.
+Live data check: for the most recent poll with post_id IS NOT NULL, select all its poll_votes rows (option_id, user_id, couple_id, created_at). Are there 2 rows with the same user_id? Report.
+Migration file check: print scripts/poll-votes-couple-migration.sql — confirm it uses the REAL schema (requester_id/receiver_id, status='accepted'), not the phantom user1_id. If it still has wrong columns, rewrite it correctly now.
+Vote endpoint audit (polls.ts as currently committed): trace what happens when the endpoint runs against a DB WITHOUT couple_id: does the upsert on regular polls (onConflict: poll_id,user_id) still work, or does referencing/inserting couple_id anywhere make ALL votes error or silently mis-insert? Check the { data, error } destructuring on the upsert — is an error surfaced or swallowed? This likely explains duplicate same-user votes: if the upsert fails and there's any fallback/plain-insert path, or if onConflict silently degraded.
+Re-vote UI check: confirm the current committed PollCard.tsx still has the re-vote fix (no showResults in the handleVote guard, TouchableOpacity wrapping results rows) — verify the bar-render fix didn't revert it.
+Fix everything found, clean duplicate same-user vote rows for that poll (keep latest), and output the final corrected migration SQL for me to run. Typecheck, full report.
+
+Note: you can only test the LOCAL server; the live API is on Railway — flag anything where local vs deployed state may differ.
