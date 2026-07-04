@@ -26,8 +26,6 @@ export default function ForgotPasswordScreen() {
   const [focused, setFocused]       = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [formError, setFormError]   = useState<string | null>(null);
-  const [done, setDone]             = useState(false);
-
   React.useEffect(() => {
     if (emailError && isValidEmail(email)) setEmailError(null);
   }, [email]);
@@ -51,13 +49,11 @@ export default function ForgotPasswordScreen() {
         const m = error.message?.toLowerCase() ?? "";
         if (m.includes("network") || m.includes("fetch") || m.includes("timeout") || m.includes("failed to fetch")) {
           setFormError("Something went wrong. Please check your connection and try again.");
-        } else {
-          // Don't surface "user not found" — just show success to prevent email enumeration
-          setDone(true);
+          return;
         }
-      } else {
-        setDone(true);
+        // Don't surface "user not found" — navigate anyway to prevent email enumeration
       }
+      router.push({ pathname: "/(auth)/reset-password", params: { email: email.trim() } });
     } catch {
       setFormError("Something went wrong. Please check your connection and try again.");
     } finally {
@@ -86,66 +82,47 @@ export default function ForgotPasswordScreen() {
 
         <GundrukLogo subtitle="Reset your password" />
 
-        {done ? (
-          /* ── Success state ── */
-          <View style={styles.card}>
-            <Text style={styles.successIcon}>📬</Text>
-            <Text style={styles.successTitle}>Check your email</Text>
-            <Text style={[styles.successBody, { color: colors.mutedForeground }]}>
-              If an account exists for{" "}
-              <Text style={styles.successEmail}>{email.trim()}</Text>
-              , we sent a password reset link. Check your inbox (and spam folder).
-            </Text>
-            <GradientButton
-              onPress={() => router.replace("/(auth)/login")}
-              title="Back to Sign In"
-              style={{ marginTop: 8 }}
+        <View style={styles.card}>
+          <Text style={[styles.description, { color: colors.mutedForeground }]}>
+            Enter the email address for your account and we'll send you a password reset link.
+          </Text>
+
+          <View style={{ gap: 4 }}>
+            <TextInput
+              value={email}
+              onChangeText={v => { setEmail(v); setFormError(null); }}
+              placeholder="Email address"
+              placeholderTextColor="rgba(156,163,175,0.55)"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              style={[
+                styles.input,
+                focused && styles.inputFocused,
+                emailError != null && styles.inputError,
+              ]}
             />
-          </View>
-        ) : (
-          /* ── Reset form ── */
-          <View style={styles.card}>
-            <Text style={[styles.description, { color: colors.mutedForeground }]}>
-              Enter the email address for your account and we'll send you a password reset link.
-            </Text>
-
-            <View style={{ gap: 4 }}>
-              <TextInput
-                value={email}
-                onChangeText={v => { setEmail(v); setFormError(null); }}
-                placeholder="Email address"
-                placeholderTextColor="rgba(156,163,175,0.55)"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                style={[
-                  styles.input,
-                  focused && styles.inputFocused,
-                  emailError != null && styles.inputError,
-                ]}
-              />
-              {emailError != null && (
-                <Text style={styles.fieldError}>⚠️ {emailError}</Text>
-              )}
-            </View>
-
-            {formError != null && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>{formError}</Text>
-              </View>
+            {emailError != null && (
+              <Text style={styles.fieldError}>⚠️ {emailError}</Text>
             )}
-
-            <GradientButton
-              onPress={handleReset}
-              title="Send Reset Link"
-              loading={loading}
-              disabled={loading}
-              style={styles.btn}
-            />
           </View>
-        )}
+
+          {formError != null && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{formError}</Text>
+            </View>
+          )}
+
+          <GradientButton
+            onPress={handleReset}
+            title="Send Reset Link"
+            loading={loading}
+            disabled={loading}
+            style={styles.btn}
+          />
+        </View>
 
         <View style={styles.loginRow}>
           <Text style={[styles.loginText, { color: colors.mutedForeground }]}>

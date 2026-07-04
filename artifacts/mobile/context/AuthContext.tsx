@@ -9,7 +9,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   needsOnboarding: boolean;
+  needsPasswordReset: boolean;
   clearNeedsOnboarding: () => void;
+  clearNeedsPasswordReset: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -17,7 +19,9 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   needsOnboarding: false,
+  needsPasswordReset: false,
   clearNeedsOnboarding: () => {},
+  clearNeedsPasswordReset: () => {},
   signOut: async () => {},
 });
 
@@ -25,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
 
   useEffect(() => {
     setupNotificationHandler();
@@ -46,6 +51,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       setLoading(false);
+
+      if (_event === "PASSWORD_RECOVERY") {
+        // User clicked the reset link / verified OTP — give them a session
+        // but keep them on the reset-password screen (RootLayoutNav checks
+        // needsPasswordReset and skips the auto-redirect to feed).
+        setNeedsPasswordReset(true);
+        setSession(newSession);
+        return;
+      }
 
       if (newSession?.user && _event === "SIGNED_IN") {
         const u = newSession.user;
@@ -97,17 +111,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const clearNeedsOnboarding = () => setNeedsOnboarding(false);
+  const clearNeedsPasswordReset = () => setNeedsPasswordReset(false);
 
   const signOut = async () => {
     setSession(null);
     setNeedsOnboarding(false);
+    setNeedsPasswordReset(false);
     supabase.auth.signOut().catch(() => {});
     AsyncStorage.clear().catch(() => {});
   };
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, needsOnboarding, clearNeedsOnboarding, signOut }}
+      value={{
+        session,
+        loading,
+        needsOnboarding,
+        needsPasswordReset,
+        clearNeedsOnboarding,
+        clearNeedsPasswordReset,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>
