@@ -1,0 +1,15 @@
+BUG: Feed tab stuck on skeleton loaders forever — completely blank
+The main Feed tab (Following/For You) shows only the Stories row and infinite skeleton placeholders. Posts never load. This started after the last change to the friends feed poll rendering. This is likely either (a) a silent API error being swallowed, (b) a crash inside the post card render, or (c) a bad query added in the last edit.
+DIAGNOSE FIRST — report findings before fixing anything:
+
+Run git log --oneline -5 and git diff HEAD~1 --stat — list exactly which files were changed in the last commit(s) touching the feed.
+Open the Feed tab screen and the Friends feed component (artifacts/mobile/app/(tabs)/...) — check the data fetch: does it call the API endpoint (/api/feed/friends or /api/feed/foryou) and does it properly destructure and CHECK the error? Look for the signature bug: const { data } = await ... without error — or a fetch whose catch/non-OK response is swallowed, leaving loading state stuck at true forever.
+Check the API server route in artifacts/api-server for the friends/foryou feed — if the last edit added poll enrichment or changed the .select(), verify every column name against the LIVE Supabase schema (error 42703 = silently broken query returning nothing). Add temporary logging of the actual Supabase error if any.
+Check FriendsPostCard / PostCard for any import added in the last edit that doesn't resolve (wrong path, missing export) — this crashes rendering silently.
+
+THEN FIX:
+
+Fix the root cause found above. Ensure the loading state is set to false in a finally block so the UI can never hang on skeletons even when a request fails, and show a proper error/empty state instead.
+Architectural rules: all DB access via artifacts/api-server with service-role key (mobile never calls supabase.from()/.rpc() directly); always destructure { data, error } and handle the error; verify column names against live schema.
+
+Typecheck, report: root cause, files changed, and the exact error message that was being swallowed. Do NOT push or deploy — that's handled separately.

@@ -1341,96 +1341,6 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
   return [];
 }
 
-// Client-side poll enrichment — queries Supabase directly for poll data on any
-// posts that the API server didn't already populate with a `poll` object.
-// This ensures polls render in the Friends feed even when the API server predates
-// the server-side enrichWithPolls addition (e.g. a Railway deployment lag).
-async function clientEnrichWithPolls(posts: Post[], userId?: string): Promise<Post[]> {
-  const needPoll = posts.filter((p) => !(p as any).poll);
-  if (!needPoll.length) return posts;
-
-  const ids = needPoll.map((p) => p.id).filter(Boolean);
-  if (!ids.length) return posts;
-
-  try {
-    const { data: polls, error: pollsErr } = await supabase
-      .from('polls')
-      .select('id, question, ends_at, post_id')
-      .in('post_id', ids);
-
-    if (pollsErr || !polls?.length) return posts;
-
-    const pollIds = (polls as any[]).map((p) => p.id as string);
-
-    const [optionsRes, votesRes, myVotesRes] = await Promise.all([
-      supabase
-        .from('poll_options')
-        .select('id, poll_id, label, position')
-        .in('poll_id', pollIds)
-        .order('position'),
-      supabase
-        .from('poll_votes')
-        .select('poll_id, option_id')
-        .in('poll_id', pollIds),
-      userId
-        ? supabase
-            .from('poll_votes')
-            .select('poll_id, option_id')
-            .in('poll_id', pollIds)
-            .eq('user_id', userId)
-        : Promise.resolve({ data: [] as any[], error: null }),
-    ]);
-
-    const options = (optionsRes.data ?? []) as any[];
-    const votes = (votesRes.data ?? []) as any[];
-    const myVotes = ((myVotesRes as any).data ?? []) as any[];
-
-    const optsByPoll = new Map<string, any[]>();
-    for (const o of options) {
-      const arr = optsByPoll.get(o.poll_id as string) ?? [];
-      arr.push(o);
-      optsByPoll.set(o.poll_id as string, arr);
-    }
-
-    const voteCountByOption = new Map<string, number>();
-    const voteTotalByPoll = new Map<string, number>();
-    for (const v of votes) {
-      voteCountByOption.set(v.option_id as string, (voteCountByOption.get(v.option_id as string) ?? 0) + 1);
-      voteTotalByPoll.set(v.poll_id as string, (voteTotalByPoll.get(v.poll_id as string) ?? 0) + 1);
-    }
-
-    const myVoteByPoll = new Map<string, string>();
-    for (const v of myVotes) {
-      myVoteByPoll.set(v.poll_id as string, v.option_id as string);
-    }
-
-    const pollByPostId = new Map<string, any>();
-    for (const p of polls as any[]) {
-      const opts = optsByPoll.get(p.id as string) ?? [];
-      pollByPostId.set(p.post_id as string, {
-        id: p.id,
-        question: p.question,
-        ends_at: p.ends_at,
-        options: opts.map((o: any) => ({
-          id: o.id,
-          label: o.label,
-          position: o.position,
-          votes: voteCountByOption.get(o.id as string) ?? 0,
-        })),
-        totalVotes: voteTotalByPoll.get(p.id as string) ?? 0,
-        viewerVote: myVoteByPoll.get(p.id as string) ?? null,
-      });
-    }
-
-    return posts.map((post) => ({
-      ...post,
-      poll: (post as any).poll ?? pollByPostId.get(post.id) ?? null,
-    }));
-  } catch {
-    return posts;
-  }
-}
-
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
   console.log('[getFriendsFeed] called userId:', userId?.slice(0, 8));
   try {
@@ -1451,9 +1361,7 @@ export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Pr
       const body = await res.json();
       const posts = (body.data ?? []) as Post[];
       console.log('[getFriendsFeed] api server ok, source:', body.source, 'rows:', posts.length);
-      // Client-side poll enrichment: populates post.poll for any poll posts that
-      // the API server didn't already enrich (e.g. older Railway deployment).
-      return clientEnrichWithPolls(posts, userId).catch(() => posts);
+      return posts;
     }
     console.log('[getFriendsFeed] api server error:', res.status);
   } catch (e: any) {
