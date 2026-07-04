@@ -188,7 +188,7 @@ router.post("/:pollId/vote", async (req, res) => {
     const { data: link } = await sb
       .from("couple_links")
       .select("id")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
+      .or(`requester_id.eq.${userId},receiver_id.eq.${userId}`)
       .maybeSingle();
     coupleId = (link as any)?.id ?? null;
   }
