@@ -18,6 +18,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
+import PollCard, { PollData } from "@/components/PollCard";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 
@@ -73,6 +74,7 @@ interface Post {
   coupleName: string;
   author: { id: string; name: string; username: string | null; avatar: string | null } | null;
   partner: { id: string; name: string; username: string | null; avatar: string | null } | null;
+  poll?: PollData | null;
 }
 
 function AvatarPair({
@@ -286,6 +288,13 @@ function PostCard({
           />
         ) : null}
       </TouchableOpacity>
+
+      {/* Poll — rendered outside the double-tap zone so vote taps are not intercepted */}
+      {post.poll && (
+        <View style={{ marginTop: 10 }}>
+          <PollCard poll={post.poll} userId={authorId} />
+        </View>
+      )}
 
       {/* Reaction bar */}
       <View style={s.reactionBar}>
