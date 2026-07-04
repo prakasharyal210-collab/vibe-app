@@ -367,7 +367,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       {reel.videoUrl && !videoError ? (
         <Video
           source={{ uri: reel.videoUrl }}
-          style={StyleSheet.absoluteFill}
+          style={{ position: "absolute", top: 0, left: 0, width: W, height: SCREEN_H }}
           resizeMode={ResizeMode.COVER}
           isLooping
           isMuted={!soundOn}
@@ -804,6 +804,7 @@ export default function ReelsScreen() {
       <FlatList
         ref={flatListRef}
         data={displayReels}
+        style={{ flex: 1 }}
         keyExtractor={(item) => item.id + feedTab}
         snapToInterval={SCREEN_H}
         snapToAlignment="start"
