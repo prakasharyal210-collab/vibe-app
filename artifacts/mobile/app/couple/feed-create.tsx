@@ -211,48 +211,6 @@ export default function FeedCreateScreen() {
           />
           <Text style={s.charCount}>{content.length}/1000</Text>
 
-          <Text style={s.sectionLabel}>Optional Details</Text>
-          <View style={s.optionalRow}>
-            <View style={[s.optionalField, { flex: 0.35 }]}>
-              <Text style={s.optionalLabel}>Age</Text>
-              <TextInput
-                style={s.optionalInput}
-                placeholder="e.g. 25"
-                placeholderTextColor="#555555"
-                value={age}
-                onChangeText={(v) => setAge(v.replace(/[^0-9]/g, ""))}
-                keyboardType="number-pad"
-                maxLength={3}
-              />
-            </View>
-            <View style={[s.optionalField, { flex: 0.65 }]}>
-              <Text style={s.optionalLabel}>Location</Text>
-              <TextInput
-                style={s.optionalInput}
-                placeholder="e.g. Sydney"
-                placeholderTextColor="#555555"
-                value={location}
-                onChangeText={setLocation}
-                maxLength={60}
-              />
-            </View>
-          </View>
-
-          <Text style={s.sectionLabel}>Photo (optional)</Text>
-          {photoUri ? (
-            <View style={s.photoPreviewWrap}>
-              <Image source={{ uri: photoUri }} style={s.photoPreview} resizeMode="cover" />
-              <TouchableOpacity onPress={() => setPhotoUri(null)} style={s.removePhotoBtn}>
-                <Ionicons name="close-circle" size={28} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={pickPhoto} style={s.photoPickerBtn} activeOpacity={0.75}>
-              <Ionicons name="image-outline" size={24} color="#555555" />
-              <Text style={s.photoPickerText}>Tap to add a photo</Text>
-            </TouchableOpacity>
-          )}
-
           {/* Poll toggle */}
           <TouchableOpacity
             style={[s.pollToggleBtn, pollDraft !== null && s.pollToggleBtnActive]}
@@ -279,6 +237,48 @@ export default function FeedCreateScreen() {
           {pollDraft && (
             <PollComposer poll={pollDraft} onChange={setPollDraft} />
           )}
+
+          <Text style={s.sectionLabel}>Photo (optional)</Text>
+          {photoUri ? (
+            <View style={s.photoPreviewWrap}>
+              <Image source={{ uri: photoUri }} style={s.photoPreview} resizeMode="cover" />
+              <TouchableOpacity onPress={() => setPhotoUri(null)} style={s.removePhotoBtn}>
+                <Ionicons name="close-circle" size={28} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={pickPhoto} style={s.photoPickerBtn} activeOpacity={0.75}>
+              <Ionicons name="image-outline" size={24} color="#555555" />
+              <Text style={s.photoPickerText}>Tap to add a photo</Text>
+            </TouchableOpacity>
+          )}
+
+          <Text style={s.sectionLabel}>Optional Details</Text>
+          <View style={s.optionalRow}>
+            <View style={[s.optionalField, { flex: 0.35 }]}>
+              <Text style={s.optionalLabel}>Age</Text>
+              <TextInput
+                style={s.optionalInput}
+                placeholder="e.g. 25"
+                placeholderTextColor="#555555"
+                value={age}
+                onChangeText={(v) => setAge(v.replace(/[^0-9]/g, ""))}
+                keyboardType="number-pad"
+                maxLength={3}
+              />
+            </View>
+            <View style={[s.optionalField, { flex: 0.65 }]}>
+              <Text style={s.optionalLabel}>Location</Text>
+              <TextInput
+                style={s.optionalInput}
+                placeholder="e.g. Sydney"
+                placeholderTextColor="#555555"
+                value={location}
+                onChangeText={setLocation}
+                maxLength={60}
+              />
+            </View>
+          </View>
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
