@@ -1632,17 +1632,17 @@ export default function CreateScreen() {
         }}
         style={StyleSheet.absoluteFill}
       >
-        {/* Page 0 — Reels */}
+        {/* Page 0 — Post */}
+        <View style={{ width: W, height: H }}>
+          <PostPage topInset={reelsTabBarHeight} bottomInset={insets.bottom} isActive={activeTab === 0} />
+        </View>
+        {/* Page 1 — Reels */}
         <View style={{ width: W, height: H }}>
           <ReelsPage tabBarHeight={reelsTabBarHeight} onSetPagerEnabled={setPagerEnabled} />
         </View>
-        {/* Page 1 — Post */}
-        <View style={{ width: W, height: H }}>
-          <PostPage topInset={reelsTabBarHeight} bottomInset={insets.bottom} isActive={activeTab === 1} />
-        </View>
       </ScrollView>
 
-      {/* Floating "Reels | Post" indicator — overlays both pages */}
+      {/* Floating "Post | Reels" indicator — overlays both pages */}
       <View
         style={[ts.tabWrap, { top: tabBarTop }]}
         pointerEvents="box-none"
@@ -1653,7 +1653,7 @@ export default function CreateScreen() {
             style={[ts.tab, activeTab === 0 && ts.tabActive]}
           >
             <Text style={[ts.tabText, activeTab === 0 && ts.tabTextActive]}>
-              🎬 Reels
+              📸 Post
             </Text>
           </TouchableOpacity>
           <View style={ts.divider} />
@@ -1662,7 +1662,7 @@ export default function CreateScreen() {
             style={[ts.tab, activeTab === 1 && ts.tabActive]}
           >
             <Text style={[ts.tabText, activeTab === 1 && ts.tabTextActive]}>
-              📸 Post
+              🎬 Reels
             </Text>
           </TouchableOpacity>
         </View>
