@@ -303,14 +303,21 @@ function NotifRow({
   const handlePress = () => {
     onRead(notif.id);
     if (notif.type === "follow" || notif.type === "vibe_accepted") {
-      router.push(`/profile/${notif.username}` as any);
+      // Navigate to the sender's profile
+      if (notif.username) router.push(`/profile/${notif.username}` as any);
     } else if (notif.type === "vibe" || notif.type === "vibe_request") {
       router.push("/(tabs)/find" as any);
     } else if (notif.post_id) {
+      // Post comment / like / mention / tag → post detail screen
       router.push(`/post/${notif.post_id}` as any);
-    } else {
+    } else if (notif.reference_id && (notif.type === "comment" || notif.type === "like" || notif.type === "save")) {
+      // Reel comment / like — reference_id is the reel id
+      router.push(`/reel/${notif.reference_id}` as any);
+    } else if (notif.username && notif.username !== "user" && notif.username !== "someone") {
+      // Fallback: go to sender's profile (only if we have a real username)
       router.push(`/profile/${notif.username}` as any);
     }
+    // else: no navigatable target — no-op
   };
 
   return (

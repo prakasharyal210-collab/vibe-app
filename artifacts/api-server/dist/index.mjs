@@ -60217,6 +60217,18 @@ router10.post("/create", async (req, res) => {
             } else {
               log.info("first-post: auto-like inserted OK");
               try {
+                await sb.from("notifications").insert({
+                  recipient_id: userId,
+                  sender_id: resolvedOfficialId,
+                  type: "like",
+                  message: "liked your first post \u2764\uFE0F",
+                  post_id: postId,
+                  is_read: false
+                });
+              } catch (e) {
+                log.warn({ err: e?.message }, "first-post: like notification row insert failed");
+              }
+              try {
                 const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
                 const newLikes = (pd?.likes_count ?? 0) + 1;
                 await sb.from("posts").update({ likes_count: newLikes }).eq("id", postId);
@@ -60283,6 +60295,19 @@ router10.post("/create", async (req, res) => {
               log.error({ err: commentErr.message, commentText }, "first-post: comment insert failed");
             } else {
               log.info({ commentText }, "first-post: welcome comment posted OK");
+              const preview = commentText.slice(0, 60) + (commentText.length > 60 ? "\u2026" : "");
+              try {
+                await sb.from("notifications").insert({
+                  recipient_id: userId,
+                  sender_id: resolvedOfficialId,
+                  type: "comment",
+                  message: `commented: "${preview}"`,
+                  post_id: postId,
+                  is_read: false
+                });
+              } catch (e) {
+                log.warn({ err: e?.message }, "first-post: comment notification row insert failed");
+              }
               try {
                 const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
                 const newComments = (pd2?.comments_count ?? 0) + 1;

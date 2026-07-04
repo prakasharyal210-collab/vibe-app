@@ -742,6 +742,19 @@ router.post("/create", async (req, res) => {
               log.warn({ err: likeErr.message }, "first-post: auto-like insert failed");
             } else {
               log.info("first-post: auto-like inserted OK");
+              // In-app notification row so the user sees it in the notifications screen
+              try {
+                await sb.from("notifications").insert({
+                  recipient_id: userId,
+                  sender_id: resolvedOfficialId,
+                  type: "like",
+                  message: "liked your first post ❤️",
+                  post_id: postId,
+                  is_read: false,
+                });
+              } catch (e: any) {
+                log.warn({ err: e?.message }, "first-post: like notification row insert failed");
+              }
               try {
                 const { data: pd } = await sb.from("posts").select("likes_count").eq("id", postId).single();
                 const newLikes = ((pd as any)?.likes_count ?? 0) + 1;
@@ -814,6 +827,20 @@ router.post("/create", async (req, res) => {
               log.error({ err: commentErr.message, commentText }, "first-post: comment insert failed");
             } else {
               log.info({ commentText }, "first-post: welcome comment posted OK");
+              // In-app notification row so the user sees it in the notifications screen (tappable → /post/[id])
+              const preview = commentText.slice(0, 60) + (commentText.length > 60 ? "…" : "");
+              try {
+                await sb.from("notifications").insert({
+                  recipient_id: userId,
+                  sender_id: resolvedOfficialId,
+                  type: "comment",
+                  message: `commented: "${preview}"`,
+                  post_id: postId,
+                  is_read: false,
+                });
+              } catch (e: any) {
+                log.warn({ err: e?.message }, "first-post: comment notification row insert failed");
+              }
               try {
                 const { data: pd2 } = await sb.from("posts").select("comments_count").eq("id", postId).single();
                 const newComments = ((pd2 as any)?.comments_count ?? 0) + 1;
