@@ -45,9 +45,6 @@ export default function SignupScreen() {
   // Form-level banner (email-exists, network, etc.)
   const [formError, setFormError] = useState<string | "email_exists" | null>(null);
 
-  // Post-signup verification screen state
-  const [signupDone, setSignupDone]   = useState(false);
-  const [signupEmail, setSignupEmail] = useState("");
 
   // Debounced username availability check
   useEffect(() => {
@@ -132,10 +129,9 @@ export default function SignupScreen() {
         return;
       }
 
-      // session === null means email confirmation required
+      // session === null means email confirmation required — go to OTP screen
       if (!data.session) {
-        setSignupEmail(email.trim());
-        setSignupDone(true);
+        router.push({ pathname: "/(auth)/verify-email", params: { email: email.trim() } });
       }
       // if session exists, _layout.tsx RootLayoutNav handles navigation automatically
     } catch {
@@ -155,43 +151,6 @@ export default function SignupScreen() {
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
-  // ── Post-signup: email verification screen ────────────────────────────────
-  if (signupDone) {
-    return (
-      <View style={styles.root}>
-        <View
-          style={[
-            styles.content,
-            {
-              flex: 1,
-              paddingTop: topInset + 48,
-              paddingBottom: (Platform.OS === "web" ? 34 : insets.bottom) + 24,
-              justifyContent: "center",
-            },
-          ]}
-        >
-          <View style={styles.card}>
-            <Text style={styles.verifyIcon}>✉️</Text>
-            <Text style={styles.verifyTitle}>Check your email</Text>
-            <Text style={[styles.verifyBody, { color: colors.mutedForeground }]}>
-              We sent a confirmation link to
-            </Text>
-            <Text style={styles.verifyEmail}>{signupEmail}</Text>
-            <Text style={[styles.verifyBody, { color: colors.mutedForeground, marginTop: 8 }]}>
-              Click the link in that email to activate your account, then come back and sign in.
-            </Text>
-            <GradientButton
-              onPress={() => router.replace("/(auth)/login")}
-              title="Go to Sign In"
-              style={{ marginTop: 8 }}
-            />
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // ── Signup form ───────────────────────────────────────────────────────────
   return (
     <View style={styles.root}>
       <KeyboardAwareScrollViewCompat
@@ -411,9 +370,4 @@ const styles = StyleSheet.create({
   },
   errorBannerText: { fontSize: 13, fontFamily: "Poppins_400Regular", color: "#FCA5A5", lineHeight: 20 },
   errorBannerLink: { fontFamily: "Poppins_600SemiBold", color: "#F87171", textDecorationLine: "underline" },
-  // Verification screen
-  verifyIcon: { fontSize: 48, textAlign: "center", marginBottom: 8 },
-  verifyTitle: { fontSize: 22, fontFamily: "Poppins_700Bold", color: "#fff", textAlign: "center", marginBottom: 10 },
-  verifyBody: { fontSize: 14, fontFamily: "Poppins_400Regular", textAlign: "center", lineHeight: 22 },
-  verifyEmail: { fontSize: 15, fontFamily: "Poppins_600SemiBold", color: "#A78BFA", textAlign: "center" },
 });
