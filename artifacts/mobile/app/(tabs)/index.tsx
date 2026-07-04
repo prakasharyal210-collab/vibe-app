@@ -437,7 +437,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
       <View style={[S.rightActions, { bottom: bottomPad + 8 }]}>
         {/* Like */}
         <TouchableOpacity style={S.actionBtn} onPress={handleLike} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={34} color={liked ? "#F43F5E" : "#fff"} style={S.actionIcon} />
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={34} color={liked ? "#F43F5E" : "rgba(255,255,255,0.92)"} style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(likes)}</Text>
         </TouchableOpacity>
 
@@ -447,13 +447,13 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } setShowComments(true); }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chatbubble" size={34} color="#fff" style={S.actionIcon} />
+          <Ionicons name="chatbubble-outline" size={34} color="rgba(255,255,255,0.92)" style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(reel.comments)}</Text>
         </TouchableOpacity>
 
         {/* Share */}
         <TouchableOpacity style={S.actionBtn} onPress={() => setShowShare(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="arrow-redo" size={34} color="#fff" style={S.actionIcon} />
+          <Ionicons name="arrow-redo-outline" size={34} color="rgba(255,255,255,0.92)" style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(reel.shares)}</Text>
         </TouchableOpacity>
 
