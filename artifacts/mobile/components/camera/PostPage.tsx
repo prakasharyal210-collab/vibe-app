@@ -222,6 +222,10 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   // Poll
   const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
 
+  // Tracks which post type the user chose from the entry screen.
+  // Drives the gallery picker's mediaTypes restriction (belt-and-braces with server check).
+  const [postMode, setPostMode] = useState<"photo" | "video">("photo");
+
   // Couple post
   const { isLinked, coupleId: coupleLinkId } = useCoupleStatus();
   const [postAsCouple, setPostAsCouple] = useState(false);
@@ -273,14 +277,19 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
   }, [rawMedia]);
 
   // ── Gallery picker ──────────────────────────────────────────────────────
-  const pickFromGallery = useCallback(async () => {
+  // mode is passed explicitly so the picker restricts to the correct media type.
+  // "photo" → only images shown in the gallery grid.
+  // "video" → only videos shown. No cross-type selection possible at the OS level.
+  const pickFromGallery = useCallback(async (mode: "photo" | "video") => {
+    const mediaTypes: ImagePicker.MediaType[] = mode === "video" ? ["videos"] : ["images"];
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images", "videos"] as ImagePicker.MediaType[],
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
+      mediaTypes,
+      allowsMultipleSelection: mode === "photo", // multi-select images; videos one at a time
+      selectionLimit: mode === "photo" ? 10 : 1,
       quality: 0.9,
     });
     if (!result.canceled && result.assets.length > 0) {
+      setPostMode(mode);
       setRawMedia(result.assets);
       setPreviewIdx(0);
       setCropRatio("original");
@@ -353,6 +362,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         (async () => {
           for (const uri of finalUris) {
             await uploadPostMedia(session.user.id, uri, finalCaption, {
+              postType: postMode,
               location: location.trim() || undefined,
               taggedUsers: taggedUsers.length ? taggedUsers.map((t) => t.id) : undefined,
               filterId: activeFilter.id !== "none" ? activeFilter.id : undefined,
@@ -437,6 +447,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     setRawMedia([]); setCaption(""); setLocation("");
     setTaggedUsers([]); setPreviewIdx(0); setCropRatio("original");
     setActiveFilter(CAMERA_FILTERS[0]!); setSelectedMusic(null); setFeeling(null); setCategory(null);
+    setPostMode("photo");
     setPhase("idle");
   }, []);
 
@@ -457,7 +468,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         <View style={p.bigCardRow}>
 
           {/* Video Post — gradient card */}
-          <TouchableOpacity style={p.bigCard} onPress={pickFromGallery} activeOpacity={0.86}>
+          <TouchableOpacity style={p.bigCard} onPress={() => pickFromGallery("video")} activeOpacity={0.86}>
             <LinearGradient
               colors={["#EA580C", "#9333EA", "#7C3AED"]}
               start={{ x: 0, y: 0 }}
@@ -473,7 +484,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           </TouchableOpacity>
 
           {/* Photo Post — dark card with accent border */}
-          <TouchableOpacity style={p.bigCard} onPress={pickFromGallery} activeOpacity={0.86}>
+          <TouchableOpacity style={p.bigCard} onPress={() => pickFromGallery("photo")} activeOpacity={0.86}>
             <LinearGradient
               colors={["#18102e", "#0e0b1e"]}
               start={{ x: 0, y: 0 }}
@@ -947,7 +958,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
         </View>
 
         {/* ── Change media & post ─────────────────────────────────────── */}
-        <TouchableOpacity style={p.changeMedia} onPress={pickFromGallery}>
+        <TouchableOpacity style={p.changeMedia} onPress={() => pickFromGallery(postMode)}>
           <Ionicons name="images-outline" size={14} color="rgba(255,255,255,0.3)" />
           <Text style={p.changeMediaText}>Change selection</Text>
         </TouchableOpacity>

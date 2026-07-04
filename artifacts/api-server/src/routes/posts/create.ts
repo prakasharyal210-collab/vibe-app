@@ -386,6 +386,7 @@ router.post("/create", async (req, res) => {
     thumbnailBase64,
     mimeType = "image/jpeg",
     ext = "jpg",
+    postType,
     caption = "",
     options = {},
     coupleId,
@@ -397,6 +398,7 @@ router.post("/create", async (req, res) => {
     thumbnailBase64?: string;
     mimeType?: string;
     ext?: string;
+    postType?: "photo" | "video";
     caption?: string;
     options?: {
       location?: string;
@@ -414,6 +416,22 @@ router.post("/create", async (req, res) => {
 
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
+    return;
+  }
+
+  // ── Belt-and-braces mime/postType mismatch guard ──────────────────────────
+  // The client picker already restricts to the correct media type, but this
+  // server check catches any bypass (e.g. curl, modified client).
+  if (postType === "photo" && mimeType.startsWith("video/")) {
+    res.status(400).json({
+      error: "A Photo Post cannot contain a video file. Please choose an image.",
+    });
+    return;
+  }
+  if (postType === "video" && mimeType.startsWith("image/")) {
+    res.status(400).json({
+      error: "A Video Post cannot contain an image file. Please choose a video.",
+    });
     return;
   }
 

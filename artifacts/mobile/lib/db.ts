@@ -1575,6 +1575,7 @@ export async function uploadPostMedia(
   uri: string,
   caption: string,
   options?: {
+    postType?: "photo" | "video";
     location?: string;
     taggedUsers?: string[];
     filterId?: string;
@@ -1660,6 +1661,7 @@ export async function uploadPostMedia(
             thumbnailBase64,
             mimeType: videoMime,
             ext: videoExt,
+            postType: options?.postType ?? "video",
             caption,
             options: { ...options, visibility: options?.visibility ?? 'public' },
             coupleId: options?.coupleId,
@@ -1718,6 +1720,7 @@ export async function uploadPostMedia(
           imageBase64,
           mimeType,
           ext,
+          postType: options?.postType ?? "photo",
           caption,
           options: { ...options, visibility: options?.visibility ?? 'public' },
           coupleId: options?.coupleId,

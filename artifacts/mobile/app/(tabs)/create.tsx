@@ -784,10 +784,14 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
   }, [recording, captureMode, takePhoto, stopVideoRecording, startVideoRecording, recordBoomerang, isVideoMode]);
 
   // ── Gallery ───────────────────────────────────────────────────────────────
+  // Restricts picker to images or videos based on the current capture mode so
+  // a user in Photo mode cannot accidentally pick a video (and vice-versa).
+  // expo-image-picker ~17 uses string-array mediaTypes, not MediaTypeOptions.
   const pickFromGallery = async () => {
     if (!isLoggedIn) { setShowLoginPrompt(true); return; }
+    const mediaTypes: ImagePicker.MediaType[] = isVideoMode ? ["videos"] : ["images"];
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.9, allowsEditing: true,
+      mediaTypes, quality: 0.9, allowsEditing: true,
     });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
