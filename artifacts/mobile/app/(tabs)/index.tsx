@@ -425,7 +425,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
 
         {/* Like */}
         <TouchableOpacity style={S.actionBtn} onPress={handleLike} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name={liked ? "heart" : "heart-outline"} size={32} color={liked ? "#F43F5E" : "#fff"} />
+          <Ionicons name={liked ? "heart" : "heart-outline"} size={32} color={liked ? "#F43F5E" : "#fff"} style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(likes)}</Text>
         </TouchableOpacity>
 
@@ -435,13 +435,13 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           onPress={() => { if (!isLoggedIn) { onRequireLogin(); return; } setShowComments(true); }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Ionicons name="chatbubble-outline" size={30} color="#fff" />
+          <Ionicons name="chatbubble-outline" size={30} color="#fff" style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(reel.comments)}</Text>
         </TouchableOpacity>
 
         {/* Share */}
         <TouchableOpacity style={S.actionBtn} onPress={() => setShowShare(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="arrow-redo-outline" size={28} color="#fff" />
+          <Ionicons name="arrow-redo-outline" size={28} color="#fff" style={S.actionIcon} />
           <Text style={S.actionCount}>{fmt(reel.shares)}</Text>
         </TouchableOpacity>
 
@@ -958,15 +958,16 @@ const S = StyleSheet.create({
   actionBtn: {
     alignItems: "center",
     gap: 3,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 14,
     padding: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+  },
+  actionIcon: {
+    textShadowColor: "rgba(0,0,0,0.85)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
   actionCount: {
     color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold",
-    textShadowColor: "rgba(0,0,0,0.6)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
+    textShadowColor: "rgba(0,0,0,0.85)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
   },
   musicDisc: {
     width: 44, height: 44, borderRadius: 22,
