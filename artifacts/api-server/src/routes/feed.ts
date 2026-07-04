@@ -323,16 +323,22 @@ router.get("/reels", async (req, res) => {
   const supabase = makeSupabase();
 
   // When userId is present, try the personalised v2 RPC first.
+  // Wrapped in try/catch: if enrichWithProfiles/enrichWithCoupleData throw for
+  // any reason we fall through to the safe direct query instead of 500-ing.
   if (userId) {
-    const { data: v2Data, error: v2Err } = await supabase.rpc(
-      "get_for_you_reels_v2",
-      { p_user_id: userId, p_limit: limit },
-    );
-    if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
-      const enriched = await enrichWithProfiles(supabase, v2Data);
-      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-      res.json({ data: enrichedCouple, source: "v2" });
-      return;
+    try {
+      const { data: v2Data, error: v2Err } = await supabase.rpc(
+        "get_for_you_reels_v2",
+        { p_user_id: userId, p_limit: limit },
+      );
+      if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
+        const enriched = await enrichWithProfiles(supabase, v2Data);
+        const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+        res.json({ data: enrichedCouple, source: "v2" });
+        return;
+      }
+    } catch (err) {
+      req.log.warn({ err }, "reels v2 RPC path threw — falling back to fresh query");
     }
   }
 

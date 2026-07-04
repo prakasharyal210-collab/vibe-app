@@ -60090,6 +60090,7 @@ router11.post("/create", async (req, res) => {
     thumbnailBase64,
     mimeType = "image/jpeg",
     ext = "jpg",
+    postType,
     caption = "",
     options = {},
     coupleId,
@@ -60098,6 +60099,18 @@ router11.post("/create", async (req, res) => {
   } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
+    return;
+  }
+  if (postType === "photo" && mimeType.startsWith("video/")) {
+    res.status(400).json({
+      error: "A Photo Post cannot contain a video file. Please choose an image."
+    });
+    return;
+  }
+  if (postType === "video" && mimeType.startsWith("image/")) {
+    res.status(400).json({
+      error: "A Video Post cannot contain an image file. Please choose a video."
+    });
     return;
   }
   const supabaseUrl = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -60735,11 +60748,25 @@ router12.post("/create", async (req, res) => {
     originalSoundPostId,
     originalSoundUsername,
     coupleId,
-    isCouplePost
+    isCouplePost,
+    videoWidth,
+    videoHeight
   } = req.body;
   if (!userId) {
     res.status(400).json({ error: "userId is required" });
     return;
+  }
+  if (videoWidth && videoHeight && videoWidth > 0 && videoHeight > 0) {
+    const REEL_SHORT = 1080;
+    const REEL_LONG = 1920;
+    const isPortrait = videoHeight >= videoWidth;
+    const meetsThreshold = isPortrait ? videoWidth >= REEL_SHORT && videoHeight >= REEL_LONG : videoWidth >= REEL_LONG && videoHeight >= REEL_SHORT;
+    if (!meetsThreshold) {
+      res.status(400).json({
+        error: "This video is below our minimum quality (1080p). Please choose a higher resolution video."
+      });
+      return;
+    }
   }
   const supabaseUrl = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
   const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
@@ -63995,15 +64022,19 @@ router27.get("/reels", async (req, res) => {
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
   const supabase = makeSupabase22();
   if (userId) {
-    const { data: v2Data, error: v2Err } = await supabase.rpc(
-      "get_for_you_reels_v2",
-      { p_user_id: userId, p_limit: limit }
-    );
-    if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
-      const enriched = await enrichWithProfiles(supabase, v2Data);
-      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-      res.json({ data: enrichedCouple, source: "v2" });
-      return;
+    try {
+      const { data: v2Data, error: v2Err } = await supabase.rpc(
+        "get_for_you_reels_v2",
+        { p_user_id: userId, p_limit: limit }
+      );
+      if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
+        const enriched = await enrichWithProfiles(supabase, v2Data);
+        const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+        res.json({ data: enrichedCouple, source: "v2" });
+        return;
+      }
+    } catch (err) {
+      req.log.warn({ err }, "reels v2 RPC path threw \u2014 falling back to fresh query");
     }
   }
   const { data: freshReels } = await supabase.from("reels").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("is_archived.eq.false,is_archived.is.null").order("score", { ascending: false }).order("created_at", { ascending: false }).limit(limit);

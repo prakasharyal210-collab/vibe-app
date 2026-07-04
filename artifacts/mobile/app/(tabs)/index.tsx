@@ -694,7 +694,7 @@ export default function ReelsScreen() {
       return {
         id: r.id,
         image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
-        videoUrl: r.video_url ?? undefined,
+        videoUrl: r.video_url || undefined,  // || treats empty string as absent (not just null/undefined)
         username: r.username ?? r.profiles?.username ?? "user",
         caption: r.caption ?? "",
         likes: r.likes_count ?? 0,
@@ -714,16 +714,19 @@ export default function ReelsScreen() {
     try {
       const uidParam = uid ? `?userId=${encodeURIComponent(uid)}&limit=20` : `?limit=20`;
       const res = await fetch(`${API_BASE}/feed/reels${uidParam}`);
+      console.log('[loadFeed] foryou reels status:', res.status);
       if (res.ok) {
         const body = await res.json();
         const fyData: any[] = body.data ?? [];
-        if (fyData.length > 0) {
-          const rpcReels = fyData.map(rowToReel);
-          setForYouReels(applyReelDiversity(rpcReels));
-        }
+        console.log('[loadFeed] foryou reels rows:', fyData.length, 'source:', body.source);
+        // Always call setForYouReels — even with [] — so a previously empty
+        // state can be replaced on re-fetch. The `if length > 0` guard was
+        // silently leaving state as [] when the pre-auth guest load returned
+        // nothing and the authenticated re-fetch never updated the state.
+        setForYouReels(applyReelDiversity(fyData.map(rowToReel)));
       }
     } catch (_e: any) {
-      // silent — keep existing reels if any
+      console.log('[loadFeed] foryou reels error:', (_e as any)?.message);
     }
 
     // ── Following reels via API server ───────────────────────────────────────
