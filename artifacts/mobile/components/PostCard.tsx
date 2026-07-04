@@ -540,10 +540,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
-          {post.caption ? (
+          {post.caption?.trim() ? (
             <View style={{ paddingHorizontal: 14, paddingTop: 10, paddingBottom: 4 }}>
               <Text style={[styles.caption, { color: "#fff" }]} numberOfLines={2}>
-                <Text style={[styles.captionUsername, { color: "#fff" }]}>{post.profiles?.username ?? "user"} </Text>
                 {post.caption}
               </Text>
             </View>
@@ -818,40 +817,38 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </View>
       </View>
 
-      {/* Caption + timestamp — Instagram style: username bold inline, timestamp muted below */}
-      <View style={styles.captionContainer}>
-        {post.location && (
-          <TouchableOpacity
-            style={styles.locationInline}
-            onPress={() => router.push(`/location/${encodeURIComponent(post.location!)}` as any)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="location-outline" size={11} color="#8B5CF6" />
-            <Text style={[styles.location, { color: "#8B5CF6" }]}>{post.location}</Text>
-          </TouchableOpacity>
-        )}
-        {post.caption ? (
-          <Text style={[styles.caption, { color: colors.foreground }]}>
-            <Text style={styles.captionUsername}>{post.profiles?.username ?? "user"} </Text>
-            {post.caption.split(/(#\w+)/g).map((part, i) =>
-              part.startsWith("#") ? (
-                <Text
-                  key={i}
-                  style={styles.hashTag}
-                  onPress={() => router.push(`/hashtag/${encodeURIComponent(part.slice(1))}` as any)}
-                >
-                  {part}
-                </Text>
-              ) : (
-                <Text key={i}>{part}</Text>
-              )
-            )}
-          </Text>
-        ) : null}
-        <Text style={[styles.postTimestamp, { color: colors.mutedForeground }]}>
-          {timeAgo(post.created_at)}
-        </Text>
-      </View>
+      {/* Caption — plain text only; username + timestamp already in card header */}
+      {(post.caption?.trim() || post.location) ? (
+        <View style={styles.captionContainer}>
+          {post.location && (
+            <TouchableOpacity
+              style={styles.locationInline}
+              onPress={() => router.push(`/location/${encodeURIComponent(post.location!)}` as any)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="location-outline" size={11} color="#8B5CF6" />
+              <Text style={[styles.location, { color: "#8B5CF6" }]}>{post.location}</Text>
+            </TouchableOpacity>
+          )}
+          {post.caption?.trim() ? (
+            <Text style={[styles.caption, { color: colors.foreground }]}>
+              {post.caption.split(/(#\w+)/g).map((part, i) =>
+                part.startsWith("#") ? (
+                  <Text
+                    key={i}
+                    style={styles.hashTag}
+                    onPress={() => router.push(`/hashtag/${encodeURIComponent(part.slice(1))}` as any)}
+                  >
+                    {part}
+                  </Text>
+                ) : (
+                  <Text key={i}>{part}</Text>
+                )
+              )}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <CommentsSheet
         visible={showComments}
