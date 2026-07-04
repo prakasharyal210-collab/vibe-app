@@ -50,18 +50,26 @@ export default function PollCard({ poll, userId }: Props) {
       : null;
 
   const handleVote = async (optionId: string) => {
-    if (!userId || isEnded || loading || showResults) return;
+    // Block: no user, poll ended, already loading, or tapping the already-chosen option
+    if (!userId || isEnded || loading || viewerVote === optionId) return;
     setLoading(optionId);
 
     const prevOpts = options;
     const prevTotal = totalVotes;
     const prevVote = viewerVote;
 
+    const isReVote = viewerVote !== null;
+
     // Optimistic update
+    // Re-vote: swap counts, total stays the same. First vote: +1 total.
     setViewerVote(optionId);
-    setTotalVotes((t) => t + 1);
+    if (!isReVote) setTotalVotes((t) => t + 1);
     setOptions((opts) =>
-      opts.map((o) => (o.id === optionId ? { ...o, votes: o.votes + 1 } : o)),
+      opts.map((o) => {
+        if (o.id === optionId) return { ...o, votes: o.votes + 1 };
+        if (isReVote && o.id === prevVote) return { ...o, votes: Math.max(0, o.votes - 1) };
+        return o;
+      }),
     );
 
     try {
@@ -100,8 +108,8 @@ export default function PollCard({ poll, userId }: Props) {
         const isLeading = leadingId === opt.id;
 
         if (showResults) {
-          return (
-            <View key={opt.id} style={s.resultRow}>
+          const inner = (
+            <>
               {isLeading ? (
                 <LinearGradient
                   colors={["#7C3AED", "#EA580C"]}
@@ -137,6 +145,28 @@ export default function PollCard({ poll, userId }: Props) {
                   <Text style={s.pctText}>{pct}%</Text>
                 </View>
               </View>
+            </>
+          );
+
+          // Active poll: bars stay tappable so the user can change their vote.
+          // Ended poll: plain View, fully non-interactive.
+          if (!isEnded) {
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                style={[s.resultRow, loading === opt.id && { opacity: 0.6 }]}
+                onPress={() => handleVote(opt.id)}
+                activeOpacity={isChosen ? 1 : 0.75}
+                disabled={!!loading}
+              >
+                {inner}
+              </TouchableOpacity>
+            );
+          }
+
+          return (
+            <View key={opt.id} style={s.resultRow}>
+              {inner}
             </View>
           );
         }
