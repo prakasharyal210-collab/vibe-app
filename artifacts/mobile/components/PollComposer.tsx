@@ -9,6 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 
 export interface PollDraft {
+  question?: string;
   options: string[];
   duration_hours: 24 | 72 | 168;
 }
@@ -61,6 +62,16 @@ export default function PollComposer({ poll, onChange }: Props) {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Question input */}
+      <TextInput
+        style={s.questionInput}
+        value={poll.question ?? ""}
+        onChangeText={(t) => update({ question: t })}
+        placeholder="Ask a question... (optional)"
+        placeholderTextColor="rgba(255,255,255,0.25)"
+        maxLength={100}
+      />
 
       {/* Option inputs */}
       {poll.options.map((opt, i) => (
@@ -141,6 +152,17 @@ const s = StyleSheet.create({
   title: {
     flex: 1,
     color: "#A78BFA",
+    fontFamily: "Poppins_600SemiBold",
+    fontSize: 14,
+  },
+  questionInput: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(167,139,250,0.2)",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    color: "#fff",
     fontFamily: "Poppins_600SemiBold",
     fontSize: 14,
   },

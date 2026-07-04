@@ -341,7 +341,7 @@ router.post("/create", async (req, res) => {
     };
     coupleId?: string;
     isCouplePost?: boolean;
-    poll?: { options: string[]; duration_hours: number };
+    poll?: { question?: string; options: string[]; duration_hours: number };
   };
 
   if (!userId) {
@@ -568,9 +568,12 @@ router.post("/create", async (req, res) => {
       if (validOpts.length >= 2) {
         const durH = [24, 72, 168].includes(poll.duration_hours) ? poll.duration_hours : 24;
         const endsAt = new Date(Date.now() + durH * 3_600_000).toISOString();
+        const pollQuestion = typeof poll.question === "string" && poll.question.trim()
+          ? poll.question.trim().slice(0, 100)
+          : null;
         const { data: pollRow } = await sb
           .from("polls")
-          .insert({ post_id: postId, ends_at: endsAt })
+          .insert({ post_id: postId, ends_at: endsAt, question: pollQuestion })
           .select("id")
           .single();
         if (pollRow) {

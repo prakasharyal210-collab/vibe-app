@@ -362,6 +362,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               isCouplePost: postAsCouple && !!coupleLinkId,
               poll: pollDraft
                 ? {
+                    question: pollDraft.question?.trim() || undefined,
                     options: pollDraft.options.filter((o) => o.trim()),
                     duration_hours: pollDraft.duration_hours,
                   }
@@ -412,6 +413,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     setPhase("uploading");
     try {
       await createTextPost(session.user.id, caption.trim() || "What do you think?", {
+        question: pollDraft!.question?.trim() || undefined,
         options: filled,
         duration_hours: pollDraft!.duration_hours,
       });

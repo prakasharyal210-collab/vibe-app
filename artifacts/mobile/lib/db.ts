@@ -1521,7 +1521,7 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
 export async function createTextPost(
   userId: string,
   caption: string,
-  poll?: { options: string[]; duration_hours: number },
+  poll?: { question?: string; options: string[]; duration_hours: number },
 ): Promise<{ id: string }> {
   const res = await fetch(`${API_BASE}/posts/create`, {
     method: "POST",
@@ -1547,7 +1547,7 @@ export async function uploadPostMedia(
     category?: string;
     coupleId?: string;
     isCouplePost?: boolean;
-    poll?: { options: string[]; duration_hours: number };
+    poll?: { question?: string; options: string[]; duration_hours: number };
   }
 ): Promise<{ id: string; mediaUrl: string }> {
   const cleanUri = uri.split('?')[0];

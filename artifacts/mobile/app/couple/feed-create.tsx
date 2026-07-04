@@ -129,6 +129,7 @@ export default function FeedCreateScreen() {
           location: location.trim() || undefined,
           poll: pollDraft
             ? {
+                question: pollDraft.question?.trim() || undefined,
                 options: pollDraft.options.filter((o) => o.trim()),
                 duration_hours: pollDraft.duration_hours,
               }
