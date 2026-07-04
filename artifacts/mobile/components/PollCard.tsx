@@ -150,16 +150,19 @@ export default function PollCard({ poll, userId }: Props) {
 
           // Active poll: bars stay tappable so the user can change their vote.
           // Ended poll: plain View, fully non-interactive.
+          // IMPORTANT: overflow:"hidden" must stay on the inner View, not on
+          // TouchableOpacity — putting it on TouchableOpacity clips the
+          // absolutely-positioned gradient bar and hides all text children.
           if (!isEnded) {
             return (
               <TouchableOpacity
                 key={opt.id}
-                style={[s.resultRow, loading === opt.id && { opacity: 0.6 }]}
                 onPress={() => handleVote(opt.id)}
                 activeOpacity={isChosen ? 1 : 0.75}
                 disabled={!!loading}
+                style={loading === opt.id ? { opacity: 0.6 } : undefined}
               >
-                {inner}
+                <View style={s.resultRow}>{inner}</View>
               </TouchableOpacity>
             );
           }
