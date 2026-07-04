@@ -1,6 +1,10 @@
+import { exec } from "child_process";
+import { promisify } from "util";
 import { Router, type IRouter } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { HealthCheckResponse } from "@workspace/api-zod";
+
+const execAsync = promisify(exec);
 
 const router: IRouter = Router();
 
@@ -51,6 +55,20 @@ router.get("/healthz/scoring-config", async (req, res) => {
   } catch (err: any) {
     req.log.error({ err: err?.message }, "scoring_config check failed");
     res.status(500).json({ writable: false, reason: err?.message });
+  }
+});
+
+// GET /api/health/ffmpeg
+// Verifies ffmpeg is available in the runtime environment.
+// Returns { ok: true, version: "<first line of ffmpeg -version>" } or 500.
+router.get("/health/ffmpeg", async (req, res) => {
+  try {
+    const { stdout } = await execAsync("ffmpeg -version");
+    const version = stdout.split("\n")[0]?.trim() ?? "unknown";
+    res.json({ ok: true, version });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "ffmpeg not available");
+    res.status(500).json({ ok: false, reason: err?.message ?? "ffmpeg not found" });
   }
 });
 

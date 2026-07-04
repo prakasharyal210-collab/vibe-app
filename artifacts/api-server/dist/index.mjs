@@ -45289,6 +45289,8 @@ var import_express42 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
+import { exec } from "child_process";
+import { promisify } from "util";
 
 // ../../node_modules/.pnpm/@supabase+supabase-js@2.106.2/node_modules/@supabase/supabase-js/dist/index.mjs
 var dist_exports = {};
@@ -58055,6 +58057,7 @@ var HealthCheckResponse = objectType({
 });
 
 // src/routes/health.ts
+var execAsync = promisify(exec);
 var router = (0, import_express.Router)();
 router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({ status: "ok" });
@@ -58081,6 +58084,16 @@ router.get("/healthz/scoring-config", async (req, res) => {
   } catch (err) {
     req.log.error({ err: err?.message }, "scoring_config check failed");
     res.status(500).json({ writable: false, reason: err?.message });
+  }
+});
+router.get("/health/ffmpeg", async (req, res) => {
+  try {
+    const { stdout } = await execAsync("ffmpeg -version");
+    const version3 = stdout.split("\n")[0]?.trim() ?? "unknown";
+    res.json({ ok: true, version: version3 });
+  } catch (err) {
+    req.log.error({ err: err?.message }, "ffmpeg not available");
+    res.status(500).json({ ok: false, reason: err?.message ?? "ffmpeg not found" });
   }
 });
 var health_default = router;
