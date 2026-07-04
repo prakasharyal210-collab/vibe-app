@@ -148,8 +148,30 @@ router.post("/upload-photo", async (req, res) => {
 });
 
 // ── GET /posts ─────────────────────────────────────────────────────────────────
-// Returns ALL confessions from ALL couples — this is a permanent public community
-// feed. coupleId is only used to determine likedByMe; it is never used to filter.
+// Returns confessions ranked by a "hot" formula within a 200-post window.
+// Scoring (computed in JS after fetching):
+//   score = (reactions + comments*2 + poll_votes*1.5 + active_poll_bonus)
+//           / Math.pow(hours_since + 2, 1.5)
+// where:
+//   reactions        = sum of reaction_support + reaction_relate + reaction_strength + reaction_love
+//   comments         = comment_count column
+//   poll_votes       = total poll_votes rows for the attached poll, 0 if none
+//   active_poll_bonus= +5 if poll ends_at is still in the future, else 0
+//   hours_since      = (now - created_at) / 3_600_000, UTC-safe
+//
+// Freshness injection: every 5th ranked slot is replaced by the newest not-yet-placed post
+// so brand-new confessions always surface regardless of score.
+//
+// Pagination: the 200-post window is ranked once in memory; offset/limit slice into
+// the final ranked list.  Category filter applies before ranking (narrower window).
+
+// UTC-safe ms parser: appends Z only if no timezone offset is already present.
+function parseUTCMs(s: string): number {
+  const ts = /[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s : s + "Z";
+  return new Date(ts).getTime();
+}
+
+const HOT_WINDOW = 200; // rows fetched for ranking
 
 router.get("/posts", async (req, res) => {
   const coupleId = req.query["coupleId"] as string | undefined;
@@ -158,20 +180,150 @@ router.get("/posts", async (req, res) => {
   const category = req.query["category"] as string | undefined;
   const sb = makeSupabase();
   try {
-    let query = sb
+    // ── Step 1: Fetch raw ranking window ──────────────────────────────────────
+    // Category filter applies before ranking; we use .limit() not .range() so the
+    // window is always HOT_WINDOW rows and pagination happens on the ranked result.
+    let rawQuery = sb
       .from("couple_feed_posts")
       .select("*")
       .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(HOT_WINDOW);
 
     if (category && category !== "All") {
-      query = query.eq("category", category);
+      rawQuery = rawQuery.eq("category", category);
     }
 
-    const { data: posts, error } = await query;
-    if (error) throw error;
+    const { data: rawPosts, error: rawErr } = await rawQuery;
+    if (rawErr) {
+      req.log.error({ err: rawErr.message }, "couple-feed/posts GET: raw fetch failed");
+      res.status(500).json({ error: "Failed to fetch couple feed" });
+      return;
+    }
 
-    const enriched = await Promise.all(((posts ?? []) as any[]).map((p) => enrichPost(sb, p, coupleId)));
+    const posts = (rawPosts ?? []) as any[];
+
+    // ── Step 2: Batch-fetch poll scores for all posts in window ───────────────
+    // polls.confession_post_id links a poll to its confession post.
+    // poll_votes count gives poll engagement; ends_at drives the active bonus.
+    const pollScoreMap = new Map<string, { totalVotes: number; endsAt: string }>();
+
+    if (posts.length > 0) {
+      const allIds = posts.map((p: any) => p.id as string);
+
+      const { data: polls, error: pollsErr } = await sb
+        .from("polls")
+        .select("id, confession_post_id, ends_at")
+        .in("confession_post_id", allIds);
+
+      if (pollsErr) {
+        req.log.warn({ err: pollsErr.message }, "couple-feed/posts GET: polls fetch failed (non-fatal, poll scores zeroed)");
+      }
+
+      const pollRows = (polls ?? []) as any[];
+      if (pollRows.length > 0) {
+        const pollIds = pollRows.map((p: any) => p.id as string);
+
+        const { data: votes, error: votesErr } = await sb
+          .from("poll_votes")
+          .select("poll_id")
+          .in("poll_id", pollIds);
+
+        if (votesErr) {
+          req.log.warn({ err: votesErr.message }, "couple-feed/posts GET: poll_votes fetch failed (non-fatal)");
+        }
+
+        // Count votes per poll_id
+        const votesByPoll = new Map<string, number>();
+        for (const v of ((votes ?? []) as any[])) {
+          votesByPoll.set(v.poll_id as string, (votesByPoll.get(v.poll_id as string) ?? 0) + 1);
+        }
+
+        // Map confession_post_id → { totalVotes, endsAt }
+        for (const poll of pollRows) {
+          pollScoreMap.set(poll.confession_post_id as string, {
+            totalVotes: votesByPoll.get(poll.id as string) ?? 0,
+            endsAt: poll.ends_at as string,
+          });
+        }
+      }
+    }
+
+    // ── Step 3: Score every post ──────────────────────────────────────────────
+    const now = Date.now();
+
+    type ScoredPost = { post: any; score: number; createdAtMs: number };
+
+    const scored: ScoredPost[] = posts.map((p: any) => {
+      const reactions =
+        (p.reaction_support  ?? 0) +
+        (p.reaction_relate   ?? 0) +
+        (p.reaction_strength ?? 0) +
+        (p.reaction_love     ?? 0);
+      const comments = p.comment_count ?? 0;
+      const pollInfo = pollScoreMap.get(p.id as string);
+      const pollVotes = pollInfo?.totalVotes ?? 0;
+      const activePollBonus = pollInfo?.endsAt && parseUTCMs(pollInfo.endsAt) > now ? 5 : 0;
+      const createdAtMs = parseUTCMs(p.created_at as string);
+      const hoursSince = Math.max(0, (now - createdAtMs) / 3_600_000);
+      const score =
+        (reactions + comments * 2 + pollVotes * 1.5 + activePollBonus) /
+        Math.pow(hoursSince + 2, 1.5);
+      return { post: p, score, createdAtMs };
+    });
+
+    // ── Step 4: Sort by score descending ─────────────────────────────────────
+    scored.sort((a, b) => b.score - a.score);
+
+    // ── Step 5: Freshness injection ───────────────────────────────────────────
+    // byRecency is the score-array re-sorted newest-first (separate pointer).
+    // Every 5th slot (0-indexed 4, 9, 14…) is filled by the newest unplaced post.
+    const byRecency = [...scored].sort((a, b) => b.createdAtMs - a.createdAtMs);
+    const placed = new Set<string>();
+    const ranked: ScoredPost[] = [];
+    let scorePtr = 0;
+    let recencyPtr = 0;
+
+    while (ranked.length < scored.length) {
+      const slot = ranked.length;
+      let filledThisSlot = false;
+
+      // Injection slot: every 5th position (slot 4, 9, 14…)
+      if ((slot + 1) % 5 === 0) {
+        while (recencyPtr < byRecency.length && placed.has(byRecency[recencyPtr]!.post.id as string)) {
+          recencyPtr++;
+        }
+        if (recencyPtr < byRecency.length) {
+          const entry = byRecency[recencyPtr++]!;
+          ranked.push(entry);
+          placed.add(entry.post.id as string);
+          filledThisSlot = true;
+        }
+      }
+
+      if (!filledThisSlot) {
+        while (scorePtr < scored.length && placed.has(scored[scorePtr]!.post.id as string)) {
+          scorePtr++;
+        }
+        if (scorePtr >= scored.length) break;
+        const entry = scored[scorePtr++]!;
+        ranked.push(entry);
+        placed.add(entry.post.id as string);
+      }
+    }
+
+    // ── Step 6: Paginate the ranked list ─────────────────────────────────────
+    const paginatedRaw = ranked.slice(offset, offset + limit).map((e) => e.post);
+
+    // Logging
+    const topScore = scored[0]?.score ?? 0;
+    const freshnessInjected = Math.floor(scored.length / 5);
+    req.log.info(
+      { total: posts.length, topScore: Number(topScore.toFixed(3)), freshnessInjected },
+      "confession-feed ranked",
+    );
+
+    // ── Step 7: Enrich only the returned page (not all 200) ──────────────────
+    const enriched = await Promise.all(paginatedRaw.map((p) => enrichPost(sb, p, coupleId)));
     // Pass coupleId so both partners see the same viewerVote (couple-scoped voting)
     const enrichedPolls = await enrichWithPolls(sb, enriched, undefined, "confession_post_id", coupleId);
     res.json({ posts: enrichedPolls });
