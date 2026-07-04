@@ -467,7 +467,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           <Ionicons name="musical-notes" size={12} color="rgba(255,255,255,0.75)" />
           <View style={S.soundMarqueeClip}>
             <Animated.Text style={[S.soundText, marqueeStyle]} numberOfLines={1}>
-              {reel.sound} · {reel.sound} · {reel.sound} ·{"  "}
+              {reel.sound}
             </Animated.Text>
           </View>
         </TouchableOpacity>
