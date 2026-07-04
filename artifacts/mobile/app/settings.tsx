@@ -1280,6 +1280,34 @@ export default function SettingsScreen() {
         </View>
 
         {/* ════════════════════════════════════════════════════
+            ADMIN (only shown to admin accounts)
+        ════════════════════════════════════════════════════ */}
+        {["prakasharyal", "admin", "gundruk_admin"].includes(
+          (emailUsername ?? "").toLowerCase(),
+        ) && (
+          <View style={styles.section}>
+            <SecLabel label="Admin" />
+            <Card>
+              <Row
+                icon="hand-left-outline"
+                iconBg="#7C3AED"
+                label="Welcome Desk"
+                sub="Welcome new users' first posts"
+                onPress={() => router.push("/admin/welcome-desk" as any)}
+              />
+              <Row
+                icon="flag-outline"
+                iconBg="#EF4444"
+                label="Reports"
+                sub="Review flagged content"
+                onPress={() => router.push("/admin/reports" as any)}
+                isLast
+              />
+            </Card>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════════════════
             SUPPORT
         ════════════════════════════════════════════════════ */}
         <View style={styles.section}>

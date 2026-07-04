@@ -630,6 +630,35 @@ router.post("/create", async (req, res) => {
     .catch(() => {}); // non-fatal if RPC not deployed yet
 
   // 4. First-post welcome: auto-like + AI welcome comment + push notification
+  // 4a. Notify all admin users about the new first post (fire-and-forget, immediate)
+  if (isFirstPost) {
+    void (async () => {
+      try {
+        const { data: authorProfile } = await sb
+          .from("profiles")
+          .select("username")
+          .eq("id", userId)
+          .maybeSingle();
+        const authorUsername = (authorProfile as any)?.username ?? "someone";
+
+        const { data: admins } = await sb
+          .from("profiles")
+          .select("id")
+          .eq("is_admin", true);
+
+        for (const admin of admins ?? []) {
+          const adminId = (admin as any).id as string;
+          if (adminId === userId) continue; // don't ping if the poster is an admin
+          void sendPushToUser(sb, adminId, {
+            title: "👋 New first post!",
+            body: `@${authorUsername} just made their first post — tap to welcome them`,
+            data: { type: "admin_first_post", authorId: userId, postId },
+          });
+        }
+      } catch {}
+    })();
+  }
+
   if (isFirstPost) {
     void (async () => {
       try {

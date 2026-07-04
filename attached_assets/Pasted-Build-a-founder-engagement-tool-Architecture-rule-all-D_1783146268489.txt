@@ -1,0 +1,12 @@
+Build a founder engagement tool. Architecture rule: all DB access through artifacts/api-server with service-role key; mobile uses API endpoints only. The Claude Haiku integration and admin check (profiles.is_admin) already exist — reuse them.
+API server (artifacts/api-server) — all endpoints admin-only (verify requester's profile has is_admin = true):
+
+GET /api/admin/first-posts — returns first posts (is_first_post = true) from the last 7 days, newest first, with: post id, caption, media thumbnail url, created_at, author username/avatar, and flags for whether the founder account has already commented and whether the official welcome-bot comment exists. Include a suggested_comment field: generate via Claude Haiku (prompt: given the post caption, draft ONE short friendly comment from the app's founder, max 15 words, warm and specific to the content, max 1 emoji, no hashtags; if caption is empty, comment on joining: e.g. "welcome to gundruk! 🙌"). Cache the suggestion per post (in-memory is fine) so repeated loads don't re-bill.
+POST /api/admin/first-posts/:postId/comment — body { text }. Posts the comment on that post AS THE REQUESTING ADMIN'S OWN account (use the authenticated admin's user id, not a hardcoded account). Returns the created comment.
+Founder notification: in the existing first-post flow, after moderation passes, also send a push notification to all admin users: "👋 New first post from @{username} — tap to welcome them".
+
+Mobile (artifacts/mobile):
+4. New screen app/admin/welcome-desk.tsx (or match existing admin screen conventions if any exist — check for existing admin/report screens and follow their pattern). Only accessible if the logged-in user's profile is_admin is true; add an entry point in the existing admin/settings area.
+5. Screen shows a vertical list of cards: post thumbnail + caption + author + time ago + the suggested comment in an editable text input + a "Send 💬" button. After sending, the card shows a sent state. Posts already commented on by the founder show as done. Pull-to-refresh.
+6. Match the app's existing visual style.
+List all files changed and any migrations needed.
