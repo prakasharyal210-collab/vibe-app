@@ -77,6 +77,7 @@ interface Reel {
   sound: string;
   isVerified?: boolean;
   duration?: number;   // seconds; used for watch_time_ratio
+  allowDownload?: boolean;  // creator's allow_download preference from DB
 }
 
 
@@ -464,6 +465,23 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
           <Text style={S.actionCount}>{fmt(reel.shares)}</Text>
         </TouchableOpacity>
 
+        {/* Download — only shown when creator enabled downloads; saving gated
+            until watermarked export ships (ffmpeg-kit pipeline). */}
+        {reel.allowDownload !== false && (
+          <TouchableOpacity
+            style={S.actionBtn}
+            onPress={() => Alert.alert(
+              "Coming soon",
+              "Watermarked downloads are on their way. Stay tuned! 🎬",
+              [{ text: "OK" }],
+            )}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="cloud-download-outline" size={28} color="#fff" style={S.actionIcon} />
+            <Text style={S.actionCount}>Save</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Spinning music disc */}
         <TouchableOpacity style={S.musicDisc} onPress={() => router.push("/search" as any)}>
           <UserAvatar username={reel.username} size={36} />
@@ -703,6 +721,7 @@ export default function ReelsScreen() {
         views: r.views_count ?? 0,
         sound: r.sound_name ?? "Original Sound",
         isVerified: r.is_verified ?? r.profiles?.is_verified ?? false,
+        allowDownload: r.allow_download ?? true,
       };
     }
 
