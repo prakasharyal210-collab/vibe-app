@@ -43,10 +43,12 @@ import {
   Achievement,
   checkAchievements,
   checkFavourited,
+  checkIsFollowing,
   checkLiked,
   recordEngagement,
   reportContent,
   toggleFavourite,
+  toggleFollowUser,
   toggleLike,
   trackUserInterest,
   updateCreatorAnalytics,
@@ -355,6 +357,28 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
   const isOwn = !!(userId && post.user_id && userId === post.user_id);
 
+  // Fetch real follow state on mount — never assume false.
+  // Skip for own posts and for unauthenticated users.
+  useEffect(() => {
+    if (!userId || !post.user_id || isOwn) return;
+    checkIsFollowing(userId, post.user_id)
+      .then(setFollowing)
+      .catch(() => {}); // leave as false on network failure — safe default
+  }, [userId, post.user_id, isOwn]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Optimistic follow toggle — confirms from server response.
+  const handleFollowPress = useCallback(async () => {
+    if (!userId || !post.user_id || isOwn) return;
+    const optimistic = !following;
+    setFollowing(optimistic);
+    try {
+      const confirmed = await toggleFollowUser(userId, post.user_id);
+      setFollowing(confirmed);
+    } catch {
+      setFollowing(!optimistic); // revert on error
+    }
+  }, [userId, post.user_id, isOwn, following]);
+
   const patchPost = async (fields: Record<string, unknown>) => {
     try {
       const res = await fetch(`${API_BASE}/posts/${post.id}`, {
@@ -539,7 +563,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               </View>
             </>
           )}
-          <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
+          {!isOwn && <FollowPillButton following={following} onPress={handleFollowPress} />}
         </View>
 
         {/* Caption + actions pinned to bottom — subtle gradient scrim, not a heavy dark block */}
@@ -645,7 +669,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             </View>
           </>
         )}
-        <FollowPillButton following={following} onPress={() => setFollowing((f) => !f)} />
+        {!isOwn && <FollowPillButton following={following} onPress={handleFollowPress} />}
         <TouchableOpacity onPress={() => setShowOptionsSheet(true)} style={styles.moreBtn}>
           <Ionicons name="ellipsis-vertical" size={18} color={colors.mutedForeground} />
         </TouchableOpacity>

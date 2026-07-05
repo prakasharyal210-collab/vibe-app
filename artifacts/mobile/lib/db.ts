@@ -1333,7 +1333,8 @@ export async function getForYouFeed(
   category?: string,
   feedType?: string,
 ): Promise<Post[]> {
-  console.log('[getForYouFeed] called userId:', userId?.slice(0, 8), 'limit:', limit, 'offset:', offset, 'contentType:', contentType, 'sort:', sortOrder, 'category:', category, 'type:', feedType);
+  const t0 = Date.now();
+  console.log('[getForYouFeed] start userId:', userId?.slice(0, 8), 'offset:', offset, 'limit:', limit, 'contentType:', contentType, 'sort:', sortOrder);
   try {
     const params = new URLSearchParams({
       userId,
@@ -1359,17 +1360,17 @@ export async function getForYouFeed(
       // misconfigured DB row (is_video null/wrong) can never leak through.
       if (contentType === "video") posts = posts.filter((p: any) => p.is_video === true);
       else if (contentType === "photo") posts = posts.filter((p: any) => p.is_video !== true);
-      console.log('[getForYouFeed] api server ok, source:', body.source, 'rows after client filter:', posts.length);
+      console.log('[getForYouFeed] ok source:', body.source, 'rows after filter:', posts.length, 'ms:', Date.now() - t0);
       if (posts.length > 0) {
         return applyDiversity(posts);
       }
     } else {
-      console.log('[getForYouFeed] api server error:', res.status);
+      console.log('[getForYouFeed] http error:', res.status, 'ms:', Date.now() - t0);
     }
   } catch (e: any) {
-    console.log('[getForYouFeed] fetch threw:', e?.message);
+    console.log('[getForYouFeed] threw:', e?.message, 'ms:', Date.now() - t0);
   }
-  console.log('[getForYouFeed] returning []');
+  console.log('[getForYouFeed] returning [] ms:', Date.now() - t0);
   return [];
 }
 
@@ -1393,7 +1394,8 @@ export async function getFollowingFeed(userId: string, limit = 20, offset = 0): 
 }
 
 export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {
-  console.log('[getFriendsFeed] called userId:', userId?.slice(0, 8));
+  const t0 = Date.now();
+  console.log('[getFriendsFeed] start userId:', userId?.slice(0, 8), 'offset:', offset, 'limit:', limit);
   try {
     const params = new URLSearchParams({
       userId,
@@ -1408,15 +1410,16 @@ export async function getFriendsFeed(userId: string, limit = 20, offset = 0): Pr
     } finally {
       clearTimeout(timer);
     }
+    const ms = Date.now() - t0;
     if (res.ok) {
       const body = await res.json();
       const posts = (body.data ?? []) as Post[];
-      console.log('[getFriendsFeed] api server ok, source:', body.source, 'rows:', posts.length);
+      console.log('[getFriendsFeed] ok source:', body.source, 'rows:', posts.length, 'ms:', ms);
       return posts;
     }
-    console.log('[getFriendsFeed] api server error:', res.status);
+    console.log('[getFriendsFeed] http error:', res.status, 'ms:', ms);
   } catch (e: any) {
-    console.log('[getFriendsFeed] fetch threw:', e?.message);
+    console.log('[getFriendsFeed] threw:', e?.message, 'ms:', Date.now() - t0);
   }
   return [];
 }
