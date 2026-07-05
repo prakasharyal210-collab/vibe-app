@@ -103,12 +103,13 @@ router.get("/search", async (req, res) => {
 // GET /api/users/profile/:username?viewer_id=<uuid>
 // lookup profile by username with live stats; returns 404 if blocked in either direction
 router.get("/profile/:username", async (req, res) => {
+  const t0 = Date.now();
   const { username } = req.params;
   if (!username) { res.status(400).json({ error: "username required" }); return; }
   const viewerId = (req.query["viewer_id"] as string | undefined)?.trim() || undefined;
   const sb = makeSupabase();
 
-  req.log.info({ username }, "profile lookup");
+  req.log.info({ username, viewer: viewerId?.slice(0, 8) ?? "guest" }, "profile: start");
 
   // PROFILE_COLS_FULL includes columns added by optional migrations. If those migrations have not
   // been run yet, PostgREST returns a 42703 "column does not exist" error. We fall back to
@@ -156,10 +157,12 @@ router.get("/profile/:username", async (req, res) => {
     }
 
     if (!profile) {
-      req.log.info({ username }, "profile lookup: not found");
+      req.log.info({ username }, "profile: not found");
       res.status(404).json({ error: "not found" });
       return;
     }
+
+    req.log.info({ username, ms: Date.now() - t0 }, "profile: db row fetched");
 
     // Block visibility check — return 404 if either party has blocked the other
     if (viewerId && viewerId !== profile.id) {
@@ -171,6 +174,7 @@ router.get("/profile/:username", async (req, res) => {
         res.status(404).json({ error: "not found" });
         return;
       }
+      req.log.info({ ms: Date.now() - t0 }, "profile: block check done");
     }
 
     // VIBE PRIVACY GATE — applies only when:
@@ -209,8 +213,9 @@ router.get("/profile/:username", async (req, res) => {
             .maybeSingle(),
         ]);
         const unlocked = !!(pendingReq.data || matchA.data || matchB.data);
+        req.log.info({ ms: Date.now() - t0, unlocked }, "profile: vibe gate evaluated (stranger path)");
         if (!unlocked) {
-          req.log.info({ username, viewerId }, "profile vibe-gated: strangers with no unlock condition");
+          req.log.info({ username, ms: Date.now() - t0 }, "profile: vibe-gated response sent");
           res.json({
             profile: {
               id: profile.id,
@@ -227,25 +232,33 @@ router.get("/profile/:username", async (req, res) => {
       }
     }
 
-    // Live COUNT queries run in parallel — not stale cached columns
-    const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([
-      sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
-      sb.from("reels").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
-      sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
-      sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("follower_id", profile.id),
-    ]);
+    // Counts + partner run in ONE parallel batch.
+    // Previously fetchPartner was awaited serially AFTER the 4 count queries,
+    // adding 2 extra DB round trips (couple_links → profiles). Merging into the
+    // same Promise.allSettled cuts that entire serial tail.
+    const [postsRes, reelsRes, followersRes, followingRes, partnerRes] =
+      await Promise.allSettled([
+        sb.from("posts").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
+        sb.from("reels").select("*", { count: "exact", head: true }).eq("user_id", profile.id),
+        sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", profile.id),
+        sb.from("follows").select("follower_id", { count: "exact", head: true }).eq("follower_id", profile.id),
+        profile.show_relationship !== false
+          ? fetchPartner(sb, profile.id)
+          : Promise.resolve(null),
+      ]);
 
     const posts_count =
       (postsRes.status === "fulfilled" ? (postsRes.value.count ?? 0) : 0) +
       (reelsRes.status === "fulfilled" ? (reelsRes.value.count ?? 0) : 0);
     const followers_count = followersRes.status === "fulfilled" ? (followersRes.value.count ?? 0) : 0;
     const following_count = followingRes.status === "fulfilled" ? (followingRes.value.count ?? 0) : 0;
+    const partner: PartnerInfo =
+      partnerRes.status === "fulfilled" ? (partnerRes.value as PartnerInfo) : null;
 
-    // Partner badge — show_relationship defaults to true if column doesn't exist yet
-    let partner: PartnerInfo = null;
-    if (profile.show_relationship !== false) {
-      partner = await fetchPartner(sb, profile.id);
-    }
+    req.log.info(
+      { ms: Date.now() - t0, posts: posts_count, followers: followers_count, hasPartner: !!partner },
+      "profile: counts+partner done — responding",
+    );
 
     res.json({
       profile: {
@@ -257,7 +270,7 @@ router.get("/profile/:username", async (req, res) => {
       },
     });
   } catch (err: any) {
-    req.log.error({ err: err?.message }, "profile lookup exception");
+    req.log.error({ err: err?.message }, "profile: exception");
     res.status(500).json({ error: "Profile lookup failed" });
   }
 });

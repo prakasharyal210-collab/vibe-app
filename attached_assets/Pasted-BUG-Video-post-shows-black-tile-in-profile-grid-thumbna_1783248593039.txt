@@ -1,0 +1,17 @@
+BUG: Video post shows black tile in profile grid — thumbnail missing/broken for some videos
+In the profile posts grid, one video post renders as pure black with only the play badge, while another video in the same grid shows its thumbnail fine. So thumbnail rendering works in general — this specific post's thumbnail is broken. (Earlier screenshots also showed solid purple placeholder tiles on another profile — possibly the same root.)
+DIAGNOSE WITH DATA:
+
+Query the affected post row (the black-tile video): what's in thumbnail_url and video_url? ({ data, error } via api-server or log it.) Report the actual values: is thumbnail_url NULL, empty, a broken URL (curl its HTTP status), or valid?
+Check the thumbnail generation path at upload: video posts should generate a thumbnail at upload time (expo-video-thumbnails client-side per the earlier implementation). Trace: is the thumbnail upload { data, error } checked, or can it fail silently leaving the post with NULL thumbnail_url while the post itself succeeds? (Signature-bug pattern.)
+Check the grid tile component: when thumbnail_url is null/broken, what renders? If it's a bare black View, that's the visible symptom — regardless of root cause, the fallback should be better.
+
+THEN FIX:
+
+Root cause: if thumbnail upload failures are swallowed → make thumbnail generation+upload part of the post-creation success path (fail loudly or retry, never silently NULL).
+Fallback rendering: grid tiles for videos with missing thumbnails should show a styled placeholder (dark gradient + centered play icon) — never raw black. Better: attempt on-the-fly thumbnail via expo-video-thumbnails from video_url as a client-side rescue, cache result.
+Backfill option: report how many existing posts have is_video = true AND (thumbnail_url IS NULL OR thumbnail_url = '') — if few, note them; we can regenerate manually or ignore (test data).
+Sibling check: reels grid tiles and the Discover/profile purple-tile issue — same component? Same fix. Report.
+
+Rules: api-server service-role; live-schema columns; { data, error } always.
+Typecheck, report: the actual thumbnail_url value found, root cause, count of affected posts, files changed. Do not push or deploy.

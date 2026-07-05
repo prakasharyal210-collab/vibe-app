@@ -54,6 +54,22 @@ import { useColors } from "@/hooks/useColors";
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 const BLOCKED_RS = ["Married", "Engaged", "Widowed"];
 
+// ─── Session-level profile cache ─────────────────────────────────────────────
+// Keyed by `${username}:${viewerId}`. TTL 60 s. Cleared on explicit navigation
+// so repeat taps return instantly without a round-trip.
+const PROFILE_CACHE_TTL = 60_000;
+type CacheEntry = { profile: PublicProfile; ts: number };
+const _profileCache = new Map<string, CacheEntry>();
+function _cacheGet(key: string): PublicProfile | null {
+  const e = _profileCache.get(key);
+  if (!e) return null;
+  if (Date.now() - e.ts > PROFILE_CACHE_TTL) { _profileCache.delete(key); return null; }
+  return e.profile;
+}
+function _cacheSet(key: string, profile: PublicProfile) {
+  _profileCache.set(key, { profile, ts: Date.now() });
+}
+
 async function muteUser(muterId: string, mutedId: string): Promise<void> {
   await fetch(`${API_BASE}/users/social/mute`, {
     method: "POST",
@@ -576,26 +592,63 @@ export default function UserProfileScreen() {
     setProfileLoaded(false);
   }, [u]);
 
+  // ── Profile fetch — checks module-level cache first so repeat taps are instant ──
   useEffect(() => {
     if (!u) return;
+    const cacheKey = `${u}:${myId ?? "guest"}`;
+    const cached = _cacheGet(cacheKey);
+    if (cached) {
+      if (__DEV__) console.log(`[Profile] cache HIT for ${u} (skipping fetch)`);
+      setProfile(cached);
+      setFollowersCount(cached.followers_count ?? 0);
+      setProfileLoaded(true);
+      return;
+    }
+    const t0 = Date.now();
+    if (__DEV__) console.log(`[Profile] fetch START for ${u} t=0ms`);
     lookupProfileByUsername(u, myId ?? undefined)
-      .then((p) => { if (p) { setProfile(p); setFollowersCount(p.followers_count ?? 0); } setProfileLoaded(true); })
+      .then((p) => {
+        if (__DEV__) console.log(`[Profile] profile DONE t=${Date.now() - t0}ms found=${!!p}`);
+        if (p) {
+          setProfile(p);
+          setFollowersCount(p.followers_count ?? 0);
+          _cacheSet(cacheKey, p);
+        }
+        setProfileLoaded(true);
+      })
       .catch(() => setProfileLoaded(true));
   }, [u, myId]);
 
+  // ── Posts + polls — fire as soon as profile.id is available ──
   useEffect(() => {
     if (!profile?.id) return;
-    fetchProfilePosts(profile.id, myId).then(setPosts).catch(() => {});
-    fetchUserPolls(profile.id, myId ?? undefined).then(setProfilePolls).catch(() => {});
+    const t0 = Date.now();
+    if (__DEV__) console.log(`[Profile] posts+polls START t=0ms`);
+    fetchProfilePosts(profile.id, myId)
+      .then((p) => { if (__DEV__) console.log(`[Profile] posts DONE t=${Date.now() - t0}ms rows=${p.length}`); setPosts(p); })
+      .catch(() => {});
+    fetchUserPolls(profile.id, myId ?? undefined)
+      .then((p) => { if (__DEV__) console.log(`[Profile] polls DONE t=${Date.now() - t0}ms rows=${p.length}`); setProfilePolls(p); })
+      .catch(() => {});
   }, [profile?.id]);
 
+  // ── Social state — 5 parallel calls, all independent ──
   useEffect(() => {
     if (!myId || !profile?.id) return;
-    checkIsFollowing(myId, profile.id).then(setFollowing).catch(() => {});
+    const t0 = Date.now();
+    if (__DEV__) console.log(`[Profile] social state START (5 parallel) t=0ms`);
+    checkIsFollowing(myId, profile.id)
+      .then((v) => { if (__DEV__) console.log(`[Profile] isFollowing DONE t=${Date.now() - t0}ms val=${v}`); setFollowing(v); })
+      .catch(() => {});
     isUserBlocked(myId, profile.id).then(setIsBlocked).catch(() => {});
     amIBlockedBy(myId, profile.id).then(setAmBlocked).catch(() => {});
-    getMutualFollowers(myId, profile.id).then(setMutuals).catch(() => {});
-    getVibeCompatibility(myId, profile.id).then(setVibeScore).catch(() => {});
+    getMutualFollowers(myId, profile.id)
+      .then((v) => { if (__DEV__) console.log(`[Profile] mutuals DONE t=${Date.now() - t0}ms count=${v.count}`); setMutuals(v); })
+      .catch(() => {});
+    // Vibe score is deferred — doesn't block header paint; ring shows "—" until it arrives
+    getVibeCompatibility(myId, profile.id)
+      .then((v) => { if (__DEV__) console.log(`[Profile] vibeScore DONE t=${Date.now() - t0}ms score=${v}`); setVibeScore(v); })
+      .catch(() => {});
   }, [myId, profile?.id]);
 
   const handleTabChange = (tab: "posts" | "reels" | "polls") => {
@@ -644,12 +697,15 @@ export default function UserProfileScreen() {
 
   const fullName = (profile as any)?.full_name || u.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
 
+  // Vibe-request status — parallel with social state above; doesn't block any render
   useEffect(() => {
     if (!myId || !profile?.id || myId === profile.id) return;
     if (BLOCKED_RS.includes((profile as any).relationship_status ?? "")) return;
+    const t0 = Date.now();
     fetch(`${API_BASE}/vibe-requests/status?senderId=${myId}&receiverId=${profile.id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (__DEV__) console.log(`[Profile] vibeReqStatus DONE t=${Date.now() - t0}ms status=${data?.status ?? "none"}`);
         if (data?.status && data.status !== "none") {
           setVibeReqStatus(data.status as "pending" | "accepted" | "declined");
           if (data.requestId) setVibeReqId(data.requestId);
