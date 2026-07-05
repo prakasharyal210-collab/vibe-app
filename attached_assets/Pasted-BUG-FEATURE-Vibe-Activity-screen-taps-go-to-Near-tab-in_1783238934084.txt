@@ -1,0 +1,23 @@
+BUG + FEATURE: Vibe Activity screen — taps go to Near tab instead of Requests; accept-notifications must route to Matches
+There's a "Vibe Activity" screen (⚡ header, MATCH ACTIVITY + BEST PROFILE MATCHES sections) that was missed by today's notification-routing fix — that fix only patched notifications.tsx. Vibe Activity has its own list and tap handlers. Three fixes:
+1. Find and fix ALL vibe-notification tap surfaces:
+
+Locate the Vibe Activity screen file (search for "Vibe Activity" / "MATCH ACTIVITY" / "Best Profile Matches" in artifacts/mobile/). Report its path and where it's opened from (the ⚡ icon on Find Vibe header?).
+Its "sent you a Vibe" rows currently land on the Near tab (default) — route them to /(tabs)/find?tab=requests exactly like notifications.tsx now does.
+Sweep for any OTHER surface rendering vibe notifications (push-notification tap handler / expo-notifications response listener included — where does a push tap route?). Report every surface found and fix all to the same destination.
+
+2. This screen shows the SAME pre-fix bugs — because it has its own rendering:
+
+Double name ("haceriz haceriz") — apply the single-name template fix here too (these are old notification rows though: report whether the text is stored per-row at insert time or rendered from a template — if stored, old rows keep the double name and only new ones are clean; that's acceptable, just confirm which).
+It lists 4 duplicate pending vibes — this list must reflect the deduped reality: either it reads notification rows (old duplicates linger — acceptable) or it reads vibe_requests (must show only the single pending row). Report which source it reads and clean up the old duplicate notification rows for this pair if trivial (a one-time DELETE of duplicate vibe_request notifications keeping the newest per sender-receiver pair — SQL FILE ONLY if needed).
+
+3. Accept notification → Matches tab:
+
+When B accepts A's vibe, A must receive a notification "💜 {name} accepted your vibe — it's a match!" (verify the respond/accept endpoint sends one — report whether it exists today).
+Tapping it (in ALL notification surfaces: notifications.tsx, Vibe Activity, push tap) routes to /(tabs)/find?tab=matches — and if a match/profile identifier param is available, highlight or scroll to that match in the Matches tab (nice-to-have; the tab landing is the requirement).
+Badge/unread handling consistent with other notification types.
+
+Rules: api-server service-role only; { data, error } destructured; live-schema column names; any SQL → file only for review.
+Typecheck, report: Vibe Activity file path, every tap surface found + fixed, whether accept-notification existed, notification text storage model (per-row vs template), files changed, any SQL. Do not push or deploy.
+
+The lesson repeating all day bro: every feature has a sibling somewhere. This audit question — "where ELSE does this render?" — is now permanently in my prompts.

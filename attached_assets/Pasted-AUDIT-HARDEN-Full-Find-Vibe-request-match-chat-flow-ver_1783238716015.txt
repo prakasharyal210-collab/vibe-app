@@ -1,0 +1,24 @@
+AUDIT + HARDEN: Full Find Vibe request→match→chat flow — verify every path end-to-end, fix anything broken
+The complete vibe flow was rebuilt today (silent swipes, dedup, Requests tab, match gate, grandfather rule). Before shipping, audit the ENTIRE flow end-to-end and fix any gap. Test each scenario against the actual code paths — report each as ✅ working / 🐛 fixed:
+A. Request creation:
+
+A right-swipes B (no prior history) → exactly ONE vibe_requests row (pending) + ONE notification to B. Repeat swipe (same pair, still pending) → no-op: no new row, no new notification.
+A swipes B while B already has a pending request TO A (crossing requests) → should this instant-match? Verify both directions get vibe_matches, both get the match notification/overlay, and BOTH pending requests are marked accepted (no orphaned pending rows left behind).
+
+B. Requests tab (receiver side):
+3. Badge count === list count always (same source — verify no second query anywhere).
+4. Accept → vibe_matches written BOTH directions, requester gets match notification, accepted card removed, match appears in BOTH users' Matches tabs immediately (or on next focus refresh).
+5. Deny → status rejected, card gone, NO notification of any kind to sender, sender's deck/UI unchanged.
+6. Accepting a request from someone whose vibe status changed to Married/Engaged since sending — does anything break? (The action bar hides vibe buttons for those statuses — check the request path doesn't bypass sanity.)
+C. Matches tab + chat:
+7. New match opens MatchChatView and messages send successfully (gate passes — vibe_matches exist).
+8. Two matched strangers + one runs Start Over → existing conversation still works (grandfather via is_request=false conversation row). Verify the conversations row actually exists for BOTH match paths: the swipe-instant-match path AND the request-accept path — if the accept path doesn't create the conversations row until first message, the grandfather check has nothing to find after a reset. This is the most likely hidden gap — check it carefully.
+9. Unmatched stranger attempting a DM (no follows, no match, no conversation) → 403 with the clear message.
+D. Deck hygiene:
+10. Accepted/denied/matched users don't reappear in each other's decks (exclusion logic vs vibe_swipes/vibe_matches/vibe_requests — verify what the deck RPC excludes and that denied users are excluded for the denier at minimum).
+11. "Vibe sent ✓" badge shows on re-encountered cards with pending outgoing requests.
+E. Counts + notifications:
+12. Notification text renders single name (no "haceriz haceriz").
+13. Tapping vibe notification lands on Requests tab, badge decrements after accept/deny.
+Fix everything found broken. Rules: api-server service-role only, { data, error } always, live-schema column verification, UTC-safe timestamps, any migration → SQL FILE ONLY for review.
+Typecheck both packages. Report: the 13-point checklist each ✅/🐛-fixed with one line of evidence (file/line or logged value), files changed, any SQL produced. Do not push or deploy.

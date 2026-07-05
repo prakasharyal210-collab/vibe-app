@@ -53,10 +53,10 @@ router.post("/send", async (req, res) => {
   if (mutual) {
     const now = new Date().toISOString();
 
-    // Mark their existing request as matched
+    // Mark their existing request as matched — vibe_requests has no updated_at column
     await sb
       .from("vibe_requests")
-      .update({ status: "matched", updated_at: now })
+      .update({ status: "matched" })
       .eq("id", (mutual as any).id);
 
     // Upsert vibe_matches in both directions (same pattern as POST /api/vibe/swipe)
@@ -124,9 +124,10 @@ router.post("/send", async (req, res) => {
 
   let requestId: string;
   if (existing) {
+    // Re-activate a rejected request — vibe_requests has no updated_at column
     const { data: updated, error } = await sb
       .from("vibe_requests")
-      .update({ status: "pending", updated_at: new Date().toISOString() })
+      .update({ status: "pending" })
       .eq("id", existing.id)
       .select("id")
       .single();
@@ -214,6 +215,17 @@ router.post("/respond", async (req, res) => {
       { onConflict: "sender_id,receiver_id" },
     );
 
+    // CRITICAL: create the conversations row immediately on accept.
+    // The grandfather check in messages.ts looks for a conversations row with
+    // is_request=false to allow messaging after a Start Over deck reset.
+    // If we only write vibe_matches and not conversations, the first message after
+    // a reset returns 403 "You can only message your matches" even though they matched.
+    const [convU1, convU2] = [senderId, receiverId].sort();
+    await sb.from("conversations").upsert(
+      { user1_id: convU1, user2_id: convU2, is_request: false, unread_count_1: 0, unread_count_2: 0 },
+      { onConflict: "user1_id,user2_id" },
+    );
+
     const { data: receiverProfile } = await sb
       .from("profiles")
       .select("username")
@@ -230,6 +242,16 @@ router.post("/respond", async (req, res) => {
       is_read: false,
       created_at: now,
     });
+  } else {
+    // DENY — write a left-swipe for the denier so the requester doesn't reappear
+    // in their deck. The deck RPC excludes entries in vibe_swipes for the viewer,
+    // so without this the denied user would show up again on the next deck load.
+    const senderId = request.sender_id;
+    const receiverId = userId;
+    await sb.from("vibe_swipes").upsert(
+      { user_id: receiverId, target_id: senderId, direction: "left", created_at: new Date().toISOString() },
+      { onConflict: "user_id,target_id" },
+    );
   }
 
   res.json({ success: true });

@@ -87,11 +87,38 @@ router.post("/swipe", async (req, res) => {
       .in("direction", ["right", "super"])
       .maybeSingle();
 
-    // 4b. No match yet — fetch target prefs and optionally send vibe_request notification
+    // 4b. No match yet — write vibe_requests row (populates inbox) + notification
     if (!mutualSwipe) {
-      // Fire-and-forget: check if target wants vibe_request notifications
+      // Fire-and-forget: write vibe_requests row so the inbox is populated, then
+      // send the vibe_request notification if the target allows it.
       (async () => {
         try {
+          // ── 4b-i. Upsert vibe_requests row (inbox source of truth) ──────────
+          // The inbox endpoint reads vibe_requests, not vibe_swipes, so every
+          // right-swipe from the deck must also write here.
+          const { data: existingReq } = await sb
+            .from("vibe_requests")
+            .select("id, status")
+            .eq("sender_id", swiperId)
+            .eq("receiver_id", targetId)
+            .maybeSingle();
+
+          if (!existingReq) {
+            await sb.from("vibe_requests").insert({
+              sender_id: swiperId,
+              receiver_id: targetId,
+              status: "pending",
+            });
+          } else if ((existingReq as any).status === "rejected") {
+            // Re-activate a previously rejected request — no updated_at column
+            await sb
+              .from("vibe_requests")
+              .update({ status: "pending" })
+              .eq("id", (existingReq as any).id);
+          }
+          // If already pending or matched, leave as-is
+
+          // ── 4b-ii. Notification (gated by prefs + dedup) ────────────────────
           const { data: tPrefs } = await sb
             .from("user_settings")
             .select("notif_in_app, notif_vibe_request")
@@ -140,6 +167,17 @@ router.post("/swipe", async (req, res) => {
       ],
       { onConflict: "sender_id,receiver_id" },
     );
+
+    // 5a. Close out any pending vibe_request rows for this pair (both directions).
+    // Without this, the receiver's Requests inbox shows a stale pending card even
+    // after both parties have already matched via deck swipes.
+    await sb
+      .from("vibe_requests")
+      .update({ status: "matched" })
+      .eq("status", "pending")
+      .or(
+        `and(sender_id.eq.${swiperId},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${swiperId})`
+      );
 
     // 6. Fetch both usernames + notification prefs in parallel
     const [profilesRes, prefsRes] = await Promise.all([
