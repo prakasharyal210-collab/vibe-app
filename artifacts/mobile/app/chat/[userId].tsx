@@ -821,9 +821,13 @@ export default function ChatScreen() {
     const snap = parseSnap(msg.text);
     if (!snap || snap.viewed) return;
 
+    console.log("[handleViewSnap-chat] msg.id:", msg.id, "snap.url prefix:", (snap.url ?? "").slice(0, 60));
+
     // Sign-on-view: ask the server for a fresh 1-hour URL so TTL starts now,
     // not at upload time. Falls back to the stored URL for legacy snaps.
     const viewed = myId ? await viewSnap(msg.id, myId) : null;
+    console.log("[handleViewSnap-chat] viewSnap result:", viewed ? "got signedUrl" : "null — fallback to snap.url");
+
     const uri = viewed?.signedUrl ?? snap.url;
     const type = (viewed?.mediaType ?? snap.type ?? "photo") as "photo" | "video";
 

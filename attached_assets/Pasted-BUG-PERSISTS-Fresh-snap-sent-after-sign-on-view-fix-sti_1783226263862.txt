@@ -1,0 +1,19 @@
+BUG PERSISTS: Fresh snap (sent after sign-on-view fix) still fails to load — "Couldn't load snap"
+A snap sent AFTER the sign-on-view changes still shows the error state on the recipient side. The error UI works, but the media still isn't loading. Something in the view chain is failing silently. Diagnose with actual logged values — no guessing:
+
+Add temporary logging in GET /api/snaps/:id/view (artifacts/api-server/src/routes/snaps.ts): log the snap id, the raw media_url from the row, the normalized storage path after regex, the result of createSignedUrl — both data and error — and what's returned to the client.
+Add temporary logging in viewSnap() (artifacts/mobile/lib/snap.ts) and handleViewSnap in chat/[userId].tsx: log the snapId being requested, the HTTP status, the response body, and whether it fell back to snap.url.
+I'll reproduce (send + open a fresh snap) and we read the logs. Likely suspects to check while you're in there:
+
+ID mismatch: handleViewSnap calls viewSnap(msg.id, ...) — is msg.id the MESSAGES row id while the endpoint expects the SNAPS table id? If snaps live in their own table with their own id, and the chat message references it via a different field (e.g. snap_id), the endpoint 404s and the client silently falls back to the broken stored URL. Report which id is which.
+Recipient check: does the snaps row's receiver_id column actually exist with that exact name (verify live schema), and does the 403 path get hit?
+Path normalization: does the regex produce a path that actually exists in the bucket? Test createSignedUrl output with a curl and report HTTP status.
+Fallback masking: if viewSnap returns null and the code falls back to snap.url, the recipient sees the error state and the real cause is hidden — log WHY it returned null.
+
+
+Fix whatever the logs reveal, then remove the noisy logging (keep error-level logs).
+
+Rules: verify every column name against live schema; destructure { data, error } always; all access via api-server.
+Typecheck, report: the actual logged values from a real reproduction, root cause, files changed. Do not push or deploy.
+
+My prime suspect is the ID mismatch — chat message id vs snaps table id. That fallback-to-broken-URL path would produce exactly this screen.

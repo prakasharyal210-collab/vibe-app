@@ -45,6 +45,7 @@ import {
   parseSnap,
   sendSnapMessage,
   uploadSnapToStorage,
+  viewSnap,
 } from "@/lib/snap";
 import { Conversation, supabase, timeAgo } from "@/lib/supabase";
 
@@ -1364,11 +1365,21 @@ export default function InboxScreen() {
     } catch { setSendingTo(null); Alert.alert("Error", "Could not send snap."); }
   }, [snapPreviewUri, userId, show]);
 
-  const handleViewSnap = useCallback((convo: SnapConversation) => {
+  const handleViewSnap = useCallback(async (convo: SnapConversation) => {
     const snap = parseSnap(convo.message_text);
     if (!snap) return;
-    setSnapViewer({ uri: snap.url, messageId: convo.message_id, msgText: convo.message_text, type: snap.type ?? "photo" });
-  }, []);
+
+    // Sign-on-view: call the server for a fresh 1-hour signed URL so the TTL
+    // starts when the recipient actually opens the snap, not at upload time.
+    // Falls back to the stored URL for legacy snaps not in the snaps table.
+    console.log("[handleViewSnap] convo.message_id:", convo.message_id, "snap.url prefix:", snap.url.slice(0, 60));
+    const viewed = userId ? await viewSnap(convo.message_id, userId) : null;
+    console.log("[handleViewSnap] viewSnap result:", viewed ? "got signedUrl" : "null — fallback to snap.url");
+
+    const uri = viewed?.signedUrl ?? snap.url;
+    const type = (viewed?.mediaType ?? snap.type ?? "photo") as "photo" | "video";
+    setSnapViewer({ uri, messageId: convo.message_id, msgText: convo.message_text, type });
+  }, [userId]);
 
   const handleSnapViewerClose = useCallback(async () => {
     if (!snapViewer) return;

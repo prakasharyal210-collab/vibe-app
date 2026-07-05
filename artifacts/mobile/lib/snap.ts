@@ -70,18 +70,19 @@ export async function viewSnap(
   snapId: string,
   requesterId: string,
 ): Promise<{ signedUrl: string; mediaType: "photo" | "video" } | null> {
+  const url = `${API_BASE}/snaps/${encodeURIComponent(snapId)}/view?requesterId=${encodeURIComponent(requesterId)}`;
+  console.log("[viewSnap] →", url);
   try {
-    const res = await fetch(
-      `${API_BASE}/snaps/${encodeURIComponent(snapId)}/view?requesterId=${encodeURIComponent(requesterId)}`,
-    );
-    if (!res.ok) return null;
-    const json = await res.json() as { signedUrl?: string; mediaType?: string };
-    if (!json.signedUrl) return null;
+    const res = await fetch(url);
+    const json = await res.json() as { signedUrl?: string; mediaType?: string; error?: string };
+    console.log("[viewSnap] status:", res.status, "body:", JSON.stringify(json).slice(0, 200));
+    if (!res.ok || !json.signedUrl) return null;
     return {
       signedUrl: json.signedUrl,
       mediaType: (json.mediaType ?? "photo") as "photo" | "video",
     };
-  } catch {
+  } catch (e: any) {
+    console.log("[viewSnap] error:", e?.message);
     return null;
   }
 }

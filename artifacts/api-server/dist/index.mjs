@@ -65625,11 +65625,13 @@ router31.get("/:id/view", async (req, res) => {
   const sb = makeSupabase26();
   try {
     const { data: snap, error } = await sb.from("snaps").select("id, receiver_id, media_url, media_type, viewed_at").eq("id", id).single();
+    req.log.info({ snapId: id, requesterId, found: !!snap, dbErr: error?.message ?? null }, "[snap-view] lookup");
     if (error || !snap) {
       res.status(404).json({ error: "snap not found" });
       return;
     }
     if (snap.receiver_id !== requesterId) {
+      req.log.warn({ snapId: id, receiver_id: snap.receiver_id, requesterId }, "[snap-view] 403 recipient mismatch");
       res.status(403).json({ error: "not authorised" });
       return;
     }
@@ -65642,9 +65644,11 @@ router31.get("/:id/view", async (req, res) => {
       const sigMatch = raw.match(/\/object\/sign\/snaps\/(.+?)(?:\?|$)/);
       if (sigMatch) storagePath = sigMatch[1];
     }
+    req.log.info({ rawMediaUrl: raw, storagePath }, "[snap-view] path normalised");
     const { data: signed, error: signErr } = await sb.storage.from("snaps").createSignedUrl(storagePath, 3600);
+    req.log.info({ signedUrlPresent: !!signed?.signedUrl, signErr: signErr?.message ?? null }, "[snap-view] sign result");
     if (signErr || !signed?.signedUrl) {
-      req.log.warn({ err: signErr?.message, storagePath }, "snap view: sign failed");
+      req.log.warn({ err: signErr?.message, storagePath }, "[snap-view] sign failed");
       res.status(500).json({ error: signErr?.message ?? "Failed to sign URL" });
       return;
     }
@@ -65654,7 +65658,7 @@ router31.get("/:id/view", async (req, res) => {
     }
     res.json({ signedUrl: signed.signedUrl, mediaType: snap.media_type ?? "photo" });
   } catch (err) {
-    req.log.error({ err: err?.message }, "snap view exception");
+    req.log.error({ err: err?.message }, "[snap-view] exception");
     res.status(500).json({ error: err?.message ?? "Failed" });
   }
 });
