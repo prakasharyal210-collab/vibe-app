@@ -330,7 +330,7 @@ function Bubble({
         </View>
       )}
 
-      <View style={{ alignItems: isMe ? "flex-end" : "flex-start" }}>
+      <View style={{ maxWidth: "80%" }}>
         {!!msg.reply_preview && !isSnapMsg && (
           <QuotedSnippet
             senderName={
