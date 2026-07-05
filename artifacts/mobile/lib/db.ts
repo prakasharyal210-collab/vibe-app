@@ -1531,7 +1531,11 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
         const thumbUrl: string | undefined = p.thumbnail_url ?? undefined;
         return {
           id: p.id,
-          image_url: isVid ? (thumbUrl ?? mediaUrl) : mediaUrl,
+          // When thumbnail_url is null leave image_url as "" (falsy) rather than
+          // the raw video URL.  React Native <Image> can't decode video bytes, so
+          // passing the .mp4 URL produces a solid black tile.  An empty string
+          // lets the caller detect the gap and use VideoGridCell instead.
+          image_url: isVid ? (thumbUrl ?? "") : mediaUrl,
           video_url: isVid ? mediaUrl : undefined,
           is_video: isVid,
           isReel: false,

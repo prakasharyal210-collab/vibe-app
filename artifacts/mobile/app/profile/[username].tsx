@@ -1,8 +1,9 @@
 import { BASE_URL } from "@/lib/share";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   Alert,
   Animated,
@@ -68,6 +69,46 @@ function _cacheGet(key: string): PublicProfile | null {
 }
 function _cacheSet(key: string, profile: PublicProfile) {
   _profileCache.set(key, { profile, ts: Date.now() });
+}
+
+// ─── Video-thumbnail rescue cache ────────────────────────────────────────────
+// Keyed by video URL.  Value is the extracted frame URI, or null when extraction
+// failed.  Lives for the session so repeat visits to the same profile are free.
+const _videoThumbCache = new Map<string, string | null>();
+
+function isVideoUrl(s: string): boolean {
+  const u = (s ?? "").toLowerCase().split("?")[0];
+  return u.endsWith(".mp4") || u.endsWith(".mov") || u.endsWith(".webm") || u.endsWith(".m4v");
+}
+
+// Matching the VideoGridCell already in app/(tabs)/profile.tsx so both grids
+// behave identically when thumbnail_url is null.
+function VideoGridCell({ videoUrl, style }: { videoUrl: string; style: object }) {
+  const initialThumb = _videoThumbCache.has(videoUrl) ? _videoThumbCache.get(videoUrl)! : null;
+  const [thumb, setThumb] = useState<string | null>(initialThumb);
+
+  useEffect(() => {
+    if (_videoThumbCache.has(videoUrl)) return; // already cached (hit or miss)
+    let cancelled = false;
+    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 0 })
+      .then(({ uri }) => { _videoThumbCache.set(videoUrl, uri); if (!cancelled) setThumb(uri); })
+      .catch(() => { _videoThumbCache.set(videoUrl, null); });
+    return () => { cancelled = true; };
+  }, [videoUrl]);
+
+  if (thumb) {
+    return <Image source={{ uri: thumb }} style={style as any} resizeMode="cover" />;
+  }
+  return (
+    <View style={[style as any, { overflow: "hidden" }]}>
+      <LinearGradient colors={["#1a0a2e", "#0d0d1f"]} style={StyleSheet.absoluteFill} />
+      <View style={{ ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(139,92,246,0.9)", alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="play" size={16} color="#fff" style={{ marginLeft: 2 }} />
+        </View>
+      </View>
+    </View>
+  );
 }
 
 async function muteUser(muterId: string, mutedId: string): Promise<void> {
@@ -364,15 +405,24 @@ const ctStyles = StyleSheet.create({
 type GridThumbData = {
   id: string;
   image: string;
+  videoUrl?: string;
   likes?: number | null;
   isVideo?: boolean;
   isPinned?: boolean;
 };
 
 function ProfileGridThumb({ item, onPress }: { item: GridThumbData; onPress: () => void }) {
+  // Use VideoGridCell when the post is a video AND the stored thumbnail is
+  // missing (image is empty or is still a raw .mp4/.mov URL — the latter can
+  // happen for posts uploaded before the thumbnail-rescue fix landed).
+  const needsVideoCell = !!item.isVideo && (!item.image || isVideoUrl(item.image));
   return (
     <TouchableOpacity style={styles.gridItem} activeOpacity={0.88} onPress={onPress}>
-      <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
+      {needsVideoCell && item.videoUrl ? (
+        <VideoGridCell videoUrl={item.videoUrl} style={styles.gridImage} />
+      ) : (
+        <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
+      )}
       {item.isVideo && (
         <View style={styles.videoOverlay} pointerEvents="none">
           <Ionicons name="play" size={18} color="#fff" />
@@ -744,7 +794,13 @@ export default function UserProfileScreen() {
 
   const gridData = posts.map((p) => ({
     id: p.id,
-    image: p.image_url || `https://picsum.photos/seed/${p.id}/400/400`,
+    // For non-video posts (or videos with a real thumbnail) use the stored URL.
+    // For videos with a missing thumbnail p.image_url is now "" (see db.ts fix),
+    // so the || picsum fallback only fires for genuine image posts with no URL.
+    image: (p.is_video || p.isReel)
+      ? (p.image_url || "")                               // keep "" — VideoGridCell handles it
+      : (p.image_url || `https://picsum.photos/seed/${p.id}/400/400`),
+    videoUrl: p.video_url,                                // passed to VideoGridCell for rescue
     likes: p.likes,
     caption: p.caption,
     isVideo: p.isReel || p.is_video,

@@ -1,0 +1,22 @@
+Great pre-launch instinct — a full feature census, finding everything dead, stubbed, or unreachable before the store build ships it. The July 4 audit already caught wallet.tsx and live.tsx; this goes deeper:
+
+AUDIT: Full feature census — find every inactive, stubbed, broken, or unreachable feature in the app
+Before the 1.0.2 store build, produce a complete inventory of features that exist in the codebase but are NOT fully functional for users. Read-only audit — change nothing, report everything.
+STEP 1 — Screen inventory: List every screen in artifacts/mobile/app/ (all routes). For each, classify:
+
+✅ ACTIVE — reachable in the UI and works end-to-end
+🔒 LOCKED — deliberately gated with "coming soon" (expected: Advertise on Gundruk, Country pill, Couple Games placeholders)
+💀 STUB — screen exists but renders fake/hardcoded/no data (known suspects from the July 4 audit: wallet.tsx, live.tsx — confirm current state)
+🧟 UNREACHABLE — fully built but no UI entry point navigates to it (suspect: SpeedVibeModal after the Country pill swap; /vibe-match-chat after Message button removal; /advertise; check for others)
+🐛 BROKEN — reachable but a core path fails (known: snap viewing pipeline unverified, chat bubble width bug if unfixed)
+
+STEP 2 — Dead code & orphans:
+
+Components exported but imported nowhere
+API routes in artifacts/api-server/src/routes/ that no mobile code calls (list route → caller or "NO CALLER")
+DB tables (from the 83-table audit list) that no code reads or writes anymore (candidates: anything from removed features — reposts cleanup verified? snap_streaks used? watch_events? scoring_config? vibe_compat_scores?)
+Settings toggles that save but nothing enforces (known pattern: privacy-settings columns are dead — are their toggles still shown in the UI? If users can toggle something that does nothing, that's a lie in the UI — flag each)
+
+STEP 3 — Half-wired features: anything where the backend exists but UI doesn't, or vice versa (e.g. comment/story delete had no UI; highlights? archive? close friends? muted users? restricted users? message reactions? — check each of the phase1-4 features actually surfaces in UI)
+STEP 4 — Output: one master table: Feature/Screen → Status → Evidence (file/line) → Recommendation (ship as-is / hide before build / quick-fix / delete). Sort with 💀 and 🐛 first — those are the ones that embarrass us in store review.
+Do not change any code. Do not push. Report the full table.
