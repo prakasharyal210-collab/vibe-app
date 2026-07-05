@@ -2688,11 +2688,13 @@ function FindVibeContent() {
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setShowSpeedVibe(true)}
-              style={[styles.iconBtn, { backgroundColor: "rgba(249,115,22,0.12)", borderColor: "#F97316" }]}
+              onPress={() => Alert.alert("Coming soon 🌍", "Country-wise matching is coming soon — for now, vibe with people worldwide!")}
+              activeOpacity={0.75}
+              style={[styles.iconBtn, { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.5)", opacity: 0.6 }]}
             >
-              <Text style={{ fontSize: 14 }}>⚡</Text>
-              <Text style={[styles.speedText, { color: "#F97316" }]}>Speed</Text>
+              <Text style={{ fontSize: 13 }}>🔒</Text>
+              <Text style={{ fontSize: 13 }}>🌍</Text>
+              <Text style={[styles.speedText, { color: "#A78BFA" }]}>Country</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowFilter(true)} style={[styles.filterBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
               <Ionicons name="options-outline" size={20} color="#7C3AED" />
