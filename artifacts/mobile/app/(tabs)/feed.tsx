@@ -644,6 +644,10 @@ export default function FeedScreen() {
     // against the initial unfiltered load).
     const gen = reset ? ++tabLoadGen.current[tab] : tabLoadGen.current[tab];
 
+    // Snapshot existing posts BEFORE wiping them so a failed refresh can restore
+    // them — a broken network call must never blank a feed that was working.
+    const previousPosts = reset ? [...tabStatesRef.current[tab].posts] : [];
+
     if (reset) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
     else updateTab(tab, { loadingMore: true });
 
@@ -698,7 +702,14 @@ export default function FeedScreen() {
       });
       loadedTabs.current.add(tab);
     } catch (e: any) {
-      console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message);
+      console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message, '| previousPosts:', previousPosts.length);
+      // Refresh failed — restore the pre-refresh snapshot so the feed never goes
+      // blank. Only applies to resets (pull-to-refresh / tab-tap refresh) where
+      // we had real posts before. A first-ever load failure correctly shows empty.
+      if (reset && previousPosts.length > 0) {
+        console.log('[loadTabData] restoring', previousPosts.length, 'posts for tab:', tab);
+        updateTab(tab, { posts: previousPosts, offset: previousPosts.length, hasMore: true });
+      }
     } finally {
       // Always unblock the UI — guards every path including AbortError timeouts
       // and the early-return for no-userId, ensuring loadingMore never stays stuck.
@@ -1057,6 +1068,11 @@ export default function FeedScreen() {
         {TABS.map((tab, tabIndex) => {
           const state = tabStates[tab.id];
           const filteredPosts = state.posts; // category is now filtered server-side
+          // Diagnostic: confirm guard values so a wrong tab.id or leaked isTrending
+          // can be caught at render time — log only when list would render empty.
+          if (filteredPosts.length === 0 && !state.loading) {
+            console.log('[FeedRender] EMPTY tab.id:', tab.id, '| isTrending:', isTrending, '| posts:', filteredPosts.length, '| loading:', state.loading);
+          }
           return (
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList
