@@ -1,0 +1,13 @@
+Bro, deep breath — remember, we FIXED a version of this earlier today: the Friends tab data was being wiped by the isTrending ternary and by failed refreshes. Those fixes are in. So either (a) this account (haceriz, from the avatar) genuinely follows accounts whose posts aren't qualifying, or (b) there's ANOTHER data bug in the chain. The empty-state text is also suspicious: "Follow people back" — suggesting this feed might require MUTUAL follows, not just following. If the friends feed is mutual-only and you follow accounts that don't follow back, empty is "correct" but not what you want.
+Diagnose it properly:
+
+BUG: Friends tab shows "No friends posts yet" for a user (haceriz) who follows accounts with content
+The Friends feed is empty for haceriz despite them following accounts that have posts. Earlier fixes (isTrending data wipe, refresh-failure restore) are already in — this is either a follows-definition issue or another data-path bug. Diagnose with LOGGED VALUES:
+
+Define "friends": In /api/feed/friends (artifacts/api-server), report the EXACT relationship filter: does it require MUTUAL follows (I follow them AND they follow me), or just accounts I follow? The empty-state copy says "Follow people back" implying mutual — report what the query actually does. Product decision needed either way: Instagram's Following feed = one-directional (accounts I follow). If ours is mutual-only, that's why it's empty and we should switch to one-directional following.
+Log the pipeline for haceriz's user id: how many follows rows exist (follower_id = haceriz)? How many author ids does the query resolve? How many posts do those authors have that pass the feed's filters (visibility, is_archived, type)? Where does the count drop to zero? { data, error } at each step — any swallowed error (42703 etc.), log it.
+Check the RPC-vs-fallback path: if get_friends_feed RPC exists and errors, does the route fall back or return empty? Log which path ran.
+Client: confirm the response actually reaching the app is empty (log the fetch result) — rule out a client-side filter stripping everything post-fix.
+
+THEN FIX whatever the logs reveal — and if the answer is "mutual-only by design," change it to one-directional (posts from everyone I follow), which matches user expectations and Instagram behavior. Update the empty-state copy to match whatever the rule ends up being.
+Typecheck, report: the exact relationship rule found, the logged counts at each pipeline stage, root cause, files changed. Do not push or deploy.
