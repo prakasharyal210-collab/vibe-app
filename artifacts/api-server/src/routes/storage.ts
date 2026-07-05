@@ -81,4 +81,38 @@ router.post("/avatar", async (req, res) => {
   return res.json({ url: `${urlData.publicUrl}?t=${Date.now()}` });
 });
 
+// POST /api/storage/chat-photo
+// Accepts base64-encoded image from mobile, uploads to Supabase "media" bucket
+// under chat/{userId}/{timestamp}.ext using service role key (bypasses RLS).
+// Gallery photos are persistent (not ephemeral) — distinct from snaps.
+// Body: { base64: string, userId: string, mimeType?: string }
+router.post("/chat-photo", async (req, res) => {
+  const { base64, userId, mimeType = "image/jpeg" } = req.body as {
+    base64?: string;
+    userId?: string;
+    mimeType?: string;
+  };
+
+  if (!base64 || !userId) {
+    return res.status(400).json({ error: "base64 and userId are required" });
+  }
+
+  const sb = makeSupabase();
+  const ext = mimeType.includes("png") ? "png" : mimeType.includes("gif") ? "gif" : "jpg";
+  const fileName = `chat/${userId}/${Date.now()}.${ext}`;
+  const buffer = Buffer.from(base64, "base64");
+
+  const { error } = await sb.storage
+    .from("media")
+    .upload(fileName, buffer, { contentType: mimeType, upsert: false });
+
+  if (error) {
+    req.log.warn({ err: error.message }, "Chat photo upload failed");
+    return res.status(500).json({ error: error.message });
+  }
+
+  const { data: urlData } = sb.storage.from("media").getPublicUrl(fileName);
+  return res.json({ url: urlData.publicUrl });
+});
+
 export default router;

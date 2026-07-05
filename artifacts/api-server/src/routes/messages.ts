@@ -302,13 +302,14 @@ router.get("/", async (req, res) => {
 // Send a message — { senderId, receiverId, text, shared_content_type?, shared_content_id? }
 // Either text OR shared_content_type+shared_content_id must be present.
 router.post("/", async (req, res) => {
-  const { senderId, receiverId, text, shared_content_type, shared_content_id, reply_to_message_id } = req.body as {
+  const { senderId, receiverId, text, shared_content_type, shared_content_id, reply_to_message_id, message_type } = req.body as {
     senderId?: string;
     receiverId?: string;
     text?: string;
     shared_content_type?: "post" | "reel" | "confession";
     shared_content_id?: string;
     reply_to_message_id?: string;
+    message_type?: "photo";
   };
   const isShareMsg = !!(shared_content_type && shared_content_id);
   if (!senderId || !receiverId || (!text && !isShareMsg)) {
@@ -376,6 +377,8 @@ router.post("/", async (req, res) => {
     insertRow["message_type"] = "share";
     insertRow["shared_content_type"] = shared_content_type;
     insertRow["shared_content_id"] = shared_content_id;
+  } else if (message_type === "photo") {
+    insertRow["message_type"] = "photo";
   }
   if (reply_to_message_id) {
     insertRow["reply_to_message_id"] = reply_to_message_id;

@@ -870,12 +870,35 @@ export async function getOtherUserActivity(userId: string): Promise<string | nul
   }
 }
 
+// Upload a photo from local URI to the media bucket via the API server.
+// Used for gallery photos in chat (persistent, not ephemeral unlike snaps).
+export async function uploadChatPhoto(
+  uri: string,
+  mimeType: string,
+  userId: string,
+): Promise<string | null> {
+  try {
+    const base64 = await readAsStringAsync(uri, { encoding: "base64" as any });
+    const res = await fetch(`${API_BASE}/storage/chat-photo`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ base64, userId, mimeType }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { url?: string };
+    return json.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function sendMessageToUser(
   senderId: string,
   receiverId: string,
   text: string,
   shareOpts?: { contentType: "post" | "reel" | "confession"; contentId: string },
   replyToMessageId?: string,
+  messageType?: "photo",
 ): Promise<import("./supabase").Message | null> {
   // Route through API server — bypasses RLS + avoids Android Supabase client hang
   try {
@@ -886,6 +909,9 @@ export async function sendMessageToUser(
     }
     if (replyToMessageId) {
       body["reply_to_message_id"] = replyToMessageId;
+    }
+    if (messageType) {
+      body["message_type"] = messageType;
     }
     const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",

@@ -26,7 +26,9 @@ import { SnapCaptureSheet, SnapViewerModal } from "@/components/SnapViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchMessages, getOtherUserActivity, markMessagesRead, reactToMessage, sendMessageToUser } from "@/lib/db";
+import { Image as ExpoImage } from "expo-image";
+import { fetchMessages, getOtherUserActivity, markMessagesRead, reactToMessage, sendMessageToUser, uploadChatPhoto } from "@/lib/db";
+import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { ReactionPickerModal } from "@/components/ReactionPickerModal";
 import { SharedContentCard } from "@/components/SharedContentCard";
 import {
@@ -151,6 +153,55 @@ const snapStyles = StyleSheet.create({
   },
 });
 
+// ─── PhotoBubble ───────────────────────────────────────────────────────────────
+
+function PhotoBubble({
+  url,
+  uploading,
+  onPress,
+}: {
+  url: string;
+  uploading: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={uploading ? undefined : onPress}
+      activeOpacity={0.85}
+      style={photoStyles.container}
+    >
+      <ExpoImage
+        source={{ uri: url }}
+        style={photoStyles.image}
+        contentFit="cover"
+        transition={200}
+      />
+      {uploading && (
+        <View style={photoStyles.overlay}>
+          <ActivityIndicator color="#fff" size="small" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+const photoStyles = StyleSheet.create({
+  container: {
+    width: 200,
+    height: 200,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  image: { width: "100%", height: "100%" },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
 // ─── QuotedSnippet ─────────────────────────────────────────────────────────────
 
 function QuotedSnippet({
@@ -215,6 +266,8 @@ function Bubble({
   onLongPress,
   onSwipeRight,
   onTapQuote,
+  isUploading,
+  onViewPhoto,
 }: {
   msg: Message;
   isMe: boolean;
@@ -226,10 +279,13 @@ function Bubble({
   onLongPress: (msgId: string) => void;
   onSwipeRight: (msg: Message) => void;
   onTapQuote?: (msgId: string) => void;
+  isUploading?: boolean;
+  onViewPhoto?: (url: string) => void;
 }) {
   const colors = useColors();
   const isTemp = msg.id.startsWith("temp_");
   const isSnapMsg = isSnap(msg.text);
+  const isPhotoMsg = msg.message_type === "photo";
   const isShareMsg = !!(msg.shared_content_type && msg.shared_preview);
 
   const reactions = msg.reactions ?? [];
@@ -292,6 +348,12 @@ function Bubble({
         )}
         {isSnapMsg ? (
           <SnapBubble msg={msg} isMe={isMe} onView={onViewSnap} />
+        ) : isPhotoMsg ? (
+          <PhotoBubble
+            url={msg.text}
+            uploading={!!isUploading}
+            onPress={() => onViewPhoto?.(msg.text)}
+          />
         ) : isShareMsg ? (
           <Pressable onLongPress={handleLongPress} delayLongPress={380}>
             <SharedContentCard
@@ -495,6 +557,8 @@ export default function ChatScreen() {
     senderName: string;
     snippet: string;
   } | null>(null);
+  const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
+  const [viewerPhoto, setViewerPhoto] = useState<string | null>(null);
 
   const flatRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -815,6 +879,47 @@ export default function ChatScreen() {
     }
   }, [myId, otherId]);
 
+  const handleGalleryPhoto = useCallback(async () => {
+    if (!myId || !otherId) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+      base64: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const mimeType = asset.mimeType ?? "image/jpeg";
+
+    const tempId = `temp_photo_${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
+      sender_id: myId,
+      receiver_id: otherId,
+      text: asset.uri,
+      message_type: "photo",
+      created_at: new Date().toISOString(),
+    };
+    setUploadingIds((prev) => new Set([...prev, tempId]));
+    setMessages((prev) => [...prev, optimistic]);
+    setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 50);
+
+    try {
+      const photoUrl = await uploadChatPhoto(asset.uri, mimeType, myId);
+      if (!photoUrl) throw new Error("upload failed");
+      const saved = await sendMessageToUser(myId, otherId, photoUrl, undefined, undefined, "photo");
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? (saved ?? m) : m)));
+    } catch {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      Alert.alert("Failed to send photo", "Please try again.");
+    } finally {
+      setUploadingIds((prev) => {
+        const s = new Set(prev);
+        s.delete(tempId);
+        return s;
+      });
+    }
+  }, [myId, otherId]);
+
   const handleSwipeRight = useCallback((msg: Message) => {
     const senderName = msg.sender_id === myId ? "You" : (username ?? "");
     const isSnapMsg = isSnap(msg.text);
@@ -995,6 +1100,8 @@ export default function ChatScreen() {
                 onLongPress={setPickerMsgId}
                 onSwipeRight={handleSwipeRight}
                 onTapQuote={handleScrollToOriginal}
+                isUploading={uploadingIds.has(item.id)}
+                onViewPhoto={setViewerPhoto}
               />
             );
           }}
@@ -1113,6 +1220,17 @@ export default function ChatScreen() {
             </View>
           </TouchableOpacity>
 
+          {/* Gallery photo button — sends a persistent photo (not a snap) */}
+          <TouchableOpacity
+            style={chatStyles.snapBtn}
+            onPress={handleGalleryPhoto}
+            activeOpacity={0.75}
+          >
+            <View style={chatStyles.galleryBtnInner}>
+              <Ionicons name="image-outline" size={20} color="#7C3AED" />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={chatStyles.inputAction}>
             <Ionicons
               name="happy-outline"
@@ -1178,6 +1296,16 @@ export default function ChatScreen() {
         <SnapViewerModal
           uri={snapViewer.uri}
           onClose={handleSnapViewerClose}
+        />
+      )}
+
+      {/* Full-screen photo viewer */}
+      {viewerPhoto && (
+        <FullscreenImageViewer
+          images={[viewerPhoto]}
+          initialIndex={0}
+          visible={!!viewerPhoto}
+          onClose={() => setViewerPhoto(null)}
         />
       )}
 
@@ -1327,6 +1455,16 @@ const chatStyles = StyleSheet.create({
     backgroundColor: "rgba(234,88,12,0.15)",
     borderWidth: 1.5,
     borderColor: "rgba(234,88,12,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryBtnInner: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(124,58,237,0.15)",
+    borderWidth: 1.5,
+    borderColor: "rgba(124,58,237,0.4)",
     alignItems: "center",
     justifyContent: "center",
   },
