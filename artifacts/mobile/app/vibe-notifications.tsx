@@ -412,7 +412,19 @@ export default function VibeNotificationsScreen() {
       fetch(`${API_BASE}/vibe-requests/inbox?userId=${userId}`).then((r) => r.ok ? r.json() : { requests: [] }),
     ]);
     if (all.status === "fulfilled") {
-      setVibeNotifs(all.value.filter((n) => VIBE_TYPES.has(n.type)));
+      const raw = all.value.filter((n) => VIBE_TYPES.has(n.type));
+      // Dedupe vibe_request/vibe notifications by sender — show only the newest
+      // per sender. Notifications are returned newest-first, so the first
+      // occurrence per sender_id is the most recent.
+      const seenSenders = new Set<string>();
+      const deduped = raw.filter((n) => {
+        if (n.type !== "vibe_request" && n.type !== "vibe") return true;
+        const sid = (n as any).sender_id;
+        if (!sid || seenSenders.has(sid)) return false;
+        seenSenders.add(sid);
+        return true;
+      });
+      setVibeNotifs(deduped);
     }
     if (inboxRes.status === "fulfilled") {
       setInboxRequests((inboxRes.value as any).requests ?? []);

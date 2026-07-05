@@ -284,6 +284,8 @@ router.get("/inbox", async (req, res) => {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  req.log.info({ userId, rowCount: data?.length ?? 0, error: error?.message ?? null }, "vibe-requests inbox query");
+
   if (error) {
     req.log.warn({ error: error.message }, "vibe-requests inbox error");
     res.json({ requests: [] });

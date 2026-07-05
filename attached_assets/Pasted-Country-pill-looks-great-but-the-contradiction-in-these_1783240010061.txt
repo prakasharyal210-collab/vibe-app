@@ -1,0 +1,19 @@
+Country pill looks great — but the contradiction in these two screenshots is the bug: Vibe Activity shows 5 pending vibes from haceriz, the Requests tab says "No vibe requests yet." Two screens, two different answers.
+Here's why, from today's audit trail: A1 was only fixed going forward. Right-swipes never used to write vibe_requests rows — only notifications. So haceriz's old swipes exist as notification rows (what Vibe Activity reads) but there are NO corresponding vibe_requests rows (what the Requests tab reads). The fix works for NEW swipes; the old ones are orphans. Also — a NEW haceriz vibe came in 1m ago and still isn't in Requests, which needs checking too.
+
+BUG: Vibe Activity shows 5 pending vibes, Requests tab shows zero — two sources disagree; new vibes may also be missing
+Root context: the A1 audit fix made right-swipes upsert vibe_requests rows going forward, but historical swipes only created notification rows. Vibe Activity reads notifications; the Requests tab reads GET /api/vibe-requests/inbox (vibe_requests). Result: 5 haceriz vibes visible in Activity, zero in Requests.
+DIAGNOSE WITH LOGGED VALUES:
+
+Query the live DB: how many vibe_requests rows exist with receiver = the main account and status='pending'? Report count and rows. If zero → confirms the orphan theory.
+A new vibe arrived 1m ago (post-fix) and the Requests tab is still empty — verify the A1 upsert actually fires on the swipe path in the RUNNING server (was the server restarted after the fix? — same trap as the couple-games 404). Log the upsert { data, error } on a fresh test swipe. Also verify the inbox endpoint's filters (status/receiver column names against live schema) aren't silently erroring.
+Check the inbox endpoint response for the main account directly (curl/log): does it error, return [], and is the error swallowed anywhere?
+
+THEN FIX:
+
+Whatever #2/#3 reveals (unrestarted server / broken upsert / broken inbox query) — fix it and prove with a fresh swipe appearing in the Requests tab.
+Backfill the orphans — SQL FILE ONLY (scripts/vibe-requests-backfill.sql, do not run): insert into vibe_requests one pending row per (sender, receiver) pair that has vibe_request-type notification rows but no vibe_requests row and no existing vibe_matches — deduped to the newest per pair, so haceriz's 5 notifications become ONE pending request.
+Vibe Activity screen (/vibe-notifications) — this was prompted before but no report ever came back: its "sent you a Vibe" rows must (a) route to /(tabs)/find?tab=requests (currently they don't — earlier fix only patched notifications.tsx), (b) dedupe display per sender or read from vibe_requests. Do it now as part of this fix, plus accept-notifications routing to ?tab=matches.
+
+Rules: api-server service-role; { data, error } always; live-schema columns; SQL file only.
+Typecheck, report: pending-row count found, whether the new-swipe path was actually live, files changed, the backfill SQL path. Do not push or deploy.

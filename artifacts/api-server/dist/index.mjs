@@ -62449,6 +62449,28 @@ router20.post("/", async (req, res) => {
       return;
     }
   }
+  {
+    const [followAB, followBA] = await Promise.all([
+      sb.from("follows").select("follower_id").eq("follower_id", senderId).eq("following_id", receiverId).maybeSingle(),
+      sb.from("follows").select("follower_id").eq("follower_id", receiverId).eq("following_id", senderId).maybeSingle()
+    ]);
+    const hasSocialRelationship = !!(followAB.data || followBA.data);
+    if (!hasSocialRelationship) {
+      const [convU1Id, convU2Id] = [senderId, receiverId].sort();
+      const { data: existingConv } = await sb.from("conversations").select("id, is_request").eq("user1_id", convU1Id).eq("user2_id", convU2Id).maybeSingle();
+      const hasEstablishedConversation = !!(existingConv && !existingConv.is_request);
+      if (!hasEstablishedConversation) {
+        const [matchAB, matchBA] = await Promise.all([
+          sb.from("vibe_matches").select("id").eq("sender_id", senderId).eq("receiver_id", receiverId).eq("status", "matched").maybeSingle(),
+          sb.from("vibe_matches").select("id").eq("sender_id", receiverId).eq("receiver_id", senderId).eq("status", "matched").maybeSingle()
+        ]);
+        if (!matchAB.data || !matchBA.data) {
+          res.status(403).json({ error: "You can only message your matches" });
+          return;
+        }
+      }
+    }
+  }
   const isSnap = (text ?? "").startsWith("__SNAP__:");
   const insertRow = {
     sender_id: senderId,
@@ -64181,26 +64203,45 @@ var VALID_FEED_CATEGORIES = /* @__PURE__ */ new Set([
   "education",
   "nature"
 ]);
+function parseUTCMs(ts) {
+  if (!ts) return 0;
+  const normalized = /[Z+\-]\d*$/.test(ts) ? ts : `${ts}Z`;
+  const ms = Date.parse(normalized);
+  return isNaN(ms) ? 0 : ms;
+}
 function limitPollsToTop5(posts) {
-  const now = /* @__PURE__ */ new Date();
   const pollPosts = [];
-  const regularPosts = [];
   for (const post2 of posts) {
     if (post2.poll) pollPosts.push(post2);
-    else regularPosts.push(post2);
   }
   if (pollPosts.length <= 5) return posts;
-  const scored = pollPosts.map((post2) => {
-    const totalVotes = post2.poll?.totalVotes ?? 0;
-    const likes = post2.likes_count ?? 0;
-    const comments = post2.comments_count ?? 0;
-    const isActive = post2.poll?.ends_at ? new Date(post2.poll.ends_at) > now : false;
-    const score = totalVotes * 1.5 + likes + comments * 2 + (isActive ? 1e4 : 0);
-    return { id: post2.id, score };
-  });
-  scored.sort((a, b) => b.score - a.score);
-  const top5Ids = new Set(scored.slice(0, 5).map((s) => s.id));
-  return posts.filter((post2) => !post2.poll || top5Ids.has(post2.id));
+  try {
+    const nowMs = Date.now();
+    const scored = pollPosts.map((post2) => {
+      const totalVotes = post2.poll?.totalVotes ?? 0;
+      const likes = post2.likes_count ?? 0;
+      const comments = post2.comments_count ?? 0;
+      const createdMs = parseUTCMs(post2.created_at);
+      const hoursSincePosted = Math.max(0, (nowMs - createdMs) / 36e5);
+      const raw = totalVotes * 1.5 + likes + comments * 2;
+      const score = raw / Math.pow(hoursSincePosted + 2, 1.5);
+      const endsAtMs = parseUTCMs(post2.poll?.ends_at);
+      const isActive = endsAtMs > nowMs;
+      return { id: post2.id, score, isActive };
+    });
+    scored.sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      return b.score - a.score;
+    });
+    const top5Ids = new Set(scored.slice(0, 5).map((s) => s.id));
+    return posts.filter((post2) => !post2.poll || top5Ids.has(post2.id));
+  } catch {
+    const byRecency = [...pollPosts].sort(
+      (a, b) => parseUTCMs(b.created_at) - parseUTCMs(a.created_at)
+    );
+    const top5Ids = new Set(byRecency.slice(0, 5).map((p) => p.id));
+    return posts.filter((post2) => !post2.poll || top5Ids.has(post2.id));
+  }
 }
 router27.get("/foryou", async (req, res) => {
   const userId = req.query["userId"];
@@ -64613,17 +64654,32 @@ router28.post("/swipe", async (req, res) => {
     if (!mutualSwipe) {
       (async () => {
         try {
+          const { data: existingReq, error: existingErr } = await sb.from("vibe_requests").select("id, status").eq("sender_id", swiperId).eq("receiver_id", targetId).maybeSingle();
+          req.log.info({ swiperId, targetId, existingReq, existingErr: existingErr?.message ?? null }, "vibe-swipe: vibe_requests lookup");
+          if (!existingReq) {
+            const { data: insertData, error: insertErr } = await sb.from("vibe_requests").insert({
+              sender_id: swiperId,
+              receiver_id: targetId,
+              status: "pending"
+            }).select("id").maybeSingle();
+            req.log.info({ insertData, insertErr: insertErr?.message ?? null }, "vibe-swipe: vibe_requests insert");
+          } else if (existingReq.status === "rejected") {
+            const { error: updateErr } = await sb.from("vibe_requests").update({ status: "pending" }).eq("id", existingReq.id);
+            req.log.info({ updateErr: updateErr?.message ?? null }, "vibe-swipe: vibe_requests re-activate");
+          }
           const { data: tPrefs } = await sb.from("user_settings").select("notif_in_app, notif_vibe_request").eq("user_id", targetId).maybeSingle();
           const pushOn = tPrefs?.notif_in_app !== false;
           const vibeReqOn = tPrefs?.notif_vibe_request !== false;
           if (!pushOn || !vibeReqOn) return;
-          const { data: swiperProfile } = await sb.from("profiles").select("username").eq("id", swiperId).maybeSingle();
-          const swiperName2 = swiperProfile?.username ?? "Someone";
+          const { data: existingNotif } = await sb.from("notifications").select("id").eq("type", "vibe_request").eq("sender_id", swiperId).eq("recipient_id", targetId).maybeSingle();
+          if (existingNotif) return;
           await sb.from("notifications").insert({
             recipient_id: targetId,
             sender_id: swiperId,
             type: "vibe_request",
-            message: `${swiperName2} sent you a Vibe \u{1F49C}`,
+            // Do NOT include sender name — the notification UI always prepends
+            // the sender's username automatically, so adding it here doubles it.
+            message: "sent you a Vibe \u{1F49C}",
             is_read: false,
             created_at: (/* @__PURE__ */ new Date()).toISOString()
           });
@@ -64640,6 +64696,9 @@ router28.post("/swipe", async (req, res) => {
         { sender_id: targetId, receiver_id: swiperId, status: "matched", created_at: now }
       ],
       { onConflict: "sender_id,receiver_id" }
+    );
+    await sb.from("vibe_requests").update({ status: "matched" }).eq("status", "pending").or(
+      `and(sender_id.eq.${swiperId},receiver_id.eq.${targetId}),and(sender_id.eq.${targetId},receiver_id.eq.${swiperId})`
     );
     const [profilesRes, prefsRes] = await Promise.all([
       sb.from("profiles").select("id, username").in("id", [swiperId, targetId]),
@@ -64661,7 +64720,9 @@ router28.post("/swipe", async (req, res) => {
         recipient_id: swiperId,
         sender_id: targetId,
         type: "vibe_match",
-        message: `It's a match! You and ${targetName} can now message each other \u{1F49C}`,
+        // Do NOT include the other person's name — the notification UI auto-prepends
+        // sender username, so adding it here would produce "name It's a match! You and name…"
+        message: "It's a match! You can now message each other \u{1F49C}",
         is_read: false,
         created_at: now
       });
@@ -64671,7 +64732,7 @@ router28.post("/swipe", async (req, res) => {
         recipient_id: targetId,
         sender_id: swiperId,
         type: "vibe_match",
-        message: `It's a match! You and ${swiperName} can now message each other \u{1F49C}`,
+        message: "It's a match! You can now message each other \u{1F49C}",
         is_read: false,
         created_at: now
       });
@@ -65258,7 +65319,7 @@ router29.post("/send", async (req, res) => {
   const { data: mutual } = await sb.from("vibe_requests").select("id").eq("sender_id", receiverId).eq("receiver_id", senderId).eq("status", "pending").maybeSingle();
   if (mutual) {
     const now = (/* @__PURE__ */ new Date()).toISOString();
-    await sb.from("vibe_requests").update({ status: "matched", updated_at: now }).eq("id", mutual.id);
+    await sb.from("vibe_requests").update({ status: "matched" }).eq("id", mutual.id);
     await sb.from("vibe_matches").upsert(
       [
         { sender_id: senderId, receiver_id: receiverId, status: "matched", created_at: now },
@@ -65266,15 +65327,14 @@ router29.post("/send", async (req, res) => {
       ],
       { onConflict: "sender_id,receiver_id" }
     );
-    const { data: senderProfile } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
-    const senderName2 = senderProfile?.username ?? "Someone";
-    const receiverName = receiver?.username ?? "Someone";
     await sb.from("notifications").insert([
       {
         recipient_id: senderId,
         sender_id: receiverId,
         type: "vibe_match",
-        message: `It's a match! You and ${receiverName} can now message each other \u{1F49C}`,
+        // Do NOT include the other person's name — the notification UI auto-prepends
+        // sender username, so adding it here would produce "name It's a match! You and name…"
+        message: "It's a match! You can now message each other \u{1F49C}",
         is_read: false,
         created_at: now
       },
@@ -65282,7 +65342,7 @@ router29.post("/send", async (req, res) => {
         recipient_id: receiverId,
         sender_id: senderId,
         type: "vibe_match",
-        message: `It's a match! You and ${senderName2} can now message each other \u{1F49C}`,
+        message: "It's a match! You can now message each other \u{1F49C}",
         is_read: false,
         created_at: now
       }
@@ -65302,7 +65362,7 @@ router29.post("/send", async (req, res) => {
   }
   let requestId;
   if (existing) {
-    const { data: updated, error } = await sb.from("vibe_requests").update({ status: "pending", updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", existing.id).select("id").single();
+    const { data: updated, error } = await sb.from("vibe_requests").update({ status: "pending" }).eq("id", existing.id).select("id").single();
     if (error || !updated) {
       res.status(500).json({ error: "Update failed" });
       return;
@@ -65317,12 +65377,13 @@ router29.post("/send", async (req, res) => {
     requestId = inserted.id;
   }
   const { data: sender } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
-  const senderName = sender?.username ?? "someone";
   await sb.from("notifications").insert({
     recipient_id: receiverId,
     sender_id: senderId,
     type: "vibe_request",
-    message: `@${senderName} wants to vibe with you \u2728`,
+    // Do NOT include sender name — the notification UI always prepends
+    // the sender's username automatically, so adding it here doubles it.
+    message: "wants to vibe with you \u{1F49C}",
     reference_id: requestId,
     is_read: false,
     created_at: (/* @__PURE__ */ new Date()).toISOString()
@@ -65366,17 +65427,31 @@ router29.post("/respond", async (req, res) => {
       ],
       { onConflict: "sender_id,receiver_id" }
     );
+    const [convU1, convU2] = [senderId, receiverId].sort();
+    await sb.from("conversations").upsert(
+      { user1_id: convU1, user2_id: convU2, is_request: false, unread_count_1: 0, unread_count_2: 0 },
+      { onConflict: "user1_id,user2_id" }
+    );
     const { data: receiverProfile } = await sb.from("profiles").select("username").eq("id", receiverId).maybeSingle();
     const receiverName = receiverProfile?.username ?? "someone";
     await sb.from("notifications").insert({
       recipient_id: senderId,
       sender_id: receiverId,
       type: "vibe_accepted",
-      message: `@${receiverName} accepted your vibe request \u{1F49C}`,
+      // Do NOT include the accepter's name — the notification UI auto-prepends
+      // sender username, so adding it here doubles it: "name accepted your vibe request"
+      message: "accepted your vibe request \u{1F49C}",
       reference_id: requestId,
       is_read: false,
       created_at: now
     });
+  } else {
+    const senderId = request.sender_id;
+    const receiverId = userId;
+    await sb.from("vibe_swipes").upsert(
+      { user_id: receiverId, target_id: senderId, direction: "left", created_at: (/* @__PURE__ */ new Date()).toISOString() },
+      { onConflict: "user_id,target_id" }
+    );
   }
   res.json({ success: true });
 });
@@ -65402,6 +65477,7 @@ router29.get("/inbox", async (req, res) => {
   }
   const sb = makeSupabase24();
   const { data, error } = await sb.from("vibe_requests").select("id, sender_id, created_at").eq("receiver_id", userId).eq("status", "pending").order("created_at", { ascending: false }).limit(20);
+  req.log.info({ userId, rowCount: data?.length ?? 0, error: error?.message ?? null }, "vibe-requests inbox query");
   if (error) {
     req.log.warn({ error: error.message }, "vibe-requests inbox error");
     res.json({ requests: [] });
@@ -65411,7 +65487,7 @@ router29.get("/inbox", async (req, res) => {
   const senderIds = [...new Set(rows.map((r) => r.sender_id))];
   const profileMap = {};
   if (senderIds.length > 0) {
-    const { data: profiles } = await sb.from("profiles").select("id, username, full_name, avatar_url, relationship_status").in("id", senderIds);
+    const { data: profiles } = await sb.from("profiles").select("id, username, full_name, avatar_url, relationship_status, age, relationship_goal").in("id", senderIds);
     (profiles ?? []).forEach((p) => {
       profileMap[p.id] = p;
     });
@@ -65427,7 +65503,9 @@ router29.get("/inbox", async (req, res) => {
         username: p.username ?? "unknown",
         displayName: p.full_name ?? null,
         avatarUrl: p.avatar_url ?? null,
-        relationshipStatus: p.relationship_status ?? null
+        relationshipStatus: p.relationship_status ?? null,
+        age: p.age ?? null,
+        goal: p.relationship_goal ?? null
       }
     };
   });
@@ -66878,7 +66956,7 @@ router40.post("/upload-photo", async (req, res) => {
     res.status(500).json({ error: "Failed to upload photo" });
   }
 });
-function parseUTCMs(s) {
+function parseUTCMs2(s) {
   const ts = /[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s : s + "Z";
   return new Date(ts).getTime();
 }
@@ -66930,13 +67008,13 @@ router40.get("/posts", async (req, res) => {
     const newVoices = [];
     const trending = [];
     for (const p of posts) {
-      const createdAtMs = parseUTCMs(p.created_at);
+      const createdAtMs = parseUTCMs2(p.created_at);
       const ageMs = now - createdAtMs;
       const reactions = (p.reaction_support ?? 0) + (p.reaction_relate ?? 0) + (p.reaction_strength ?? 0) + (p.reaction_love ?? 0);
       const comments = p.comment_count ?? 0;
       const pollInfo = pollScoreMap.get(p.id);
       const pollVotes = pollInfo?.totalVotes ?? 0;
-      const activePollBonus = pollInfo?.endsAt && parseUTCMs(pollInfo.endsAt) > now ? 5 : 0;
+      const activePollBonus = pollInfo?.endsAt && parseUTCMs2(pollInfo.endsAt) > now ? 5 : 0;
       const hoursSince = Math.max(0, ageMs / 36e5);
       const score = (reactions + comments * 2 + pollVotes * 1.5 + activePollBonus) / Math.pow(hoursSince + 2, 1.5);
       if (ageMs < NEW_VOICES_MS) {

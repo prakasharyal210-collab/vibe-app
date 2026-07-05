@@ -96,25 +96,29 @@ router.post("/swipe", async (req, res) => {
           // ── 4b-i. Upsert vibe_requests row (inbox source of truth) ──────────
           // The inbox endpoint reads vibe_requests, not vibe_swipes, so every
           // right-swipe from the deck must also write here.
-          const { data: existingReq } = await sb
+          const { data: existingReq, error: existingErr } = await sb
             .from("vibe_requests")
             .select("id, status")
             .eq("sender_id", swiperId)
             .eq("receiver_id", targetId)
             .maybeSingle();
 
+          req.log.info({ swiperId, targetId, existingReq, existingErr: existingErr?.message ?? null }, "vibe-swipe: vibe_requests lookup");
+
           if (!existingReq) {
-            await sb.from("vibe_requests").insert({
+            const { data: insertData, error: insertErr } = await sb.from("vibe_requests").insert({
               sender_id: swiperId,
               receiver_id: targetId,
               status: "pending",
-            });
+            }).select("id").maybeSingle();
+            req.log.info({ insertData, insertErr: insertErr?.message ?? null }, "vibe-swipe: vibe_requests insert");
           } else if ((existingReq as any).status === "rejected") {
             // Re-activate a previously rejected request — no updated_at column
-            await sb
+            const { error: updateErr } = await sb
               .from("vibe_requests")
               .update({ status: "pending" })
               .eq("id", (existingReq as any).id);
+            req.log.info({ updateErr: updateErr?.message ?? null }, "vibe-swipe: vibe_requests re-activate");
           }
           // If already pending or matched, leave as-is
 
