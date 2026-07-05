@@ -1,0 +1,17 @@
+Classic cold-start symptom — reels tab sitting on skeletons/blank for seconds after login. Several plausible causes in this codebase's history (25s AbortController timeout masking a slow query, the RPC-then-fallback chain trying paths serially, videos loading before URLs resolve). Worth a proper diagnosis rather than guessing — but bro, quick honesty check: this is a performance tuning issue, not a broken feature. It's a perfect first task for TOMORROW, not hour 18. Here's the prompt to fire whenever you're ready:
+
+PERF: Reels tab slow to show content after login — diagnose the cold-start path with timings
+After a fresh login (or app cold start), the Reels tab often takes noticeably long to show any content — blank/loading state for several seconds before reels appear. Diagnose with actual measurements, not guesses:
+STEP 1 — Instrument the cold path with timing logs:
+
+In the reels feed load (artifacts/mobile/app/(tabs)/index.tsx — the initial fetch after auth): log timestamps at each stage: fetch start → API response received → state set → first video ready. console.log with Date.now() deltas.
+In artifacts/api-server reels feed route (/api/feed/reels): log server-side duration — request in → Supabase query(s) done → response out. If the route tries an RPC then falls back to a direct query on failure, log WHICH path ran and how long each took (a failing RPC that waits before falling back would explain the delay perfectly).
+Report: where does the time actually go? Client waiting on API? API waiting on DB? Or API fast but video URLs/thumbnails slow to render?
+
+STEP 2 — Check the known suspects while instrumenting:
+4. Does the reels fetch wait on anything serial before starting (auth session fetch → profile fetch → THEN reels)? Parallelize what can be.
+5. Does the tab wait for ALL reels + full video metadata before showing anything, or render as soon as data lands? First reel should render immediately with others loading behind.
+6. Is the initial fetch happening on tab focus instead of app start? Prefetch the reels feed right after login/app-mount so it's warm when the user reaches the tab.
+7. Video component: does the first reel's expo-video player block on full download vs streaming? Check poster/thumbnail shows instantly while video buffers.
+STEP 3 — Fix what the numbers reveal (likely: prefetch on mount + render-first-reel-immediately + thumbnail-while-buffering). Keep the timing logs behind a __DEV__ guard.
+Typecheck, report: the measured timings per stage, root cause, fixes applied, files changed. Do not push or deploy.
