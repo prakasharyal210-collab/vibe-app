@@ -62232,6 +62232,165 @@ function normalise(row) {
   }
   return out;
 }
+var UNAVAILABLE_PREVIEW = {
+  thumbnail_url: null,
+  caption: null,
+  author_username: null,
+  author_avatar_url: null,
+  content_unavailable: true
+};
+async function getBlockedIds(sb, viewerId, authorIds) {
+  if (!authorIds.length) return /* @__PURE__ */ new Set();
+  const [{ data: b1 }, { data: b2 }] = await Promise.all([
+    sb.from("blocks").select("blocked_id").eq("blocker_id", viewerId).in("blocked_id", authorIds),
+    sb.from("blocks").select("blocker_id").eq("blocked_id", viewerId).in("blocker_id", authorIds)
+  ]);
+  return /* @__PURE__ */ new Set([
+    ...(b1 ?? []).map((b) => b.blocked_id),
+    ...(b2 ?? []).map((b) => b.blocker_id)
+  ]);
+}
+async function getFollowedIds(sb, viewerId, authorIds) {
+  if (!authorIds.length) return /* @__PURE__ */ new Set();
+  const { data } = await sb.from("follows").select("following_id").eq("follower_id", viewerId).in("following_id", authorIds);
+  return new Set((data ?? []).map((f) => f.following_id));
+}
+async function enrichSharedMessages(messages, viewerId, sb) {
+  const sharedMsgs = messages.filter((m) => m.shared_content_type && m.shared_content_id);
+  if (!sharedMsgs.length) return messages;
+  const byType = (t) => sharedMsgs.filter((m) => m.shared_content_type === t).map((m) => m.shared_content_id);
+  const postIds = byType("post");
+  const reelIds = byType("reel");
+  const confessionIds = byType("confession");
+  const previewMap = /* @__PURE__ */ new Map();
+  await Promise.all([
+    // ── Posts ─────────────────────────────────────────────────────────────
+    (async () => {
+      if (!postIds.length) return;
+      const { data: posts } = await sb.from("posts").select("id, user_id, media_url, caption, profiles!user_id(username, avatar_url, is_private)").in("id", postIds);
+      if (!posts?.length) return;
+      const authorIds = [...new Set(posts.map((p) => p.user_id))];
+      const [blocked, followed] = await Promise.all([
+        getBlockedIds(sb, viewerId, authorIds),
+        getFollowedIds(sb, viewerId, authorIds.filter((id) => id !== viewerId))
+      ]);
+      for (const p of posts) {
+        const prof = p.profiles;
+        const hidden = blocked.has(p.user_id) || prof?.is_private && p.user_id !== viewerId && !followed.has(p.user_id);
+        previewMap.set(
+          p.id,
+          hidden ? UNAVAILABLE_PREVIEW : {
+            thumbnail_url: p.media_url ?? null,
+            caption: p.caption ?? null,
+            author_username: prof?.username ?? null,
+            author_avatar_url: prof?.avatar_url ?? null,
+            content_unavailable: false
+          }
+        );
+      }
+    })(),
+    // ── Reels ─────────────────────────────────────────────────────────────
+    (async () => {
+      if (!reelIds.length) return;
+      const { data: reels } = await sb.from("reels").select("id, user_id, thumbnail_url, caption, profiles!user_id(username, avatar_url, is_private)").in("id", reelIds);
+      if (!reels?.length) return;
+      const authorIds = [...new Set(reels.map((r) => r.user_id))];
+      const [blocked, followed] = await Promise.all([
+        getBlockedIds(sb, viewerId, authorIds),
+        getFollowedIds(sb, viewerId, authorIds.filter((id) => id !== viewerId))
+      ]);
+      for (const r of reels) {
+        const prof = r.profiles;
+        const hidden = blocked.has(r.user_id) || prof?.is_private && r.user_id !== viewerId && !followed.has(r.user_id);
+        previewMap.set(
+          r.id,
+          hidden ? UNAVAILABLE_PREVIEW : {
+            thumbnail_url: r.thumbnail_url ?? null,
+            caption: r.caption ?? null,
+            author_username: prof?.username ?? null,
+            author_avatar_url: prof?.avatar_url ?? null,
+            content_unavailable: false
+          }
+        );
+      }
+    })(),
+    // ── Confessions (couple_feed_posts — always public) ────────────────────
+    (async () => {
+      if (!confessionIds.length) return;
+      const [{ data: confessions }, { data: polls }] = await Promise.all([
+        sb.from("couple_feed_posts").select("id, author_id, content, photo_url, profiles!author_id(username, avatar_url)").in("id", confessionIds),
+        sb.from("confession_polls").select("confession_post_id").in("confession_post_id", confessionIds)
+      ]);
+      const pollSet = new Set(
+        (polls ?? []).map((p) => p.confession_post_id)
+      );
+      for (const c of confessions ?? []) {
+        const prof = c.profiles;
+        previewMap.set(c.id, {
+          thumbnail_url: c.photo_url ?? null,
+          caption: c.content ?? null,
+          author_username: prof?.username ?? null,
+          author_avatar_url: prof?.avatar_url ?? null,
+          has_poll: pollSet.has(c.id),
+          content_unavailable: false
+        });
+      }
+    })()
+  ]);
+  return messages.map((m) => {
+    if (!m.shared_content_type || !m.shared_content_id) return m;
+    return {
+      ...m,
+      shared_preview: previewMap.get(m.shared_content_id) ?? UNAVAILABLE_PREVIEW
+    };
+  });
+}
+async function enrichReactions(messages, sb) {
+  const ids = messages.map((m) => m.id).filter(Boolean);
+  if (!ids.length) return messages;
+  const { data } = await sb.from("message_reactions").select("message_id, user_id, emoji").in("message_id", ids);
+  const map = /* @__PURE__ */ new Map();
+  for (const r of data ?? []) {
+    if (!map.has(r.message_id)) map.set(r.message_id, []);
+    map.get(r.message_id).push({ userId: r.user_id, emoji: r.emoji });
+  }
+  return messages.map((m) => ({ ...m, reactions: map.get(m.id) ?? [] }));
+}
+async function enrichReplies(messages, myId, sb) {
+  const replyMsgs = messages.filter((m) => m.reply_to_message_id);
+  if (!replyMsgs.length) return messages;
+  const parentIds = [...new Set(replyMsgs.map((m) => m.reply_to_message_id))];
+  const { data: parents } = await sb.from("messages").select("id, content, message_type, shared_content_type, sender_id, sender:sender_id(username)").in("id", parentIds);
+  const parentMap = /* @__PURE__ */ new Map();
+  for (const p of parents ?? []) {
+    const content = p.content ?? "";
+    let snippet;
+    if (content.startsWith("__SNAP__:")) {
+      snippet = "\u{1F4F7} Photo";
+    } else if (p.message_type === "share" || p.shared_content_type) {
+      snippet = `\u{1F4CE} Shared ${p.shared_content_type ?? "content"}`;
+    } else {
+      snippet = content.length > 60 ? content.slice(0, 57) + "\u2026" : content;
+    }
+    parentMap.set(p.id, {
+      sender_username: p.sender?.username ?? "Unknown",
+      sender_id: p.sender_id,
+      text_snippet: snippet
+    });
+  }
+  return messages.map((m) => {
+    if (!m.reply_to_message_id) return m;
+    const parent = parentMap.get(m.reply_to_message_id);
+    return {
+      ...m,
+      reply_preview: parent ?? {
+        sender_username: "Unknown",
+        sender_id: null,
+        text_snippet: "Message deleted"
+      }
+    };
+  });
+}
 router20.get("/", async (req, res) => {
   const { myId, otherId, limit = "100" } = req.query;
   if (!myId || !otherId) {
@@ -62246,12 +62405,16 @@ router20.get("/", async (req, res) => {
     res.status(500).json({ error: error.message });
     return;
   }
-  res.json({ messages: (data ?? []).map(normalise) });
+  const normalised = (data ?? []).map(normalise);
+  const withShared = await enrichSharedMessages(normalised, myId, sb);
+  const withReactions = await enrichReactions(withShared, sb);
+  res.json({ messages: await enrichReplies(withReactions, myId, sb) });
 });
 router20.post("/", async (req, res) => {
-  const { senderId, receiverId, text } = req.body;
-  if (!senderId || !receiverId || !text) {
-    res.status(400).json({ error: "senderId, receiverId, and text required" });
+  const { senderId, receiverId, text, shared_content_type, shared_content_id, reply_to_message_id, message_type } = req.body;
+  const isShareMsg = !!(shared_content_type && shared_content_id);
+  if (!senderId || !receiverId || !text && !isShareMsg) {
+    res.status(400).json({ error: "senderId, receiverId, and (text or shared content) required" });
     return;
   }
   const sb = makeSupabase16();
@@ -62286,13 +62449,24 @@ router20.post("/", async (req, res) => {
       return;
     }
   }
-  const isSnap = text.startsWith("__SNAP__:");
+  const isSnap = (text ?? "").startsWith("__SNAP__:");
   const insertRow = {
     sender_id: senderId,
     receiver_id: receiverId,
-    content: text
+    content: text ?? ""
   };
-  if (isSnap) insertRow["message_type"] = "snap";
+  if (isSnap) {
+    insertRow["message_type"] = "snap";
+  } else if (isShareMsg) {
+    insertRow["message_type"] = "share";
+    insertRow["shared_content_type"] = shared_content_type;
+    insertRow["shared_content_id"] = shared_content_id;
+  } else if (message_type === "photo") {
+    insertRow["message_type"] = "photo";
+  }
+  if (reply_to_message_id) {
+    insertRow["reply_to_message_id"] = reply_to_message_id;
+  }
   const { data, error } = await sb.from("messages").insert(insertRow).select().single();
   if (error) {
     res.status(500).json({ error: error.message });
@@ -62315,14 +62489,14 @@ router20.post("/", async (req, res) => {
             user2_id: u2Id,
             is_request: isRequest,
             requested_by: senderId,
-            last_message: isSnap ? "\u{1F4F7} Photo" : text,
+            last_message: isSnap ? "\u{1F4F7} Photo" : isShareMsg ? `\u{1F4CE} Shared a ${shared_content_type}` : text ?? "",
             last_message_at: now
           },
           { onConflict: "user1_id,user2_id" }
         );
       } else {
         await sb.from("conversations").update({
-          last_message: isSnap ? "\u{1F4F7} Photo" : text,
+          last_message: isSnap ? "\u{1F4F7} Photo" : isShareMsg ? `\u{1F4CE} Shared a ${shared_content_type}` : text ?? "",
           last_message_at: now
         }).eq("id", existingConv.id);
       }
@@ -62332,7 +62506,8 @@ router20.post("/", async (req, res) => {
   void (async () => {
     const { data: sender } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
     const senderName = sender?.username ?? "Someone";
-    const preview = text.length > 60 ? text.slice(0, 57) + "\u2026" : text;
+    const msgText = isShareMsg ? `Shared a ${shared_content_type}` : text ?? "";
+    const preview = msgText.length > 60 ? msgText.slice(0, 57) + "\u2026" : msgText;
     void sendPushToUser(
       sb,
       receiverId,
@@ -62358,6 +62533,13 @@ router20.patch("/read", async (req, res) => {
   }
   const sb = makeSupabase16();
   try {
+    const [u1, u2] = [myId, otherId].sort();
+    const { data: conv } = await sb.from("conversations").select("is_request, requested_by").eq("user1_id", u1).eq("user2_id", u2).maybeSingle();
+    const isPendingRequestFromOther = conv && conv.is_request === true && conv.requested_by === otherId;
+    if (isPendingRequestFromOther) {
+      res.json({ ok: true });
+      return;
+    }
     await sb.from("messages").update({ read_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("sender_id", otherId).eq("receiver_id", myId).is("read_at", null);
     res.json({ ok: true });
   } catch (err) {
@@ -62485,6 +62667,11 @@ router20.post("/react", async (req, res) => {
     return;
   }
   const sb = makeSupabase16();
+  const { data: msgRow } = await sb.from("messages").select("sender_id, receiver_id").eq("id", messageId).maybeSingle();
+  if (!msgRow || msgRow.sender_id !== userId && msgRow.receiver_id !== userId) {
+    res.status(403).json({ error: "Not a participant in this conversation" });
+    return;
+  }
   try {
     const { data: existing } = await sb.from("message_reactions").select("id, emoji").eq("message_id", messageId).eq("user_id", userId).maybeSingle();
     if (existing) {
@@ -63869,8 +64056,7 @@ router26.post("/snap", async (req, res) => {
     req.log.warn({ err: error.message }, "Snap upload failed");
     return res.status(500).json({ error: error.message });
   }
-  const { data: urlData } = sb.storage.from("snaps").getPublicUrl(fileName);
-  return res.json({ url: urlData.publicUrl });
+  return res.json({ url: fileName });
 });
 router26.post("/avatar", async (req, res) => {
   const { base64, userId, mimeType = "image/jpeg" } = req.body;
@@ -63888,6 +64074,23 @@ router26.post("/avatar", async (req, res) => {
   }
   const { data: urlData } = sb.storage.from("avatars").getPublicUrl(path);
   return res.json({ url: `${urlData.publicUrl}?t=${Date.now()}` });
+});
+router26.post("/chat-photo", async (req, res) => {
+  const { base64, userId, mimeType = "image/jpeg" } = req.body;
+  if (!base64 || !userId) {
+    return res.status(400).json({ error: "base64 and userId are required" });
+  }
+  const sb = makeSupabase21();
+  const ext = mimeType.includes("png") ? "png" : mimeType.includes("gif") ? "gif" : "jpg";
+  const fileName = `chat/${userId}/${Date.now()}.${ext}`;
+  const buffer = Buffer.from(base64, "base64");
+  const { error } = await sb.storage.from("media").upload(fileName, buffer, { contentType: mimeType, upsert: false });
+  if (error) {
+    req.log.warn({ err: error.message }, "Chat photo upload failed");
+    return res.status(500).json({ error: error.message });
+  }
+  const { data: urlData } = sb.storage.from("media").getPublicUrl(fileName);
+  return res.json({ url: urlData.publicUrl });
 });
 var storage_default = router26;
 
@@ -65410,6 +65613,49 @@ router31.get("/", async (req, res) => {
   } catch (err) {
     req.log.error({ err: err?.message }, "snaps-get exception");
     res.status(500).json({ error: "Failed" });
+  }
+});
+router31.get("/:id/view", async (req, res) => {
+  const { id } = req.params;
+  const { requesterId } = req.query;
+  if (!id || !requesterId) {
+    res.status(400).json({ error: "id and requesterId required" });
+    return;
+  }
+  const sb = makeSupabase26();
+  try {
+    const { data: snap, error } = await sb.from("snaps").select("id, receiver_id, media_url, media_type, viewed_at").eq("id", id).single();
+    if (error || !snap) {
+      res.status(404).json({ error: "snap not found" });
+      return;
+    }
+    if (snap.receiver_id !== requesterId) {
+      res.status(403).json({ error: "not authorised" });
+      return;
+    }
+    const raw = snap.media_url ?? "";
+    let storagePath = raw;
+    const pubMatch = raw.match(/\/object\/public\/snaps\/(.+)/);
+    if (pubMatch) {
+      storagePath = pubMatch[1].split("?")[0];
+    } else {
+      const sigMatch = raw.match(/\/object\/sign\/snaps\/(.+?)(?:\?|$)/);
+      if (sigMatch) storagePath = sigMatch[1];
+    }
+    const { data: signed, error: signErr } = await sb.storage.from("snaps").createSignedUrl(storagePath, 3600);
+    if (signErr || !signed?.signedUrl) {
+      req.log.warn({ err: signErr?.message, storagePath }, "snap view: sign failed");
+      res.status(500).json({ error: signErr?.message ?? "Failed to sign URL" });
+      return;
+    }
+    if (!snap.viewed_at) {
+      sb.from("snaps").update({ viewed_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).then(() => {
+      });
+    }
+    res.json({ signedUrl: signed.signedUrl, mediaType: snap.media_type ?? "photo" });
+  } catch (err) {
+    req.log.error({ err: err?.message }, "snap view exception");
+    res.status(500).json({ error: err?.message ?? "Failed" });
   }
 });
 router31.patch("/:id", async (req, res) => {
