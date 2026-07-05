@@ -972,7 +972,7 @@ const S = StyleSheet.create({
     position: "absolute",
     right: 12,
     alignItems: "center",
-    gap: 16,
+    gap: 10,
   },
   actionBtn: {
     alignItems: "center",

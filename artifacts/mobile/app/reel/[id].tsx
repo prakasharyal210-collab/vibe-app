@@ -145,7 +145,7 @@ export default function ReelDetailScreen() {
       </TouchableOpacity>
 
       {/* Right actions */}
-      <View style={[styles.rightActions, { bottom: insets.bottom + 80 }]}>
+      <View style={[styles.rightActions, { bottom: insets.bottom + 16 }]}>
         <TouchableOpacity style={styles.actionBtn} onPress={handleLike}>
           <Ionicons name={liked ? "heart" : "heart-outline"} size={32} color={liked ? "#EF4444" : "#fff"} />
           <Text style={styles.actionCount}>{formatCount(likesCount)}</Text>
@@ -223,9 +223,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   backBtn: { position: "absolute", left: 14, zIndex: 20, padding: 6, backgroundColor: "rgba(0,0,0,0.3)", borderRadius: 20 },
-  rightActions: { position: "absolute", right: 14, alignItems: "center", gap: 22, zIndex: 10 },
-  actionBtn: { alignItems: "center", gap: 3 },
-  actionCount: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
+  rightActions: { position: "absolute", right: 14, alignItems: "center", gap: 10, zIndex: 10 },
+  actionBtn: { alignItems: "center", gap: 2 },
+  actionCount: { color: "#fff", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   bottomInfo: { position: "absolute", left: 14, right: 90, zIndex: 10, gap: 6 },
   userRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   username: { color: "#fff", fontSize: 15, fontFamily: "Poppins_700Bold" },
