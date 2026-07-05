@@ -425,8 +425,8 @@ export default function CoupleFeedScreen() {
       }
     } catch {
       if (gen === genRef.current) {
-        setNewPosts([]);
-        setHotPosts([]);
+        // Refresh failed — keep existing posts visible; never blank a working feed.
+        console.log('[fetchPosts] error — keeping existing posts, not wiping');
       }
     } finally {
       if (gen === genRef.current) setLoading(false);
