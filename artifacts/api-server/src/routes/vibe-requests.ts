@@ -147,13 +147,13 @@ router.post("/send", async (req, res) => {
     .select("username")
     .eq("id", senderId)
     .maybeSingle();
-  const senderName = sender?.username ?? "someone";
-
   await sb.from("notifications").insert({
     recipient_id: receiverId,
     sender_id: senderId,
     type: "vibe_request",
-    message: `@${senderName} wants to vibe with you ✨`,
+    // Do NOT include sender name — the notification UI always prepends
+    // the sender's username automatically, so adding it here doubles it.
+    message: "wants to vibe with you 💜",
     reference_id: requestId,
     is_read: false,
     created_at: new Date().toISOString(),

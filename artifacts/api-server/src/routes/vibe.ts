@@ -101,18 +101,24 @@ router.post("/swipe", async (req, res) => {
           const vibeReqOn = (tPrefs as any)?.notif_vibe_request !== false;
           if (!pushOn || !vibeReqOn) return;
 
-          const { data: swiperProfile } = await sb
-            .from("profiles")
-            .select("username")
-            .eq("id", swiperId)
+          // Dedup: skip if a vibe_request notification from this sender already exists.
+          // Repeat right-swipes after Start Over would otherwise stack identical rows.
+          const { data: existingNotif } = await sb
+            .from("notifications")
+            .select("id")
+            .eq("type", "vibe_request")
+            .eq("sender_id", swiperId)
+            .eq("recipient_id", targetId)
             .maybeSingle();
-          const swiperName = (swiperProfile as any)?.username ?? "Someone";
+          if (existingNotif) return;
 
           await sb.from("notifications").insert({
             recipient_id: targetId,
             sender_id: swiperId,
             type: "vibe_request",
-            message: `${swiperName} sent you a Vibe 💜`,
+            // Do NOT include sender name — the notification UI always prepends
+            // the sender's username automatically, so adding it here doubles it.
+            message: "sent you a Vibe 💜",
             is_read: false,
             created_at: new Date().toISOString(),
           });

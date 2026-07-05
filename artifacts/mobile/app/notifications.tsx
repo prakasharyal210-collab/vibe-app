@@ -305,7 +305,9 @@ function NotifRow({
     if (notif.type === "follow" || notif.type === "vibe_accepted") {
       // Navigate to the sender's profile
       if (notif.username) router.push(`/profile/${notif.username}` as any);
-    } else if (notif.type === "vibe" || notif.type === "vibe_request") {
+    } else if (notif.type === "vibe_request") {
+      router.push("/vibe-notifications" as any);
+    } else if (notif.type === "vibe") {
       router.push("/(tabs)/find" as any);
     } else if (notif.post_id) {
       // Post comment / like / mention / tag → post detail screen

@@ -1,0 +1,18 @@
+BUG + UX: Vibe requests — duplicates stacking, no accept path from notifications, double-name text
+Screenshot evidence: notifications show "haceriz haceriz sent you a Vibe 💜" FOUR times (2m/2m/8m/21m). Three issues:
+1. Duplicate vibe requests/notifications:
+
+Diagnose: in the swipe/vibe-send path (artifacts/api-server — vibe swipe endpoint and/or vibe_requests creation), what prevents duplicates? Check: does a repeat right-swipe on the same target (e.g. after Start Over cleared vibe_swipes) create a NEW vibe_requests row + NEW notification even when one is already pending? Report the current dedup logic or lack of it.
+Fix: sending a vibe to someone with an existing PENDING request from you = no-op (no new row, no new notification). Add a unique guard server-side (e.g. upsert on (sender_id, receiver_id) where status='pending' — if a partial unique index is needed, OUTPUT SQL FILE ONLY, do not run). Also clean up: the notification insert should only fire when a genuinely new request is created.
+
+2. Tapping a vibe notification should open the request:
+
+Diagnose: what does tapping a "sent you a Vibe" notification currently do (report the notification row's type + any deep link/navigation handler in notifications.tsx)?
+Fix: tapping it navigates to the vibe requests screen (or directly to that request) where the user can Accept 💜 or Deny. Report where that requests screen lives (route path) — if no requests screen exists in Find Vibe's UI, report that loudly and list what exists (inbox endpoint exists: GET /api/vibe-requests/inbox), and build a minimal requests list screen: requester photo/name/age, Accept and Deny buttons, wired to POST /api/vibe-requests/respond.
+
+3. Double name in notification text:
+
+"haceriz haceriz sent you a Vibe" — the template is rendering display-name + username where both resolve to the same value. Fix the notification text template to use one (prefer full_name, fall back to username — column is full_name NOT display_name, verify against live schema).
+
+Rules: all DB via api-server service-role; { data, error } destructured; verify columns against live schema; loading/empty states on any new screen; match app dark theme.
+Typecheck, report per issue: root cause, files changed, any SQL for review, and the route path where users accept vibes. Do not push or deploy.
