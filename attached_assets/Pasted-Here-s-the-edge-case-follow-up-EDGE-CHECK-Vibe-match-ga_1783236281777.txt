@@ -1,0 +1,17 @@
+Here's the edge-case follow-up:
+
+EDGE CHECK: Vibe-match gate vs existing conversations — does deck reset kill in-flight chats?
+The new stranger gate in POST /messages requires mutual vibe_matches rows for users with no follow relationship. Edge case to verify: two strangers match via Find Vibe, chat for days via MatchChatView, then one of them uses Start Over (which clears their vibe_swipes AND vibe_matches). The vibe_matches rows disappear → next message from either side hits the gate → 403 "You can only message your matches" — suddenly blocking an established, consensual conversation.
+DIAGNOSE AND REPORT:
+
+Confirm whether Start Over / reset-deck deletes vibe_matches rows for BOTH directions (I believe it does, from the original implementation).
+Trace what happens to an existing conversation between two previously-matched strangers after those rows are gone: can they still send messages, or does the gate now 403 them mid-conversation?
+
+THEN FIX (if broken) with this rule:
+
+An EXISTING conversation survives the loss of the vibe match. The gate should only block the FIRST contact between strangers — once a conversation exists between the two users (a conversations row with messages from both sides, or simply an accepted/non-request conversation), it grandfathers them: skip the vibe_matches check when such a conversation already exists.
+Cleanest implementation: in the gate, before requiring vibe_matches, check for an existing non-pending conversation between the pair — if found, allow. This also naturally covers the message-requests flow (an accepted request = consent to talk).
+Make sure Start Over itself is untouched — it should still clear the deck and matches; we're only protecting conversations that already exist.
+
+Rules: { data, error } destructured everywhere; verify column names against live schema (conversations, vibe_matches); all via api-server service-role.
+Typecheck, report: what Start Over currently deletes, whether existing chats were being killed, the exact grandfather condition implemented, files changed. Do not push or deploy.

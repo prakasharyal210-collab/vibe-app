@@ -385,16 +385,35 @@ router.post("/", async (req, res) => {
     const hasSocialRelationship = !!(followAB.data || followBA.data);
 
     if (!hasSocialRelationship) {
-      // Require a mutual vibe_match (both directions must be present with status='matched').
-      const [matchAB, matchBA] = await Promise.all([
-        sb.from("vibe_matches").select("id")
-          .eq("sender_id", senderId).eq("receiver_id", receiverId).eq("status", "matched").maybeSingle(),
-        sb.from("vibe_matches").select("id")
-          .eq("sender_id", receiverId).eq("receiver_id", senderId).eq("status", "matched").maybeSingle(),
-      ]);
-      if (!matchAB.data || !matchBA.data) {
-        res.status(403).json({ error: "You can only message your matches" });
-        return;
+      // Grandfather: an established (accepted) conversation between the pair proves
+      // prior consent — they matched via Find Vibe at some point and have been
+      // chatting.  Start Over clears vibe_matches rows but must not kill in-flight
+      // conversations.  A conversations row with is_request=false is written by
+      // BOTH the swipe-match path and the vibe-requests accept path at the moment
+      // of match, so it reliably reflects "these users consented to talk".
+      const [convU1Id, convU2Id] = [senderId, receiverId].sort();
+      const { data: existingConv } = await sb
+        .from("conversations")
+        .select("id, is_request")
+        .eq("user1_id", convU1Id)
+        .eq("user2_id", convU2Id)
+        .maybeSingle();
+
+      const hasEstablishedConversation = !!(existingConv && !(existingConv as any).is_request);
+
+      if (!hasEstablishedConversation) {
+        // No prior conversation — require a live mutual vibe_match.
+        // (Both directions must exist with status='matched'.)
+        const [matchAB, matchBA] = await Promise.all([
+          sb.from("vibe_matches").select("id")
+            .eq("sender_id", senderId).eq("receiver_id", receiverId).eq("status", "matched").maybeSingle(),
+          sb.from("vibe_matches").select("id")
+            .eq("sender_id", receiverId).eq("receiver_id", senderId).eq("status", "matched").maybeSingle(),
+        ]);
+        if (!matchAB.data || !matchBA.data) {
+          res.status(403).json({ error: "You can only message your matches" });
+          return;
+        }
       }
     }
   }
