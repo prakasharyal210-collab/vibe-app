@@ -1,0 +1,15 @@
+FOLLOW-UP: Close 3 gaps in the message-requests rebuild — diagnose each, report was-broken/fixed vs already-working
+The direction fix is done, but three requirements from the spec weren't confirmed in your report. Check each one and fix if missing:
+
+Read-receipt privacy while pending: While a conversation has is_request = true, the recipient opening/reading the chat must NOT mark messages as read/seen for the sender, and no typing indicators should fire. Read receipts and typing only activate after Accept (is_request = false). Check the mark-as-read endpoint and any realtime/typing logic in artifacts/api-server/src/routes/messages.ts — if it currently marks read regardless of request state, gate it on is_request = false.
+who_can_message enforcement on send: POST /messages must check the RECIPIENT's user_settings.who_can_message (note: column is who_can_message, verify against live schema) before creating the conversation/message:
+
+everyone → allowed (goes to requests if not followed, per existing logic)
+followers/following-only values → if the sender doesn't qualify, reject with 403 and a clear error message; mobile should show "This user only receives messages from people they follow" instead of a silent failure.
+Report what the actual allowed values of who_can_message are in the live schema/data and map each one explicitly.
+
+
+Badge count consistency: The "N person(s) sent you a request" count on the Messages/inbox screen must use the EXACT same filter as GET /api/messages/requests (is_request = true AND requested_by IS NOT NULL AND requested_by != viewerId). Find where that count comes from (server endpoint or client-side count) — if it still uses the old any-participant filter, fix it to match, ideally by having both read from one shared query/endpoint so they can never drift apart.
+
+Architectural rules: all DB via artifacts/api-server with service-role key, mobile never calls supabase.from()/.rpc(); always destructure { data, error } and handle errors; verify every column name against the LIVE schema.
+Typecheck, report each of the three as was-broken/fixed or already-working, with files changed. Do not push or deploy.
