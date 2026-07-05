@@ -546,6 +546,7 @@ export default function ChatScreen() {
   const [snapSending, setSnapSending] = useState(false);
   const [snapViewer, setSnapViewer] = useState<{
     uri: string;
+    type: "photo" | "video";
     messageId: string;
     msgText: string;
   } | null>(null);
@@ -818,7 +819,7 @@ export default function ChatScreen() {
   const handleViewSnap = useCallback((msg: Message) => {
     const snap = parseSnap(msg.text);
     if (!snap || snap.viewed) return;
-    setSnapViewer({ uri: snap.url, messageId: msg.id, msgText: msg.text });
+    setSnapViewer({ uri: snap.url, type: snap.type ?? "photo", messageId: msg.id, msgText: msg.text });
   }, []);
 
   const handleSnapViewerClose = useCallback(async () => {
@@ -1295,6 +1296,7 @@ export default function ChatScreen() {
       {snapViewer && (
         <SnapViewerModal
           uri={snapViewer.uri}
+          type={snapViewer.type}
           onClose={handleSnapViewerClose}
         />
       )}

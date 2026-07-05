@@ -1,0 +1,21 @@
+Snap viewer opens, progress bar runs, "disappears after viewing" text shows — but the actual image is pure black. The media itself isn't loading. Either the media_url is broken/expired, the storage bucket is private and the URL needs signing, or the Image component is silently failing.
+
+BUG: Snap viewer shows pure black screen — media never renders
+A snap (disappearing photo) sent from account A to account B opens on B's side as a completely black screen. The viewer chrome works (progress bar at top animates, "Snap · tap to close" pill, "This snap disappears after viewing" footer) — but the photo itself never appears. So the snap row is fetched fine; the media rendering is what's broken.
+DIAGNOSE FIRST — report findings before fixing:
+
+Find the snap viewer component (artifacts/mobile/ — the screen showing the snap with the progress bar). Report how it renders media: <Image> with what source? Is there an onError handler? (If not, failures are invisible — that's part of the problem.)
+Check what media_url actually contains for the snap in question — query via the API server or log it. Report: is it a full URL, a storage path, or empty? Which Supabase storage bucket do snaps upload to?
+Check that bucket's visibility: if it's PRIVATE, a raw public URL will 400/403 and render as black. Report whether the URL format is .../object/public/... vs needing a signed URL.
+Check the upload side: when sending a snap, does the upload go through the API server, and does it store a working URL? Test-fetch the stored URL and report the HTTP status.
+Check if this is media_type-dependent — does the viewer handle media_type = 'image' vs 'video' with different components, and could an image be routed into the video player (black screen) or vice versa?
+
+THEN FIX the root cause found:
+
+If bucket is private → either make the snaps bucket public, or (better for disappearing content) have the API server return a short-lived signed URL when the recipient opens the snap (GET /api/snaps/:id/view returning a signed URL + marking viewed_at).
+If the stored URL is malformed/empty → fix the upload path to store the correct full URL.
+If media_type routing is wrong → fix the component selection.
+Either way: add an onError on the media that logs the error and shows a proper "Couldn't load snap" state instead of silent black.
+
+Architectural rules: all DB/storage access via artifacts/api-server with service-role key (service role can also sign storage URLs); mobile never calls supabase.from()/.rpc(); destructure { data, error } always; verify column names against live schema (snaps table: media_url, media_type, duration, viewed_at, expires_at).
+Typecheck, report: root cause, the actual media_url value + HTTP status you found, files changed. Do not push or deploy.

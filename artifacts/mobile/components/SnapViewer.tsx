@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -72,6 +72,8 @@ export function SnapViewerModal({
     [onClose, startTimer],
   );
 
+  const [mediaError, setMediaError] = useState(false);
+
   const barWidth = progress.interpolate({
     inputRange: [0, 1],
     outputRange: ["0%", "100%"],
@@ -115,7 +117,13 @@ export function SnapViewerModal({
           activeOpacity={1}
           onPress={onClose}
         >
-          {type === "video" ? (
+          {mediaError ? (
+            <View style={viewerSt.errorBox}>
+              <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.35)" />
+              <Text style={viewerSt.errorText}>Couldn't load snap</Text>
+              <Text style={viewerSt.errorSub}>The media may have expired or failed to load</Text>
+            </View>
+          ) : type === "video" ? (
             <Video
               source={{ uri }}
               style={viewerSt.image}
@@ -123,13 +131,17 @@ export function SnapViewerModal({
               shouldPlay
               isLooping={false}
               isMuted={false}
-              onPlaybackStatusUpdate={handleVideoStatus}
+              onPlaybackStatusUpdate={(s) => {
+                if (!s.isLoaded && (s as any).error) setMediaError(true);
+                else handleVideoStatus(s);
+              }}
             />
           ) : (
             <Image
               source={{ uri }}
               style={viewerSt.image}
               resizeMode="contain"
+              onError={() => setMediaError(true)}
             />
           )}
         </TouchableOpacity>
@@ -196,6 +208,9 @@ const viewerSt = StyleSheet.create({
     padding: 8,
   },
   image: { flex: 1 },
+  errorBox: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, paddingHorizontal: 32 },
+  errorText: { color: "rgba(255,255,255,0.7)", fontFamily: "Poppins_600SemiBold", fontSize: 16 },
+  errorSub: { color: "rgba(255,255,255,0.4)", fontFamily: "Poppins_400Regular", fontSize: 13, textAlign: "center" },
   bottomHint: {
     position: "absolute",
     bottom: 0,

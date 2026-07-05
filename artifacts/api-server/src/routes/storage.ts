@@ -44,8 +44,16 @@ router.post("/snap", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  const { data: urlData } = sb.storage.from("snaps").getPublicUrl(fileName);
-  return res.json({ url: urlData.publicUrl });
+  const { data: signedData, error: signErr } = await sb.storage
+    .from("snaps")
+    .createSignedUrl(fileName, 86400); // 24 h — matches snap expiry
+
+  if (signErr || !signedData?.signedUrl) {
+    req.log.warn({ err: signErr?.message }, "Snap URL signing failed");
+    return res.status(500).json({ error: signErr?.message ?? "Failed to sign URL" });
+  }
+
+  return res.json({ url: signedData.signedUrl });
 });
 
 // POST /api/storage/avatar
