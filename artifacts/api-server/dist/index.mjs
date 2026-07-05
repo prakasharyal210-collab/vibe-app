@@ -24297,27 +24297,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router43;
+    module.exports = Router44;
     module.exports.Route = Route;
-    function Router43(options) {
-      if (!(this instanceof Router43)) {
-        return new Router43(options);
+    function Router44(options) {
+      if (!(this instanceof Router44)) {
+        return new Router44(options);
       }
       const opts = options || {};
-      function router43(req, res, next) {
-        router43.handle(req, res, next);
+      function router44(req, res, next) {
+        router44.handle(req, res, next);
       }
-      Object.setPrototypeOf(router43, this);
-      router43.caseSensitive = opts.caseSensitive;
-      router43.mergeParams = opts.mergeParams;
-      router43.params = {};
-      router43.strict = opts.strict;
-      router43.stack = [];
-      return router43;
+      Object.setPrototypeOf(router44, this);
+      router44.caseSensitive = opts.caseSensitive;
+      router44.mergeParams = opts.mergeParams;
+      router44.params = {};
+      router44.strict = opts.strict;
+      router44.stack = [];
+      return router44;
     }
-    Router43.prototype = function() {
+    Router44.prototype = function() {
     };
-    Router43.prototype.param = function param(name, fn) {
+    Router44.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -24337,7 +24337,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router43.prototype.handle = function handle(req, res, callback) {
+    Router44.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -24464,7 +24464,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router43.prototype.use = function use(handler) {
+    Router44.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -24497,7 +24497,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router43.prototype.route = function route(path) {
+    Router44.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -24512,7 +24512,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router43.prototype[method] = function(path) {
+      Router44.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -24695,13 +24695,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router43 = require_router();
+    var Router44 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router43 = null;
+      var router44 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -24710,13 +24710,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router43 === null) {
-            router43 = new Router43({
+          if (router44 === null) {
+            router44 = new Router44({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router43;
+          return router44;
         }
       });
     };
@@ -24787,15 +24787,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router43 = this.router;
+      var router44 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router43.use(path, fn2);
+          return router44.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router43.use(path, function mounted_app(req, res, next) {
+        router44.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -27368,7 +27368,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router43 = require_router();
+    var Router44 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -27390,8 +27390,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router43.Route;
-    exports.Router = Router43;
+    exports.Route = Router44.Route;
+    exports.Router = Router44;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -45280,12 +45280,12 @@ var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // src/app.ts
-var import_express43 = __toESM(require_express2(), 1);
+var import_express44 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
 // src/routes/index.ts
-var import_express42 = __toESM(require_express2(), 1);
+var import_express43 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -66612,8 +66612,8 @@ function currentMonthYear() {
   return { month: now.getMonth() + 1, year: now.getFullYear() };
 }
 router39.post("/competition/enter", async (req, res) => {
-  const { coupleId, coupleName, coverPhotoUrl } = req.body;
-  if (!coupleId || !coupleName) {
+  const { coupleId, coupleName: coupleName2, coverPhotoUrl } = req.body;
+  if (!coupleId || !coupleName2) {
     res.status(400).json({ error: "coupleId and coupleName required" });
     return;
   }
@@ -66625,7 +66625,7 @@ router39.post("/competition/enter", async (req, res) => {
       res.status(409).json({ error: "Already entered this month" });
       return;
     }
-    const { data, error } = await sb.from("couple_competitions").insert({ couple_id: coupleId, couple_name: coupleName, cover_photo_url: coverPhotoUrl ?? null, month, year, vote_count: 0 }).select().single();
+    const { data, error } = await sb.from("couple_competitions").insert({ couple_id: coupleId, couple_name: coupleName2, cover_photo_url: coverPhotoUrl ?? null, month, year, vote_count: 0 }).select().single();
     if (error) throw error;
     res.json({ success: true, entry: data });
   } catch (err) {
@@ -66774,7 +66774,7 @@ var router40 = (0, import_express40.Router)();
 async function enrichPost(sb, post2, coupleId) {
   let authorData = null;
   let partnerData = null;
-  let coupleName = "Unknown";
+  let coupleName2 = "Unknown";
   const { data: author } = await sb.from("profiles").select("id, full_name, username, avatar_url").eq("id", post2.author_id).maybeSingle();
   if (author) {
     authorData = {
@@ -66783,7 +66783,7 @@ async function enrichPost(sb, post2, coupleId) {
       username: author.username ?? null,
       avatar: author.avatar_url ?? null
     };
-    coupleName = author.full_name || author.username || "User";
+    coupleName2 = author.full_name || author.username || "User";
   }
   if (post2.couple_id) {
     const { data: couple } = await sb.from("couple_links").select("requester_id, receiver_id").eq("id", post2.couple_id).maybeSingle();
@@ -66800,7 +66800,7 @@ async function enrichPost(sb, post2, coupleId) {
           };
           const authorFirst = (author?.full_name || author?.username || "?").split(" ")[0];
           const partnerFirst = (partner?.full_name || partner?.username || "?").split(" ")[0];
-          coupleName = `${authorFirst} & ${partnerFirst}`;
+          coupleName2 = `${authorFirst} & ${partnerFirst}`;
         }
       }
     }
@@ -66822,7 +66822,7 @@ async function enrichPost(sb, post2, coupleId) {
     postNumber: post2.post_number ?? null,
     author: authorData,
     partner: partnerData,
-    coupleName,
+    coupleName: coupleName2,
     likedByMe: myReaction !== null,
     myReaction,
     reactions,
@@ -67316,8 +67316,571 @@ router40.post("/notifications/mark-seen", async (req, res) => {
 });
 var couple_feed_default = router40;
 
-// src/routes/auth.ts
+// src/routes/coupleGames.ts
 var import_express41 = __toESM(require_express2(), 1);
+function makeSupabase36() {
+  const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
+  return createClient(url, key);
+}
+var router41 = (0, import_express41.Router)();
+async function getCoupleForUser(sb, userId) {
+  const { data, error } = await sb.from("couple_links").select("id, requester_id, receiver_id").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).eq("status", "accepted").maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+async function getCoupleById(sb, coupleId) {
+  const { data, error } = await sb.from("couple_links").select("id, requester_id, receiver_id").eq("id", coupleId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+async function getProfileNames(sb, ids) {
+  if (ids.length === 0) return {};
+  const { data } = await sb.from("profiles").select("id, full_name, username").in("id", ids);
+  const map = {};
+  for (const p of data ?? []) {
+    map[p.id] = p.full_name || p.username || "Someone";
+  }
+  return map;
+}
+function coupleName(names, couple) {
+  const a = names[couple.requester_id] ?? "?";
+  const b = names[couple.receiver_id] ?? "?";
+  return `${a} & ${b}`;
+}
+async function maybeExpireBattles(sb, battleIds) {
+  if (battleIds.length === 0) return;
+  await sb.from("couple_battles").update({ status: "expired" }).in("id", battleIds).in("status", ["pending", "active"]).lt("expires_at", (/* @__PURE__ */ new Date()).toISOString());
+}
+async function computeAndFinalise(sb, battleId, questionIds, challengerCouple, opponentCouple) {
+  const allUsers = [
+    challengerCouple.requester_id,
+    challengerCouple.receiver_id,
+    opponentCouple.requester_id,
+    opponentCouple.receiver_id
+  ];
+  const { data: answers } = await sb.from("battle_answers").select("user_id, question_id, answer").eq("battle_id", battleId);
+  const ans = answers ?? [];
+  const totalExpected = allUsers.length * questionIds.length;
+  if (ans.length < totalExpected) return false;
+  const lookup = /* @__PURE__ */ new Map();
+  for (const a of ans) lookup.set(`${a.user_id}:${a.question_id}`, a.answer);
+  let challengerScore = 0;
+  let opponentScore = 0;
+  for (const qId of questionIds) {
+    const ca = lookup.get(`${challengerCouple.requester_id}:${qId}`);
+    const cb = lookup.get(`${challengerCouple.receiver_id}:${qId}`);
+    if (ca && cb && ca === cb) challengerScore++;
+    const oa = lookup.get(`${opponentCouple.requester_id}:${qId}`);
+    const ob = lookup.get(`${opponentCouple.receiver_id}:${qId}`);
+    if (oa && ob && oa === ob) opponentScore++;
+  }
+  let winner = null;
+  if (challengerScore > opponentScore) winner = challengerCouple.id;
+  else if (opponentScore > challengerScore) winner = opponentCouple.id;
+  await sb.from("couple_battles").update({
+    status: "completed",
+    winner_couple_id: winner,
+    completed_at: (/* @__PURE__ */ new Date()).toISOString()
+  }).eq("id", battleId);
+  return true;
+}
+async function sendNotifications(sb, userIds, senderId, type, message) {
+  if (userIds.length === 0) return;
+  const rows = userIds.map((uid) => ({
+    recipient_id: uid,
+    sender_id: senderId,
+    type,
+    message,
+    is_read: false,
+    created_at: (/* @__PURE__ */ new Date()).toISOString()
+  }));
+  await sb.from("notifications").insert(rows);
+}
+router41.post("/challenge", async (req, res) => {
+  const { challengerUserId, opponentCoupleId } = req.body;
+  if (!challengerUserId || !opponentCoupleId) {
+    res.status(400).json({ error: "challengerUserId and opponentCoupleId required" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const challengerCouple = await getCoupleForUser(sb, challengerUserId);
+    if (!challengerCouple) {
+      res.status(403).json({ error: "You must be in a couple to challenge another" });
+      return;
+    }
+    if (challengerCouple.id === opponentCoupleId) {
+      res.status(400).json({ error: "Cannot challenge your own couple" });
+      return;
+    }
+    const opponentCouple = await getCoupleById(sb, opponentCoupleId);
+    if (!opponentCouple) {
+      res.status(404).json({ error: "Opponent couple not found" });
+      return;
+    }
+    const { data: existingBattle } = await sb.from("couple_battles").select("id, status").or(
+      `and(challenger_couple_id.eq.${challengerCouple.id},opponent_couple_id.eq.${opponentCoupleId}),and(challenger_couple_id.eq.${opponentCoupleId},opponent_couple_id.eq.${challengerCouple.id})`
+    ).in("status", ["pending", "active"]).maybeSingle();
+    if (existingBattle) {
+      res.status(409).json({ error: "An active battle already exists with this couple", battleId: existingBattle.id });
+      return;
+    }
+    const { data: questions, error: qErr } = await sb.from("game_questions").select("id").eq("active", true);
+    if (qErr || !questions || questions.length < 10) {
+      res.status(500).json({ error: "Not enough questions available" });
+      return;
+    }
+    const shuffled = questions.sort(() => Math.random() - 0.5);
+    const questionIds = shuffled.slice(0, 10).map((q) => q.id);
+    const { data: battle, error: bErr } = await sb.from("couple_battles").insert({
+      challenger_couple_id: challengerCouple.id,
+      opponent_couple_id: opponentCoupleId,
+      question_ids: questionIds,
+      status: "pending",
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3).toISOString()
+    }).select().single();
+    if (bErr) throw new Error(bErr.message);
+    void (async () => {
+      try {
+        const names = await getProfileNames(sb, [challengerUserId]);
+        const senderName = names[challengerUserId] ?? "A couple";
+        await sendNotifications(
+          sb,
+          [opponentCouple.requester_id, opponentCouple.receiver_id],
+          challengerUserId,
+          "couple_game_challenge",
+          `${senderName} challenged you to a Couple Quiz Battle! \u2694\uFE0F`
+        );
+      } catch {
+      }
+    })();
+    res.json({ success: true, battle });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/challenge error");
+    res.status(500).json({ error: "Failed to create challenge" });
+  }
+});
+router41.post("/battles/:battleId/respond", async (req, res) => {
+  const { battleId } = req.params;
+  const { userId, accept } = req.body;
+  if (!userId || accept === void 0) {
+    res.status(400).json({ error: "userId and accept required" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const { data: battle, error: bErr } = await sb.from("couple_battles").select("id, challenger_couple_id, opponent_couple_id, status").eq("id", battleId).maybeSingle();
+    if (bErr || !battle) {
+      res.status(404).json({ error: "Battle not found" });
+      return;
+    }
+    const b = battle;
+    if (b.status !== "pending") {
+      res.status(400).json({ error: `Battle is already ${b.status}` });
+      return;
+    }
+    const opponentCouple = await getCoupleById(sb, b.opponent_couple_id);
+    if (!opponentCouple) {
+      res.status(404).json({ error: "Opponent couple not found" });
+      return;
+    }
+    if (opponentCouple.requester_id !== userId && opponentCouple.receiver_id !== userId) {
+      res.status(403).json({ error: "Only the opponent couple can respond to this challenge" });
+      return;
+    }
+    const newStatus = accept ? "active" : "declined";
+    await sb.from("couple_battles").update({ status: newStatus }).eq("id", battleId);
+    void (async () => {
+      try {
+        const challengerCouple = await getCoupleById(sb, b.challenger_couple_id);
+        if (!challengerCouple) return;
+        const names = await getProfileNames(sb, [userId]);
+        const responderName = names[userId] ?? "Your opponent";
+        const msg = accept ? `${responderName} accepted your Couple Quiz Battle! Time to answer \u2694\uFE0F` : `${responderName} declined your Couple Quiz Battle challenge`;
+        await sendNotifications(
+          sb,
+          [challengerCouple.requester_id, challengerCouple.receiver_id],
+          userId,
+          "couple_game_response",
+          msg
+        );
+      } catch {
+      }
+    })();
+    res.json({ success: true, status: newStatus });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/respond error");
+    res.status(500).json({ error: "Failed to respond to battle" });
+  }
+});
+router41.get("/battles", async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const myCouple = await getCoupleForUser(sb, userId);
+    if (!myCouple) {
+      res.json({ battles: [] });
+      return;
+    }
+    const coupleId = myCouple.id;
+    await maybeExpireBattles(sb, []);
+    const { data: rawBattles, error: bErr } = await sb.from("couple_battles").select("*").or(`challenger_couple_id.eq.${coupleId},opponent_couple_id.eq.${coupleId}`).order("created_at", { ascending: false });
+    if (bErr) throw new Error(bErr.message);
+    const battles = rawBattles ?? [];
+    const expiredIds = battles.filter((b) => ["pending", "active"].includes(b.status) && new Date(b.expires_at) < /* @__PURE__ */ new Date()).map((b) => b.id);
+    if (expiredIds.length > 0) {
+      await maybeExpireBattles(sb, expiredIds);
+      for (const b of battles) {
+        if (expiredIds.includes(b.id)) b.status = "expired";
+      }
+    }
+    const allCoupleIds = [...new Set(battles.flatMap((b) => [b.challenger_couple_id, b.opponent_couple_id]))];
+    const coupleDetails = {};
+    for (const cid of allCoupleIds) {
+      const c = await getCoupleById(sb, cid);
+      if (c) coupleDetails[cid] = c;
+    }
+    const allUserIds = [
+      ...new Set(Object.values(coupleDetails).flatMap((c) => [c.requester_id, c.receiver_id]))
+    ];
+    const names = await getProfileNames(sb, allUserIds);
+    const { data: myAnswers } = await sb.from("battle_answers").select("battle_id, question_id").eq("user_id", userId);
+    const myAnswerCountByBattle = {};
+    for (const a of myAnswers ?? []) {
+      myAnswerCountByBattle[a.battle_id] = (myAnswerCountByBattle[a.battle_id] ?? 0) + 1;
+    }
+    const enriched = battles.map((b) => {
+      const challengerC = coupleDetails[b.challenger_couple_id];
+      const opponentC = coupleDetails[b.opponent_couple_id];
+      const iAmChallenger = b.challenger_couple_id === coupleId;
+      const opponentCoupleData = iAmChallenger ? opponentC : challengerC;
+      return {
+        id: b.id,
+        status: b.status,
+        game_type: b.game_type,
+        iAmChallenger,
+        isMyTurn: b.status === "active" && (myAnswerCountByBattle[b.id] ?? 0) < (b.question_ids?.length ?? 10),
+        opponentCoupleName: opponentCoupleData ? coupleName(names, opponentCoupleData) : "Unknown couple",
+        opponentCoupleId: iAmChallenger ? b.opponent_couple_id : b.challenger_couple_id,
+        myAnswerCount: myAnswerCountByBattle[b.id] ?? 0,
+        totalQuestions: b.question_ids?.length ?? 10,
+        winner_couple_id: b.winner_couple_id,
+        iWon: b.winner_couple_id === coupleId,
+        isTie: b.status === "completed" && b.winner_couple_id === null,
+        created_at: b.created_at,
+        expires_at: b.expires_at,
+        completed_at: b.completed_at
+      };
+    });
+    res.json({ battles: enriched, myCoupleId: coupleId });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/battles list error");
+    res.status(500).json({ error: "Failed to load battles" });
+  }
+});
+router41.get("/battles/:battleId/questions", async (req, res) => {
+  const { battleId } = req.params;
+  const { userId } = req.query;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const { data: battle, error: bErr } = await sb.from("couple_battles").select("id, question_ids, challenger_couple_id, opponent_couple_id, status, expires_at").eq("id", battleId).maybeSingle();
+    if (bErr || !battle) {
+      res.status(404).json({ error: "Battle not found" });
+      return;
+    }
+    const b = battle;
+    if (new Date(b.expires_at) < /* @__PURE__ */ new Date() && ["pending", "active"].includes(b.status)) {
+      await sb.from("couple_battles").update({ status: "expired" }).eq("id", battleId);
+      res.status(410).json({ error: "Battle has expired" });
+      return;
+    }
+    const [chalC, oppC] = await Promise.all([
+      getCoupleById(sb, b.challenger_couple_id),
+      getCoupleById(sb, b.opponent_couple_id)
+    ]);
+    const allUsers = [
+      chalC?.requester_id,
+      chalC?.receiver_id,
+      oppC?.requester_id,
+      oppC?.receiver_id
+    ].filter(Boolean);
+    if (!allUsers.includes(userId)) {
+      res.status(403).json({ error: "You are not part of this battle" });
+      return;
+    }
+    const questionIds = b.question_ids ?? [];
+    const { data: questions, error: qErr } = await sb.from("game_questions").select("id, text, option_a, option_b").in("id", questionIds);
+    if (qErr) throw new Error(qErr.message);
+    const orderedQuestions = questionIds.map((qid) => questions.find((q) => q.id === qid)).filter(Boolean);
+    const { data: myAnswers } = await sb.from("battle_answers").select("question_id, answer").eq("battle_id", battleId).eq("user_id", userId);
+    const myAnswerMap = {};
+    for (const a of myAnswers ?? []) {
+      myAnswerMap[a.question_id] = a.answer;
+    }
+    res.json({
+      questions: orderedQuestions,
+      myAnswers: myAnswerMap,
+      status: b.status
+    });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/questions error");
+    res.status(500).json({ error: "Failed to load questions" });
+  }
+});
+router41.post("/battles/:battleId/answers", async (req, res) => {
+  const { battleId } = req.params;
+  const { userId, questionId, answer } = req.body;
+  if (!userId || !questionId || !answer) {
+    res.status(400).json({ error: "userId, questionId, and answer required" });
+    return;
+  }
+  if (answer !== "A" && answer !== "B") {
+    res.status(400).json({ error: "answer must be 'A' or 'B'" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const { data: battle, error: bErr } = await sb.from("couple_battles").select("id, question_ids, challenger_couple_id, opponent_couple_id, status, expires_at").eq("id", battleId).maybeSingle();
+    if (bErr || !battle) {
+      res.status(404).json({ error: "Battle not found" });
+      return;
+    }
+    const b = battle;
+    if (b.status === "declined" || b.status === "completed") {
+      res.status(400).json({ error: `Battle is already ${b.status}` });
+      return;
+    }
+    if (b.status === "pending" || b.status === "expired") {
+      res.status(400).json({ error: `Battle is ${b.status} \u2014 cannot submit answers yet` });
+      return;
+    }
+    if (new Date(b.expires_at) < /* @__PURE__ */ new Date()) {
+      await sb.from("couple_battles").update({ status: "expired" }).eq("id", battleId);
+      res.status(410).json({ error: "Battle has expired" });
+      return;
+    }
+    const [chalC, oppC] = await Promise.all([
+      getCoupleById(sb, b.challenger_couple_id),
+      getCoupleById(sb, b.opponent_couple_id)
+    ]);
+    const allUsers = [
+      chalC?.requester_id,
+      chalC?.receiver_id,
+      oppC?.requester_id,
+      oppC?.receiver_id
+    ].filter(Boolean);
+    if (!allUsers.includes(userId)) {
+      res.status(403).json({ error: "You are not part of this battle" });
+      return;
+    }
+    const questionIds = b.question_ids ?? [];
+    if (!questionIds.includes(questionId)) {
+      res.status(400).json({ error: "Question is not part of this battle" });
+      return;
+    }
+    const { error: upsertErr } = await sb.from("battle_answers").upsert(
+      { battle_id: battleId, user_id: userId, question_id: questionId, answer },
+      { onConflict: "battle_id,user_id,question_id" }
+    );
+    if (upsertErr) throw new Error(upsertErr.message);
+    let completed = false;
+    if (chalC && oppC) {
+      completed = await computeAndFinalise(sb, battleId, questionIds, chalC, oppC);
+    }
+    if (completed) {
+      void (async () => {
+        try {
+          const { data: finalBattle } = await sb.from("couple_battles").select("winner_couple_id").eq("id", battleId).maybeSingle();
+          const winnerId = finalBattle?.winner_couple_id;
+          const allNotifUsers = allUsers.filter((u) => Boolean(u));
+          const notifMsg = winnerId ? `Your Couple Quiz Battle is complete! See who won \u{1F3C6}` : `Your Couple Quiz Battle ended in a tie! Check the results \u{1F91D}`;
+          await sendNotifications(sb, allNotifUsers, userId, "couple_game_completed", notifMsg);
+        } catch {
+        }
+      })();
+    } else {
+      void (async () => {
+        try {
+          const { data: allAnswers } = await sb.from("battle_answers").select("user_id").eq("battle_id", battleId);
+          const answeredUsers = new Set((allAnswers ?? []).map((a) => a.user_id));
+          const justFinished = answeredUsers.has(userId);
+          if (justFinished) {
+            const questionIds2 = b.question_ids ?? [];
+            const { data: myCount } = await sb.from("battle_answers").select("id").eq("battle_id", battleId).eq("user_id", userId);
+            const myDone = (myCount ?? []).length >= questionIds2.length;
+            if (myDone) {
+              const chalUsers = [chalC?.requester_id, chalC?.receiver_id].filter(Boolean);
+              const oppUsers = [oppC?.requester_id, oppC?.receiver_id].filter(Boolean);
+              const myGroup = chalUsers.includes(userId) ? chalUsers : oppUsers;
+              const theirGroup = chalUsers.includes(userId) ? oppUsers : chalUsers;
+              const notifyIds = theirGroup.filter((u) => !answeredUsers.has(u) || true);
+              const names = await getProfileNames(sb, [userId]);
+              const notifMsg = `${names[userId] ?? "Your opponent"} finished answering \u2014 your turn in the Quiz Battle! \u2694\uFE0F`;
+              await sendNotifications(sb, notifyIds, userId, "couple_game_turn", notifMsg);
+              void myGroup;
+            }
+          }
+        } catch {
+        }
+      })();
+    }
+    res.json({ success: true, completed });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/answers error");
+    res.status(500).json({ error: "Failed to submit answer" });
+  }
+});
+router41.get("/battles/:battleId/results", async (req, res) => {
+  const { battleId } = req.params;
+  const { userId } = req.query;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const { data: battle, error: bErr } = await sb.from("couple_battles").select("*").eq("id", battleId).maybeSingle();
+    if (bErr || !battle) {
+      res.status(404).json({ error: "Battle not found" });
+      return;
+    }
+    const b = battle;
+    if (b.status !== "completed" && b.status !== "expired" && b.status !== "declined") {
+      res.status(400).json({ error: "Results not available yet", status: b.status });
+      return;
+    }
+    const [chalC, oppC] = await Promise.all([
+      getCoupleById(sb, b.challenger_couple_id),
+      getCoupleById(sb, b.opponent_couple_id)
+    ]);
+    if (!chalC || !oppC) {
+      res.status(500).json({ error: "Couple data missing" });
+      return;
+    }
+    const allUsers = [chalC.requester_id, chalC.receiver_id, oppC.requester_id, oppC.receiver_id];
+    if (!allUsers.includes(userId)) {
+      res.status(403).json({ error: "You are not part of this battle" });
+      return;
+    }
+    const iAmChallenger = [chalC.requester_id, chalC.receiver_id].includes(userId);
+    const myCouple = iAmChallenger ? chalC : oppC;
+    const theirCouple = iAmChallenger ? oppC : chalC;
+    const questionIds = b.question_ids ?? [];
+    const [questionsRes, answersRes] = await Promise.all([
+      sb.from("game_questions").select("id, text, option_a, option_b").in("id", questionIds),
+      sb.from("battle_answers").select("user_id, question_id, answer").eq("battle_id", battleId)
+    ]);
+    const questions = questionsRes.data ?? [];
+    const answers = answersRes.data ?? [];
+    const lookup = /* @__PURE__ */ new Map();
+    for (const a of answers) lookup.set(`${a.user_id}:${a.question_id}`, a.answer);
+    let myScore = 0;
+    let theirScore = 0;
+    const perQuestion = questionIds.map((qid) => {
+      const q = questions.find((x) => x.id === qid);
+      const myA = lookup.get(`${myCouple.requester_id}:${qid}`);
+      const myB = lookup.get(`${myCouple.receiver_id}:${qid}`);
+      const theirA = lookup.get(`${theirCouple.requester_id}:${qid}`);
+      const theirB = lookup.get(`${theirCouple.receiver_id}:${qid}`);
+      const myMatch = Boolean(myA && myB && myA === myB);
+      const theirMatch = Boolean(theirA && theirB && theirA === theirB);
+      if (myMatch) myScore++;
+      if (theirMatch) theirScore++;
+      return {
+        questionId: qid,
+        text: q?.text ?? "",
+        option_a: q?.option_a ?? "Me",
+        option_b: q?.option_b ?? "My partner",
+        myAnswer_requester: myA ?? null,
+        myAnswer_receiver: myB ?? null,
+        myMatched: myMatch
+      };
+    });
+    const names = await getProfileNames(sb, [
+      myCouple.requester_id,
+      myCouple.receiver_id,
+      theirCouple.requester_id,
+      theirCouple.receiver_id
+    ]);
+    res.json({
+      status: b.status,
+      myScore,
+      theirScore,
+      totalQuestions: questionIds.length,
+      iWon: b.winner_couple_id === myCouple.id,
+      isTie: b.status === "completed" && b.winner_couple_id === null,
+      myCoupleName: coupleName(names, myCouple),
+      theirCoupleName: coupleName(names, theirCouple),
+      perQuestion,
+      completedAt: b.completed_at
+    });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/results error");
+    res.status(500).json({ error: "Failed to load results" });
+  }
+});
+router41.get("/couples/search", async (req, res) => {
+  const { q, userId } = req.query;
+  if (!userId) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const sb = makeSupabase36();
+  try {
+    const myCouple = await getCoupleForUser(sb, userId);
+    const excludeId = myCouple?.id ?? "";
+    const searchTerm = (q ?? "").trim().toLowerCase();
+    let profileQuery = sb.from("profiles").select("id, full_name, username, avatar_url").neq("id", userId).limit(30);
+    if (searchTerm) {
+      profileQuery = profileQuery.or(`username.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`);
+    }
+    const { data: profiles } = await profileQuery;
+    if (!profiles || profiles.length === 0) {
+      res.json({ couples: [] });
+      return;
+    }
+    const profileIds = profiles.map((p) => p.id);
+    const { data: coupleLinks } = await sb.from("couple_links").select("id, requester_id, receiver_id").or(
+      profileIds.map((id) => `requester_id.eq.${id},receiver_id.eq.${id}`).join(",")
+    ).eq("status", "accepted").neq("id", excludeId);
+    const nameMap = {};
+    for (const p of profiles) nameMap[p.id] = p;
+    const seen = /* @__PURE__ */ new Set();
+    const couples = [];
+    for (const link of coupleLinks ?? []) {
+      if (seen.has(link.id)) continue;
+      seen.add(link.id);
+      const p1 = nameMap[link.requester_id];
+      const p2 = nameMap[link.receiver_id];
+      if (!p1 && !p2) continue;
+      const resolve = (id, fallback) => fallback ?? { id, full_name: "?", username: "?", avatar_url: null };
+      const r1 = resolve(link.requester_id, nameMap[link.requester_id]);
+      const r2 = resolve(link.receiver_id, nameMap[link.receiver_id]);
+      couples.push({
+        coupleId: link.id,
+        partner1: { id: link.requester_id, name: r1.full_name || r1.username, username: r1.username, avatar_url: r1.avatar_url },
+        partner2: { id: link.receiver_id, name: r2.full_name || r2.username, username: r2.username, avatar_url: r2.avatar_url }
+      });
+    }
+    res.json({ couples });
+  } catch (err) {
+    req.log.error({ err: err.message }, "couple-games/couples search error");
+    res.status(500).json({ error: "Failed to search couples" });
+  }
+});
+var coupleGames_default = router41;
+
+// src/routes/auth.ts
+var import_express42 = __toESM(require_express2(), 1);
 
 // src/lib/supabase.ts
 var SUPABASE_URL2 = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -67331,20 +67894,20 @@ var SERVER_OPTIONS = {
     params: { eventsPerSecond: -1 }
   }
 };
-function makeSupabase36() {
+function makeSupabase37() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
   return createClient(SUPABASE_URL2, key, SERVER_OPTIONS);
 }
 
 // src/routes/auth.ts
-var router41 = (0, import_express41.Router)();
-router41.post("/google", async (req, res) => {
+var router42 = (0, import_express42.Router)();
+router42.post("/google", async (req, res) => {
   const { idToken } = req.body;
   if (!idToken) {
     res.status(400).json({ error: "idToken is required" });
     return;
   }
-  const sb = makeSupabase36();
+  const sb = makeSupabase37();
   const { data, error } = await sb.auth.signInWithIdToken({
     provider: "google",
     token: idToken
@@ -67356,13 +67919,13 @@ router41.post("/google", async (req, res) => {
   }
   res.json({ user: data.user, session: data.session });
 });
-router41.post("/apple", async (req, res) => {
+router42.post("/apple", async (req, res) => {
   const { identityToken, fullName } = req.body;
   if (!identityToken) {
     res.status(400).json({ error: "identityToken is required" });
     return;
   }
-  const sb = makeSupabase36();
+  const sb = makeSupabase37();
   const { data, error } = await sb.auth.signInWithIdToken({
     provider: "apple",
     token: identityToken
@@ -67374,55 +67937,56 @@ router41.post("/apple", async (req, res) => {
   }
   res.json({ user: data.user, session: data.session });
 });
-var auth_default = router41;
+var auth_default = router42;
 
 // src/routes/index.ts
-var router42 = (0, import_express42.Router)();
-router42.use(health_default);
-router42.use("/ai", caption_default);
-router42.use("/ai", chat_default);
-router42.use("/admin", setup_default);
-router42.use("/admin", reports_default);
-router42.use("/admin", first_posts_default);
-router42.use("/music", deezer_default);
-router42.use("/posts", remove_default);
-router42.use("/posts", update_default);
-router42.use("/posts", create_default);
-router42.use("/reels", create_default2);
-router42.use("/reels", remove_default2);
-router42.use("/reels", watch_default);
-router42.use("/reels", like_default);
-router42.use("/users", search_default);
-router42.use("/users/social", social_default);
-router42.use("/users/notifications", notifications_default);
-router42.use("/engage", engage_default);
-router42.use("/messages", messages_default);
-router42.use("/users", setup_default2);
-router42.use("/users", onboarding_default);
-router42.use("/users", contacts_default);
-router42.use("/moderation", moderation_default);
-router42.use("/did", did_default);
-router42.use("/stories", stories_default);
-router42.use("/comments", comments_default);
-router42.use("/storage", storage_default);
-router42.use("/feed", feed_default);
-router42.use("/vibe", vibe_default);
-router42.use("/vibe-requests", vibe_requests_default);
-router42.use("/vibe-rooms", vibe_rooms_default);
-router42.use("/snaps", snaps_default);
-router42.use("/rewards", rewards_default);
-router42.use("/analytics", analytics_default);
-router42.use("/ads", ads_default);
-router42.use("/live", live_default);
-router42.use("/sounds", sounds_default);
-router42.use("/couple", couple_default);
-router42.use("/couple-feed", couple_feed_default);
-router42.use("/auth", auth_default);
-router42.use("/polls", polls_default);
-var routes_default = router42;
+var router43 = (0, import_express43.Router)();
+router43.use(health_default);
+router43.use("/ai", caption_default);
+router43.use("/ai", chat_default);
+router43.use("/admin", setup_default);
+router43.use("/admin", reports_default);
+router43.use("/admin", first_posts_default);
+router43.use("/music", deezer_default);
+router43.use("/posts", remove_default);
+router43.use("/posts", update_default);
+router43.use("/posts", create_default);
+router43.use("/reels", create_default2);
+router43.use("/reels", remove_default2);
+router43.use("/reels", watch_default);
+router43.use("/reels", like_default);
+router43.use("/users", search_default);
+router43.use("/users/social", social_default);
+router43.use("/users/notifications", notifications_default);
+router43.use("/engage", engage_default);
+router43.use("/messages", messages_default);
+router43.use("/users", setup_default2);
+router43.use("/users", onboarding_default);
+router43.use("/users", contacts_default);
+router43.use("/moderation", moderation_default);
+router43.use("/did", did_default);
+router43.use("/stories", stories_default);
+router43.use("/comments", comments_default);
+router43.use("/storage", storage_default);
+router43.use("/feed", feed_default);
+router43.use("/vibe", vibe_default);
+router43.use("/vibe-requests", vibe_requests_default);
+router43.use("/vibe-rooms", vibe_rooms_default);
+router43.use("/snaps", snaps_default);
+router43.use("/rewards", rewards_default);
+router43.use("/analytics", analytics_default);
+router43.use("/ads", ads_default);
+router43.use("/live", live_default);
+router43.use("/sounds", sounds_default);
+router43.use("/couple", couple_default);
+router43.use("/couple-feed", couple_feed_default);
+router43.use("/couple-games", coupleGames_default);
+router43.use("/auth", auth_default);
+router43.use("/polls", polls_default);
+var routes_default = router43;
 
 // src/app.ts
-var app = (0, import_express43.default)();
+var app = (0, import_express44.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -67443,8 +68007,8 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express43.default.json({ limit: "150mb" }));
-app.use(import_express43.default.urlencoded({ extended: true, limit: "150mb" }));
+app.use(import_express44.default.json({ limit: "150mb" }));
+app.use(import_express44.default.urlencoded({ extended: true, limit: "150mb" }));
 app.use((_req, res, next) => {
   const start = Date.now();
   const origEnd = res.end.bind(res);
@@ -67561,7 +68125,7 @@ if (typeof globalThis.WebSocket === "undefined") {
 async function ensureSupabaseSetup() {
   const key = process.env["SUPABASE_SERVICE_ROLE_KEY"];
   if (!key) return;
-  const sb = makeSupabase36();
+  const sb = makeSupabase37();
   for (const bucket of ["posts", "reels", "media", "avatars", "snaps"]) {
     const { error } = await sb.storage.createBucket(bucket, { public: true });
     if (error && !error.message.includes("already exists")) {
