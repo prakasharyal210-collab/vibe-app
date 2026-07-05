@@ -105,6 +105,12 @@
         {
           "microphonePermission": "Vibe uses your microphone for live streams and video posts."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Gundruk uses your camera to take photos and videos."
+        }
       ]
     ],
     "experiments": {
