@@ -64181,6 +64181,27 @@ var VALID_FEED_CATEGORIES = /* @__PURE__ */ new Set([
   "education",
   "nature"
 ]);
+function limitPollsToTop5(posts) {
+  const now = /* @__PURE__ */ new Date();
+  const pollPosts = [];
+  const regularPosts = [];
+  for (const post2 of posts) {
+    if (post2.poll) pollPosts.push(post2);
+    else regularPosts.push(post2);
+  }
+  if (pollPosts.length <= 5) return posts;
+  const scored = pollPosts.map((post2) => {
+    const totalVotes = post2.poll?.totalVotes ?? 0;
+    const likes = post2.likes_count ?? 0;
+    const comments = post2.comments_count ?? 0;
+    const isActive = post2.poll?.ends_at ? new Date(post2.poll.ends_at) > now : false;
+    const score = totalVotes * 1.5 + likes + comments * 2 + (isActive ? 1e4 : 0);
+    return { id: post2.id, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const top5Ids = new Set(scored.slice(0, 5).map((s) => s.id));
+  return posts.filter((post2) => !post2.poll || top5Ids.has(post2.id));
+}
 router27.get("/foryou", async (req, res) => {
   const userId = req.query["userId"];
   const limit = Math.min(parseInt(req.query["limit"] ?? "20", 10), 50);
@@ -64237,7 +64258,8 @@ router27.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v2Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p) => p.is_archived !== true))));
+      const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v2" });
       return;
     }
@@ -64249,7 +64271,8 @@ router27.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v1Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p) => p.is_archived !== true))));
+      const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v1" });
       return;
     }
@@ -64267,7 +64290,7 @@ router27.get("/foryou", async (req, res) => {
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   const freshPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   res.json({
-    data: freshPolls,
+    data: limitPollsToTop5(freshPolls),
     source: "fresh"
   });
 });

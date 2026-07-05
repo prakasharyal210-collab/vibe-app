@@ -119,41 +119,75 @@ const VALID_FEED_CATEGORIES = new Set([
 ]);
 
 // ─── Poll cap for Explore/For You ─────────────────────────────────────────────
-// Limits the For You feed to at most 5 poll posts, chosen by engagement score.
-// Score = (totalVotes × 1.5) + likes_count + (comments_count × 2).
-// Active polls (ends_at in the future) always beat ended ones via a large bonus.
-// Posts that don't make the cut are dropped; the remaining posts keep their
-// original feed positions — poll posts are never clustered together.
-// This function is a no-op when there are ≤ 5 poll posts in the page.
-function limitPollsToTop5(posts: any[]): any[] {
-  const now = new Date();
+// Limits the For You feed to at most 5 poll posts, chosen by engagement score
+// with freshness decay.
+//
+// Formula:
+//   raw   = (totalVotes × 1.5) + (comments_count × 2) + (likes_count × 1)
+//   score = raw / Math.pow(hoursSincePosted + 2, 1.5)
+//
+// Sort order: active polls (ends_at in the future) above ended polls, then
+// by score descending within each tier.  The surviving 5 are merged back into
+// the feed at their original positions — poll posts are never clustered.
+//
+// Timestamp parsing: Supabase ISO strings lack a timezone suffix.  Appending
+// 'Z' forces UTC interpretation; Date.parse() is used (not `new Date(str) raw`)
+// to avoid the browser-local-time pitfall in V8 / Node.
+//
+// Fallback: if the scoring step throws for any reason, the 5 most-recent poll
+// posts (by created_at) are shown instead of erroring the whole feed.
+//
+// No-op when ≤ 5 poll posts are already in the page.
 
+/** Parse a Supabase timestamp string to milliseconds since epoch, UTC-safe. */
+function parseUTCMs(ts: string | null | undefined): number {
+  if (!ts) return 0;
+  // Supabase omits the timezone suffix.  Append 'Z' if no offset is present.
+  const normalized = /[Z+\-]\d*$/.test(ts) ? ts : `${ts}Z`;
+  const ms = Date.parse(normalized);
+  return isNaN(ms) ? 0 : ms;
+}
+
+function limitPollsToTop5(posts: any[]): any[] {
   const pollPosts: any[] = [];
-  const regularPosts: any[] = [];
   for (const post of posts) {
     if (post.poll) pollPosts.push(post);
-    else regularPosts.push(post);
   }
 
   if (pollPosts.length <= 5) return posts;
 
-  const scored = pollPosts.map((post) => {
-    const totalVotes: number = (post.poll?.totalVotes as number | undefined) ?? 0;
-    const likes: number = (post.likes_count as number | undefined) ?? 0;
-    const comments: number = (post.comments_count as number | undefined) ?? 0;
-    const isActive: boolean = post.poll?.ends_at
-      ? new Date(post.poll.ends_at as string) > now
-      : false;
-    // Active polls get a large bonus so they always outrank ended polls.
-    const score = totalVotes * 1.5 + likes + comments * 2 + (isActive ? 10_000 : 0);
-    return { id: post.id as string, score };
-  });
+  try {
+    const nowMs = Date.now();
 
-  scored.sort((a, b) => b.score - a.score);
-  const top5Ids = new Set(scored.slice(0, 5).map((s) => s.id));
+    const scored = pollPosts.map((post) => {
+      const totalVotes: number = (post.poll?.totalVotes as number | undefined) ?? 0;
+      const likes: number = (post.likes_count as number | undefined) ?? 0;
+      const comments: number = (post.comments_count as number | undefined) ?? 0;
+      const createdMs = parseUTCMs(post.created_at as string | undefined);
+      const hoursSincePosted = Math.max(0, (nowMs - createdMs) / 3_600_000);
+      const raw = totalVotes * 1.5 + likes + comments * 2;
+      const score = raw / Math.pow(hoursSincePosted + 2, 1.5);
+      const endsAtMs = parseUTCMs(post.poll?.ends_at as string | undefined);
+      const isActive = endsAtMs > nowMs;
+      return { id: post.id as string, score, isActive };
+    });
 
-  // Rebuild list in original order, dropping poll posts outside the top 5.
-  return posts.filter((post) => !post.poll || top5Ids.has(post.id as string));
+    // Active polls first, then highest score within each tier.
+    scored.sort((a, b) => {
+      if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+      return b.score - a.score;
+    });
+
+    const top5Ids = new Set(scored.slice(0, 5).map((s) => s.id));
+    return posts.filter((post: any) => !post.poll || top5Ids.has(post.id as string));
+  } catch {
+    // Fallback: keep the 5 most-recent poll posts by created_at.
+    const byRecency = [...pollPosts].sort(
+      (a, b) => parseUTCMs(b.created_at as string) - parseUTCMs(a.created_at as string),
+    );
+    const top5Ids = new Set(byRecency.slice(0, 5).map((p) => p.id as string));
+    return posts.filter((post: any) => !post.poll || top5Ids.has(post.id as string));
+  }
 }
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
