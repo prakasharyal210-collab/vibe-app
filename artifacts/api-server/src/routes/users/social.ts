@@ -75,6 +75,29 @@ router.post("/follow", async (req, res) => {
       }, "notif_follows");
     })();
 
+    // Auto-accept pending message request (non-blocking)
+    // Instagram rule: if followingId had a pending request to followerId,
+    // now that followerId follows followingId back, auto-accept it.
+    void (async () => {
+      try {
+        const [u1, u2] = [followerId, followingId].sort();
+        const { data: pendingConv } = await sb
+          .from("conversations")
+          .select("id")
+          .eq("user1_id", u1)
+          .eq("user2_id", u2)
+          .eq("is_request", true)
+          .eq("requested_by", followingId) // followingId had sent a request to followerId
+          .maybeSingle();
+        if (pendingConv) {
+          await sb
+            .from("conversations")
+            .update({ is_request: false })
+            .eq("id", (pendingConv as any).id);
+        }
+      } catch {}
+    })();
+
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "follow exception");

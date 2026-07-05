@@ -98,6 +98,7 @@ export interface Conversation {
   last_message: string;
   last_message_at: string;
   unread_count: number;
+  is_pending_request?: boolean; // true when I sent a request that hasn't been accepted yet
 }
 
 export interface Notification {

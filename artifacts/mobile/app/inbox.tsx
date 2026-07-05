@@ -428,7 +428,9 @@ function MessageConvoItem({
             style={[hasUnread ? msgSt.previewUnread : msgSt.previewText, { flex: 1 }]}
             numberOfLines={1}
           >
-            {isSnapMsg ? "📷 Photo" : previewText(convo.last_message ?? "")}
+            {convo.is_pending_request
+            ? "Request sent"
+            : isSnapMsg ? "📷 Photo" : previewText(convo.last_message ?? "")}
           </Text>
           {hasUnread && (
             <View style={msgSt.unreadBadge}>

@@ -1,0 +1,28 @@
+BUG + FEATURE: Message request showing on the WRONG side + implement full Instagram-style DM request logic
+The bug: User A (me) sent a message to user B (sara). The message request is appearing in MY (sender's) Message Requests inbox. Requests must only ever appear on the RECIPIENT's side. The sender should just see the conversation in their own normal inbox as "sent, pending" — never as a request to themselves.
+DIAGNOSE FIRST — report before fixing:
+
+Show where is_request is set on conversation creation in artifacts/api-server — what's the current rule?
+Show how GET /api/messages/requests and the requests badge count filter by user — is it checking WHICH participant the requesting viewer is, or just is_request = true on any conversation the user is in? (That's almost certainly the bug.)
+Report the live schema of the conversations table (relevant columns: participants, is_request, and whether there's any column tracking WHO initiated).
+
+THEN REBUILD the logic to match Instagram exactly:
+
+Who lands in Requests vs Inbox (recipient side):
+
+Sender is someone the recipient FOLLOWS → conversation goes straight to recipient's normal inbox (no request).
+Sender is NOT followed by the recipient (including followers-only-one-way and total strangers) → conversation goes to recipient's Message Requests.
+Respect user_settings.who_can_message: if recipient allows "everyone" it's still a request unless followed; if "friends/following only" and sender doesn't qualify, the send should be blocked entirely at the API with a clear error (mobile shows "This user only receives messages from people they follow").
+
+
+Sender side (always): the conversation appears in the sender's own normal inbox immediately, marked visually as pending if not yet accepted ("Request sent" subtitle is fine). NEVER in the sender's requests list.
+Request state per-user, not per-conversation: if the schema only has a single is_request boolean on conversations, that can't express "request for B but normal for A." Add what's needed — e.g. requested_by (uuid of sender) or a request_pending_for (uuid of recipient) column — and derive: requests list = conversations where request_pending_for = viewer_id. If a migration is needed, OUTPUT THE SQL FILE ONLY, do not run it.
+Accept behavior (recipient taps Accept): clears the pending flag → conversation moves to recipient's normal inbox → sender's "pending" state clears too → messages flow normally both ways from then on.
+Delete behavior (recipient taps Delete): conversation removed from recipient's view; sender is NOT notified (Instagram behavior — sender still sees it as sent/pending forever).
+Instagram read-privacy rule: while a conversation is still in Requests, the recipient reading it does NOT mark messages as read/seen for the sender, and the sender gets no typing indicators. Read receipts only activate after Accept.
+Following each other later: if the recipient follows the sender back while a request is pending, auto-accept the request (move to inbox) — Instagram does this.
+Badge counts: the "N person(s) sent you a request" count on the Messages screen must come from the exact same request_pending_for = viewer filter as the requests list — count and list must never disagree.
+
+Architectural rules: all DB access via artifacts/api-server with service-role key; mobile NEVER calls supabase.from()/.rpc() (only supabase.auth.*). Always destructure { data, error } and handle errors. Verify EVERY column name against the LIVE Supabase schema before writing queries (42703 is this codebase's signature bug — e.g. user_settings uses who_can_message, follows uses follower_id/following_id). Loading states clear in finally.
+Audit sibling paths: apply the new logic consistently everywhere conversations are listed or counted — main inbox list, requests screen, requests badge, unread badges on the Chats tab, and push notifications (a new-request message should push as "X wants to send you a message", not a normal message notification).
+Typecheck, report: root cause of the direction bug, the exact new rule set implemented, files changed, any SQL file produced (for my review before running), and each sibling surface's status.

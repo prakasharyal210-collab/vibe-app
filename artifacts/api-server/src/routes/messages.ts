@@ -131,16 +131,80 @@ router.post("/", async (req, res) => {
     return;
   }
 
+  // ── Upsert conversation row with directional request flag ─────────────────
+  // The DB trigger may have created/updated the conversations row during the
+  // messages INSERT above, but without requested_by. We upsert here to set
+  // it correctly. user1_id/user2_id use lexicographic ordering for stable keys.
+  const now = new Date().toISOString();
+  const [u1Id, u2Id] = [senderId, receiverId].sort();
+
+  // Check whether a conversation already exists (and whether it was accepted)
+  let notifyAsRequest = false;
+  void (async () => {
+    try {
+      const { data: existingConv } = await sb
+        .from("conversations")
+        .select("id, is_request, requested_by")
+        .eq("user1_id", u1Id)
+        .eq("user2_id", u2Id)
+        .maybeSingle();
+
+      const wasAccepted = existingConv && !(existingConv as any).is_request;
+
+      if (!wasAccepted) {
+        // Determine request status: is the recipient following the sender?
+        const { data: followRow } = await sb
+          .from("follows")
+          .select("follower_id")
+          .eq("follower_id", receiverId)
+          .eq("following_id", senderId)
+          .maybeSingle();
+        const isRequest = !followRow;
+        // Only fire the "request" push once — on the very first message
+        notifyAsRequest = isRequest && !existingConv;
+
+        await sb.from("conversations").upsert(
+          {
+            user1_id: u1Id,
+            user2_id: u2Id,
+            is_request: isRequest,
+            requested_by: senderId,
+            last_message: isSnap ? "📷 Photo" : text,
+            last_message_at: now,
+          },
+          { onConflict: "user1_id,user2_id" }
+        );
+      } else {
+        // Accepted conversation — just update the preview
+        await sb.from("conversations").update({
+          last_message: isSnap ? "📷 Photo" : text,
+          last_message_at: now,
+        }).eq("id", (existingConv as any).id);
+      }
+    } catch {}
+  })();
+
   // Send push to receiver (non-blocking)
   void (async () => {
     const { data: sender } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
     const senderName = (sender as any)?.username ?? "Someone";
     const preview = text.length > 60 ? text.slice(0, 57) + "…" : text;
-    void sendPushToUser(sb, receiverId, {
-      title: `@${senderName}`,
-      body: preview,
-      data: { type: "message", senderId },
-    }, "notif_messages");
+    void sendPushToUser(
+      sb,
+      receiverId,
+      notifyAsRequest
+        ? {
+            title: "New Message Request",
+            body: `@${senderName} wants to send you a message`,
+            data: { type: "message_request", senderId },
+          }
+        : {
+            title: `@${senderName}`,
+            body: preview,
+            data: { type: "message", senderId },
+          },
+      "notif_messages"
+    );
   })();
 
   res.json({ message: normalise(data) });
@@ -249,10 +313,8 @@ router.get("/conversations", async (req, res) => {
   }
   const sb = makeSupabase();
 
-  // Fetch last 100 non-snap messages + real unread counts in parallel.
-  // Snaps are identified by content starting with "__SNAP__:" — they belong
-  // exclusively in the Snaps tab and must not bleed into the Messages list.
-  const [msgRes, unreadRes] = await Promise.all([
+  // Fetch messages + unread counts + request state in parallel.
+  const [msgRes, unreadRes, pendingToMeRes, myPendingRes] = await Promise.all([
     sb
       .from("messages")
       .select(
@@ -268,6 +330,20 @@ router.get("/conversations", async (req, res) => {
       .eq("receiver_id", userId)
       .is("read_at", null)
       .not("content", "like", "__SNAP__%"),
+    // Conversations where someone sent ME a pending request → hide from inbox (shown in /requests)
+    sb
+      .from("conversations")
+      .select("requested_by")
+      .eq("is_request", true)
+      .not("requested_by", "is", null)
+      .neq("requested_by", userId)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`),
+    // Conversations where I sent a pending request → show in inbox as "Request sent"
+    sb
+      .from("conversations")
+      .select("user1_id, user2_id")
+      .eq("is_request", true)
+      .eq("requested_by", userId),
   ]);
 
   if (msgRes.error) {
@@ -276,8 +352,6 @@ router.get("/conversations", async (req, res) => {
   }
 
   // Build unread counts map: senderId → count of unread messages they sent me.
-  // JS-level guard: skip any snap row that slipped past the SQL filter
-  // (SQL LIKE uses _ as a wildcard which can behave unexpectedly in PostgREST).
   const unreadByOther = new Map<string, number>();
   for (const row of (unreadRes.data ?? []) as any[]) {
     if (String((row as any).content ?? "").startsWith("__SNAP__")) continue;
@@ -285,30 +359,46 @@ router.get("/conversations", async (req, res) => {
     unreadByOther.set(sid, (unreadByOther.get(sid) ?? 0) + 1);
   }
 
+  // Senders who have a pending request TO me — hide their messages from inbox.
+  const pendingToMeIds = new Set(
+    (pendingToMeRes.data ?? []).map((c: any) => c.requested_by as string)
+  );
+
+  // Other-user IDs in conversations where I am the requester (show as "Request sent").
+  const myPendingOtherIds = new Set(
+    (myPendingRes.data ?? []).map((c: any) =>
+      (c.user1_id as string) === userId ? (c.user2_id as string) : (c.user1_id as string)
+    )
+  );
+
   const seen = new Set<string>();
   const convos: object[] = [];
   for (const msg of (msgRes.data ?? []) as any[]) {
-    // JS-level snap guard — belt-and-suspenders on top of the SQL NOT LIKE filter
     if (String(msg.content ?? "").startsWith("__SNAP__")) continue;
     const otherId =
       msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
     const otherUser =
       msg.sender_id === userId ? msg.receiver : msg.sender;
-    if (!seen.has(otherId) && otherUser) {
-      seen.add(otherId);
-      const lastMsg = msg.content ?? msg.text ?? "";
-      convos.push({
-        id: `conv_${otherId}`,
-        other_user: {
-          id: otherId,
-          username: otherUser.username,
-          avatar_url: otherUser.avatar_url,
-        },
-        last_message: lastMsg,
-        last_message_at: msg.created_at,
-        unread_count: unreadByOther.get(otherId) ?? 0,
-      });
-    }
+    if (seen.has(otherId) || !otherUser) continue;
+
+    // Hide from inbox — this sender has a pending request TO me; it belongs in /requests
+    if (pendingToMeIds.has(otherId)) continue;
+
+    seen.add(otherId);
+    const lastMsg = msg.content ?? msg.text ?? "";
+    const isPendingRequest = myPendingOtherIds.has(otherId);
+    convos.push({
+      id: `conv_${otherId}`,
+      other_user: {
+        id: otherId,
+        username: otherUser.username,
+        avatar_url: otherUser.avatar_url,
+      },
+      last_message: lastMsg,
+      last_message_at: msg.created_at,
+      unread_count: unreadByOther.get(otherId) ?? 0,
+      ...(isPendingRequest ? { is_pending_request: true } : {}),
+    });
   }
   res.json({ conversations: convos });
 });
@@ -393,7 +483,8 @@ router.post("/activity", async (req, res) => {
 });
 
 // GET /api/messages/requests?userId=
-// Returns conversations where is_request=true for the given user.
+// Returns conversations where is_request=true AND requested_by != userId
+// (i.e. only requests TO the viewer, never requests the viewer sent).
 router.get("/requests", async (req, res) => {
   const { userId } = req.query as { userId?: string };
   if (!userId) { res.json({ conversations: [] }); return; }
@@ -402,11 +493,13 @@ router.get("/requests", async (req, res) => {
     const { data, error } = await sb
       .from("conversations")
       .select(
-        "id, last_message, last_message_at, created_at, unread_count_1, unread_count_2, user1_id, user2_id, is_request," +
+        "id, last_message, last_message_at, created_at, unread_count_1, unread_count_2, user1_id, user2_id, is_request, requested_by," +
         " user1:profiles!conversations_user1_id_fkey(id, username, avatar_url)," +
         " user2:profiles!conversations_user2_id_fkey(id, username, avatar_url)"
       )
       .eq("is_request", true)
+      .not("requested_by", "is", null)   // exclude legacy rows with unknown direction
+      .neq("requested_by", userId)        // exclude requests I sent — only show requests TO me
       .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
       .order("last_message_at", { ascending: false });
     if (error) throw error;
