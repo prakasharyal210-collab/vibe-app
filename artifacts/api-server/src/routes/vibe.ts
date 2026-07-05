@@ -206,7 +206,9 @@ router.post("/swipe", async (req, res) => {
         recipient_id: swiperId,
         sender_id: targetId,
         type: "vibe_match",
-        message: `It's a match! You and ${targetName} can now message each other 💜`,
+        // Do NOT include the other person's name — the notification UI auto-prepends
+        // sender username, so adding it here would produce "name It's a match! You and name…"
+        message: "It's a match! You can now message each other 💜",
         is_read: false,
         created_at: now,
       });
@@ -216,7 +218,7 @@ router.post("/swipe", async (req, res) => {
         recipient_id: targetId,
         sender_id: swiperId,
         type: "vibe_match",
-        message: `It's a match! You and ${swiperName} can now message each other 💜`,
+        message: "It's a match! You can now message each other 💜",
         is_read: false,
         created_at: now,
       });

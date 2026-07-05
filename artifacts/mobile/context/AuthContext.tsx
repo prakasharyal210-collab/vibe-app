@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { ensureUserSetup } from "@/lib/db";
-import { registerForPushNotificationsAsync, setupNotificationHandler } from "@/lib/pushNotifications";
+import { addNotificationResponseListener, registerForPushNotificationsAsync, setupNotificationHandler } from "@/lib/pushNotifications";
 
 interface AuthContextType {
   session: Session | null;
@@ -30,6 +31,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
+
+  // Route push notification taps to the correct screen based on notification type.
+  // This fires whether the app was foregrounded, backgrounded, or cold-launched.
+  useEffect(() => {
+    const sub = addNotificationResponseListener((response) => {
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined;
+      const type = data?.["type"] as string | undefined;
+      if (!type) return;
+
+      try {
+        if (type === "vibe_request") {
+          router.push({ pathname: "/(tabs)/find", params: { tab: "requests" } } as any);
+        } else if (type === "vibe_accepted" || type === "vibe_match") {
+          router.push({ pathname: "/(tabs)/find", params: { tab: "matches" } } as any);
+        } else if (type === "message" || type === "message_request") {
+          router.push("/(tabs)/messages" as any);
+        }
+        // follow / like / comment / mention → let the in-app notification badge handle routing
+      } catch {
+        // navigation may not be ready immediately on cold launch — silently ignore
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     setupNotificationHandler();

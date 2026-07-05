@@ -68,21 +68,14 @@ router.post("/send", async (req, res) => {
       { onConflict: "sender_id,receiver_id" },
     );
 
-    // Fetch sender username for notification text
-    const { data: senderProfile } = await sb
-      .from("profiles")
-      .select("username")
-      .eq("id", senderId)
-      .maybeSingle();
-    const senderName = (senderProfile as any)?.username ?? "Someone";
-    const receiverName = receiver?.username ?? "Someone";
-
     await sb.from("notifications").insert([
       {
         recipient_id: senderId,
         sender_id: receiverId,
         type: "vibe_match",
-        message: `It's a match! You and ${receiverName} can now message each other 💜`,
+        // Do NOT include the other person's name — the notification UI auto-prepends
+        // sender username, so adding it here would produce "name It's a match! You and name…"
+        message: "It's a match! You can now message each other 💜",
         is_read: false,
         created_at: now,
       },
@@ -90,7 +83,7 @@ router.post("/send", async (req, res) => {
         recipient_id: receiverId,
         sender_id: senderId,
         type: "vibe_match",
-        message: `It's a match! You and ${senderName} can now message each other 💜`,
+        message: "It's a match! You can now message each other 💜",
         is_read: false,
         created_at: now,
       },
@@ -237,7 +230,9 @@ router.post("/respond", async (req, res) => {
       recipient_id: senderId,
       sender_id: receiverId,
       type: "vibe_accepted",
-      message: `@${receiverName} accepted your vibe request 💜`,
+      // Do NOT include the accepter's name — the notification UI auto-prepends
+      // sender username, so adding it here doubles it: "name accepted your vibe request"
+      message: "accepted your vibe request 💜",
       reference_id: requestId,
       is_read: false,
       created_at: now,

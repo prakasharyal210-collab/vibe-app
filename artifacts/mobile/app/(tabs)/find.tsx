@@ -2452,6 +2452,7 @@ function FindVibeContent() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   useEffect(() => {
     if (tabParam === "requests") setActiveTab("requests");
+    else if (tabParam === "matches") setActiveTab("matches");
   }, [tabParam]);
   const { isLinked } = useCoupleStatus();
   const [myGoals, setMyGoals] = useState<string[]>([]);

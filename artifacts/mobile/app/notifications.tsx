@@ -302,13 +302,13 @@ function NotifRow({
 
   const handlePress = () => {
     onRead(notif.id);
-    if (notif.type === "follow" || notif.type === "vibe_accepted") {
+    if (notif.type === "follow") {
       // Navigate to the sender's profile
       if (notif.username) router.push(`/profile/${notif.username}` as any);
-    } else if (notif.type === "vibe_request") {
+    } else if (notif.type === "vibe_accepted" || notif.type === "vibe_match") {
+      router.push({ pathname: "/(tabs)/find", params: { tab: "matches" } } as any);
+    } else if (notif.type === "vibe_request" || notif.type === "vibe") {
       router.push({ pathname: "/(tabs)/find", params: { tab: "requests" } } as any);
-    } else if (notif.type === "vibe") {
-      router.push("/(tabs)/find" as any);
     } else if (notif.post_id) {
       // Post comment / like / mention / tag → post detail screen
       router.push(`/post/${notif.post_id}` as any);

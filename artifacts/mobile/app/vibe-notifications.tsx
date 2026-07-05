@@ -221,8 +221,10 @@ function ActivityNotifRow({
 
   const handlePress = () => {
     onRead(notif.id);
-    if (notif.type === "vibe_accepted") {
-      router.push(`/profile/${notif.username}` as any);
+    if (notif.type === "vibe_accepted" || notif.type === "vibe_match") {
+      router.push({ pathname: "/(tabs)/find", params: { tab: "matches" } } as any);
+    } else if (notif.type === "vibe_request" || notif.type === "vibe") {
+      router.push({ pathname: "/(tabs)/find", params: { tab: "requests" } } as any);
     } else {
       router.push("/(tabs)/find" as any);
     }
