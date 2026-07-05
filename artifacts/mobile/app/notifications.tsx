@@ -306,7 +306,7 @@ function NotifRow({
       // Navigate to the sender's profile
       if (notif.username) router.push(`/profile/${notif.username}` as any);
     } else if (notif.type === "vibe_request") {
-      router.push("/vibe-notifications" as any);
+      router.push({ pathname: "/(tabs)/find", params: { tab: "requests" } } as any);
     } else if (notif.type === "vibe") {
       router.push("/(tabs)/find" as any);
     } else if (notif.post_id) {

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { callAI, parseAIJson } from "@/lib/ai";
 import { useMainTabSwipe } from "@/hooks/useMainTabSwipe";
 import React, { Component, ErrorInfo, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +15,7 @@ import {
   Modal,
   PanResponder,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -1022,6 +1023,11 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
 
   useEffect(() => { return () => { cancelAnimation(translateX); cancelAnimation(translateY); }; }, []);
 
+  // ── Sent vibe tracking (client-side, session-only) ──────────────────────
+  // Records card IDs that received a pending vibe this session so the deck
+  // can show "Vibe sent ✓" if the card reappears (e.g. after Start Over).
+  const [sentVibeIds, setSentVibeIds] = useState<Set<string>>(new Set());
+
   // ── Swipe limit + cooldown state ──────────────────────────────────────────
   const [dailySwipeCount, setDailySwipeCount] = useState(0);
   const [consecutiveLefts, setConsecutiveLefts] = useState(0);
@@ -1101,6 +1107,9 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
           if ((direction === "right" || isSuper) && result === "matched") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             setTimeout(() => setMatchCard(card), 400);
+          } else if (direction === "right" || isSuper) {
+            // Not a match yet — track locally so "Vibe sent ✓" shows if card reappears
+            setSentVibeIds((prev) => { const next = new Set(prev); next.add(card.id); return next; });
           }
         })
         .catch(() => {});
@@ -1204,6 +1213,11 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
             <Animated.View style={[styles.overlaySkip, skipOverlay]} pointerEvents="none">
               <Text style={styles.overlaySkipText}>SKIP</Text>
             </Animated.View>
+            {sentVibeIds.has(topCard.id) && (
+              <View style={{ position: "absolute", top: 14, left: 14, backgroundColor: "rgba(124,58,237,0.88)", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 }} pointerEvents="none">
+                <Text style={{ color: "#fff", fontFamily: "Poppins_600SemiBold", fontSize: 12 }}>Vibe sent ✓</Text>
+              </View>
+            )}
           </Animated.View>
         </GestureDetector>
       )}
@@ -2184,15 +2198,203 @@ const matchChatStyles = StyleSheet.create({
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#7C3AED", alignItems: "center", justifyContent: "center" },
 });
 
+// ── VibeInboxRequest ─────────────────────────────────────────────────────────
+interface VibeInboxRequest {
+  id: string;
+  senderId: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    relationshipStatus: string | null;
+    age: number | null;
+    goal: string | null;
+  };
+}
+
+// ── RequestsTab ──────────────────────────────────────────────────────────────
+// Incoming pending vibe requests — requester card with Accept 💜 / Deny.
+// Data: GET /api/vibe-requests/inbox  Actions: POST /api/vibe-requests/respond
+function RequestsTab({ userId, onCountChange }: { userId: string; onCountChange?: (n: number) => void }) {
+  const colors = useColors();
+  const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+  const [requests, setRequests] = useState<VibeInboxRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    const snapshot = requests;
+    try {
+      const res = await fetch(`${apiBase}/vibe-requests/inbox?userId=${encodeURIComponent(userId)}`);
+      const json = res.ok ? (await res.json() as { requests: VibeInboxRequest[] }) : { requests: snapshot };
+      const list = json.requests ?? [];
+      setRequests(list);
+      onCountChange?.(list.length);
+    } catch {
+      // network error — keep existing list
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, apiBase]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const respond = async (requestId: string, action: "accept" | "decline") => {
+    setRespondingId(requestId);
+    try {
+      const res = await fetch(`${apiBase}/vibe-requests/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, userId, action }),
+      });
+      if (!res.ok) throw new Error("failed");
+      setRequests((prev) => {
+        const updated = prev.filter((r) => r.id !== requestId);
+        onCountChange?.(updated.length);
+        return updated;
+      });
+      if (action === "accept") {
+        Alert.alert("Match! 💜", "You're now connected — head to Matches to say hi!");
+      }
+    } catch {
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
+      setRespondingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <ActivityIndicator color="#7C3AED" size="small" />
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 14 }}>
+          Loading requests…
+        </Text>
+      </View>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 32 }}>
+        <Text style={{ fontSize: 44 }}>💌</Text>
+        <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 18, textAlign: "center" }}>
+          No vibe requests yet
+        </Text>
+        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 14, textAlign: "center" }}>
+          Keep swiping — your matches are out there ✨
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={{ padding: 16, paddingBottom: 100, gap: 12 }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); load(true); }}
+          tintColor="#7C3AED"
+        />
+      }
+    >
+      {requests.map((req) => {
+        const isResponding = respondingId === req.id;
+        const name = req.sender.displayName || req.sender.username;
+        return (
+          <View
+            key={req.id}
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: "rgba(124,58,237,0.25)",
+              overflow: "hidden",
+            }}
+          >
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => router.push(`/profile/${req.sender.username}` as any)}
+              style={{ flexDirection: "row", alignItems: "center", padding: 16, gap: 14 }}
+            >
+              {req.sender.avatarUrl ? (
+                <Image source={{ uri: req.sender.avatarUrl }} style={{ width: 60, height: 60, borderRadius: 30 }} />
+              ) : (
+                <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: "rgba(124,58,237,0.3)", alignItems: "center", justifyContent: "center" }}>
+                  <Text style={{ color: "#A78BFA", fontSize: 22, fontFamily: "Poppins_700Bold" }}>
+                    {(req.sender.displayName || req.sender.username)?.[0]?.toUpperCase() ?? "?"}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: colors.foreground, fontFamily: "Poppins_700Bold", fontSize: 16 }}>
+                  {name}{req.sender.age ? `, ${req.sender.age}` : ""}
+                </Text>
+                {req.sender.goal ? (
+                  <Text style={{ color: "#A78BFA", fontFamily: "Poppins_500Medium", fontSize: 12 }}>
+                    💜 {req.sender.goal}
+                  </Text>
+                ) : null}
+                {req.sender.relationshipStatus ? (
+                  <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 12 }}>
+                    {req.sender.relationshipStatus}
+                  </Text>
+                ) : null}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+            <View style={{ flexDirection: "row", borderTopWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
+              <TouchableOpacity
+                onPress={() => respond(req.id, "decline")}
+                disabled={isResponding}
+                activeOpacity={0.8}
+                style={{ flex: 1, paddingVertical: 14, alignItems: "center", borderRightWidth: 0.5, borderColor: "rgba(255,255,255,0.06)" }}
+              >
+                <Text style={{ color: isResponding ? colors.mutedForeground : "#EF4444", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>
+                  {isResponding ? "…" : "Deny"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => respond(req.id, "accept")}
+                disabled={isResponding}
+                activeOpacity={0.8}
+                style={{ flex: 1, paddingVertical: 14, alignItems: "center", overflow: "hidden" }}
+              >
+                <LinearGradient
+                  colors={["#7C3AED", "#EC4899"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ ...StyleSheet.absoluteFillObject, opacity: isResponding ? 0.4 : 1 }}
+                />
+                <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14 }}>
+                  {isResponding ? "…" : "Accept 💜"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 // ── TabContent ─────────────────────────────────────────────────────────────
 // Renders the correct tab page based on `activeTab` state (passed down from
 // the parent). A PanResponder on this View detects horizontal swipes and calls
 // onSwipe("left"|"right") so the parent can advance/retreat the tab.
 // No imperative refs needed — everything is driven by the activeTab prop.
-type TabId = "nearby" | "goals" | "matches" | "rooms" | "astrology" | "daily";
+type TabId = "nearby" | "goals" | "matches" | "rooms" | "astrology" | "daily" | "requests";
 function TabContent({
   activeTab, onSwipe,
-  nearContent, goalsContent, matchesContent, roomsContent, astrologyContent, dailyContent,
+  nearContent, goalsContent, matchesContent, roomsContent, astrologyContent, dailyContent, requestsContent,
 }: {
   activeTab: TabId;
   onSwipe: (dir: "left" | "right") => void;
@@ -2202,6 +2404,7 @@ function TabContent({
   roomsContent: React.ReactNode;
   astrologyContent: React.ReactNode;
   dailyContent: React.ReactNode;
+  requestsContent: React.ReactNode;
 }) {
   const onSwipeRef = useRef(onSwipe);
   onSwipeRef.current = onSwipe;
@@ -2227,6 +2430,7 @@ function TabContent({
     activeTab === "matches"   ? matchesContent :
     activeTab === "rooms"     ? roomsContent :
     activeTab === "astrology" ? astrologyContent :
+    activeTab === "requests"  ? requestsContent :
     dailyContent;
 
   return (
@@ -2244,7 +2448,11 @@ function FindVibeContent() {
   const userId = session?.user?.id;
 
   const mainTabSwipe = useMainTabSwipe("find");
-  const [activeTab, setActiveTab] = useState<"nearby" | "astrology" | "daily" | "rooms" | "goals" | "matches">("nearby");
+  const [activeTab, setActiveTab] = useState<TabId>("nearby");
+  const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
+  useEffect(() => {
+    if (tabParam === "requests") setActiveTab("requests");
+  }, [tabParam]);
   const { isLinked } = useCoupleStatus();
   const [myGoals, setMyGoals] = useState<string[]>([]);
   const tabScrollRef = useRef<ScrollView>(null);
@@ -2445,12 +2653,13 @@ function FindVibeContent() {
   }
 
   const TABS = [
-    { id: "nearby"   as const, emoji: "📍", label: "Near" },
-    { id: "goals"    as const, emoji: "🎯", label: "Goals" },
-    { id: "matches"  as const, emoji: "💜", label: "Matches" },
-    { id: "rooms"    as const, emoji: "🏠", label: "Rooms" },
+    { id: "nearby"    as const, emoji: "📍", label: "Near" },
+    { id: "goals"     as const, emoji: "🎯", label: "Goals" },
+    { id: "matches"   as const, emoji: "💜", label: "Matches" },
+    { id: "requests"  as const, emoji: "💌", label: "Requests" },
+    { id: "rooms"     as const, emoji: "🏠", label: "Rooms" },
     { id: "astrology" as const, emoji: "🕉️", label: "Astrology" },
-    { id: "daily"    as const, emoji: "🌟", label: "Daily" },
+    { id: "daily"     as const, emoji: "🌟", label: "Daily" },
   ];
 
   return (
@@ -2546,11 +2755,25 @@ function FindVibeContent() {
                 >
                   <Text style={styles.tabPillEmoji}>{tab.emoji}</Text>
                   <Text style={[styles.tabPillLabel, { color: "#fff" }]}>{tab.label}</Text>
+                  {tab.id === "requests" && pendingVibeCount > 0 && (
+                    <View style={{ backgroundColor: "#F97316", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, marginLeft: 2 }}>
+                      <Text style={{ color: "#fff", fontSize: 9, fontFamily: "Poppins_700Bold", lineHeight: 16 }}>
+                        {pendingVibeCount > 9 ? "9+" : pendingVibeCount}
+                      </Text>
+                    </View>
+                  )}
                 </LinearGradient>
               ) : (
                 <View style={styles.tabPillInner}>
                   <Text style={styles.tabPillEmoji}>{tab.emoji}</Text>
                   <Text style={[styles.tabPillLabel, { color: "#6B7280" }]}>{tab.label}</Text>
+                  {tab.id === "requests" && pendingVibeCount > 0 && (
+                    <View style={{ backgroundColor: "#F97316", borderRadius: 8, minWidth: 16, height: 16, alignItems: "center", justifyContent: "center", paddingHorizontal: 3, marginLeft: 2 }}>
+                      <Text style={{ color: "#fff", fontSize: 9, fontFamily: "Poppins_700Bold", lineHeight: 16 }}>
+                        {pendingVibeCount > 9 ? "9+" : pendingVibeCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
             </TouchableOpacity>
@@ -2591,6 +2814,9 @@ function FindVibeContent() {
             userId={userId}
             onSwitchToNear={() => setActiveTab("nearby")}
           />
+        ) : <View />}
+        requestsContent={userId ? (
+          <RequestsTab userId={userId} onCountChange={setPendingVibeCount} />
         ) : <View />}
         roomsContent={<VibeRoomsTab />}
         astrologyContent={<JyotishaTab userId={userId} />}

@@ -1,0 +1,15 @@
+FEATURE: "Requests" section inside Find Vibe — one home for all vibe requests
+Add a Requests chip/tab inside Find Vibe, in the existing top chip row (Near / Goals / Matches / Rooms / Astro...), so all incoming vibe activity lives inside Find Vibe itself.
+1. Requests chip + screen:
+
+New chip "Requests 💌" in the Find Vibe chip row (artifacts/mobile/app/(tabs)/find.tsx), with an unread-count badge (number of pending incoming requests).
+Tapping shows the requests list: each incoming pending vibe request as a card — requester's vibe photo, name, age, vibe status/goal if set, tap card to view their full vibe profile, with two clear buttons: Accept 💜 and Deny.
+Data from existing GET /api/vibe-requests/inbox; actions via existing POST /api/vibe-requests/respond.
+Accept → fires the existing match flow (mutual vibe_matches rows, match overlay/celebration, appears in Matches tab). Deny → silent removal from the list (already-confirmed behavior).
+Empty state: "No vibe requests yet — keep swiping ✨". Pull-to-refresh. Loading clears in finally. Snapshot-and-restore on refresh failure (same pattern as the feeds).
+
+2. Notification routing: tapping a "sent you a Vibe 💜" notification deep-links to this Requests section inside Find Vibe (coordinate with the notification-tap fix already in progress — same destination).
+3. Outgoing awareness (small but nice): on the swipe deck, if I already have a pending outgoing request to a card that somehow reappears, show a small "Vibe sent ✓" state instead of allowing a re-swipe (client-side companion to the server dedup being built).
+4. Badge consistency: the Requests chip badge count must come from the same pending-inbox query as the list itself — one source, rendered twice (same rule as message requests).
+Rules: ALL data via artifacts/api-server service-role — mobile never calls supabase.from()/.rpc(); { data, error } destructured and checked; column names verified against live schema; match Find Vibe's existing visual style (gradient chips, dark cards).
+Typecheck, report: files changed, the chip/route added, where notifications now land, badge source. Do not push or deploy.

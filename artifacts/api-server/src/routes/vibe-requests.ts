@@ -280,7 +280,7 @@ router.get("/inbox", async (req, res) => {
   if (senderIds.length > 0) {
     const { data: profiles } = await sb
       .from("profiles")
-      .select("id, username, full_name, avatar_url, relationship_status")
+      .select("id, username, full_name, avatar_url, relationship_status, age, relationship_goal")
       .in("id", senderIds);
     (profiles ?? []).forEach((p: any) => { profileMap[p.id] = p; });
   }
@@ -297,6 +297,8 @@ router.get("/inbox", async (req, res) => {
         displayName: p.full_name ?? null,
         avatarUrl: p.avatar_url ?? null,
         relationshipStatus: p.relationship_status ?? null,
+        age: p.age ?? null,
+        goal: p.relationship_goal ?? null,
       },
     };
   });
