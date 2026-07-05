@@ -24,6 +24,181 @@ function normalise(row: any): any {
   return out;
 }
 
+// ── Shared-content preview enrichment ────────────────────────────────────────
+
+interface SharedPreview {
+  thumbnail_url: string | null;
+  caption: string | null;
+  author_username: string | null;
+  author_avatar_url: string | null;
+  has_poll?: boolean;
+  content_unavailable: boolean;
+}
+
+const UNAVAILABLE_PREVIEW: SharedPreview = {
+  thumbnail_url: null,
+  caption: null,
+  author_username: null,
+  author_avatar_url: null,
+  content_unavailable: true,
+};
+
+async function getBlockedIds(
+  sb: ReturnType<typeof makeSupabase>,
+  viewerId: string,
+  authorIds: string[],
+): Promise<Set<string>> {
+  if (!authorIds.length) return new Set();
+  const [{ data: b1 }, { data: b2 }] = await Promise.all([
+    sb.from("blocks").select("blocked_id").eq("blocker_id", viewerId).in("blocked_id", authorIds),
+    sb.from("blocks").select("blocker_id").eq("blocked_id", viewerId).in("blocker_id", authorIds),
+  ]);
+  return new Set([
+    ...(b1 ?? []).map((b: any) => b.blocked_id as string),
+    ...(b2 ?? []).map((b: any) => b.blocker_id as string),
+  ]);
+}
+
+async function getFollowedIds(
+  sb: ReturnType<typeof makeSupabase>,
+  viewerId: string,
+  authorIds: string[],
+): Promise<Set<string>> {
+  if (!authorIds.length) return new Set();
+  const { data } = await sb
+    .from("follows")
+    .select("following_id")
+    .eq("follower_id", viewerId)
+    .in("following_id", authorIds);
+  return new Set((data ?? []).map((f: any) => f.following_id as string));
+}
+
+// Enrich messages that carry shared_content_type/shared_content_id with a
+// preview payload. Privacy-gated: private-account content shows as unavailable
+// to viewers who don't follow the author; blocked users also gate.
+async function enrichSharedMessages(
+  messages: any[],
+  viewerId: string,
+  sb: ReturnType<typeof makeSupabase>,
+): Promise<any[]> {
+  const sharedMsgs = messages.filter((m) => m.shared_content_type && m.shared_content_id);
+  if (!sharedMsgs.length) return messages;
+
+  const byType = (t: string) =>
+    sharedMsgs
+      .filter((m) => m.shared_content_type === t)
+      .map((m) => m.shared_content_id as string);
+  const postIds = byType("post");
+  const reelIds = byType("reel");
+  const confessionIds = byType("confession");
+  const previewMap = new Map<string, SharedPreview>();
+
+  await Promise.all([
+    // ── Posts ─────────────────────────────────────────────────────────────
+    (async () => {
+      if (!postIds.length) return;
+      const { data: posts } = await sb
+        .from("posts")
+        .select("id, user_id, media_url, caption, profiles!user_id(username, avatar_url, is_private)")
+        .in("id", postIds);
+      if (!posts?.length) return;
+      const authorIds = [...new Set((posts as any[]).map((p) => p.user_id as string))];
+      const [blocked, followed] = await Promise.all([
+        getBlockedIds(sb, viewerId, authorIds),
+        getFollowedIds(sb, viewerId, authorIds.filter((id) => id !== viewerId)),
+      ]);
+      for (const p of posts as any[]) {
+        const prof = p.profiles as any;
+        const hidden =
+          blocked.has(p.user_id) ||
+          (prof?.is_private && p.user_id !== viewerId && !followed.has(p.user_id));
+        previewMap.set(
+          p.id,
+          hidden
+            ? UNAVAILABLE_PREVIEW
+            : {
+                thumbnail_url: p.media_url ?? null,
+                caption: p.caption ?? null,
+                author_username: prof?.username ?? null,
+                author_avatar_url: prof?.avatar_url ?? null,
+                content_unavailable: false,
+              },
+        );
+      }
+    })(),
+
+    // ── Reels ─────────────────────────────────────────────────────────────
+    (async () => {
+      if (!reelIds.length) return;
+      const { data: reels } = await sb
+        .from("reels")
+        .select("id, user_id, thumbnail_url, caption, profiles!user_id(username, avatar_url, is_private)")
+        .in("id", reelIds);
+      if (!reels?.length) return;
+      const authorIds = [...new Set((reels as any[]).map((r) => r.user_id as string))];
+      const [blocked, followed] = await Promise.all([
+        getBlockedIds(sb, viewerId, authorIds),
+        getFollowedIds(sb, viewerId, authorIds.filter((id) => id !== viewerId)),
+      ]);
+      for (const r of reels as any[]) {
+        const prof = r.profiles as any;
+        const hidden =
+          blocked.has(r.user_id) ||
+          (prof?.is_private && r.user_id !== viewerId && !followed.has(r.user_id));
+        previewMap.set(
+          r.id,
+          hidden
+            ? UNAVAILABLE_PREVIEW
+            : {
+                thumbnail_url: r.thumbnail_url ?? null,
+                caption: r.caption ?? null,
+                author_username: prof?.username ?? null,
+                author_avatar_url: prof?.avatar_url ?? null,
+                content_unavailable: false,
+              },
+        );
+      }
+    })(),
+
+    // ── Confessions (couple_feed_posts — always public) ────────────────────
+    (async () => {
+      if (!confessionIds.length) return;
+      const [{ data: confessions }, { data: polls }] = await Promise.all([
+        sb
+          .from("couple_feed_posts")
+          .select("id, author_id, content, photo_url, profiles!author_id(username, avatar_url)")
+          .in("id", confessionIds),
+        sb
+          .from("confession_polls")
+          .select("confession_post_id")
+          .in("confession_post_id", confessionIds),
+      ]);
+      const pollSet = new Set(
+        (polls ?? []).map((p: any) => p.confession_post_id as string),
+      );
+      for (const c of (confessions ?? []) as any[]) {
+        const prof = c.profiles as any;
+        previewMap.set(c.id, {
+          thumbnail_url: c.photo_url ?? null,
+          caption: c.content ?? null,
+          author_username: prof?.username ?? null,
+          author_avatar_url: prof?.avatar_url ?? null,
+          has_poll: pollSet.has(c.id),
+          content_unavailable: false,
+        });
+      }
+    })(),
+  ]);
+
+  return messages.map((m) => {
+    if (!m.shared_content_type || !m.shared_content_id) return m;
+    return {
+      ...m,
+      shared_preview: previewMap.get(m.shared_content_id) ?? UNAVAILABLE_PREVIEW,
+    };
+  });
+}
+
 // GET /api/messages?myId=&otherId=&limit=100
 // Fetch messages between two users (service-role bypasses RLS)
 router.get("/", async (req, res) => {
@@ -49,19 +224,24 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: error.message });
     return;
   }
-  res.json({ messages: (data ?? []).map(normalise) });
+  const normalised = (data ?? []).map(normalise);
+  res.json({ messages: await enrichSharedMessages(normalised, myId, sb) });
 });
 
 // POST /api/messages
-// Send a message — { senderId, receiverId, text }
+// Send a message — { senderId, receiverId, text, shared_content_type?, shared_content_id? }
+// Either text OR shared_content_type+shared_content_id must be present.
 router.post("/", async (req, res) => {
-  const { senderId, receiverId, text } = req.body as {
+  const { senderId, receiverId, text, shared_content_type, shared_content_id } = req.body as {
     senderId?: string;
     receiverId?: string;
     text?: string;
+    shared_content_type?: "post" | "reel" | "confession";
+    shared_content_id?: string;
   };
-  if (!senderId || !receiverId || !text) {
-    res.status(400).json({ error: "senderId, receiverId, and text required" });
+  const isShareMsg = !!(shared_content_type && shared_content_id);
+  if (!senderId || !receiverId || (!text && !isShareMsg)) {
+    res.status(400).json({ error: "senderId, receiverId, and (text or shared content) required" });
     return;
   }
   const sb = makeSupabase();
@@ -113,13 +293,19 @@ router.post("/", async (req, res) => {
 
   // DB column is "content", not "text".
   // Auto-detect snap messages so Snaps tab can filter by message_type='snap'.
-  const isSnap = text.startsWith("__SNAP__:");
+  const isSnap = (text ?? "").startsWith("__SNAP__:");
   const insertRow: Record<string, unknown> = {
     sender_id: senderId,
     receiver_id: receiverId,
-    content: text,
+    content: text ?? "",
   };
-  if (isSnap) insertRow["message_type"] = "snap";
+  if (isSnap) {
+    insertRow["message_type"] = "snap";
+  } else if (isShareMsg) {
+    insertRow["message_type"] = "share";
+    insertRow["shared_content_type"] = shared_content_type;
+    insertRow["shared_content_id"] = shared_content_id;
+  }
 
   const { data, error } = await sb
     .from("messages")
@@ -169,7 +355,7 @@ router.post("/", async (req, res) => {
             user2_id: u2Id,
             is_request: isRequest,
             requested_by: senderId,
-            last_message: isSnap ? "📷 Photo" : text,
+            last_message: isSnap ? "📷 Photo" : isShareMsg ? `📎 Shared a ${shared_content_type}` : (text ?? ""),
             last_message_at: now,
           },
           { onConflict: "user1_id,user2_id" }
@@ -177,7 +363,7 @@ router.post("/", async (req, res) => {
       } else {
         // Accepted conversation — just update the preview
         await sb.from("conversations").update({
-          last_message: isSnap ? "📷 Photo" : text,
+          last_message: isSnap ? "📷 Photo" : isShareMsg ? `📎 Shared a ${shared_content_type}` : (text ?? ""),
           last_message_at: now,
         }).eq("id", (existingConv as any).id);
       }
@@ -188,7 +374,10 @@ router.post("/", async (req, res) => {
   void (async () => {
     const { data: sender } = await sb.from("profiles").select("username").eq("id", senderId).maybeSingle();
     const senderName = (sender as any)?.username ?? "Someone";
-    const preview = text.length > 60 ? text.slice(0, 57) + "…" : text;
+    const msgText = isShareMsg
+      ? `Shared a ${shared_content_type}`
+      : (text ?? "");
+    const preview = msgText.length > 60 ? msgText.slice(0, 57) + "…" : msgText;
     void sendPushToUser(
       sb,
       receiverId,

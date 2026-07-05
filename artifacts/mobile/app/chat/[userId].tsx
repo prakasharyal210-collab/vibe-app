@@ -25,6 +25,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { fetchMessages, getOtherUserActivity, markMessagesRead, sendMessageToUser } from "@/lib/db";
+import { SharedContentCard } from "@/components/SharedContentCard";
 import {
   encodeSnap,
   isSnap,
@@ -167,6 +168,7 @@ function Bubble({
   const colors = useColors();
   const isTemp = msg.id.startsWith("temp_");
   const isSnapMsg = isSnap(msg.text);
+  const isShareMsg = !!(msg.shared_content_type && msg.shared_preview);
 
   return (
     <View
@@ -185,6 +187,12 @@ function Bubble({
 
       {isSnapMsg ? (
         <SnapBubble msg={msg} isMe={isMe} onView={onViewSnap} />
+      ) : isShareMsg ? (
+        <SharedContentCard
+          contentType={msg.shared_content_type!}
+          contentId={msg.shared_content_id ?? ""}
+          preview={msg.shared_preview!}
+        />
       ) : (
         <View
           style={[

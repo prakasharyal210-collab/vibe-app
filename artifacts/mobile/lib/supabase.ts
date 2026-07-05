@@ -84,12 +84,25 @@ export interface Comment {
   profiles?: Profile;
 }
 
+export interface SharedPreview {
+  thumbnail_url: string | null;
+  caption: string | null;
+  author_username: string | null;
+  author_avatar_url: string | null;
+  has_poll?: boolean;
+  content_unavailable: boolean;
+}
+
 export interface Message {
   id: string;
   sender_id: string;
   receiver_id: string;
   text: string;
   created_at: string;
+  message_type?: string;
+  shared_content_type?: "post" | "reel" | "confession";
+  shared_content_id?: string;
+  shared_preview?: SharedPreview;
 }
 
 export interface Conversation {

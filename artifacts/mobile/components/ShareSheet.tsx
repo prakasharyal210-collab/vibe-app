@@ -1,43 +1,60 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
+  FlatList,
   Modal,
   Platform,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { fetchConversations, searchProfiles, sendMessageToUser } from "@/lib/db";
+import type { Conversation, Profile } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
 
 const { height: H } = Dimensions.get("window");
-const SHEET_HEIGHT = H * 0.46;
+const SHEET_HEIGHT = H * 0.66;
 
-const FRIENDS = [
-  { id: "f1", username: "luna_sky" },
-  { id: "f2", username: "marcus_vibe" },
-  { id: "f3", username: "zoe.creates" },
-  { id: "f4", username: "kai_adventures" },
-  { id: "f5", username: "nadia.official" },
-];
+const TYPE_LABELS: Record<string, string> = {
+  post: "Post",
+  reel: "Reel",
+  confession: "Confession",
+};
 
-interface ShareSheetProps {
+export interface ShareSheetProps {
   visible: boolean;
   onClose: () => void;
-  contentType?: "post" | "reel" | "profile";
+  contentType?: "post" | "reel" | "confession";
+  contentId?: string;
+  senderId?: string;
   username?: string;
 }
 
-export function ShareSheet({ visible, onClose, contentType = "post", username }: ShareSheetProps) {
+export function ShareSheet({
+  visible,
+  onClose,
+  contentType,
+  contentId,
+  senderId,
+  username,
+}: ShareSheetProps) {
   const colors = useColors();
   const translateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+
+  const [query, setQuery] = useState("");
+  const [recentConvos, setRecentConvos] = useState<Conversation[]>([]);
+  const [searchResults, setSearchResults] = useState<Profile[]>([]);
+  const [sending, setSending] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<Set<string>>(new Set());
+  const [loadingConvos, setLoadingConvos] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -53,19 +70,66 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
         duration: 240,
         useNativeDriver: false,
       }).start();
+      setQuery("");
+      setSearchResults([]);
+      setSentTo(new Set());
     }
   }, [visible]);
 
-  const shareUrl = `https://vibe.app/${contentType}/${username ?? ""}`;
+  useEffect(() => {
+    if (!visible || !senderId) return;
+    setLoadingConvos(true);
+    fetchConversations(senderId)
+      .then(setRecentConvos)
+      .catch(() => {})
+      .finally(() => setLoadingConvos(false));
+  }, [visible, senderId]);
 
-  const actions = [
+  useEffect(() => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      searchProfiles(query.trim(), senderId).then(setSearchResults).catch(() => {});
+    }, 300);
+    return () => clearTimeout(t);
+  }, [query, senderId]);
+
+  const isContentShare = !!(contentType && contentId && senderId);
+  const shareUrl = `https://vibe.app/${contentType ?? "post"}/${username ?? ""}`;
+
+  const handleSendToUser = useCallback(
+    async (targetUserId: string) => {
+      if (!isContentShare) return;
+      setSending(targetUserId);
+      try {
+        await sendMessageToUser(senderId!, targetUserId, "", {
+          contentType: contentType!,
+          contentId: contentId!,
+        });
+        setSentTo((prev) => new Set([...prev, targetUserId]));
+      } catch {
+        Alert.alert("Error", "Couldn't send. Please try again.");
+      } finally {
+        setSending(null);
+      }
+    },
+    [isContentShare, senderId, contentType, contentId],
+  );
+
+  const externalActions = [
     {
       icon: "link-outline",
       label: "Copy link",
       color: "#7C3AED",
       onPress: async () => {
         try {
-          if (Platform.OS === "web" && typeof navigator !== "undefined" && navigator.clipboard) {
+          if (
+            Platform.OS === "web" &&
+            typeof navigator !== "undefined" &&
+            navigator.clipboard
+          ) {
             await navigator.clipboard.writeText(shareUrl);
           }
         } catch {}
@@ -74,16 +138,13 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
       },
     },
     {
-      icon: "paper-plane-outline",
-      label: "Send to DM",
-      color: "#3B82F6",
-      onPress: () => { onClose(); router.push("/inbox"); },
-    },
-    {
       icon: "radio-button-on-outline",
       label: "Add to Story",
       color: "#EC4899",
-      onPress: () => { onClose(); Alert.alert("Added to story!"); },
+      onPress: () => {
+        onClose();
+        Alert.alert("Added to story!");
+      },
     },
     {
       icon: "share-social-outline",
@@ -100,11 +161,46 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
       icon: "flag-outline",
       label: "Report",
       color: "#EF4444",
-      onPress: () => { onClose(); Alert.alert("Reported", "Thanks for keeping Gundruk safe."); },
+      onPress: () => {
+        onClose();
+        Alert.alert("Reported", "Thanks for keeping Gundruk safe.");
+      },
     },
   ];
 
   if (!visible) return null;
+
+  function PersonItem({ userId, uname, avatarUrl }: { userId: string; uname: string; avatarUrl?: string | null }) {
+    const isSent = sentTo.has(userId);
+    const isSending = sending === userId;
+    return (
+      <TouchableOpacity
+        style={styles.personItem}
+        onPress={() => !isSent && !isSending && handleSendToUser(userId)}
+        disabled={isSent || isSending}
+        activeOpacity={0.75}
+      >
+        <UserAvatar url={avatarUrl ?? undefined} username={uname} size={46} />
+        <Text style={[styles.personName, { color: colors.foreground }]} numberOfLines={1}>
+          {uname}
+        </Text>
+        {isSending ? (
+          <ActivityIndicator size="small" color="#A78BFA" />
+        ) : isSent ? (
+          <View style={styles.sentChip}>
+            <Ionicons name="checkmark" size={12} color="#A78BFA" />
+            <Text style={styles.sentChipText}>Sent</Text>
+          </View>
+        ) : isContentShare ? (
+          <View style={styles.sendChip}>
+            <Text style={styles.sendChipText}>Send</Text>
+          </View>
+        ) : null}
+      </TouchableOpacity>
+    );
+  }
+
+  const showSearch = query.trim().length > 0;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -117,26 +213,87 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
         ]}
       >
         <View style={[styles.handle, { backgroundColor: colors.border }]} />
-        <Text style={[styles.title, { color: colors.foreground }]}>Share</Text>
 
-        <View style={styles.friendsRow}>
-          {FRIENDS.map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={styles.friendItem}
-              onPress={() => { onClose(); router.push("/inbox"); }}
-            >
-              <UserAvatar username={f.username} size={50} />
-              <Text style={[styles.friendName, { color: colors.foreground }]} numberOfLines={1}>
-                {f.username.split("_")[0].split(".")[0]}
+        <Text style={[styles.title, { color: colors.foreground }]}>
+          {isContentShare ? `Send ${TYPE_LABELS[contentType!] ?? ""}` : "Share"}
+        </Text>
+
+        {/* Search box — only shown when there is a content share */}
+        {isContentShare && (
+          <View
+            style={[
+              styles.searchBox,
+              { backgroundColor: colors.muted, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons name="search-outline" size={16} color={colors.mutedForeground} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search people..."
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.searchInput, { color: colors.foreground }]}
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery("")}>
+                <Ionicons name="close-circle" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* People list */}
+        {isContentShare && (
+          <View style={styles.peopleSection}>
+            {loadingConvos && !showSearch ? (
+              <ActivityIndicator color="#A78BFA" style={{ marginVertical: 14 }} />
+            ) : showSearch ? (
+              searchResults.length === 0 ? (
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                  No results
+                </Text>
+              ) : (
+                <FlatList
+                  horizontal
+                  data={searchResults}
+                  keyExtractor={(p) => p.id}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.personList}
+                  renderItem={({ item }) => (
+                    <PersonItem
+                      userId={item.id}
+                      uname={item.username ?? ""}
+                      avatarUrl={item.avatar_url}
+                    />
+                  )}
+                />
+              )
+            ) : recentConvos.length === 0 ? (
+              <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                No recent conversations
               </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+            ) : (
+              <FlatList
+                horizontal
+                data={recentConvos}
+                keyExtractor={(c) => c.id}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.personList}
+                renderItem={({ item }) => (
+                  <PersonItem
+                    userId={item.other_user.id}
+                    uname={item.other_user.username ?? ""}
+                    avatarUrl={item.other_user.avatar_url}
+                  />
+                )}
+              />
+            )}
+          </View>
+        )}
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-        {actions.map((action) => (
+        {externalActions.map((action) => (
           <TouchableOpacity
             key={action.label}
             onPress={action.onPress}
@@ -146,7 +303,9 @@ export function ShareSheet({ visible, onClose, contentType = "post", username }:
             <View style={[styles.iconCircle, { backgroundColor: action.color + "22" }]}>
               <Ionicons name={action.icon as any} size={22} color={action.color} />
             </View>
-            <Text style={[styles.actionLabel, { color: colors.foreground }]}>{action.label}</Text>
+            <Text style={[styles.actionLabel, { color: colors.foreground }]}>
+              {action.label}
+            </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
           </TouchableOpacity>
         ))}
@@ -182,23 +341,74 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: "Poppins_700Bold",
     paddingHorizontal: 18,
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  friendsRow: {
+  searchBox: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: "Poppins_400Regular",
+    padding: 0,
+  },
+  peopleSection: {
+    height: 110,
+    justifyContent: "center",
+  },
+  personList: {
     paddingHorizontal: 14,
     gap: 10,
-    marginBottom: 14,
+    alignItems: "flex-start",
   },
-  friendItem: {
+  personItem: {
     alignItems: "center",
-    gap: 5,
-    flex: 1,
+    gap: 4,
+    width: 70,
   },
-  friendName: {
+  personName: {
     fontSize: 11,
     fontFamily: "Poppins_400Regular",
     textAlign: "center",
+  },
+  sentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "rgba(167,139,250,0.15)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  sentChipText: {
+    fontSize: 10,
+    fontFamily: "Poppins_500Medium",
+    color: "#A78BFA",
+  },
+  sendChip: {
+    backgroundColor: "rgba(124,58,237,0.2)",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  sendChipText: {
+    fontSize: 10,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#A78BFA",
+  },
+  emptyText: {
+    textAlign: "center",
+    fontSize: 13,
+    fontFamily: "Poppins_400Regular",
+    paddingVertical: 16,
   },
   divider: {
     height: 0.5,

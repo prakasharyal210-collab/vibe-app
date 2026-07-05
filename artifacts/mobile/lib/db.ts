@@ -873,14 +873,20 @@ export async function getOtherUserActivity(userId: string): Promise<string | nul
 export async function sendMessageToUser(
   senderId: string,
   receiverId: string,
-  text: string
+  text: string,
+  shareOpts?: { contentType: "post" | "reel" | "confession"; contentId: string },
 ): Promise<import("./supabase").Message | null> {
   // Route through API server — bypasses RLS + avoids Android Supabase client hang
   try {
+    const body: Record<string, unknown> = { senderId, receiverId, text };
+    if (shareOpts) {
+      body["shared_content_type"] = shareOpts.contentType;
+      body["shared_content_id"] = shareOpts.contentId;
+    }
     const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ senderId, receiverId, text }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const json = await res.json();

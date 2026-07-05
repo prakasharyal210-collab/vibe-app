@@ -1,0 +1,26 @@
+Prompt 1 — Chat audit (run first):
+
+Audit the current chat/DM system in artifacts/mobile + artifacts/api-server and report what exists vs what's missing — do NOT build anything yet:
+
+Current features: what works today — text messages, photo/snap sending, read receipts (double ticks), voice messages (mic icon exists — is it wired or dead?), calls (phone/video icons in header — wired or dead?), online/offline status, typing indicator?
+Data model: what tables back the chat (messages table schema, exact column names), how are conversations keyed, how does the "Photo sent / Waiting to be viewed" snap feature store state?
+Realtime: how do messages arrive — Supabase realtime subscription, polling, push? What's the architecture?
+Missing vs Instagram (report feasibility + effort for each): message emoji reactions, reply-to/quote a message, sharing a post/reel/confession INTO a chat as a rendered card, message unsend, active-status text ("Active 7m ago"), typing indicator.
+Report everything with exact file paths and schema. No changes yet.
+
+
+
+Prompt 2 — Share-to-chat (the priority feature, run after reviewing the audit):
+
+Build share-to-chat: users can share a post, reel, or confession into a DM, where it renders as a tappable preview card. Architecture rules: all DB via artifacts/api-server service-role; always destructure { data, error }; verify column names against live schema.
+
+Migration (output SQL, don't run): add to the messages table: shared_content_type (text, nullable: 'post' | 'reel' | 'confession') and shared_content_id (uuid, nullable).
+API: extend the send-message endpoint to accept the shared content fields; when fetching messages, enrich shared-content messages with a preview payload (thumbnail/media url, caption snippet, author username+avatar, and poll presence flag) — handle deleted content gracefully (render "Content unavailable").
+Mobile — send side: wire the existing Share button on posts, reels, and confessions to open a "Send to" sheet listing recent chats/mutuals with search; tapping a person sends the share message. Check if any share sheet already exists and extend it.
+Mobile — render side: in the chat thread, shared-content messages render as a card (media thumbnail, author, caption 1 line) — tapping navigates to the full post/reel/confession. Match the app's dark card styling.
+Respect privacy: confessions are public so shareable; but verify reels/posts from private/blocked accounts don't leak previews to people who can't view them (check how existing privacy rules work and apply the same check in the enrichment).
+Typecheck both, report files changed + the migration SQL for review.
+
+
+
+Prompt 2's migration comes back for review before running (as always). Message reactions and reply-to can be prompts 3 and 4 later.

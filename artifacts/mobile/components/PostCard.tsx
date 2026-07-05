@@ -574,7 +574,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </View>
 
         <CommentsSheet visible={showComments} onClose={() => setShowComments(false)} postId={post.id} isLoggedIn={isLoggedIn} onRequireLogin={() => { setShowComments(false); onRequireLogin?.(); }} />
-        <ShareSheet visible={showShare} onClose={() => setShowShare(false)} contentType="post" username={post.profiles?.username} />
+        <ShareSheet visible={showShare} onClose={() => setShowShare(false)} contentType="post" contentId={post.id} senderId={userId} username={post.profiles?.username} />
         <AchievementModal visible={!!achievement} achievement={achievement} onClose={() => setAchievement(null)} />
         <FullscreenImageViewer
           images={images.filter(Boolean) as string[]}
@@ -861,6 +861,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         visible={showShare}
         onClose={() => setShowShare(false)}
         contentType="post"
+        contentId={post.id}
+        senderId={userId}
         username={post.profiles?.username}
       />
       <AchievementModal
