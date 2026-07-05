@@ -367,29 +367,36 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           </AnimatedCard>
 
           <MonoCard
+            emoji="🎮"
+            title="Couple Games"
+            sub="Play against other couples"
+            onPress={() => router.push({ pathname: "/couple/games", params: { coupleId, userId } } as any)}
+            delay={140}
+          />
+          <MonoCard
             emoji="📸"
             title="Shared Album"
             sub="Your photos together"
             onPress={() => router.push({ pathname: "/couple/album", params: { coupleId, userId } } as any)}
-            delay={140}
+            delay={210}
           />
           <MonoCard
             emoji="💌"
             title="Notes"
             sub="Leave little messages"
             onPress={() => router.push({ pathname: "/couple/notes", params: { coupleId, userId } } as any)}
-            delay={210}
+            delay={280}
           />
           <MonoCard
             emoji="✨"
             title="Bucket List"
             sub="Dreams to do together"
             onPress={() => router.push({ pathname: "/couple/bucketlist", params: { coupleId, userId } } as any)}
-            delay={280}
+            delay={350}
           />
 
           {/* Thinking of You nudge */}
-          <AnimatedCard onPress={sendNudge} delay={350}>
+          <AnimatedCard onPress={sendNudge} delay={420}>
             <View style={s.featureCard}>
               <View style={s.iconTile}>
                 <Text style={s.tileEmoji}>{nudgeSent ? "✅" : "💞"}</Text>

@@ -38,6 +38,7 @@ import usersContactsRouter from "./users/contacts";
 import soundsRouter from "./sounds";
 import coupleRouter from "./couple";
 import coupleFeedRouter from "./couple-feed";
+import coupleGamesRouter from "./coupleGames";
 import authRouter from "./auth";
 import pollsRouter from "./polls";
 
@@ -82,6 +83,7 @@ router.use("/live", liveRouter);
 router.use("/sounds", soundsRouter);
 router.use("/couple", coupleRouter);
 router.use("/couple-feed", coupleFeedRouter);
+router.use("/couple-games", coupleGamesRouter);
 router.use("/auth", authRouter);
 router.use("/polls", pollsRouter);
 

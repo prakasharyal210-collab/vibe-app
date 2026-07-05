@@ -1,0 +1,30 @@
+Perfect placement — right under Couple of the Month. Here's the prompt for the hub + the first game:
+
+FEATURE: "Couple Games" hub in Couple tab + first game: Couple Quiz Battle (couple vs couple, async)
+In the Couple tab (artifacts/mobile/app/(tabs)/couple... — the screen with Confession Room / Couple of the Month / Shared Album cards), add a new card directly below "Couple of the Month":
+1. The hub card + screen:
+
+Card: 🎮 icon, title "Couple Games", subtitle "Play against other couples" — same card styling as the existing rows.
+Tapping opens a new Couple Games hub screen (app/couple/games/index.tsx): a grid/list of games. For now it contains ONE game card ("Couple Quiz Battle ⚔️ — how in-sync are you two vs them?") plus 2-3 "Coming soon 🔒" placeholder cards (e.g. "This or That", "Photo Challenge") so the hub looks alive. More games will be added later — structure the hub so adding a game = adding one card + one route.
+
+2. Couple Quiz Battle — game design (async, no realtime):
+
+A coupled user opens the game → sees active battles + a "Challenge a couple" button.
+Challenge flow: pick an opponent couple (list other accepted couples on the app; searchable by either partner's username) → creates a battle with a fixed set of 10 questions randomly drawn from a question bank.
+Question style: "Who's more likely to…" / relationship-sync questions answered by EACH partner INDIVIDUALLY about their own relationship (e.g. "Who said I love you first?" options: Me / My partner). When both partners of a couple answer the same question with matching perspectives (their answers agree on who), the couple earns a point.
+All 4 people answer the same 10 questions independently, whenever they want (async). Battle completes when all 4 have finished → scores computed → winner = couple with more matched answers; ties allowed.
+Both couples get a push + in-app notification on challenge received, on opponent finishing, and on final result.
+Results screen: score comparison (e.g. "You two: 8/10 in sync — Sara & Ram: 6/10"), per-question reveal of your own couple's matches (NEVER reveal the other couple's individual answers — only their score), and a "Rematch" button.
+Pending states handled: opponent couple can Accept/Decline the challenge; unanswered battles expire after 7 days.
+
+3. Data model — OUTPUT SQL FILE ONLY, do not run it (scripts/couple-games-migration.sql):
+
+game_questions (id, text, option_a, option_b, active) — seed with 30 starter questions in the migration (write fun, wholesome, globally-relatable ones; no explicit content).
+couple_battles (id, game_type default 'quiz', challenger_couple_id, opponent_couple_id → both FK to couple_links.id, status: pending/active/completed/declined/expired, question_ids uuid[], winner_couple_id nullable, created_at, completed_at, expires_at).
+battle_answers (id, battle_id, user_id, question_id, answer, created_at, UNIQUE(battle_id, user_id, question_id)).
+RLS enabled on all three + service_role_full_access policy (same pattern as existing tables).
+
+4. API endpoints in artifacts/api-server (new route file src/routes/coupleGames.ts): create challenge, accept/decline, list my battles, get battle questions, submit answer, get results (compute scores server-side only when all 4 done). Score computation and answer privacy live server-side — the client never receives the opponent couple's raw answers.
+Architectural rules (mandatory): ALL database access via artifacts/api-server with service-role key — mobile NEVER calls supabase.from()/.rpc() (only supabase.auth.*). Always destructure { data, error } and handle errors. Verify column names against LIVE schema — couple_links uses requester_id/receiver_id (NOT user1_id/user2_id) and battles must work regardless of which partner acts. UTC-safe timestamps (parseUTCMs pattern). Loading states clear in finally; empty states for "no battles yet".
+Match the Couple tab's existing visual style (dark cards, pink/purple accents, Poppins).
+Typecheck, report: files changed, the SQL file path for my review, endpoint list, and how score computation handles a partner who never answers (expiry path). Do not push or deploy.
