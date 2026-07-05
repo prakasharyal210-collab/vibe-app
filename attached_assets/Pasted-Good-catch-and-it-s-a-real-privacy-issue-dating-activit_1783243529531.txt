@@ -1,0 +1,15 @@
+Good catch — and it's a real privacy issue: dating activity is leaking into the main social Notifications feed. "testuser_fixed accepted your vibe request 💜" sitting right next to "liked your post" means anyone glancing at your phone — or a partner, friend, family member scrolling your notifications — sees your dating life. Dating apps keep that stuff strictly inside the dating surface. Gundruk is both a social app AND a dating app in one, so the separation matters double: your social inbox should never expose Find Vibe activity.
+The fix: vibe notifications live ONLY in Vibe Activity (the ⚡ screen), never in the main feed.
+
+PRIVACY: Vibe/dating notifications leaking into the main Notifications screen — separate the two worlds
+The main Notifications screen (bell icon) currently shows Find Vibe notifications ("X accepted your vibe request 💜", "X sent you a Vibe", "It's a match!") mixed with social notifications (likes, comments, follows). Dating activity is sensitive — it must be visible ONLY inside Find Vibe's own activity surface (the ⚡ Vibe Activity screen), never in the general social feed.
+CHANGES:
+
+Main notifications screen (artifacts/mobile/app/notifications.tsx): exclude ALL vibe-related notification types from the list AND from the unread badge count. First report the complete set of vibe-related type values in use (from the DB: SELECT DISTINCT type FROM notifications WHERE type ILIKE '%vibe%' — plus the match type if named differently, e.g. vibe_match, vibe_accepted, vibe_request). Filter server-side in the notifications endpoint (preferred — one place, badge count stays consistent) rather than client-side.
+Vibe Activity screen (/vibe-notifications) becomes the ONLY home for those types — verify it shows all of them (requests, accepts, matches) with the routing already fixed (requests→?tab=requests, accepts/matches→?tab=matches).
+Badges split: the bell badge counts only social notifications; the ⚡ icon badge in Find Vibe counts only vibe notifications (it already shows a count — verify its source matches this split). Couple Quiz Battle challenges are couple-feature notifications, not dating — they stay in the main feed (they're between established couples, not sensitive).
+Push notifications for vibe events — check what the push copy says on the lock screen. If it currently says "X accepted your vibe request", make it discreet: "You have new activity on Find Vibe 💜" (no name, no action detail). Report current push copy for each vibe event and change to the discreet version.
+Mark-all-read on the main screen must not mark vibe notifications read (and vice versa) — verify the endpoints scope correctly after the split.
+
+Rules: server-side filtering in artifacts/api-server; { data, error } destructured; live-schema columns (notifications uses recipient_id, NOT user_id).
+Typecheck, report: the full list of vibe type strings found, where filtering was applied (endpoint), push copy before→after, badge sources, files changed. Do not push or deploy.

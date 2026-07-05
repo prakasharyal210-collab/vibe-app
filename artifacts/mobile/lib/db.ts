@@ -342,9 +342,9 @@ export async function fetchLikedPosts(userId: string): Promise<Post[]> {
 // bypass Supabase RLS on the notifications table — direct anon client hangs
 // on Android and falls back to mock data.
 
-export async function fetchNotifications(userId: string): Promise<Notification[]> {
+export async function fetchNotifications(userId: string, scope: "social" | "vibe" = "social"): Promise<Notification[]> {
   try {
-    const res = await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(userId)}`);
+    const res = await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(userId)}?scope=${scope}`);
     if (res.ok) {
       const { notifications } = await res.json() as { notifications: Notification[] };
       return notifications ?? [];
@@ -359,15 +359,16 @@ export async function markNotificationRead(id: string): Promise<void> {
   } catch {}
 }
 
-export async function markAllNotificationsRead(userId: string): Promise<void> {
+export async function markAllNotificationsRead(userId: string, scope: "social" | "vibe" = "social"): Promise<void> {
   try {
-    await fetch(`${API_BASE}/users/notifications/read-all/${encodeURIComponent(userId)}`, { method: "PATCH" });
+    await fetch(`${API_BASE}/users/notifications/read-all/${encodeURIComponent(userId)}?scope=${scope}`, { method: "PATCH" });
   } catch {}
 }
 
 export async function fetchUnreadCount(userId: string): Promise<number> {
   try {
-    const res = await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(userId)}`);
+    // scope=social ensures vibe notifications never inflate the main bell badge
+    const res = await fetch(`${API_BASE}/users/notifications/${encodeURIComponent(userId)}?scope=social`);
     if (res.ok) {
       const { notifications } = await res.json() as { notifications: Array<{ read: boolean }> };
       return (notifications ?? []).filter((n) => !n.read).length;

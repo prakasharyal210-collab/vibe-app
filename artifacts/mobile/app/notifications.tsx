@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { RelationshipStatusBadge } from "@/components/RelationshipStatusBadge";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { fetchNotifications, markAllNotificationsRead, markNotificationRead } from "@/lib/db";
@@ -23,31 +22,19 @@ import { useAuth } from "@/context/AuthContext";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
-interface VibeInboxRequest {
-  id: string;
-  senderId: string;
-  createdAt: string;
-  sender: {
-    id: string;
-    username: string;
-    displayName: string | null;
-    avatarUrl: string | null;
-    relationshipStatus: string | null;
-  };
-}
+// Vibe/dating notification types — must never appear in this social bell feed.
+// They live exclusively in the Find Vibe ⚡ Activity screen.
+const VIBE_TYPES = new Set(["vibe_request", "vibe_match", "vibe_accepted", "vibe"]);
 
 const NOTIF_FALLBACK = { icon: "notifications-outline", color: "#9CA3AF", bg: "rgba(156,163,175,0.15)" };
 
 const TYPE_CONFIG: Record<string, { icon: string; color: string; bg: string }> = {
-  like:          { icon: "heart",               color: "#F97316", bg: "rgba(249,115,22,0.15)" },
-  comment:       { icon: "chatbubble-ellipses", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
-  follow:        { icon: "person-add-outline",  color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
-  vibe:          { icon: "heart-circle",        color: "#EC4899", bg: "rgba(236,72,153,0.15)" },
-  mention:       { icon: "at-circle-outline",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
-  tag:           { icon: "pricetag-outline",    color: "#10B981", bg: "rgba(16,185,129,0.15)" },
-  save:          { icon: "bookmark-outline",    color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
-  vibe_request:  { icon: "flash",               color: "#F97316", bg: "rgba(249,115,22,0.15)" },
-  vibe_accepted: { icon: "heart-circle",        color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
+  like:    { icon: "heart",               color: "#F97316", bg: "rgba(249,115,22,0.15)" },
+  comment: { icon: "chatbubble-ellipses", color: "#3B82F6", bg: "rgba(59,130,246,0.15)" },
+  follow:  { icon: "person-add-outline",  color: "#7C3AED", bg: "rgba(124,58,237,0.15)" },
+  mention: { icon: "at-circle-outline",   color: "#F59E0B", bg: "rgba(245,158,11,0.15)" },
+  tag:     { icon: "pricetag-outline",    color: "#10B981", bg: "rgba(16,185,129,0.15)" },
+  save:    { icon: "bookmark-outline",    color: "#8B5CF6", bg: "rgba(139,92,246,0.15)" },
 };
 
 function notifTypeText(type: string): string {
@@ -55,11 +42,8 @@ function notifTypeText(type: string): string {
     case "like": return "liked your post";
     case "comment": return "commented on your post";
     case "follow": return "started following you";
-    case "vibe": return "sent you a vibe ✨";
     case "mention": return "mentioned you in a comment";
     case "tag": return "tagged you in a post";
-    case "vibe_request": return "wants to vibe with you ✨";
-    case "vibe_accepted": return "accepted your vibe request 💜";
     default: return "interacted with you";
   }
 }
@@ -175,95 +159,6 @@ const shStyles = StyleSheet.create({
   container: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4, gap: 6 },
   title: { fontSize: 11, fontFamily: "Poppins_700Bold", textTransform: "uppercase", letterSpacing: 1.2 },
   line: { height: 1, borderRadius: 1 },
-});
-
-// ── VibeRequestInboxCard ──────────────────────────────────────────────────────
-function VibeRequestInboxCard({
-  request,
-  myId,
-  onRespond,
-}: {
-  request: VibeInboxRequest;
-  myId: string;
-  onRespond: (id: string, action: "accept" | "decline") => void;
-}) {
-  const colors = useColors();
-  const [responding, setResponding] = useState(false);
-  const [done, setDone] = useState<"accepted" | "declined" | null>(null);
-
-  const handleRespond = async (action: "accept" | "decline") => {
-    if (responding) return;
-    setResponding(true);
-    try {
-      const res = await fetch(`${API_BASE}/vibe-requests/respond`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId: request.id, userId: myId, action }),
-      });
-      if (res.ok) {
-        setDone(action === "accept" ? "accepted" : "declined");
-        onRespond(request.id, action);
-      }
-    } finally {
-      setResponding(false);
-    }
-  };
-
-  if (done) {
-    return (
-      <View style={[inboxStyles.card, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-        <UserAvatar username={request.sender.username} url={request.sender.avatarUrl ?? undefined} size={44} />
-        <View style={{ flex: 1 }}>
-          <Text style={[inboxStyles.senderName, { color: colors.foreground }]}>@{request.sender.username}</Text>
-          <Text style={{ color: done === "accepted" ? "#A78BFA" : "#9CA3AF", fontSize: 12, fontFamily: "Poppins_400Regular" }}>
-            {done === "accepted" ? "Vibe accepted 💜" : "Request declined"}
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  return (
-    <View style={[inboxStyles.card, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-      <TouchableOpacity onPress={() => router.push(`/profile/${request.sender.username}` as any)} activeOpacity={0.8}>
-        <GradientRing size={44}>
-          <UserAvatar username={request.sender.username} url={request.sender.avatarUrl ?? undefined} size={44} />
-        </GradientRing>
-      </TouchableOpacity>
-      <View style={{ flex: 1, gap: 4 }}>
-        <Text style={[inboxStyles.senderName, { color: colors.foreground }]}>@{request.sender.username}</Text>
-        {request.sender.relationshipStatus ? (
-          <RelationshipStatusBadge status={request.sender.relationshipStatus} />
-        ) : null}
-      </View>
-      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-        {responding ? (
-          <ActivityIndicator size="small" color="#7C3AED" />
-        ) : (
-          <>
-            <TouchableOpacity onPress={() => handleRespond("accept")} style={inboxStyles.acceptBtn} activeOpacity={0.8}>
-              <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={inboxStyles.acceptGrad}>
-                <Text style={inboxStyles.acceptBtnText}>Accept</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleRespond("decline")} style={inboxStyles.declineBtn} activeOpacity={0.8}>
-              <Text style={inboxStyles.declineBtnText}>Decline</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
-  );
-}
-
-const inboxStyles = StyleSheet.create({
-  card: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 8, gap: 12 },
-  senderName: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
-  acceptBtn: { borderRadius: 9, overflow: "hidden" },
-  acceptGrad: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 9 },
-  acceptBtnText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
-  declineBtn: { backgroundColor: "rgba(107,114,128,0.18)", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 9, borderWidth: 1, borderColor: "rgba(107,114,128,0.38)" },
-  declineBtnText: { color: "#9CA3AF", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
 });
 
 // ── NotifRow ──────────────────────────────────────────────────────────────────
@@ -433,37 +328,19 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [vibeRequests, setVibeRequests] = useState<VibeInboxRequest[]>([]);
-
-  const fetchVibeRequests = useCallback(async () => {
-    if (!session?.user?.id) return;
-    try {
-      const res = await fetch(`${API_BASE}/vibe-requests/inbox?userId=${session.user.id}`);
-      if (res.ok) {
-        const { requests } = await res.json() as { requests: VibeInboxRequest[] };
-        setVibeRequests(requests ?? []);
-      }
-    } catch {}
-  }, [session?.user?.id]);
 
   const onRefresh = useCallback(async () => {
     if (!session?.user?.id) return;
     setRefreshing(true);
-    await Promise.all([
-      fetchNotifications(session.user.id).then(setNotifications).catch(() => {}),
-      fetchVibeRequests(),
-    ]);
+    await fetchNotifications(session.user.id).then(setNotifications).catch(() => {});
     setRefreshing(false);
-  }, [session?.user?.id, fetchVibeRequests]);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
     const uid = session.user.id;
 
-    Promise.all([
-      fetchNotifications(uid).then(setNotifications).catch(() => {}),
-      fetchVibeRequests(),
-    ]).finally(() => setLoading(false));
+    fetchNotifications(uid).then(setNotifications).catch(() => {}).finally(() => setLoading(false));
 
     const channelName = `notifications-${uid}-${Date.now()}_${Math.random().toString(36).slice(2)}`;
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -476,6 +353,9 @@ export default function NotificationsScreen() {
           (payload) => {
             try {
               const n = payload.new as any;
+              // Vibe/dating notifications must never appear in the social bell feed.
+              // They are handled exclusively by the ⚡ Activity screen.
+              if (VIBE_TYPES.has(n.type)) return;
               const newNotif: Notification = {
                 id: n.id,
                 type: n.type ?? "like",
@@ -489,7 +369,6 @@ export default function NotificationsScreen() {
                 sender_id: n.sender_id ?? null,
               };
               setNotifications((prev) => [newNotif, ...prev]);
-              if (n.type === "vibe_request") fetchVibeRequests();
             } catch {}
           }
         )
@@ -497,7 +376,7 @@ export default function NotificationsScreen() {
     } catch {}
 
     return () => { if (channel) supabase.removeChannel(channel); };
-  }, [session?.user?.id, fetchVibeRequests]);
+  }, [session?.user?.id]);
 
   const markRead = (id: string) => {
     setNotifications((n) => n.map((item) => (item.id === id ? { ...item, read: true } : item)));
@@ -507,12 +386,6 @@ export default function NotificationsScreen() {
   const markAllRead = () => {
     setNotifications((n) => n.map((item) => ({ ...item, read: true })));
     if (session?.user?.id) markAllNotificationsRead(session.user.id);
-  };
-
-  const handleInboxRespond = (id: string, _action: "accept" | "decline") => {
-    setTimeout(() => {
-      setVibeRequests((prev) => prev.filter((r) => r.id !== id));
-    }, 1800);
   };
 
   function timeCategory(t: string): "today" | "week" | "earlier" {
@@ -531,6 +404,8 @@ export default function NotificationsScreen() {
     ...(earlier.length > 0 ? [{ title: "Earlier", data: earlier }] : []),
   ];
 
+  // Only social notifications are in the list — vibe types are excluded server-side.
+  // This badge therefore reflects only the social bell feed, never dating activity.
   const unreadCount = notifications.filter((n) => !n.read).length;
   const uid = session?.user?.id ?? "";
 
@@ -579,32 +454,6 @@ export default function NotificationsScreen() {
           )}
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
-          ListHeaderComponent={
-            vibeRequests.length > 0 ? (
-              <View style={[styles.inboxSection, { backgroundColor: colors.background }]}>
-                <View style={styles.inboxHeader}>
-                  <LinearGradient
-                    colors={["#F97316", "#EF4444"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.inboxDot}
-                  />
-                  <Text style={[styles.inboxTitle, { color: "#F97316" }]}>Vibe Requests</Text>
-                  <View style={styles.inboxBadge}>
-                    <Text style={styles.inboxBadgeText}>{vibeRequests.length}</Text>
-                  </View>
-                </View>
-                {vibeRequests.map((r) => (
-                  <VibeRequestInboxCard
-                    key={r.id}
-                    request={r}
-                    myId={uid}
-                    onRespond={handleInboxRespond}
-                  />
-                ))}
-              </View>
-            ) : null
-          }
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -613,10 +462,8 @@ export default function NotificationsScreen() {
               colors={["#8B5CF6"]}
             />
           }
-          ListEmptyComponent={
-            vibeRequests.length > 0 ? null : <EmptyState />
-          }
-          contentContainerStyle={sections.length === 0 && vibeRequests.length === 0 ? { flex: 1 } : undefined}
+          ListEmptyComponent={<EmptyState />}
+          contentContainerStyle={sections.length === 0 ? { flex: 1 } : undefined}
         />
       )}
     </View>
@@ -651,22 +498,6 @@ const styles = StyleSheet.create({
   // Loading
   loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   loadingText: { fontSize: 14, fontFamily: "Poppins_400Regular" },
-
-  // Vibe requests inbox
-  inboxSection: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 4 },
-  inboxHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
-  inboxDot: { width: 8, height: 8, borderRadius: 4 },
-  inboxTitle: { fontSize: 12, fontFamily: "Poppins_700Bold", textTransform: "uppercase", letterSpacing: 1, flex: 1 },
-  inboxBadge: {
-    backgroundColor: "#F97316",
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 4,
-  },
-  inboxBadgeText: { color: "#fff", fontSize: 10, fontFamily: "Poppins_700Bold" },
 
   // Notification row
   notifRow: {

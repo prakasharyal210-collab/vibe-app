@@ -407,17 +407,17 @@ export default function VibeNotificationsScreen() {
 
   const loadNotifications = useCallback(async () => {
     if (!userId) return;
+    // scope=vibe fetches ONLY vibe/dating notification types from the server.
+    // The social bell screen (notifications.tsx) uses scope=social (the default)
+    // which excludes all these types — keeping the two feeds cleanly separated.
     const [all, inboxRes] = await Promise.allSettled([
-      fetchNotifications(userId),
+      fetchNotifications(userId, "vibe"),
       fetch(`${API_BASE}/vibe-requests/inbox?userId=${userId}`).then((r) => r.ok ? r.json() : { requests: [] }),
     ]);
     if (all.status === "fulfilled") {
-      const raw = all.value.filter((n) => VIBE_TYPES.has(n.type));
-      // Dedupe vibe_request/vibe notifications by sender — show only the newest
-      // per sender. Notifications are returned newest-first, so the first
-      // occurrence per sender_id is the most recent.
+      // Server already filtered to vibe types only; dedupe by sender for cleaner UI.
       const seenSenders = new Set<string>();
-      const deduped = raw.filter((n) => {
+      const deduped = all.value.filter((n) => {
         if (n.type !== "vibe_request" && n.type !== "vibe") return true;
         const sid = (n as any).sender_id;
         if (!sid || seenSenders.has(sid)) return false;

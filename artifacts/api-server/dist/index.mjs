@@ -62068,15 +62068,23 @@ function timeAgoShort(iso) {
   if (d < 7) return `${d}d`;
   return `${Math.floor(d / 7)}w`;
 }
+var VIBE_TYPES = ["vibe_request", "vibe_match", "vibe_accepted", "vibe"];
 router18.get("/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) {
     res.status(400).json({ error: "userId required" });
     return;
   }
+  const scope = req.query["scope"] ?? "social";
   const sb = makeSupabase14();
   try {
-    const { data, error } = await sb.from("notifications").select("*").eq("recipient_id", userId).order("created_at", { ascending: false }).limit(50);
+    let q = sb.from("notifications").select("*").eq("recipient_id", userId).order("created_at", { ascending: false }).limit(50);
+    if (scope === "vibe") {
+      q = q.in("type", VIBE_TYPES);
+    } else {
+      q = q.not("type", "in", `(${VIBE_TYPES.join(",")})`);
+    }
+    const { data, error } = await q;
     if (error) {
       req.log.warn({ error: error.message }, "notifications fetch error");
       res.json({ notifications: [] });
@@ -62126,9 +62134,16 @@ router18.patch("/:notifId/read", async (req, res) => {
 });
 router18.patch("/read-all/:userId", async (req, res) => {
   const { userId } = req.params;
+  const scope = req.query["scope"] ?? "social";
   const sb = makeSupabase14();
   try {
-    await sb.from("notifications").update({ is_read: true }).eq("recipient_id", userId).eq("is_read", false);
+    let q = sb.from("notifications").update({ is_read: true }).eq("recipient_id", userId).eq("is_read", false);
+    if (scope === "vibe") {
+      q = q.in("type", VIBE_TYPES);
+    } else {
+      q = q.not("type", "in", `(${VIBE_TYPES.join(",")})`);
+    }
+    await q;
     res.json({ ok: true });
   } catch (err) {
     req.log.error({ err: err?.message }, "mark-all-read exception");

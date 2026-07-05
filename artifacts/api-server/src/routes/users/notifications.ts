@@ -22,19 +22,34 @@ function timeAgoShort(iso: string): string {
   return `${Math.floor(d / 7)}w`;
 }
 
-// GET /api/users/notifications/:userId
-// Actual schema: recipient_id, sender_id, is_read, type, message, post_id, created_at
+// Dating/vibe notification types — must NEVER appear in the main social feed.
+// These live exclusively inside the Find Vibe ⚡ Activity surface.
+const VIBE_TYPES = ["vibe_request", "vibe_match", "vibe_accepted", "vibe"];
+
+// GET /api/users/notifications/:userId?scope=social|vibe
+// scope=social (default) — excludes all vibe types (for the main bell feed)
+// scope=vibe            — returns only vibe types (for the ⚡ Activity screen)
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params;
   if (!userId) { res.status(400).json({ error: "userId required" }); return; }
+  const scope = (req.query["scope"] as string | undefined) ?? "social";
   const sb = makeSupabase();
   try {
-    const { data, error } = await sb
+    let q = sb
       .from("notifications")
       .select("*")
       .eq("recipient_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
+
+    if (scope === "vibe") {
+      q = q.in("type", VIBE_TYPES);
+    } else {
+      // social: exclude ALL vibe types so dating activity never leaks into the main bell feed
+      q = q.not("type", "in", `(${VIBE_TYPES.join(",")})`);
+    }
+
+    const { data, error } = await q;
     if (error) {
       req.log.warn({ error: error.message }, "notifications fetch error");
       res.json({ notifications: [] });
@@ -91,16 +106,28 @@ router.patch("/:notifId/read", async (req, res) => {
   }
 });
 
-// PATCH /api/users/notifications/read-all/:userId
+// PATCH /api/users/notifications/read-all/:userId?scope=social|vibe
+// scope=social (default) — only marks SOCIAL notifications as read (never touches vibe types)
+// scope=vibe            — only marks VIBE notifications as read (for ⚡ Activity "mark all read")
 router.patch("/read-all/:userId", async (req, res) => {
   const { userId } = req.params;
+  const scope = (req.query["scope"] as string | undefined) ?? "social";
   const sb = makeSupabase();
   try {
-    await sb
+    let q = sb
       .from("notifications")
       .update({ is_read: true })
       .eq("recipient_id", userId)
       .eq("is_read", false);
+
+    if (scope === "vibe") {
+      q = q.in("type", VIBE_TYPES);
+    } else {
+      // social: only mark non-vibe notifications as read
+      q = q.not("type", "in", `(${VIBE_TYPES.join(",")})`);
+    }
+
+    await q;
     res.json({ ok: true });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "mark-all-read exception");
