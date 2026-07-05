@@ -33,6 +33,8 @@ import {
 import { VibeCardDisplay } from "@/components/VibeCardDisplay";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 const { width: SW } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
@@ -471,6 +473,8 @@ const gfsStyles = StyleSheet.create({
 
 // ── PhotoPickerModal ──────────────────────────────────────────────────────────
 
+const MAX_VIBE_PHOTOS = 6;
+
 function PhotoPickerModal({
   visible, userId, selected, onSave, onClose,
 }: {
@@ -484,6 +488,7 @@ function PhotoPickerModal({
   const [photos, setPhotos] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [local, setLocal] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const fetchedRef = useRef(false);
 
   useEffect(() => {
@@ -505,9 +510,95 @@ function PhotoPickerModal({
     setLocal((prev) =>
       prev.includes(url)
         ? prev.filter((u) => u !== url)
-        : prev.length < 6
+        : prev.length < MAX_VIBE_PHOTOS
           ? [...prev, url]
           : (Alert.alert("Max 6 photos", "Remove a photo first to add another."), prev),
+    );
+  };
+
+  const uploadFromDevice = async (source: "camera" | "gallery") => {
+    if (local.length >= MAX_VIBE_PHOTOS) {
+      Alert.alert("Max 6 photos", "Remove a photo first to add another.");
+      return;
+    }
+    try {
+      let result: ImagePicker.ImagePickerResult;
+      if (source === "camera") {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission needed", "Camera access is required to take a photo.");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"] as any,
+          allowsEditing: true,
+          aspect: [3, 4],
+          quality: 0.85,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission needed", "Photo library access is required.");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"] as any,
+          allowsEditing: true,
+          aspect: [3, 4],
+          quality: 0.85,
+        });
+      }
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const mimeType = asset.mimeType ?? "image/jpeg";
+      const ext = mimeType.includes("png") ? "png" : "jpg";
+
+      setUploading(true);
+      let base64: string;
+      try {
+        base64 = await (FileSystem as any).readAsStringAsync(uri, { encoding: "base64" });
+      } catch {
+        Alert.alert("Upload failed", "Could not read the photo. Please try again.");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/vibe/upload-photo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, imageBase64: base64, mimeType, ext }),
+      });
+      const json = await res.json() as any;
+
+      if (!res.ok) {
+        Alert.alert("Photo rejected", json.error ?? "This photo can't be used.");
+        return;
+      }
+
+      const url: string = json.url;
+      setLocal((prev) =>
+        prev.length < MAX_VIBE_PHOTOS && !prev.includes(url)
+          ? [...prev, url]
+          : prev,
+      );
+      setPhotos((prev) => (prev.includes(url) ? prev : [url, ...prev]));
+    } catch {
+      Alert.alert("Upload failed", "Something went wrong. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUploadPress = () => {
+    Alert.alert(
+      "Upload from device",
+      "Choose a source",
+      [
+        { text: "📷 Take Photo",         onPress: () => uploadFromDevice("camera") },
+        { text: "🖼️  Choose from Gallery", onPress: () => uploadFromDevice("gallery") },
+        { text: "Cancel", style: "cancel" },
+      ],
     );
   };
 
@@ -526,13 +617,31 @@ function PhotoPickerModal({
             Pick up to 6 photos to show on your match card. They appear in the order selected.
           </Text>
 
+          <TouchableOpacity
+            onPress={handleUploadPress}
+            disabled={uploading || local.length >= MAX_VIBE_PHOTOS}
+            style={[
+              ppStyles.uploadBtn,
+              { borderColor: colors.border, opacity: (uploading || local.length >= MAX_VIBE_PHOTOS) ? 0.45 : 1 },
+            ]}
+          >
+            {uploading ? (
+              <ActivityIndicator size="small" color="#EC4899" />
+            ) : (
+              <Ionicons name="cloud-upload-outline" size={18} color="#EC4899" />
+            )}
+            <Text style={[ppStyles.uploadBtnText, { color: uploading ? colors.mutedForeground : "#EC4899" }]}>
+              {uploading ? "Uploading…" : "Upload from device"}
+            </Text>
+          </TouchableOpacity>
+
           {loading ? (
             <ActivityIndicator color="#EC4899" size="large" style={{ marginVertical: 40 }} />
           ) : photos.length === 0 ? (
             <View style={ppStyles.emptyBox}>
               <Ionicons name="images-outline" size={48} color={colors.mutedForeground} style={{ marginBottom: 12 }} />
               <Text style={[ppStyles.emptyText, { color: colors.mutedForeground }]}>
-                No photos yet. Post some photos to your profile first, then come back here to select them.
+                No photos from your posts yet. Use "Upload from device" above, or post photos to your Gundruk profile first.
               </Text>
             </View>
           ) : (
@@ -564,7 +673,7 @@ function PhotoPickerModal({
           )}
 
           <View style={[ppStyles.footer, { borderTopColor: colors.border }]}>
-            <Text style={[ppStyles.count, { color: colors.mutedForeground }]}>{local.length}/6 selected</Text>
+            <Text style={[ppStyles.count, { color: colors.mutedForeground }]}>{local.length}/{MAX_VIBE_PHOTOS} selected</Text>
             <TouchableOpacity style={ppStyles.saveBtn}
               onPress={() => { onSave(local.length > 0 ? local : null); onClose(); }}>
               <Text style={ppStyles.saveTxt}>Save photos</Text>
@@ -591,6 +700,8 @@ const ppStyles = StyleSheet.create({
   count:        { fontSize: 13, textAlign: "center", fontFamily: "Poppins_400Regular" },
   saveBtn:      { backgroundColor: "#EC4899", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   saveTxt:      { color: "#fff", fontWeight: "700", fontSize: 15 },
+  uploadBtn:    { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderStyle: "dashed", borderRadius: 12, paddingVertical: 11, marginBottom: 12 },
+  uploadBtnText:{ fontSize: 14, fontFamily: "Poppins_600SemiBold", fontWeight: "600" },
 });
 
 // ── Module-scope sub-components ───────────────────────────────────────────────

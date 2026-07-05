@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { checkImageContent, logRejection } from "../utils/contentModeration";
 
 function makeSupabase() {
   const url = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
@@ -8,6 +9,74 @@ function makeSupabase() {
 }
 
 const router = Router();
+
+// POST /api/vibe/upload-photo
+// Body: { userId, imageBase64, mimeType?, ext? }
+// Uploads an image from the device to Supabase Storage (posts bucket,
+// vibe-photos/ prefix), runs Sightengine content moderation, and returns
+// the public URL to append to the user's vibe_photos array.
+// The mobile client never touches storage directly — all uploads go here.
+router.post("/upload-photo", async (req, res) => {
+  const {
+    userId,
+    imageBase64,
+    mimeType = "image/jpeg",
+    ext = "jpg",
+  } = req.body as {
+    userId?: string;
+    imageBase64?: string;
+    mimeType?: string;
+    ext?: string;
+  };
+
+  if (!userId || !imageBase64) {
+    res.status(400).json({ error: "userId and imageBase64 required" });
+    return;
+  }
+
+  const supabaseUrl = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!serviceKey) {
+    res.status(500).json({ error: "Server not configured" });
+    return;
+  }
+  const sb = createClient(supabaseUrl, serviceKey);
+
+  const filename = `vibe-photos/${userId}/${Date.now()}.${ext}`;
+  let publicUrl: string | null = null;
+
+  try {
+    const buffer = Buffer.from(imageBase64, "base64");
+    const { error: upErr } = await sb.storage
+      .from("posts")
+      .upload(filename, buffer, { contentType: mimeType, upsert: true });
+    if (upErr) {
+      req.log.error({ err: upErr.message }, "vibe upload-photo: storage upload error");
+      res.status(500).json({ error: "Upload failed — please try again" });
+      return;
+    }
+    const { data: urlData } = sb.storage.from("posts").getPublicUrl(filename);
+    publicUrl = urlData.publicUrl;
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "vibe upload-photo: upload threw");
+    res.status(500).json({ error: "Upload failed — please try again" });
+    return;
+  }
+
+  // Content moderation — must pass before we return the URL.
+  // On rejection: delete from storage so the slot is freed, then 400.
+  const scanResult = await checkImageContent(publicUrl);
+  if (!scanResult.safe) {
+    void sb.storage.from("posts").remove([filename]);
+    void logRejection(userId, publicUrl, "image", scanResult.reason, scanResult.scores);
+    req.log.warn({ userId, reason: scanResult.reason }, "vibe upload-photo: moderation rejected");
+    res.status(400).json({ error: "This photo can't be used" });
+    return;
+  }
+
+  req.log.info({ userId, url: publicUrl }, "vibe upload-photo: ok");
+  res.json({ url: publicUrl });
+});
 
 // POST /api/vibe/swipe
 // Body: { swiperId, targetId, direction: "left"|"right"|"super" }

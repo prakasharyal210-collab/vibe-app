@@ -64653,6 +64653,52 @@ function makeSupabase23() {
   return createClient(url, key);
 }
 var router28 = (0, import_express28.Router)();
+router28.post("/upload-photo", async (req, res) => {
+  const {
+    userId,
+    imageBase64,
+    mimeType = "image/jpeg",
+    ext = "jpg"
+  } = req.body;
+  if (!userId || !imageBase64) {
+    res.status(400).json({ error: "userId and imageBase64 required" });
+    return;
+  }
+  const supabaseUrl = process.env["EXPO_PUBLIC_SUPABASE_URL"] ?? "https://tatroqgcyebuqqkhmvpa.supabase.co";
+  const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
+  if (!serviceKey) {
+    res.status(500).json({ error: "Server not configured" });
+    return;
+  }
+  const sb = createClient(supabaseUrl, serviceKey);
+  const filename = `vibe-photos/${userId}/${Date.now()}.${ext}`;
+  let publicUrl = null;
+  try {
+    const buffer = Buffer.from(imageBase64, "base64");
+    const { error: upErr } = await sb.storage.from("posts").upload(filename, buffer, { contentType: mimeType, upsert: true });
+    if (upErr) {
+      req.log.error({ err: upErr.message }, "vibe upload-photo: storage upload error");
+      res.status(500).json({ error: "Upload failed \u2014 please try again" });
+      return;
+    }
+    const { data: urlData } = sb.storage.from("posts").getPublicUrl(filename);
+    publicUrl = urlData.publicUrl;
+  } catch (err) {
+    req.log.error({ err: err?.message }, "vibe upload-photo: upload threw");
+    res.status(500).json({ error: "Upload failed \u2014 please try again" });
+    return;
+  }
+  const scanResult = await checkImageContent(publicUrl);
+  if (!scanResult.safe) {
+    void sb.storage.from("posts").remove([filename]);
+    void logRejection(userId, publicUrl, "image", scanResult.reason, scanResult.scores);
+    req.log.warn({ userId, reason: scanResult.reason }, "vibe upload-photo: moderation rejected");
+    res.status(400).json({ error: "This photo can't be used" });
+    return;
+  }
+  req.log.info({ userId, url: publicUrl }, "vibe upload-photo: ok");
+  res.json({ url: publicUrl });
+});
 router28.post("/swipe", async (req, res) => {
   const { swiperId, targetId, direction } = req.body;
   if (!swiperId || !targetId || !direction) {
