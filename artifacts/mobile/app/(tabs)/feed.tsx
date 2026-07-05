@@ -482,25 +482,17 @@ function ForYouListHeader({ isTrending, trendingPosts, colors, userId }: ForYouH
   return <FreshFacesRail userId={userId} colors={colors} />;
 }
 
+// Friends tab header: Stories row only. No discovery content — no Trending,
+// no Fresh Faces, no chips. Those belong exclusively on the For You tab.
 type FriendsHeaderProps = {
-  isTrending: boolean;
-  trendingPosts: TrendingPost[];
   colors: any;
   stories: StoryEntry[];
   userId?: string;
-  activeTab: FeedTabId;
   onStoryCreated: () => void;
 };
-function FriendsListHeader({ isTrending, trendingPosts, colors, stories, userId, activeTab, onStoryCreated }: FriendsHeaderProps) {
+function FriendsListHeader({ colors, stories, userId, onStoryCreated }: FriendsHeaderProps) {
   return (
-    <>
-      {activeTab === "friends" && (
-        <FriendsStoriesBar stories={stories} colors={colors} userId={userId} onStoryCreated={onStoryCreated} />
-      )}
-      {isTrending && (
-        <TrendingFeed posts={trendingPosts} colors={colors} />
-      )}
-    </>
+    <FriendsStoriesBar stories={stories} colors={colors} userId={userId} onStoryCreated={onStoryCreated} />
   );
 }
 
@@ -1069,7 +1061,7 @@ export default function FeedScreen() {
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
-                data={state.loading ? [] : (isTrending ? [] : filteredPosts)}
+                data={state.loading ? [] : (tab.id === "foryou" && isTrending ? [] : filteredPosts)}
                 keyExtractor={(item, index) => {
                   const postId = item.id;
                   return postId ? `post_${postId}_${tab.id}` : `noid_${tab.id}_${index}`;
@@ -1103,7 +1095,7 @@ export default function FeedScreen() {
                   // CuratedFeedList's internal state and eliminating the skeleton loop.
                   tab.id === "foryou"
                     ? <ForYouListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} userId={userId} />
-                    : <FriendsListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} stories={friendStories} userId={userId} activeTab={activeTab} onStoryCreated={refreshStories} />
+                    : <FriendsListHeader colors={colors} stories={friendStories} userId={userId} onStoryCreated={refreshStories} />
                 }
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {
