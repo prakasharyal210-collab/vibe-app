@@ -1652,10 +1652,8 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
   const [matches, setMatches] = useState<VibeMatchProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState<VibeCard | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [onlineOnly, setOnlineOnly] = useState(false);
-  const [openingChat] = useState<string | null>(null);
   const [newMatchToast, setNewMatchToast] = useState<VibeMatchProfile | null>(null);
   const toastY = useSharedValue(-110);
   const toastYStyle = useAnimatedStyle(() => ({ transform: [{ translateY: toastY.value }] }));
@@ -1733,17 +1731,6 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
         if (finished) runOnJS(setNewMatchToast)(null);
       })),
     );
-  };
-
-  const openChat = (m: VibeMatchProfile) => {
-    router.push({
-      pathname: "/vibe-match-chat" as any,
-      params: {
-        matchId: m.id,
-        matchName: m.name,
-        matchImage: m.image ?? "",
-      },
-    });
   };
 
   const filtered = matches.filter((m) => {
@@ -1873,17 +1860,16 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
             {filtered.map((m) => {
               const lvl = vibeLevel(m.vibeScore);
               const shared = m.sharedInterests ?? [];
-              const isChatting = openingChat === m.id;
               return (
                 <TouchableOpacity
                   key={m.id}
                   activeOpacity={0.93}
-                  onPress={() => setSelectedProfile(m)}
+                  onPress={() => router.push(`/profile/${m.username}` as any)}
                   style={[matchTabStyles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
                 >
                   <View style={matchTabStyles.cardRow}>
                     {/* Gradient ring + photo */}
-                    <TouchableOpacity onPress={() => setSelectedProfile(m)} activeOpacity={0.85}>
+                    <TouchableOpacity onPress={() => router.push(`/profile/${m.username}` as any)} activeOpacity={0.85}>
                       <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchTabStyles.photoRing}>
                         <Image source={{ uri: m.image }} style={matchTabStyles.photo} />
                       </LinearGradient>
@@ -1980,27 +1966,13 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
                       {/* Action buttons */}
                       <View style={matchTabStyles.btnRow}>
                         <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation(); openChat(m); }}
+                          onPress={(e) => { e.stopPropagation(); router.push(`/profile/${m.username}` as any); }}
                           activeOpacity={0.85}
-                          disabled={isChatting}
                           style={{ flex: 1, borderRadius: 10, overflow: "hidden" }}
                         >
                           <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={matchTabStyles.msgGrad}>
-                            <Text style={matchTabStyles.msgText}>{isChatting ? "Opening…" : "💬 Message"}</Text>
+                            <Text style={matchTabStyles.msgText}>👤 View Full Profile</Text>
                           </LinearGradient>
-                          {/* Unread badge */}
-                          {(m.unreadCount ?? 0) > 0 && (
-                            <View style={matchTabStyles.unreadBadge}>
-                              <Text style={matchTabStyles.unreadBadgeText}>{m.unreadCount}</Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={(e) => { e.stopPropagation(); setSelectedProfile(m); }}
-                          activeOpacity={0.85}
-                          style={[matchTabStyles.profileBtn, { borderColor: colors.border }]}
-                        >
-                          <Text style={[matchTabStyles.profileText, { color: colors.foreground }]}>👤 View</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -2012,14 +1984,6 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
         )}
       </ScrollView>
 
-      {selectedProfile && (
-        <ProfileModal
-          card={selectedProfile}
-          onClose={() => setSelectedProfile(null)}
-          onVibe={() => setSelectedProfile(null)}
-          onSkip={() => setSelectedProfile(null)}
-        />
-      )}
     </View>
   );
 }

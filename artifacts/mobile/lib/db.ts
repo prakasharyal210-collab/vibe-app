@@ -2501,6 +2501,7 @@ export interface PublicProfile {
   zodiac_sign?: string;
   pronouns?: string;
   show_relationship?: boolean;
+  is_vibe_gated?: boolean;
 }
 
 export async function lookupProfileByUsername(username: string, viewerId?: string): Promise<PublicProfile | null> {

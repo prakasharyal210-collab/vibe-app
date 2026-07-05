@@ -1,0 +1,27 @@
+Now THAT'S a properly thought-through privacy model bro — and it's exactly how the informed-consent flow should work:
+
+Strangers in the deck → vibe profile only (curated dating card)
+Someone ASKS you (request) → full main profile visible to the RECEIVER, so she can properly vet him — posts, reels, vibe — before saying yes
+Matched → full profiles open both ways
+
+The asymmetry is the smart part: the person being asked gets full transparency; the asker earns nothing until accepted. Here's the prompt:
+
+PRIVACY MODEL: Main profile gated by vibe relationship — visible to request receivers and matches only (in the Find Vibe context)
+Implement this visibility ladder for Find Vibe, and enforce it server-side:
+THE RULES:
+
+Deck (strangers): only the vibe profile (vibe photos, bio, goal, interests). No path to the main Gundruk profile from a deck card.
+Requests tab (receiver's view): the receiver CAN view the sender's FULL main profile — add a "View Profile" action on each request card (and/or tapping the card) → router.push(/profile/${username}). This is deliberate: the person deciding gets full information (posts, reels, everything) before accepting. The SENDER gets no such access to the receiver — sending a vibe grants the sender nothing.
+Matches tab: both matched users see each other's full main profiles — View button + card tap → /profile/${username}. Remove the Message button from match cards (messaging happens from the main profile, where the vibe-match gate already allows it — verify a matched pair's profile Message opens a working chat, not 403/request).
+
+SERVER-SIDE ENFORCEMENT (critical — UI hiding is not privacy):
+4. In the profile endpoints (GET /api/users/profile/by-id/:userId and the by-username route in artifacts/api-server), add a vibe-context visibility check: when the requesting viewer and target are STRANGERS (no follow either direction, per the established structural pattern from the messages gate), the full profile is returned ONLY if: (a) target has a pending vibe request SENT TO the viewer (viewer is the receiver), OR (b) mutual vibe_matches exist. Otherwise return a limited payload (username, avatar, full_name, follower counts — whatever the app's normal public-profile minimum is) with a flag like vibe_restricted: true, and the profile screen shows a locked state ("Profile unlocks when you match 💜") instead of posts/reels.
+
+IMPORTANT SCOPE GUARD: this must NOT break normal social usage — users discovered via feed/search/followers (non-vibe context) must see profiles exactly as today. The restriction applies ONLY where the structural signals say "these two only know each other through Find Vibe": no follows either direction AND the target has show_in_matching = true AND at least one vibe artifact exists between them or the viewer arrived with no relationship at all. Think through this carefully and report the exact condition implemented — the goal: a girl can always vet a requester fully; a random vibe-stranger can't browse her main profile; and NOBODY's normal public profile behavior changes outside Find Vibe. If full server enforcement risks breaking normal profiles, implement the UI ladder now + a vibe_restricted flag ONLY for the deck-stranger case, and report the tradeoff taken.
+
+
+Requests inbox endpoint must include the sender's username so the View Profile route works; matches endpoint likewise (add server-side if missing, verify live column names).
+Sibling check: match overlay "Say hi", accept-success alert, Vibe Activity rows — any entry point to a matched/requesting user should route consistently with this ladder. Report each.
+
+Rules: api-server service-role only; { data, error } destructured; live-schema columns; typecheck both packages.
+Report: the exact visibility condition implemented server-side, what View opened before, files changed, evidence profile→Message works for a matched pair, sibling entry points. Do not push or deploy.

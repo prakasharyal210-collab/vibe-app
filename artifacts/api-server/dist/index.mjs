@@ -61201,7 +61201,7 @@ router16.get("/profile/:username", async (req, res) => {
   const viewerId = req.query["viewer_id"]?.trim() || void 0;
   const sb = makeSupabase12();
   req.log.info({ username }, "profile lookup");
-  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, pronouns, show_relationship";
+  const PROFILE_COLS_FULL = "id, username, display_name, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, vibe_status, relationship_status, zodiac_sign, pronouns, show_relationship, show_in_matching";
   const PROFILE_COLS_BASE = "id, username, full_name, bio, avatar_url, cover_url, location, website, is_verified, is_private, zodiac_sign, pronouns";
   try {
     let selectCols = PROFILE_COLS_FULL;
@@ -61249,6 +61249,37 @@ router16.get("/profile/:username", async (req, res) => {
       if (b1.data || b2.data) {
         res.status(404).json({ error: "not found" });
         return;
+      }
+    }
+    if (viewerId && viewerId !== profile.id && profile.show_in_matching === true) {
+      const [f1, f2] = await Promise.all([
+        sb.from("follows").select("id").eq("follower_id", viewerId).eq("following_id", profile.id).maybeSingle(),
+        sb.from("follows").select("id").eq("follower_id", profile.id).eq("following_id", viewerId).maybeSingle()
+      ]);
+      if (!f1.data && !f2.data) {
+        const [pendingReq, matchA, matchB] = await Promise.all([
+          // (a) target sent a pending request TO the viewer (viewer is the receiver)
+          sb.from("vibe_requests").select("id").eq("sender_id", profile.id).eq("receiver_id", viewerId).eq("status", "pending").maybeSingle(),
+          // (b) mutual vibe match — either direction
+          sb.from("vibe_matches").select("id").eq("sender_id", profile.id).eq("receiver_id", viewerId).maybeSingle(),
+          sb.from("vibe_matches").select("id").eq("sender_id", viewerId).eq("receiver_id", profile.id).maybeSingle()
+        ]);
+        const unlocked = !!(pendingReq.data || matchA.data || matchB.data);
+        if (!unlocked) {
+          req.log.info({ username, viewerId }, "profile vibe-gated: strangers with no unlock condition");
+          res.json({
+            profile: {
+              id: profile.id,
+              username: profile.username,
+              display_name: profile.display_name,
+              full_name: profile.full_name,
+              avatar_url: profile.avatar_url,
+              is_verified: profile.is_verified ?? false,
+              is_vibe_gated: true
+            }
+          });
+          return;
+        }
       }
     }
     const [postsRes, reelsRes, followersRes, followingRes] = await Promise.allSettled([

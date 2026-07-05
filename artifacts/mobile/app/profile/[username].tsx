@@ -835,8 +835,17 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
-        {/* Private account guard */}
-        {profile?.is_private ? (
+        {/* Privacy guards — private account or vibe-gated */}
+        {profile?.is_vibe_gated ? (
+          <View style={styles.privateWrap}>
+            <Text style={{ fontSize: 44, marginBottom: 8 }}>💜</Text>
+            <Text style={[styles.privateTitle, { color: colors.foreground }]}>Profile locked</Text>
+            <Text style={[styles.privateSub, { color: colors.mutedForeground }]}>
+              Full profiles are only visible to vibe request receivers and matches.
+              {"\n"}Connect on Find Vibe to unlock.
+            </Text>
+          </View>
+        ) : profile?.is_private ? (
           <View style={styles.privateWrap}>
             <Ionicons name="lock-closed" size={44} color={colors.mutedForeground} />
             <Text style={[styles.privateTitle, { color: colors.foreground }]}>This account is private</Text>
