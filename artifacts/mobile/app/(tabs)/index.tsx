@@ -10,6 +10,7 @@ import React, {
   useState,
 } from "react";
 import {
+  ActivityIndicator,
   Alert,
   DeviceEventEmitter,
   Dimensions,
@@ -618,6 +619,7 @@ export default function ReelsScreen() {
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [screenFocused, setScreenFocused] = useState(true);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
@@ -692,16 +694,16 @@ export default function ReelsScreen() {
   };
 
   const loadFeed = useCallback(async () => {
+    const t0 = Date.now();
     const uid = session?.user?.id;
     const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
-    console.log('[loadFeed] called uid:', uid?.slice(0, 8) ?? 'guest');
+    if (__DEV__) console.log(`[Reels] loadFeed start uid=${uid?.slice(0, 8) ?? "guest"} t=0ms`);
 
-    // Helper to map a raw DB row from the API server → Reel shape
     function rowToReel(r: any): Reel {
       return {
         id: r.id,
         image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
-        videoUrl: r.video_url || undefined,  // || treats empty string as absent (not just null/undefined)
+        videoUrl: r.video_url || undefined,
         username: r.username ?? r.profiles?.username ?? "user",
         caption: r.caption ?? "",
         likes: r.likes_count ?? 0,
@@ -714,54 +716,63 @@ export default function ReelsScreen() {
       };
     }
 
-    // ── For You reels via API server ─────────────────────────────────────────
-    // All RPC calls go through the API server (service role key, <1 s round
-    // trip). Direct supabase.rpc() from mobile hangs indefinitely on this
-    // device's network path, so we never call supabase directly for feeds.
-    // userId is optional — the API serves public reels to guests too.
-    try {
-      const uidParam = uid ? `?userId=${encodeURIComponent(uid)}&limit=20` : `?limit=20`;
-      const res = await fetch(`${API_BASE}/feed/reels${uidParam}`);
-      console.log('[loadFeed] foryou reels status:', res.status);
-      if (res.ok) {
-        const body = await res.json();
-        const fyData: any[] = body.data ?? [];
-        console.log('[loadFeed] foryou reels rows:', fyData.length, 'source:', body.source);
-        // Always call setForYouReels — even with [] — so a previously empty
-        // state can be replaced on re-fetch. The `if length > 0` guard was
-        // silently leaving state as [] when the pre-auth guest load returned
-        // nothing and the authenticated re-fetch never updated the state.
-        setForYouReels(applyReelDiversity(fyData.map(rowToReel)));
+    // ── Run For You + Following in parallel ──────────────────────────────────
+    // Previously serial (await forYou, then await following). Now both fire
+    // simultaneously; total wall time = max(forYou, following) not sum.
+    const forYouTask = (async () => {
+      try {
+        const uidParam = uid ? `?userId=${encodeURIComponent(uid)}&limit=20` : `?limit=20`;
+        if (__DEV__) console.log(`[Reels] /feed/reels fetch start t=${Date.now() - t0}ms`);
+        const res = await fetch(`${API_BASE}/feed/reels${uidParam}`);
+        if (__DEV__) console.log(`[Reels] /feed/reels response status=${res.status} t=${Date.now() - t0}ms`);
+        if (res.ok) {
+          const body = await res.json();
+          const fyData: any[] = body.data ?? [];
+          if (__DEV__) console.log(`[Reels] foryou rows=${fyData.length} source=${body.source} t=${Date.now() - t0}ms`);
+          setForYouReels(applyReelDiversity(fyData.map(rowToReel)));
+        }
+      } catch (e: any) {
+        if (__DEV__) console.log(`[Reels] foryou error: ${e?.message} t=${Date.now() - t0}ms`);
       }
-    } catch (_e: any) {
-      console.log('[loadFeed] foryou reels error:', (_e as any)?.message);
-    }
+    })();
 
-    // ── Following reels via API server ───────────────────────────────────────
-    if (uid) {
+    const followingTask = uid ? (async () => {
       try {
         const res = await fetch(`${API_BASE}/feed/following-reels?userId=${encodeURIComponent(uid)}&limit=20`);
         if (res.ok) {
           const body = await res.json();
           const followData: any[] = body.data ?? [];
-          console.log('[loadFeed] following reels from api server, rows:', followData.length);
-          if (followData.length > 0) {
-            setFollowingReels(followData.map(rowToReel));
-          }
+          if (__DEV__) console.log(`[Reels] following rows=${followData.length} t=${Date.now() - t0}ms`);
+          if (followData.length > 0) setFollowingReels(followData.map(rowToReel));
         }
       } catch (e: any) {
-        console.log('[loadFeed] following reels fetch threw:', e?.message);
+        if (__DEV__) console.log(`[Reels] following error: ${e?.message} t=${Date.now() - t0}ms`);
       }
-    }
+    })() : Promise.resolve();
+
+    await Promise.all([forYouTask, followingTask]);
+    if (__DEV__) console.log(`[Reels] both feeds settled t=${Date.now() - t0}ms`);
+    setLoading(false);
   }, [session?.user?.id]);
 
-  useEffect(() => { loadFeed(); }, [loadFeed]);
-
+  // Fire on tab focus (handles both cold-start and return visits).
   useFocusEffect(useCallback(() => {
     setScreenFocused(true);
     loadFeed();
     return () => setScreenFocused(false);
   }, [loadFeed]));
+
+  // Re-fetch when the user logs in mid-session (uid changes undefined → real id).
+  // Does NOT fire again for the same uid (prevents the duplicate cold-start load
+  // that the old useEffect([loadFeed]) triggered on every loadFeed reference change).
+  const prevUidRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (uid && uid !== prevUidRef.current) {
+      prevUidRef.current = uid;
+      loadFeed();
+    }
+  }, [session?.user?.id, loadFeed]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -878,7 +889,13 @@ export default function ReelsScreen() {
           );
         }}
         ListEmptyComponent={() =>
-          feedTab === "following" ? (
+          loading ? (
+            // Skeleton: shown while the first fetch is in-flight.
+            // Replaces the jarring "No reels yet" flash on cold start.
+            <View style={[S.emptyState, { height: SCREEN_H, justifyContent: "center" }]}>
+              <ActivityIndicator size="large" color="#7C3AED" />
+            </View>
+          ) : feedTab === "following" ? (
             <View style={[S.emptyState, { height: SCREEN_H }]}>
               <Text style={S.emptyEmoji}>💜</Text>
               <Text style={S.emptyTitle}>Nothing here yet</Text>

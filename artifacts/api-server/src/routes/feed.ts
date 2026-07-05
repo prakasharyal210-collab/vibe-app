@@ -393,32 +393,48 @@ router.get("/friends", async (req, res) => {
 // ─── GET /api/feed/reels ───────────────────────────────────────────────────────
 // ?userId=...&limit=20  (userId is optional — omit for guest/unauthenticated)
 router.get("/reels", async (req, res) => {
+  const t0 = Date.now();
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
+
+  req.log.info({ userId: userId?.slice(0, 8) ?? "guest" }, "reels: request start");
 
   const supabase = makeSupabase();
 
   // When userId is present, try the personalised v2 RPC first.
-  // Wrapped in try/catch: if enrichWithProfiles/enrichWithCoupleData throw for
-  // any reason we fall through to the safe direct query instead of 500-ing.
+  // Hard-capped at 4 s: if the RPC is slow or returns empty we fall through
+  // immediately rather than making the client wait before the fallback fires.
   if (userId) {
     try {
-      const { data: v2Data, error: v2Err } = await supabase.rpc(
-        "get_for_you_reels_v2",
-        { p_user_id: userId, p_limit: limit },
+      const rpcTimeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("rpc_timeout")), 4000),
+      );
+      const rpcCall = supabase.rpc("get_for_you_reels_v2", {
+        p_user_id: userId,
+        p_limit: limit,
+      });
+      const { data: v2Data, error: v2Err } = await Promise.race([rpcCall, rpcTimeout]);
+      req.log.info(
+        { ms: Date.now() - t0, rows: Array.isArray(v2Data) ? v2Data.length : 0, err: v2Err?.message ?? null },
+        "reels: v2 RPC done",
       );
       if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
         const enriched = await enrichWithProfiles(supabase, v2Data);
         const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+        req.log.info({ ms: Date.now() - t0, rows: enrichedCouple.length }, "reels: v2 response sent");
         res.json({ data: enrichedCouple, source: "v2" });
         return;
       }
-    } catch (err) {
-      req.log.warn({ err }, "reels v2 RPC path threw — falling back to fresh query");
+    } catch (err: any) {
+      req.log.warn(
+        { err: err?.message, ms: Date.now() - t0 },
+        "reels: v2 RPC threw/timed out — falling back to fresh query",
+      );
     }
   }
 
   // Fallback (also used for guests): direct reels query ordered by score.
+  req.log.info({ ms: Date.now() - t0 }, "reels: running fallback query");
   const { data: freshReels } = await supabase
     .from("reels")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
@@ -427,6 +443,7 @@ router.get("/reels", async (req, res) => {
     .order("created_at", { ascending: false })
     .limit(limit);
 
+  req.log.info({ ms: Date.now() - t0, rows: freshReels?.length ?? 0 }, "reels: fallback response sent");
   res.json({ data: freshReels ?? [], source: "fresh" });
 });
 
