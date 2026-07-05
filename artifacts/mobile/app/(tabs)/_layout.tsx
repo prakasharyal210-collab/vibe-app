@@ -242,6 +242,13 @@ function ClassicTabLayout({
     >
       <Tabs.Screen
         name="index"
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            if (navigation.isFocused()) {
+              DeviceEventEmitter.emit("reelsTabPressedWhileActive");
+            }
+          },
+        })}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon iconName={focused ? "play-circle" : "play-circle-outline"} label="Reels" focused={focused} color={color} />
@@ -250,6 +257,13 @@ function ClassicTabLayout({
       />
       <Tabs.Screen
         name="feed"
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            if (navigation.isFocused()) {
+              DeviceEventEmitter.emit("feedTabPressedWhileActive");
+            }
+          },
+        })}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon iconName={focused ? "home" : "home-outline"} label="Feed" focused={focused} color={color} />

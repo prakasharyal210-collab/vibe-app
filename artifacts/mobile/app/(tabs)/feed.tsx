@@ -839,6 +839,17 @@ export default function FeedScreen() {
     setRefreshing(false);
   }, [activeTab, loadTabData]);
 
+  // Tap active Feed tab → scroll to top + refresh (Instagram pattern).
+  // Re-subscribes when activeTabIndex or onRefresh changes so the scroll
+  // always targets the currently visible list and correct fetch function.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener("feedTabPressedWhileActive", () => {
+      flatListRefs.current[activeTabIndex]?.scrollToOffset({ offset: 0, animated: true });
+      void onRefresh();
+    });
+    return () => sub.remove();
+  }, [activeTabIndex, onRefresh]);
+
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : insets.bottom + 88;
   // Tab bar is position:absolute, height = 58 + insets.bottom — reserves no layout space.

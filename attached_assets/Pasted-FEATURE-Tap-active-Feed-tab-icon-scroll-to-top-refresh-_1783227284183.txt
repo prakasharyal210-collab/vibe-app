@@ -1,0 +1,31 @@
+FEATURE: Tap active Feed tab icon → scroll to top + refresh feed (Instagram behavior)
+When the user is already ON the Feed tab and taps the Feed icon in the bottom tab bar again, it should scroll the feed to the top and refresh it — exactly like Instagram/TikTok. The refresh must respect whatever context the user is currently in: current tab (For You vs Friends) and current filter chip (Explore/Trending/Polls/Music/etc.) — refresh THAT feed, don't reset the user back to For You/Explore.
+Implementation:
+
+In artifacts/mobile/app/(tabs)/_layout.tsx (the Tabs layout), add a tab-press listener for the Feed tab. Expo Router pattern:
+
+tsx<Tabs.Screen
+  name="feed"
+  listeners={({ navigation, route }) => ({
+    tabPress: (e) => {
+      if (navigation.isFocused()) {
+        // already on Feed → emit a refresh event instead of default
+        DeviceEventEmitter.emit('feedTabPressedWhileActive');
+      }
+    },
+  })}
+/>
+(Or use a shared ref/context if the codebase already has an event pattern — reuse whatever exists rather than adding a new mechanism.)
+
+In the Feed screen (artifacts/mobile/app/(tabs)/feed.tsx): subscribe to that event on mount (unsubscribe on unmount). On event:
+
+Scroll the currently visible list to top (flatListRef.current?.scrollToOffset({ offset: 0, animated: true })) — make sure the ref points to the ACTIVE tab's list (For You vs Friends), not always For You.
+Trigger the same refresh function pull-to-refresh uses for the current tab + active filter chip, preserving the selected category/content-type (photos/videos/polls filter state).
+Show the existing pull-to-refresh spinner during reload.
+
+
+Nice detail (only if trivially available in the tab bar component): if already scrolled to top, the tap = refresh only; if scrolled down, first tap scrolls to top, refresh runs on arrival — Instagram does scroll+refresh together, so a single combined behavior is fine too. Don't over-engineer.
+Sibling check: apply the same pattern to the Reels tab — tap Reels while on Reels → jump back to the first/top reel and refresh the reels feed (respecting For You vs Following sub-tab).
+
+Rules: refresh functions must go through the existing API-server endpoints; destructure { data, error }; loading states clear in finally.
+Typecheck, report: files changed, which event mechanism was used, and confirm both Feed and Reels handle it. Do not push or deploy

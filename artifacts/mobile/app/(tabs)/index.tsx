@@ -11,6 +11,7 @@ import React, {
 } from "react";
 import {
   Alert,
+  DeviceEventEmitter,
   Dimensions,
   FlatList,
   Modal,
@@ -768,6 +769,14 @@ export default function ReelsScreen() {
     setRefreshing(false);
   }, [loadFeed]);
 
+  // Tap active Reels tab → jump to first reel + refresh (Instagram/TikTok pattern).
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener("reelsTabPressedWhileActive", () => {
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      void onRefresh();
+    });
+    return () => sub.remove();
+  }, [onRefresh]);
 
   // Primary activeIndex update: fires whenever a reel crosses 50% viewport coverage.
   // Using a ref keeps the callback reference stable (React Native requirement).
