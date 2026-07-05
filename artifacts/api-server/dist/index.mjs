@@ -67837,40 +67837,68 @@ router41.get("/couples/search", async (req, res) => {
   const sb = makeSupabase36();
   try {
     const myCouple = await getCoupleForUser(sb, userId);
-    const excludeId = myCouple?.id ?? "";
+    const excludeId = myCouple?.id ?? null;
+    req.log.info({ userId, q, excludeId }, "couple-games/search: params");
     const searchTerm = (q ?? "").trim().toLowerCase();
-    let profileQuery = sb.from("profiles").select("id, full_name, username, avatar_url").neq("id", userId).limit(30);
+    let profileQuery = sb.from("profiles").select("id, full_name, username, avatar_url").neq("id", userId).limit(50);
     if (searchTerm) {
       profileQuery = profileQuery.or(`username.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`);
     }
-    const { data: profiles } = await profileQuery;
-    if (!profiles || profiles.length === 0) {
+    const { data: matchedProfiles, error: pErr } = await profileQuery;
+    req.log.info({ matched: matchedProfiles?.length ?? 0, pErr: pErr?.message ?? null }, "couple-games/search: profiles query");
+    if (!matchedProfiles || matchedProfiles.length === 0) {
       res.json({ couples: [] });
       return;
     }
-    const profileIds = profiles.map((p) => p.id);
-    const { data: coupleLinks } = await sb.from("couple_links").select("id, requester_id, receiver_id").or(
-      profileIds.map((id) => `requester_id.eq.${id},receiver_id.eq.${id}`).join(",")
-    ).eq("status", "accepted").neq("id", excludeId);
+    const profileIds = matchedProfiles.map((p) => p.id);
+    const orFilter = profileIds.map((id) => `requester_id.eq.${id},receiver_id.eq.${id}`).join(",");
+    let coupleQuery = sb.from("couple_links").select("id, requester_id, receiver_id").or(orFilter).eq("status", "accepted");
+    if (excludeId) {
+      coupleQuery = coupleQuery.neq("id", excludeId);
+    }
+    const { data: coupleLinks, error: clErr } = await coupleQuery;
+    req.log.info({ coupleLinksCount: coupleLinks?.length ?? 0, clErr: clErr?.message ?? null }, "couple-games/search: couple_links query");
+    if (!coupleLinks || coupleLinks.length === 0) {
+      res.json({ couples: [] });
+      return;
+    }
+    const allUserIds = [
+      ...new Set(
+        coupleLinks.flatMap((l) => [l.requester_id, l.receiver_id])
+      )
+    ];
     const nameMap = {};
-    for (const p of profiles) nameMap[p.id] = p;
+    for (const p of matchedProfiles) nameMap[p.id] = p;
+    const missing = allUserIds.filter((id) => !nameMap[id]);
+    if (missing.length > 0) {
+      const { data: extraProfiles } = await sb.from("profiles").select("id, full_name, username, avatar_url").in("id", missing);
+      for (const p of extraProfiles ?? []) nameMap[p.id] = p;
+    }
+    req.log.info({ nameMapSize: Object.keys(nameMap).length, missing: missing.length }, "couple-games/search: profile resolution");
     const seen = /* @__PURE__ */ new Set();
     const couples = [];
-    for (const link of coupleLinks ?? []) {
+    for (const link of coupleLinks) {
       if (seen.has(link.id)) continue;
       seen.add(link.id);
-      const p1 = nameMap[link.requester_id];
-      const p2 = nameMap[link.receiver_id];
-      if (!p1 && !p2) continue;
-      const resolve = (id, fallback) => fallback ?? { id, full_name: "?", username: "?", avatar_url: null };
-      const r1 = resolve(link.requester_id, nameMap[link.requester_id]);
-      const r2 = resolve(link.receiver_id, nameMap[link.receiver_id]);
+      const r1 = nameMap[link.requester_id] ?? { id: link.requester_id, full_name: null, username: null, avatar_url: null };
+      const r2 = nameMap[link.receiver_id] ?? { id: link.receiver_id, full_name: null, username: null, avatar_url: null };
       couples.push({
         coupleId: link.id,
-        partner1: { id: link.requester_id, name: r1.full_name || r1.username, username: r1.username, avatar_url: r1.avatar_url },
-        partner2: { id: link.receiver_id, name: r2.full_name || r2.username, username: r2.username, avatar_url: r2.avatar_url }
+        partner1: {
+          id: link.requester_id,
+          name: r1.full_name || r1.username || "Unknown",
+          username: r1.username || "",
+          avatar_url: r1.avatar_url ?? null
+        },
+        partner2: {
+          id: link.receiver_id,
+          name: r2.full_name || r2.username || "Unknown",
+          username: r2.username || "",
+          avatar_url: r2.avatar_url ?? null
+        }
       });
     }
+    req.log.info({ couplesReturned: couples.length }, "couple-games/search: done");
     res.json({ couples });
   } catch (err) {
     req.log.error({ err: err.message }, "couple-games/couples search error");

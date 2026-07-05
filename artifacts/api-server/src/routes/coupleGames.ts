@@ -683,37 +683,76 @@ router.get("/couples/search", async (req, res) => {
   const sb = makeSupabase();
   try {
     const myCouple = await getCoupleForUser(sb, userId);
-    const excludeId = myCouple?.id ?? "";
+    // Only apply exclude when we have a real UUID — passing "" to .neq on a UUID
+    // column causes a Postgres cast error and silently returns null data.
+    const excludeId = myCouple?.id ?? null;
+
+    req.log.info({ userId, q, excludeId }, "couple-games/search: params");
 
     const searchTerm = (q ?? "").trim().toLowerCase();
+
+    // Step 1: Find profiles matching the search term (or all if no term).
     let profileQuery = sb
       .from("profiles")
       .select("id, full_name, username, avatar_url")
       .neq("id", userId)
-      .limit(30);
+      .limit(50);
     if (searchTerm) {
       profileQuery = profileQuery.or(`username.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`);
     }
-    const { data: profiles } = await profileQuery;
+    const { data: matchedProfiles, error: pErr } = await profileQuery;
+    req.log.info({ matched: matchedProfiles?.length ?? 0, pErr: pErr?.message ?? null }, "couple-games/search: profiles query");
 
-    if (!profiles || profiles.length === 0) {
+    if (!matchedProfiles || matchedProfiles.length === 0) {
       res.json({ couples: [] });
       return;
     }
 
-    const profileIds = (profiles as any[]).map((p) => p.id as string);
-    const { data: coupleLinks } = await sb
+    // Step 2: Find accepted couple_links where at least one partner matched.
+    const profileIds = (matchedProfiles as any[]).map((p) => p.id as string);
+    const orFilter = profileIds.map((id) => `requester_id.eq.${id},receiver_id.eq.${id}`).join(",");
+
+    let coupleQuery = sb
       .from("couple_links")
       .select("id, requester_id, receiver_id")
-      .or(
-        profileIds.map((id) => `requester_id.eq.${id},receiver_id.eq.${id}`).join(",")
-      )
-      .eq("status", "accepted")
-      .neq("id", excludeId);
+      .or(orFilter)
+      .eq("status", "accepted");
+    if (excludeId) {
+      coupleQuery = coupleQuery.neq("id", excludeId);
+    }
+    const { data: coupleLinks, error: clErr } = await coupleQuery;
+    req.log.info({ coupleLinksCount: coupleLinks?.length ?? 0, clErr: clErr?.message ?? null }, "couple-games/search: couple_links query");
 
+    if (!coupleLinks || coupleLinks.length === 0) {
+      res.json({ couples: [] });
+      return;
+    }
+
+    // Step 3: Collect ALL user IDs from found couples — not just the search-matched ones.
+    // This ensures the partner who didn't match the search term is still resolved.
+    const allUserIds = [
+      ...new Set(
+        (coupleLinks as any[]).flatMap((l) => [l.requester_id as string, l.receiver_id as string])
+      ),
+    ];
+
+    // Build initial nameMap from the already-fetched profiles.
     const nameMap: Record<string, any> = {};
-    for (const p of (profiles as any[])) nameMap[p.id] = p;
+    for (const p of (matchedProfiles as any[])) nameMap[p.id as string] = p;
 
+    // Fetch any partner profiles that weren't in the search results.
+    const missing = allUserIds.filter((id) => !nameMap[id]);
+    if (missing.length > 0) {
+      const { data: extraProfiles } = await sb
+        .from("profiles")
+        .select("id, full_name, username, avatar_url")
+        .in("id", missing);
+      for (const p of (extraProfiles ?? []) as any[]) nameMap[p.id as string] = p;
+    }
+
+    req.log.info({ nameMapSize: Object.keys(nameMap).length, missing: missing.length }, "couple-games/search: profile resolution");
+
+    // Step 4: Build couple result list.
     const seen = new Set<string>();
     const couples: {
       coupleId: string;
@@ -721,24 +760,31 @@ router.get("/couples/search", async (req, res) => {
       partner2: { id: string; name: string; username: string; avatar_url: string | null };
     }[] = [];
 
-    for (const link of (coupleLinks ?? []) as any[]) {
-      if (seen.has(link.id)) continue;
-      seen.add(link.id);
-      const p1 = nameMap[link.requester_id];
-      const p2 = nameMap[link.receiver_id];
-      if (!p1 && !p2) continue;
+    for (const link of coupleLinks as any[]) {
+      if (seen.has(link.id as string)) continue;
+      seen.add(link.id as string);
 
-      const resolve = (id: string, fallback: any) => fallback ?? { id, full_name: "?", username: "?", avatar_url: null };
-      const r1 = resolve(link.requester_id, nameMap[link.requester_id]);
-      const r2 = resolve(link.receiver_id, nameMap[link.receiver_id]);
+      const r1 = nameMap[link.requester_id as string] ?? { id: link.requester_id, full_name: null, username: null, avatar_url: null };
+      const r2 = nameMap[link.receiver_id as string]  ?? { id: link.receiver_id,  full_name: null, username: null, avatar_url: null };
 
       couples.push({
         coupleId: link.id,
-        partner1: { id: link.requester_id, name: r1.full_name || r1.username, username: r1.username, avatar_url: r1.avatar_url },
-        partner2: { id: link.receiver_id,  name: r2.full_name || r2.username, username: r2.username, avatar_url: r2.avatar_url },
+        partner1: {
+          id: link.requester_id,
+          name: r1.full_name || r1.username || "Unknown",
+          username: r1.username || "",
+          avatar_url: r1.avatar_url ?? null,
+        },
+        partner2: {
+          id: link.receiver_id,
+          name: r2.full_name || r2.username || "Unknown",
+          username: r2.username || "",
+          avatar_url: r2.avatar_url ?? null,
+        },
       });
     }
 
+    req.log.info({ couplesReturned: couples.length }, "couple-games/search: done");
     res.json({ couples });
   } catch (err: any) {
     req.log.error({ err: err.message }, "couple-games/couples search error");
