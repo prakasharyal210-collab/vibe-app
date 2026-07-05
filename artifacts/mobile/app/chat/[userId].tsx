@@ -455,7 +455,7 @@ const bubbleStyles = StyleSheet.create({
   rowMe: { justifyContent: "flex-end" },
   rowThem: { justifyContent: "flex-start" },
   avatarSlot: { width: 32, marginRight: 6 },
-  bubble: { maxWidth: "72%", borderRadius: 18, overflow: "hidden" },
+  bubble: { borderRadius: 18, overflow: "hidden" },
   bubbleMe: { borderBottomRightRadius: 4 },
   gradFill: { paddingHorizontal: 14, paddingVertical: 10 },
   textMe: {
