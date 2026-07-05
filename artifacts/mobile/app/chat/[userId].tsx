@@ -38,6 +38,7 @@ import {
   parseSnap,
   sendSnapMessage,
   uploadSnapToStorage,
+  viewSnap,
 } from "@/lib/snap";
 import { Message, supabase, timeAgo } from "@/lib/supabase";
 import { callAI, parseAIJson } from "@/lib/ai";
@@ -816,11 +817,18 @@ export default function ChatScreen() {
   }, [snapPreviewUri, myId, otherId]);
 
   // ── View snap ──────────────────────────────────────────────────────────────
-  const handleViewSnap = useCallback((msg: Message) => {
+  const handleViewSnap = useCallback(async (msg: Message) => {
     const snap = parseSnap(msg.text);
     if (!snap || snap.viewed) return;
-    setSnapViewer({ uri: snap.url, type: snap.type ?? "photo", messageId: msg.id, msgText: msg.text });
-  }, []);
+
+    // Sign-on-view: ask the server for a fresh 1-hour URL so TTL starts now,
+    // not at upload time. Falls back to the stored URL for legacy snaps.
+    const viewed = myId ? await viewSnap(msg.id, myId) : null;
+    const uri = viewed?.signedUrl ?? snap.url;
+    const type = (viewed?.mediaType ?? snap.type ?? "photo") as "photo" | "video";
+
+    setSnapViewer({ uri, type, messageId: msg.id, msgText: msg.text });
+  }, [myId]);
 
   const handleSnapViewerClose = useCallback(async () => {
     if (!snapViewer) return;

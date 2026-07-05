@@ -44,16 +44,9 @@ router.post("/snap", async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  const { data: signedData, error: signErr } = await sb.storage
-    .from("snaps")
-    .createSignedUrl(fileName, 86400); // 24 h — matches snap expiry
-
-  if (signErr || !signedData?.signedUrl) {
-    req.log.warn({ err: signErr?.message }, "Snap URL signing failed");
-    return res.status(500).json({ error: signErr?.message ?? "Failed to sign URL" });
-  }
-
-  return res.json({ url: signedData.signedUrl });
+  // Return the storage path only — signing happens at view time (GET /api/snaps/:id/view)
+  // so the URL is always fresh and its TTL starts when the recipient actually opens the snap.
+  return res.json({ url: fileName });
 });
 
 // POST /api/storage/avatar

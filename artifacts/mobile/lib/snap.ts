@@ -62,6 +62,30 @@ export async function sendSnapMessage(
   }
 }
 
+// Fetch a fresh 1-hour signed URL for snap media.
+// Called by the viewer when the recipient opens a snap — signs at view time,
+// not at upload time, so the URL TTL always starts from the moment of viewing.
+// Returns null for legacy snaps not in the snaps table (caller falls back to stored URL).
+export async function viewSnap(
+  snapId: string,
+  requesterId: string,
+): Promise<{ signedUrl: string; mediaType: "photo" | "video" } | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/snaps/${encodeURIComponent(snapId)}/view?requesterId=${encodeURIComponent(requesterId)}`,
+    );
+    if (!res.ok) return null;
+    const json = await res.json() as { signedUrl?: string; mediaType?: string };
+    if (!json.signedUrl) return null;
+    return {
+      signedUrl: json.signedUrl,
+      mediaType: (json.mediaType ?? "photo") as "photo" | "video",
+    };
+  } catch {
+    return null;
+  }
+}
+
 // Mark a snap as viewed.
 // New snaps table: PATCH /api/snaps/:id — server sets viewed_at = NOW().
 // Legacy snaps in messages table: PATCH /api/messages/:id with re-encoded content.

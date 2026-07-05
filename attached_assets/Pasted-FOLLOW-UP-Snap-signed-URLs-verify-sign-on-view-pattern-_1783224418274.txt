@@ -1,0 +1,20 @@
+FOLLOW-UP: Snap signed URLs — verify sign-on-view pattern, not sign-on-upload
+The signed-URL fix works, but I need to confirm WHEN the signing happens. The wrong pattern breaks two cases:
+
+Snaps already in the DB were stored with the broken /object/public/... URL string — if the viewer renders the stored media_url from the row, all existing snaps stay black.
+If a signed URL is generated at UPLOAD time and stored in media_url, the URL's 24h TTL starts at upload — a recipient opening a snap 23 hours after it was sent gets a URL that dies in 1 hour, and an unviewed snap's URL can expire before its expires_at.
+
+DIAGNOSE AND REPORT:
+
+Where does createSignedUrl get called — at upload (then stored in media_url) or at view time when the recipient opens the snap?
+What exactly is stored in snaps.media_url for a new snap — a full signed URL, or just the storage path?
+
+THE CORRECT PATTERN — implement if not already:
+
+Store ONLY the storage path (e.g. snaps/{userId}/{filename}) in snaps.media_url (or add a media_path column if changing semantics is cleaner — if a migration is needed, OUTPUT THE SQL FILE ONLY, do not run it).
+Create/confirm a view endpoint (e.g. GET /api/snaps/:id/view) that: verifies the requester is the intended recipient, calls createSignedUrl(path, 3600) fresh (1h is plenty for a viewing session), returns the signed URL, and handles the viewed_at marking that already exists.
+Mobile viewer calls this endpoint when opening a snap and renders the returned URL — never renders a stored URL string directly.
+Backwards compatibility: for existing rows where media_url contains the full broken /object/public/ URL, extract the path portion server-side (strip everything up to and including /object/public/snaps/) so old snaps sign correctly too — no data migration needed.
+
+Architectural rules: all storage/DB access via artifacts/api-server with service-role key; mobile never calls supabase.from()/.rpc() or Supabase storage directly; always destructure { data, error } and handle errors; verify column names against live schema (snaps: media_url, media_type, duration, viewed_at, expires_at).
+Typecheck, report: which pattern was in place, files changed, any SQL file produced. Do not push or deploy.

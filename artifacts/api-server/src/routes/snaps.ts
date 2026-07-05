@@ -134,6 +134,70 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/snaps/:id/view?requesterId=<userId>
+// Sign-on-view: generates a fresh 1-hour signed URL for snap media, marks viewed_at,
+// returns { signedUrl, mediaType }. Only the intended recipient may call this.
+// Backwards-compatible: if media_url is a full URL (old/broken rows), extracts the
+// relative path so existing snaps sign correctly with no data migration.
+router.get("/:id/view", async (req, res) => {
+  const { id } = req.params;
+  const { requesterId } = req.query as { requesterId?: string };
+  if (!id || !requesterId) {
+    res.status(400).json({ error: "id and requesterId required" });
+    return;
+  }
+  const sb = makeSupabase();
+  try {
+    const { data: snap, error } = await sb
+      .from("snaps")
+      .select("id, receiver_id, media_url, media_type, viewed_at")
+      .eq("id", id)
+      .single();
+    if (error || !snap) {
+      res.status(404).json({ error: "snap not found" });
+      return;
+    }
+    if ((snap as any).receiver_id !== requesterId) {
+      res.status(403).json({ error: "not authorised" });
+      return;
+    }
+
+    // Normalise media_url → bare storage path (relative to "snaps" bucket):
+    //   New rows:    "userId/timestamp.jpg"           → used as-is
+    //   Old public:  ".../object/public/snaps/..."    → strip prefix
+    //   Old signed:  ".../object/sign/snaps/...?..."  → strip prefix + query
+    const raw: string = (snap as any).media_url ?? "";
+    let storagePath = raw;
+    const pubMatch = raw.match(/\/object\/public\/snaps\/(.+)/);
+    if (pubMatch) {
+      storagePath = pubMatch[1].split("?")[0];
+    } else {
+      const sigMatch = raw.match(/\/object\/sign\/snaps\/(.+?)(?:\?|$)/);
+      if (sigMatch) storagePath = sigMatch[1];
+    }
+
+    const { data: signed, error: signErr } = await sb.storage
+      .from("snaps")
+      .createSignedUrl(storagePath, 3600); // 1 hour — plenty for a single viewing session
+
+    if (signErr || !signed?.signedUrl) {
+      req.log.warn({ err: signErr?.message, storagePath }, "snap view: sign failed");
+      res.status(500).json({ error: signErr?.message ?? "Failed to sign URL" });
+      return;
+    }
+
+    // Mark viewed_at if not already set — fire-and-forget, don't block the response
+    if (!(snap as any).viewed_at) {
+      sb.from("snaps").update({ viewed_at: new Date().toISOString() }).eq("id", id).then(() => {});
+    }
+
+    res.json({ signedUrl: signed.signedUrl, mediaType: (snap as any).media_type ?? "photo" });
+  } catch (err: any) {
+    req.log.error({ err: err?.message }, "snap view exception");
+    res.status(500).json({ error: err?.message ?? "Failed" });
+  }
+});
+
 // PATCH /api/snaps/:id
 // Mark a snap as viewed — sets viewed_at = NOW() on the real column.
 // Returns 404 if the id doesn't exist in the snaps table so the client
