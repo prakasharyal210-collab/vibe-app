@@ -1,0 +1,16 @@
+PRE-BUILD AUDIT: Full migration & schema reconciliation — code expectations vs live database
+We're about to cut new App Store / Play Store builds. Before that, verify every migration the codebase expects has actually been applied to the live Supabase database, and nothing the code reads/writes is missing.
+STEP 1 — Inventory all migration files:
+List every .sql file in scripts/ (and anywhere else migrations live) with a one-line summary of what each creates/alters. Include at minimum: schema-drift-migration, message-requests-direction, couple-games, polls + poll-votes-couple, vibe-requests-backfill, snaps-related, privacy-settings, notification-settings, vibe-prefs, post-delete cascade (if any), and anything else present.
+STEP 2 — Generate a single read-only verification SQL file (scripts/pre-build-schema-audit.sql) that I will run in Supabase SQL Editor. It must check EXISTENCE (not modify anything):
+
+Every table the API server references: query information_schema.tables for the full expected list (extract it from the codebase — grep all .from("...") calls in artifacts/api-server/src).
+Every column the code references on the high-traffic tables: for each of profiles, posts, conversations, messages, notifications, vibe_requests, vibe_matches, vibe_swipes, couple_links, couple_battles, battle_answers, game_questions, polls, poll_options, poll_votes, snaps, user_settings, content_reports, content_moderation_log — output information_schema.columns and flag (as SQL comments in the output structure) which columns the CODE expects so I can eyeball gaps. Pay special attention to recently added: requested_by (conversations), show_in_matching + vibe_photos (profiles), is_first_post (posts), is_admin/is_suspended (profiles), couple_id (poll_votes), moderation columns on content_reports.
+RLS status (pg_tables.rowsecurity) for ALL tables — flag any with RLS disabled (the Supabase security alert pattern).
+The partial unique indexes: one_accepted_couple_requester/receiver, battle_answers unique, any vibe dedup index.
+Storage buckets expected: query storage.buckets — posts, snaps, reels-watermarked (may legitimately not exist yet), avatars/others found in code.
+The file must be 100% read-only (SELECTs only).
+
+STEP 3 — Cross-check report: produce a table: migration file → applied? (how you can tell from the code's perspective) → risk if missing. Mark the three old pending ones (privacy-settings, notification-settings, vibe-prefs) explicitly: are their columns referenced by current code, and are those columns already covered by other migrations that DID run (i.e. superseded)?
+STEP 4 — Native build checklist reminder: list anything in the codebase that requires a NEW NATIVE BUILD vs OTA (expo-face-detector removal, Banuba package removal, Google Sign In native, any new native deps added recently like image-picker config changes) — so we know what 1.0.2 must contain.
+Do NOT run any SQL. Do NOT push. Report: the inventory table, the audit SQL path, the cross-check table, the native-vs-OTA list.
