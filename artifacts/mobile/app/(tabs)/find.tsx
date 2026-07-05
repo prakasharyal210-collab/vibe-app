@@ -623,12 +623,53 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
   const colors = useColors();
   const match = calcMatch(card);
 
+  const photos = React.useMemo(() => {
+    const extras = (card.vibe_photos ?? []).filter((url) => Boolean(url) && url !== card.image);
+    return [card.image, ...extras];
+  }, [card.id, card.image, card.vibe_photos]);
+
+  const [photoIdx, setPhotoIdx] = React.useState(0);
+
+  React.useEffect(() => {
+    setPhotoIdx(0);
+  }, [card.id]);
+
+  React.useEffect(() => {
+    const nextUrl = photos[photoIdx + 1];
+    if (nextUrl) Image.prefetch(nextUrl).catch(() => {});
+  }, [photos, photoIdx]);
+
+  const currentPhoto = photos[Math.min(photoIdx, photos.length - 1)] ?? card.image;
+  const hasMultiple = photos.length > 1;
+
+  const goNext = () => setPhotoIdx((i) => Math.min(i + 1, photos.length - 1));
+  const goPrev = () => setPhotoIdx((i) => Math.max(i - 1, 0));
+
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={profileStyles.overlay}>
         <View style={[profileStyles.sheet, { backgroundColor: colors.card }]}>
-          <Image source={{ uri: card.image }} style={profileStyles.photo} resizeMode="cover" />
+          <Image source={{ uri: currentPhoto }} style={profileStyles.photo} resizeMode="cover" />
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
+
+          {hasMultiple && (
+            <>
+              <TouchableOpacity style={profileStyles.tapZoneLeft} onPress={goPrev} activeOpacity={1} />
+              <TouchableOpacity style={profileStyles.tapZoneRight} onPress={goNext} activeOpacity={1} />
+              <View style={profileStyles.photoBars} pointerEvents="none">
+                {photos.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      profileStyles.photoBar,
+                      i < photoIdx && profileStyles.photoBarSeen,
+                      i === photoIdx && profileStyles.photoBarActive,
+                    ]}
+                  />
+                ))}
+              </View>
+            </>
+          )}
 
           <TouchableOpacity onPress={onClose} style={profileStyles.closeBtn}>
             <Ionicons name="chevron-down" size={28} color="#fff" />
@@ -2722,6 +2763,12 @@ const profileStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
   sheet: { height: H * 0.88, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", position: "relative" },
   photo: { width: "100%", height: "70%" },
+  tapZoneLeft: { position: "absolute", top: 0, left: 0, width: "40%", height: "70%" },
+  tapZoneRight: { position: "absolute", top: 0, right: 0, width: "40%", height: "70%" },
+  photoBars: { position: "absolute", top: 10, left: 10, right: 10, flexDirection: "row", gap: 4 },
+  photoBar: { flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.35)" },
+  photoBarSeen: { backgroundColor: "rgba(255,255,255,0.9)" },
+  photoBarActive: { backgroundColor: "#ffffff" },
   closeBtn: { position: "absolute", top: 16, left: 16, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 20, padding: 4 },
   matchBadge: { position: "absolute", top: 16, right: 16 },
   matchGrad: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },

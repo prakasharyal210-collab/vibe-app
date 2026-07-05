@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -65,10 +66,34 @@ export function VibeCardDisplay({
   previewMode,
   onExpand,
 }: VibeCardDisplayProps) {
+  const photos = useMemo(() => {
+    const extras = (card.vibe_photos ?? []).filter((url) => Boolean(url) && url !== card.image);
+    return [card.image, ...extras];
+  }, [card.id, card.image, card.vibe_photos]);
+
+  const [photoIdx, setPhotoIdx] = useState(0);
+
+  useEffect(() => {
+    setPhotoIdx(0);
+  }, [card.id]);
+
+  useEffect(() => {
+    const nextUrl = photos[photoIdx + 1];
+    if (nextUrl) {
+      Image.prefetch(nextUrl).catch(() => {});
+    }
+  }, [photos, photoIdx]);
+
+  const currentPhoto = photos[Math.min(photoIdx, photos.length - 1)] ?? card.image;
+  const hasMultiple = photos.length > 1;
+
+  const goNext = () => setPhotoIdx((i) => Math.min(i + 1, photos.length - 1));
+  const goPrev = () => setPhotoIdx((i) => Math.max(i - 1, 0));
+
   return (
     <>
       <Image
-        source={{ uri: card.image }}
+        source={{ uri: currentPhoto }}
         style={StyleSheet.absoluteFill}
         resizeMode="cover"
       />
@@ -77,6 +102,28 @@ export function VibeCardDisplay({
         locations={[0, 0.38, 0.7, 1]}
         style={StyleSheet.absoluteFill}
       />
+
+      {hasMultiple && (
+        <>
+          <Pressable style={vcStyles.tapZoneLeft} onPress={goPrev} />
+          <Pressable style={vcStyles.tapZoneRight} onPress={goNext} />
+        </>
+      )}
+
+      {hasMultiple && (
+        <View style={vcStyles.photoBars} pointerEvents="none">
+          {photos.map((_, i) => (
+            <View
+              key={i}
+              style={[
+                vcStyles.photoBar,
+                i < photoIdx && vcStyles.photoBarSeen,
+                i === photoIdx && vcStyles.photoBarActive,
+              ]}
+            />
+          ))}
+        </View>
+      )}
 
       {!previewMode && !!onExpand && (
         <TouchableOpacity onPress={onExpand} style={vcStyles.expandBtn}>
@@ -168,6 +215,41 @@ export function VibeCardDisplay({
 }
 
 const vcStyles = StyleSheet.create({
+  tapZoneLeft: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "40%",
+    bottom: 0,
+  },
+  tapZoneRight: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: "40%",
+    bottom: 0,
+  },
+  photoBars: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    flexDirection: "row",
+    gap: 4,
+  },
+  photoBar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+  photoBarSeen: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+  },
+  photoBarActive: {
+    backgroundColor: "#ffffff",
+    opacity: 1,
+  },
   expandBtn: {
     position:        "absolute",
     top:             16,

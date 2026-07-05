@@ -1,0 +1,11 @@
+FEATURE: Vibe Photos — upload directly from device gallery/camera (currently only transfers from Gundruk profile)
+The Vibe Photos screen (Find Vibe Settings → Vibe Photos) currently only lets users select photos from their existing Gundruk posts. Add direct upload:
+
+In the Vibe Photos screen (artifacts/mobile/ — find it via the Find Vibe Settings hub): add an "Upload from device" option alongside the existing pick-from-posts flow — an Add tile/button opening a chooser: 📷 Take Photo (expo-image-picker camera) and 🖼️ Choose from Gallery (mediaTypes: ["images"] only — string-array API on expo-image-picker ~17, same as the Photo Post picker).
+Upload path: image → existing storage upload route in artifacts/api-server (whatever bucket/route posts use for images, or a vibe-photos path in it — reuse the established upload pattern, report which route). The returned URL is appended to the profile's vibe_photos array via the existing save flow (/api/users/profile or the vibe settings endpoint — verify which endpoint writes vibe_photos, column name against live schema).
+Moderation: run the uploaded image through the same Sightengine scan the post/reel uploads use — vibe photos are shown to strangers, they MUST be scanned. If Sightengine flags: delete from storage, reject with a clear message ("This photo can't be used"). Report whether the existing upload route already scans or if the vibe path needs the call added. (Note: the Claude caption layer is down due to the API key, but Sightengine image scanning has its own keys and should work — verify.)
+Limits & UX: cap at the existing max photo count (report what it is; if none, cap at 6 like standard dating apps), allow setting any as primary (existing primary-photo logic), allow removing uploaded ones, show upload progress, allowsEditing: true with 3:4-ish aspect for consistent cards.
+Both source flows (from-posts and from-device) coexist — don't remove the existing transfer option.
+
+Rules: mobile never touches Supabase storage directly — upload through the api-server route; { data, error } destructured; live-schema columns; loading clears in finally.
+Typecheck, report: the Vibe Photos screen path, upload route used, whether moderation was already applied or added, max count, files changed. Do not push or deploy.
