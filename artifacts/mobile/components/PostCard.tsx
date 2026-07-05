@@ -432,9 +432,20 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         style: "destructive",
         onPress: async () => {
           try {
-            await fetch(`${API_BASE}/posts/${post.id}`, { method: "DELETE" });
-            setHidden(true);
-          } catch { /* ignore */ }
+            const res = await fetch(`${API_BASE}/posts/${post.id}`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userId }),
+            });
+            if (res.ok) {
+              setHidden(true);
+            } else {
+              const body = await res.json().catch(() => ({}));
+              Alert.alert("Couldn't delete post", (body as any).error ?? "Please try again.");
+            }
+          } catch {
+            Alert.alert("Couldn't delete post", "Please try again.");
+          }
         },
       },
     ]);

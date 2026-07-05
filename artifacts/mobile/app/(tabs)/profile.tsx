@@ -458,15 +458,32 @@ function PhotoViewer({
         style: "destructive",
         onPress: async () => {
           try {
+            const headers = { "Content-Type": "application/json" };
+            let res: Response;
             if (photo.isReel) {
               const reelId = photo.id.replace(/^reel_/, "");
-              await fetch(`${PV_API_BASE}/reels/${reelId}`, { method: "DELETE" });
+              res = await fetch(`${PV_API_BASE}/reels/${reelId}`, {
+                method: "DELETE",
+                headers,
+                body: JSON.stringify({ userId }),
+              });
             } else {
-              await fetch(`${PV_API_BASE}/posts/${photo.id}`, { method: "DELETE" });
+              res = await fetch(`${PV_API_BASE}/posts/${photo.id}`, {
+                method: "DELETE",
+                headers,
+                body: JSON.stringify({ userId }),
+              });
             }
-            onItemRemoved?.(photo.id);
-            onClose();
-          } catch {}
+            if (res.ok) {
+              onItemRemoved?.(photo.id);
+              onClose();
+            } else {
+              const body = await res.json().catch(() => ({}));
+              Alert.alert("Couldn't delete", (body as any).error ?? "Please try again.");
+            }
+          } catch {
+            Alert.alert("Couldn't delete", "Please try again.");
+          }
         },
       },
     ]);

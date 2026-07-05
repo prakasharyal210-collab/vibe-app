@@ -1,0 +1,20 @@
+Zombie posts — deleted, then resurrected on refresh. That means the DELETE either failed silently server-side (UI removed it optimistically, DB never did) or it's soft-hidden client-side only. Given this codebase's history, a swallowed error on the delete call is the prime suspect.
+Also spotting a second thing in image 2: those solid purple tiles in the profile grid look like posts with missing/broken thumbnails — noted for later, one bug at a time.
+
+BUG: Deleted posts come back after refresh — delete not persisting
+User deletes a post (Delete post → "This can't be undone" → DELETE), the post disappears from the UI, but after a feed/profile refresh the post is back. The delete is not actually persisting to the database — likely a silently failed API call with an optimistic UI removal masking it.
+DIAGNOSE FIRST — with logged values:
+
+Find the delete flow: the confirm dialog's DELETE handler → which function in lib/db.ts (or wherever) → which API endpoint. Report the full chain.
+Log the actual API response when deleting: HTTP status and body. Check the classic patterns: const { data } = await ... without error; a fetch whose non-OK status isn't checked; or a .delete() that errors (42703 / FK constraint) and gets swallowed.
+Check the server route: does the DELETE endpoint verify ownership then actually delete the row? Log the Supabase { data, error } from the delete. Likely suspect: foreign-key constraint failure — if child rows (comments, likes, poll rows, notifications, content_moderation_log, saved/bookmarks) reference the post without ON DELETE CASCADE, the delete errors and nothing is removed. Report the exact Postgres error if present.
+Reproduce: delete a post, capture the logs, confirm whether the row is still in the posts table.
+
+THEN FIX:
+
+Fix the root cause. If it's FK constraints, output a migration SQL file (scripts/post-delete-cascade-migration.sql) adding ON DELETE CASCADE to child tables' post FKs where appropriate (comments, likes, poll tables via post_id, saved posts, etc.) — OUTPUT ONLY, do not run it. Alternatively delete children explicitly server-side in the route if cascade is too broad somewhere.
+Mobile side: don't remove the post from UI until the API confirms success — on failure, keep it and show "Couldn't delete post" toast. No more optimistic removal masking failures.
+Sibling sweep: the same delete flow exists for reels, comments, stories, confessions — check each for the same swallowed-error + missing-cascade pattern. Report each: was-broken/fixed or already-working.
+
+Rules: all DB via api-server service-role; { data, error } always destructured and checked; verify column names against live schema.
+Typecheck, report: the logged error, root cause, files changed, any SQL file for review. Do not push or deploy.
