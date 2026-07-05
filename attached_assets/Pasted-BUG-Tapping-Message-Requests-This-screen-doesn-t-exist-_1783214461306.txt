@@ -1,0 +1,16 @@
+BUG: Tapping "Message Requests" → "This screen doesn't exist" (unmatched route)
+In the Messages screen, there's a "Message Requests" row ("1 person sent you a request") — tapping it lands on expo-router's unmatched-route fallback ("This screen doesn't exist."). Either the target screen file was never created, or the router.push() path doesn't match any file in artifacts/mobile/app/.
+DIAGNOSE FIRST — report before fixing:
+
+Find the Message Requests row in the messages screen (artifacts/mobile/app/...messages...) and report the exact path it pushes (e.g. router.push('/messages/requests')).
+Check whether a matching screen file exists in artifacts/mobile/app/ for that path. Report: does it exist, and if yes, why isn't it matching (typo, wrong folder, missing _layout registration)?
+Also report where the "1 person sent you a request" count comes from — which API endpoint or table (likely a pending row in conversations/message_requests where the sender isn't followed).
+
+THEN FIX:
+
+If the screen is missing, build it: a Message Requests screen listing pending requests (sender avatar, username, message preview, time) with Accept and Delete actions per request. Accept → moves the conversation into the normal inbox; Delete → removes the request. Match the app's existing dark theme and list styling from the Messages screen.
+All data via artifacts/api-server endpoints with the service-role key — mobile must NOT call supabase.from()/.rpc() directly (only supabase.auth.*). If new endpoints are needed (e.g. GET /api/messages/requests, POST /api/messages/requests/:id/accept, DELETE .../:id), build them in the API server.
+Always destructure { data, error } and handle errors; verify every column name against the LIVE Supabase schema before writing any query (42703 is this codebase's signature silent killer). Loading state must clear in a finally block with a proper empty state ("No message requests").
+If any DB migration is needed, output the SQL file only — do NOT run it.
+
+Typecheck, report: the broken route path, whether the screen existed, files changed, any new endpoints, and any SQL file produced.
