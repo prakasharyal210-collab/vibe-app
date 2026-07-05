@@ -93,6 +93,12 @@ export interface SharedPreview {
   content_unavailable: boolean;
 }
 
+export interface QuotedPreview {
+  sender_username: string;
+  sender_id: string | null;
+  text_snippet: string;
+}
+
 export interface Message {
   id: string;
   sender_id: string;
@@ -104,6 +110,8 @@ export interface Message {
   shared_content_id?: string;
   shared_preview?: SharedPreview;
   reactions?: Array<{ userId: string; emoji: string }>;
+  reply_to_message_id?: string;
+  reply_preview?: QuotedPreview;
 }
 
 export interface Conversation {

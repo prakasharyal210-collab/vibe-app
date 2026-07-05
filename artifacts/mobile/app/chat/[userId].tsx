@@ -11,6 +11,7 @@ import {
   Image,
   KeyboardAvoidingView,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -150,6 +151,57 @@ const snapStyles = StyleSheet.create({
   },
 });
 
+// ─── QuotedSnippet ─────────────────────────────────────────────────────────────
+
+function QuotedSnippet({
+  senderName,
+  snippet,
+  onPress,
+}: {
+  senderName: string;
+  snippet: string;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+      style={quotedStyles.container}
+    >
+      <View style={quotedStyles.accent} />
+      <View style={quotedStyles.body}>
+        <Text style={quotedStyles.name}>{senderName}</Text>
+        <Text style={quotedStyles.snippet} numberOfLines={1}>
+          {snippet}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const quotedStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 10,
+    overflow: "hidden",
+    marginBottom: 4,
+    maxWidth: "100%",
+  },
+  accent: { width: 3, backgroundColor: "#A78BFA" },
+  body: { flex: 1, paddingHorizontal: 8, paddingVertical: 5 },
+  name: {
+    color: "#A78BFA",
+    fontSize: 11,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  snippet: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 11,
+    fontFamily: "Poppins_400Regular",
+  },
+});
+
 // ─── Bubble ────────────────────────────────────────────────────────────────────
 
 function Bubble({
@@ -158,22 +210,57 @@ function Bubble({
   otherUsername,
   otherAvatar,
   showAvatar,
+  viewerId,
   onViewSnap,
+  onLongPress,
+  onSwipeRight,
+  onTapQuote,
 }: {
   msg: Message;
   isMe: boolean;
   otherUsername?: string;
   otherAvatar?: string;
   showAvatar: boolean;
+  viewerId: string;
   onViewSnap: () => void;
+  onLongPress: (msgId: string) => void;
+  onSwipeRight: (msg: Message) => void;
+  onTapQuote?: (msgId: string) => void;
 }) {
   const colors = useColors();
   const isTemp = msg.id.startsWith("temp_");
   const isSnapMsg = isSnap(msg.text);
   const isShareMsg = !!(msg.shared_content_type && msg.shared_preview);
 
+  const reactions = msg.reactions ?? [];
+  const groups: Record<string, string[]> = {};
+  for (const r of reactions) {
+    if (!groups[r.emoji]) groups[r.emoji] = [];
+    groups[r.emoji].push(r.userId);
+  }
+  const hasReactions = Object.keys(groups).length > 0;
+  const myReactionEmoji = reactions.find((r) => r.userId === viewerId)?.emoji;
+
+  const handleLongPress = () => {
+    if (!isTemp) onLongPress(msg.id);
+  };
+
+  // Swipe-right to reply — uses a stable ref so PanResponder never goes stale
+  const onSwipeRightRef = useRef(onSwipeRight);
+  onSwipeRightRef.current = onSwipeRight;
+  const panRef = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, { dx, dy }) =>
+        dx > 12 && Math.abs(dy) < Math.abs(dx) * 0.8,
+      onPanResponderRelease: (_, { dx }) => {
+        if (dx > 50) onSwipeRightRef.current(msg);
+      },
+    }),
+  ).current;
+
   return (
     <View
+      {...panRef.panHandlers}
       style={[
         bubbleStyles.row,
         isMe ? bubbleStyles.rowMe : bubbleStyles.rowThem,
@@ -187,41 +274,88 @@ function Bubble({
         </View>
       )}
 
-      {isSnapMsg ? (
-        <SnapBubble msg={msg} isMe={isMe} onView={onViewSnap} />
-      ) : isShareMsg ? (
-        <SharedContentCard
-          contentType={msg.shared_content_type!}
-          contentId={msg.shared_content_id ?? ""}
-          preview={msg.shared_preview!}
-        />
-      ) : (
-        <View
-          style={[
-            bubbleStyles.bubble,
-            isMe
-              ? bubbleStyles.bubbleMe
-              : { backgroundColor: colors.muted },
-          ]}
-        >
-          {isMe ? (
-            <LinearGradient
-              colors={["#7C3AED", "#9333EA"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={bubbleStyles.gradFill}
-            >
-              <Text style={bubbleStyles.textMe}>{msg.text}</Text>
-            </LinearGradient>
-          ) : (
-            <Text
-              style={[bubbleStyles.textThem, { color: colors.foreground }]}
-            >
-              {msg.text}
-            </Text>
-          )}
-        </View>
-      )}
+      <View style={{ alignItems: isMe ? "flex-end" : "flex-start" }}>
+        {!!msg.reply_preview && !isSnapMsg && (
+          <QuotedSnippet
+            senderName={
+              msg.reply_preview.sender_id === viewerId
+                ? "You"
+                : msg.reply_preview.sender_username
+            }
+            snippet={msg.reply_preview.text_snippet}
+            onPress={
+              msg.reply_to_message_id
+                ? () => onTapQuote?.(msg.reply_to_message_id!)
+                : undefined
+            }
+          />
+        )}
+        {isSnapMsg ? (
+          <SnapBubble msg={msg} isMe={isMe} onView={onViewSnap} />
+        ) : isShareMsg ? (
+          <Pressable onLongPress={handleLongPress} delayLongPress={380}>
+            <SharedContentCard
+              contentType={msg.shared_content_type!}
+              contentId={msg.shared_content_id ?? ""}
+              preview={msg.shared_preview!}
+            />
+          </Pressable>
+        ) : (
+          <Pressable
+            onLongPress={handleLongPress}
+            delayLongPress={380}
+            style={[
+              bubbleStyles.bubble,
+              isMe
+                ? bubbleStyles.bubbleMe
+                : { backgroundColor: colors.muted },
+            ]}
+          >
+            {isMe ? (
+              <LinearGradient
+                colors={["#7C3AED", "#9333EA"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={bubbleStyles.gradFill}
+              >
+                <Text style={bubbleStyles.textMe}>{msg.text}</Text>
+              </LinearGradient>
+            ) : (
+              <Text
+                style={[bubbleStyles.textThem, { color: colors.foreground }]}
+              >
+                {msg.text}
+              </Text>
+            )}
+          </Pressable>
+        )}
+
+        {hasReactions && (
+          <View
+            style={[
+              bubbleStyles.reactionRow,
+              { alignSelf: isMe ? "flex-start" : "flex-end" },
+            ]}
+          >
+            {Object.entries(groups).map(([emoji, userIds]) => (
+              <View
+                key={emoji}
+                style={[
+                  bubbleStyles.reactionBadge,
+                  myReactionEmoji === emoji && bubbleStyles.reactionBadgeMine,
+                ]}
+              >
+                <Text style={bubbleStyles.reactionEmoji}>{emoji}</Text>
+                {userIds.length > 1 && (
+                  <Text style={bubbleStyles.reactionCount}>
+                    {userIds.length}
+                  </Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
 
       {isMe && !isSnapMsg && (
         <View style={bubbleStyles.meta}>
@@ -293,6 +427,35 @@ const bubbleStyles = StyleSheet.create({
     marginLeft: 4,
     marginBottom: 2,
   },
+  reactionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    marginTop: -4,
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  reactionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  reactionBadgeMine: {
+    backgroundColor: "rgba(124,58,237,0.25)",
+    borderColor: "rgba(124,58,237,0.6)",
+  },
+  reactionEmoji: { fontSize: 13 },
+  reactionCount: {
+    fontSize: 11,
+    fontFamily: "Poppins_500Medium",
+    color: "rgba(255,255,255,0.7)",
+  },
 });
 
 // ─── ChatScreen ────────────────────────────────────────────────────────────────
@@ -326,6 +489,12 @@ export default function ChatScreen() {
   } | null>(null);
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [lastActiveAt, setLastActiveAt] = useState<string | null>(null);
+  const [pickerMsgId, setPickerMsgId] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<{
+    messageId: string;
+    senderName: string;
+    snippet: string;
+  } | null>(null);
 
   const flatRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -405,6 +574,29 @@ export default function ChatScreen() {
           );
         },
       )
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "message_reactions" }, (payload: any) => {
+        const r = payload.new as any;
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== r.message_id) return m;
+          const already = (m.reactions ?? []).some((rx) => rx.userId === r.user_id);
+          if (already) return m;
+          return { ...m, reactions: [...(m.reactions ?? []), { userId: r.user_id, emoji: r.emoji }] };
+        }));
+      })
+      .on("postgres_changes" as any, { event: "DELETE", schema: "public", table: "message_reactions" }, (payload: any) => {
+        const r = payload.old as any;
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== r.message_id) return m;
+          return { ...m, reactions: (m.reactions ?? []).filter((rx) => rx.userId !== r.user_id) };
+        }));
+      })
+      .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "message_reactions" }, (payload: any) => {
+        const r = payload.new as any;
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== r.message_id) return m;
+          return { ...m, reactions: (m.reactions ?? []).map((rx) => rx.userId === r.user_id ? { userId: rx.userId, emoji: r.emoji } : rx) };
+        }));
+      })
       .subscribe();
     } catch { /* channel collision — safe to ignore */ }
 
@@ -460,25 +652,42 @@ export default function ChatScreen() {
     if (!content || !myId || !otherId) return;
 
     const tempId = `temp_${Date.now()}`;
+    const replySnapshot = replyTo;
     const optimistic: Message = {
       id: tempId,
       sender_id: myId,
       receiver_id: otherId,
       text: content,
       created_at: new Date().toISOString(),
+      reply_to_message_id: replySnapshot?.messageId,
+      reply_preview: replySnapshot
+        ? {
+            sender_username: replySnapshot.senderName,
+            sender_id:
+              replySnapshot.senderName === "You" ? myId : otherId,
+            text_snippet: replySnapshot.snippet,
+          }
+        : undefined,
     };
 
     setText("");
+    setReplyTo(null);
     setMessages((prev) => [...prev, optimistic]);
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 50);
 
-    const saved = await sendMessageToUser(myId, otherId, content);
+    const saved = await sendMessageToUser(
+      myId,
+      otherId,
+      content,
+      undefined,
+      replySnapshot?.messageId,
+    );
     if (saved) {
       setMessages((prev) =>
         prev.map((m) => (m.id === tempId ? saved : m)),
       );
     }
-  }, [text, myId, otherId]);
+  }, [text, myId, otherId, replyTo]);
 
   // ── Open snap camera / library ─────────────────────────────────────────────
   const openSnapCamera = useCallback(async () => {
@@ -573,6 +782,58 @@ export default function ChatScreen() {
       await markSnapViewed(messageId, msgText);
     }
   }, [snapViewer]);
+
+  const handleReact = useCallback(async (msgId: string, emoji: string) => {
+    setPickerMsgId(null);
+    if (!myId) return;
+    // Optimistic update
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== msgId) return m;
+        const existing = (m.reactions ?? []).find((r) => r.userId === myId);
+        let newReactions: Array<{ userId: string; emoji: string }>;
+        if (existing?.emoji === emoji) {
+          // Same emoji → remove
+          newReactions = (m.reactions ?? []).filter((r) => r.userId !== myId);
+        } else if (existing) {
+          // Different emoji → replace
+          newReactions = (m.reactions ?? []).map((r) =>
+            r.userId === myId ? { ...r, emoji } : r,
+          );
+        } else {
+          // New reaction
+          newReactions = [...(m.reactions ?? []), { userId: myId, emoji }];
+        }
+        return { ...m, reactions: newReactions };
+      }),
+    );
+    try {
+      await reactToMessage(msgId, myId, emoji);
+    } catch {
+      // Revert on failure — re-fetch authoritative state
+      fetchMessages(myId, otherId).then(setMessages).catch(() => {});
+    }
+  }, [myId, otherId]);
+
+  const handleSwipeRight = useCallback((msg: Message) => {
+    const senderName = msg.sender_id === myId ? "You" : (username ?? "");
+    const isSnapMsg = isSnap(msg.text);
+    const snippet = isSnapMsg
+      ? "📷 Photo"
+      : msg.shared_content_type
+      ? `📎 Shared ${msg.shared_content_type}`
+      : msg.text.length > 60
+      ? msg.text.slice(0, 57) + "…"
+      : msg.text;
+    setReplyTo({ messageId: msg.id, senderName, snippet });
+  }, [myId, username]);
+
+  const handleScrollToOriginal = useCallback((msgId: string) => {
+    const index = messages.findIndex((m) => m.id === msgId);
+    if (index >= 0) {
+      flatRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.5 });
+    }
+  }, [messages]);
 
   const canSend = text.trim().length > 0;
 
@@ -729,11 +990,16 @@ export default function ChatScreen() {
                 otherUsername={username}
                 otherAvatar={avatar_url}
                 showAvatar={showAvatar}
+                viewerId={myId}
                 onViewSnap={() => handleViewSnap(item)}
+                onLongPress={setPickerMsgId}
+                onSwipeRight={handleSwipeRight}
+                onTapQuote={handleScrollToOriginal}
               />
             );
           }}
           contentContainerStyle={chatStyles.messageList}
+          onScrollToIndexFailed={() => {}}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={
@@ -796,6 +1062,32 @@ export default function ChatScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Reply-to bar */}
+        {replyTo && (
+          <View
+            style={[
+              chatStyles.replyBar,
+              { backgroundColor: colors.card, borderTopColor: colors.border },
+            ]}
+          >
+            <View style={chatStyles.replyBarAccent} />
+            <View style={{ flex: 1 }}>
+              <Text style={chatStyles.replyBarName}>
+                Replying to {replyTo.senderName}
+              </Text>
+              <Text
+                style={[chatStyles.replyBarSnippet, { color: colors.mutedForeground }]}
+                numberOfLines={1}
+              >
+                {replyTo.snippet}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setReplyTo(null)} style={{ padding: 6 }}>
+              <Ionicons name="close" size={18} color={colors.mutedForeground} />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -888,6 +1180,22 @@ export default function ChatScreen() {
           onClose={handleSnapViewerClose}
         />
       )}
+
+      {/* Reaction picker */}
+      <ReactionPickerModal
+        visible={!!pickerMsgId}
+        msgId={pickerMsgId}
+        myReaction={pickerMsgId
+          ? messages.find((m) => m.id === pickerMsgId)?.reactions?.find((r) => r.userId === myId)?.emoji
+          : undefined}
+        myId={myId}
+        otherUsername={username}
+        reactions={pickerMsgId
+          ? messages.find((m) => m.id === pickerMsgId)?.reactions
+          : undefined}
+        onSelect={handleReact}
+        onClose={() => setPickerMsgId(null)}
+      />
     </View>
   );
 }
@@ -979,6 +1287,29 @@ const chatStyles = StyleSheet.create({
     fontSize: 12,
     flex: 1,
     lineHeight: 17,
+  },
+  replyBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    borderTopWidth: 0.5,
+  },
+  replyBarAccent: {
+    width: 3,
+    alignSelf: "stretch",
+    backgroundColor: "#A78BFA",
+    borderRadius: 2,
+  },
+  replyBarName: {
+    color: "#A78BFA",
+    fontSize: 11,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  replyBarSnippet: {
+    fontSize: 11,
+    fontFamily: "Poppins_400Regular",
   },
   inputBar: {
     flexDirection: "row",

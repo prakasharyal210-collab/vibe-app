@@ -218,6 +218,55 @@ async function enrichReactions(
   return messages.map((m) => ({ ...m, reactions: map.get(m.id) ?? [] }));
 }
 
+// Enrich messages with a compact quoted preview of the message they reply to.
+// Quoted payload: sender username + text snippet (60 chars) or type indicator.
+// Deleted originals produce a "Message deleted" placeholder.
+async function enrichReplies(
+  messages: any[],
+  myId: string,
+  sb: ReturnType<typeof makeSupabase>,
+): Promise<any[]> {
+  const replyMsgs = messages.filter((m) => m.reply_to_message_id);
+  if (!replyMsgs.length) return messages;
+
+  const parentIds = [...new Set(replyMsgs.map((m) => m.reply_to_message_id as string))];
+  const { data: parents } = await sb
+    .from("messages")
+    .select("id, content, message_type, shared_content_type, sender_id, sender:sender_id(username)")
+    .in("id", parentIds);
+
+  const parentMap = new Map<string, { sender_username: string; sender_id: string; text_snippet: string }>();
+  for (const p of (parents ?? []) as any[]) {
+    const content: string = p.content ?? "";
+    let snippet: string;
+    if (content.startsWith("__SNAP__:")) {
+      snippet = "📷 Photo";
+    } else if (p.message_type === "share" || p.shared_content_type) {
+      snippet = `📎 Shared ${p.shared_content_type ?? "content"}`;
+    } else {
+      snippet = content.length > 60 ? content.slice(0, 57) + "…" : content;
+    }
+    parentMap.set(p.id, {
+      sender_username: (p.sender as any)?.username ?? "Unknown",
+      sender_id: p.sender_id,
+      text_snippet: snippet,
+    });
+  }
+
+  return messages.map((m) => {
+    if (!m.reply_to_message_id) return m;
+    const parent = parentMap.get(m.reply_to_message_id);
+    return {
+      ...m,
+      reply_preview: parent ?? {
+        sender_username: "Unknown",
+        sender_id: null,
+        text_snippet: "Message deleted",
+      },
+    };
+  });
+}
+
 // GET /api/messages?myId=&otherId=&limit=100
 // Fetch messages between two users (service-role bypasses RLS)
 router.get("/", async (req, res) => {
@@ -245,19 +294,21 @@ router.get("/", async (req, res) => {
   }
   const normalised = (data ?? []).map(normalise);
   const withShared = await enrichSharedMessages(normalised, myId, sb);
-  res.json({ messages: await enrichReactions(withShared, sb) });
+  const withReactions = await enrichReactions(withShared, sb);
+  res.json({ messages: await enrichReplies(withReactions, myId, sb) });
 });
 
 // POST /api/messages
 // Send a message — { senderId, receiverId, text, shared_content_type?, shared_content_id? }
 // Either text OR shared_content_type+shared_content_id must be present.
 router.post("/", async (req, res) => {
-  const { senderId, receiverId, text, shared_content_type, shared_content_id } = req.body as {
+  const { senderId, receiverId, text, shared_content_type, shared_content_id, reply_to_message_id } = req.body as {
     senderId?: string;
     receiverId?: string;
     text?: string;
     shared_content_type?: "post" | "reel" | "confession";
     shared_content_id?: string;
+    reply_to_message_id?: string;
   };
   const isShareMsg = !!(shared_content_type && shared_content_id);
   if (!senderId || !receiverId || (!text && !isShareMsg)) {
@@ -325,6 +376,9 @@ router.post("/", async (req, res) => {
     insertRow["message_type"] = "share";
     insertRow["shared_content_type"] = shared_content_type;
     insertRow["shared_content_id"] = shared_content_id;
+  }
+  if (reply_to_message_id) {
+    insertRow["reply_to_message_id"] = reply_to_message_id;
   }
 
   const { data, error } = await sb

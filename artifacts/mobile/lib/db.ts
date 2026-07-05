@@ -875,6 +875,7 @@ export async function sendMessageToUser(
   receiverId: string,
   text: string,
   shareOpts?: { contentType: "post" | "reel" | "confession"; contentId: string },
+  replyToMessageId?: string,
 ): Promise<import("./supabase").Message | null> {
   // Route through API server — bypasses RLS + avoids Android Supabase client hang
   try {
@@ -882,6 +883,9 @@ export async function sendMessageToUser(
     if (shareOpts) {
       body["shared_content_type"] = shareOpts.contentType;
       body["shared_content_id"] = shareOpts.contentId;
+    }
+    if (replyToMessageId) {
+      body["reply_to_message_id"] = replyToMessageId;
     }
     const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",
