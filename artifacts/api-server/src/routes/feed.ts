@@ -118,6 +118,44 @@ const VALID_FEED_CATEGORIES = new Set([
   "tech","education","nature",
 ]);
 
+// ─── Poll cap for Explore/For You ─────────────────────────────────────────────
+// Limits the For You feed to at most 5 poll posts, chosen by engagement score.
+// Score = (totalVotes × 1.5) + likes_count + (comments_count × 2).
+// Active polls (ends_at in the future) always beat ended ones via a large bonus.
+// Posts that don't make the cut are dropped; the remaining posts keep their
+// original feed positions — poll posts are never clustered together.
+// This function is a no-op when there are ≤ 5 poll posts in the page.
+function limitPollsToTop5(posts: any[]): any[] {
+  const now = new Date();
+
+  const pollPosts: any[] = [];
+  const regularPosts: any[] = [];
+  for (const post of posts) {
+    if (post.poll) pollPosts.push(post);
+    else regularPosts.push(post);
+  }
+
+  if (pollPosts.length <= 5) return posts;
+
+  const scored = pollPosts.map((post) => {
+    const totalVotes: number = (post.poll?.totalVotes as number | undefined) ?? 0;
+    const likes: number = (post.likes_count as number | undefined) ?? 0;
+    const comments: number = (post.comments_count as number | undefined) ?? 0;
+    const isActive: boolean = post.poll?.ends_at
+      ? new Date(post.poll.ends_at as string) > now
+      : false;
+    // Active polls get a large bonus so they always outrank ended polls.
+    const score = totalVotes * 1.5 + likes + comments * 2 + (isActive ? 10_000 : 0);
+    return { id: post.id as string, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  const top5Ids = new Set(scored.slice(0, 5).map((s) => s.id));
+
+  // Rebuild list in original order, dropping poll posts outside the top 5.
+  return posts.filter((post) => !post.poll || top5Ids.has(post.id as string));
+}
+
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
 // ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed&category=music|...&type=polls
 router.get("/foryou", async (req, res) => {
@@ -216,7 +254,8 @@ router.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v2Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v2" });
       return;
     }
@@ -230,7 +269,8 @@ router.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v1Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const out = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v1" });
       return;
     }
@@ -263,7 +303,7 @@ router.get("/foryou", async (req, res) => {
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   const freshPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   res.json({
-    data: freshPolls,
+    data: limitPollsToTop5(freshPolls),
     source: "fresh",
   });
 });
