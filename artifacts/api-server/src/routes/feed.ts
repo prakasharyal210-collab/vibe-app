@@ -343,6 +343,20 @@ router.get("/foryou", async (req, res) => {
 });
 
 // ─── GET /api/feed/friends ─────────────────────────────────────────────────────
+// Returns posts from everyone the requesting user follows (one-directional, like
+// Instagram's Following feed).  The old get_friends_feed RPC required MUTUAL
+// follows which left any user who follows but isn't followed back with an empty
+// feed — and the previous fallback used the non-existent `visibility` column
+// (42703), so it silently returned [] even when the RPC was skipped.
+//
+// Pipeline:
+//   1. Try get_friends_feed RPC (may be mutual-only on older Supabase builds).
+//      If it returns rows, use them — no behaviour change for users with mutuals.
+//   2. On empty RPC result (including mutual-only case), fall through to a
+//      direct two-step query:
+//        a. SELECT following_id FROM follows WHERE follower_id = userId
+//        b. SELECT * FROM posts WHERE user_id IN (following_ids)
+//      This always works regardless of whether the other user follows back.
 // ?userId=...&limit=20&offset=0
 router.get("/friends", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
@@ -356,37 +370,99 @@ router.get("/friends", async (req, res) => {
 
   const supabase = makeSupabase();
 
-  const { data, error } = await supabase.rpc("get_friends_feed", {
+  // ── Step 1: try RPC ──────────────────────────────────────────────────────────
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("get_friends_feed", {
     p_user_id: userId,
     p_limit: limit,
     p_offset: offset,
   });
 
-  if (!error && Array.isArray(data) && data.length > 0) {
-    // Normalise flat RPC shape → nested profiles object + canonical `id` field.
-    const normalised = data.map(normaliseFriendsRow);
+  req.log.info(
+    {
+      userId: userId.slice(0, 8),
+      rpcRows: Array.isArray(rpcData) ? rpcData.length : null,
+      rpcErr: rpcErr?.message ?? null,
+    },
+    "friends: rpc result",
+  );
+
+  if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+    const normalised = rpcData.map(normaliseFriendsRow);
     const enrichedCouple = await enrichWithCoupleData(supabase, normalised);
     const friendsWithPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+    req.log.info({ finalRows: friendsWithPolls.length }, "friends: rpc path — response sent");
     res.json({ data: friendsWithPolls, source: "rpc" });
     return;
   }
 
-  // Fallback: direct posts query with explicit FK hint profile join.
-  const { data: freshData } = await supabase
+  // ── Step 2a: who does this user follow? (one-directional) ───────────────────
+  const { data: followRows, error: followErr } = await supabase
+    .from("follows")
+    .select("following_id")
+    .eq("follower_id", userId);
+
+  req.log.info(
+    {
+      userId: userId.slice(0, 8),
+      followCount: followRows?.length ?? 0,
+      followErr: followErr?.message ?? null,
+    },
+    "friends: follows query",
+  );
+
+  if (followErr) {
+    req.log.warn({ err: followErr.message }, "friends: follows query failed");
+    res.status(500).json({ error: followErr.message });
+    return;
+  }
+
+  const followedIds = (followRows ?? []).map((r: any) => r.following_id as string);
+
+  if (!followedIds.length) {
+    req.log.info({ userId: userId.slice(0, 8) }, "friends: user follows nobody — returning empty");
+    res.json({ data: [], source: "empty-no-follows" });
+    return;
+  }
+
+  // ── Step 2b: posts from followed authors ─────────────────────────────────────
+  // NOTE: the posts table does NOT have a `visibility` column — do not filter on
+  // it (42703 error).  Filter only on is_archived which exists.
+  const { data: freshData, error: freshErr } = await supabase
     .from("posts")
     .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
-    .or("visibility.eq.public,visibility.is.null")
+    .in("user_id", followedIds)
     .or("is_archived.eq.false,is_archived.is.null")
     .order("created_at", { ascending: false })
-    .limit(limit)
     .range(offset, offset + limit - 1);
+
+  req.log.info(
+    {
+      followedCount: followedIds.length,
+      postRows: freshData?.length ?? 0,
+      freshErr: freshErr?.message ?? null,
+    },
+    "friends: posts query",
+  );
+
+  if (freshErr) {
+    req.log.warn({ err: freshErr.message }, "friends: posts query failed");
+    res.status(500).json({ error: freshErr.message });
+    return;
+  }
 
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   const freshWithPolls = await enrichWithPolls(supabase, freshEnriched, userId);
+  // Strip any archived posts that slipped through (RPC parity)
+  const cleaned = freshWithPolls.filter((p: any) => p.is_archived !== true);
+
+  req.log.info(
+    { finalRows: cleaned.length, rpcErr: rpcErr?.message ?? null },
+    "friends: following-fallback response sent",
+  );
   res.json({
-    data: freshWithPolls,
-    source: "fresh",
-    error: error?.message,
+    data: cleaned,
+    source: "following",
+    rpcErr: rpcErr?.message ?? null,
   });
 });
 

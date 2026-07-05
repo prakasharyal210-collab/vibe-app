@@ -64587,25 +64587,72 @@ router28.get("/friends", async (req, res) => {
     return;
   }
   const supabase = makeSupabase23();
-  const { data, error } = await supabase.rpc("get_friends_feed", {
+  const { data: rpcData, error: rpcErr } = await supabase.rpc("get_friends_feed", {
     p_user_id: userId,
     p_limit: limit,
     p_offset: offset
   });
-  if (!error && Array.isArray(data) && data.length > 0) {
-    const normalised = data.map(normaliseFriendsRow);
+  req.log.info(
+    {
+      userId: userId.slice(0, 8),
+      rpcRows: Array.isArray(rpcData) ? rpcData.length : null,
+      rpcErr: rpcErr?.message ?? null
+    },
+    "friends: rpc result"
+  );
+  if (!rpcErr && Array.isArray(rpcData) && rpcData.length > 0) {
+    const normalised = rpcData.map(normaliseFriendsRow);
     const enrichedCouple = await enrichWithCoupleData(supabase, normalised);
     const friendsWithPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+    req.log.info({ finalRows: friendsWithPolls.length }, "friends: rpc path \u2014 response sent");
     res.json({ data: friendsWithPolls, source: "rpc" });
     return;
   }
-  const { data: freshData } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").or("visibility.eq.public,visibility.is.null").or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).limit(limit).range(offset, offset + limit - 1);
+  const { data: followRows, error: followErr } = await supabase.from("follows").select("following_id").eq("follower_id", userId);
+  req.log.info(
+    {
+      userId: userId.slice(0, 8),
+      followCount: followRows?.length ?? 0,
+      followErr: followErr?.message ?? null
+    },
+    "friends: follows query"
+  );
+  if (followErr) {
+    req.log.warn({ err: followErr.message }, "friends: follows query failed");
+    res.status(500).json({ error: followErr.message });
+    return;
+  }
+  const followedIds = (followRows ?? []).map((r) => r.following_id);
+  if (!followedIds.length) {
+    req.log.info({ userId: userId.slice(0, 8) }, "friends: user follows nobody \u2014 returning empty");
+    res.json({ data: [], source: "empty-no-follows" });
+    return;
+  }
+  const { data: freshData, error: freshErr } = await supabase.from("posts").select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)").in("user_id", followedIds).or("is_archived.eq.false,is_archived.is.null").order("created_at", { ascending: false }).range(offset, offset + limit - 1);
+  req.log.info(
+    {
+      followedCount: followedIds.length,
+      postRows: freshData?.length ?? 0,
+      freshErr: freshErr?.message ?? null
+    },
+    "friends: posts query"
+  );
+  if (freshErr) {
+    req.log.warn({ err: freshErr.message }, "friends: posts query failed");
+    res.status(500).json({ error: freshErr.message });
+    return;
+  }
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   const freshWithPolls = await enrichWithPolls(supabase, freshEnriched, userId);
+  const cleaned = freshWithPolls.filter((p) => p.is_archived !== true);
+  req.log.info(
+    { finalRows: cleaned.length, rpcErr: rpcErr?.message ?? null },
+    "friends: following-fallback response sent"
+  );
   res.json({
-    data: freshWithPolls,
-    source: "fresh",
-    error: error?.message
+    data: cleaned,
+    source: "following",
+    rpcErr: rpcErr?.message ?? null
   });
 });
 router28.get("/reels", async (req, res) => {

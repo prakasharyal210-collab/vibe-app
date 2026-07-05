@@ -1,0 +1,17 @@
+One prompt, everything outstanding, fire and forget:
+
+PRE-SUBMISSION CLEANUP + FRIENDS FEED FIX — final batch before 1.0.2 store build
+PART A — Census cleanup (from the feature audit):
+
+live.tsx — gate it: remove/disable every UI entry point that navigates to it (report where they were), keep the file. If a visible entry should remain, use the same locked Coming-Soon pattern as the Advertise row (lock icon, 0.6 opacity, alert on tap). Fake live streaming with hardcoded viewers must not be reachable in a store build.
+sounds/[title].tsx + location/[name].tsx — delete the picsum mock fallbacks; add proper empty states ("No posts with this sound yet 🎵" / "No posts from this location yet 📍") matching the app's empty-state style.
+leaderboard.tsx — confirmed unreachable + mock fallback: remove MOCK_LEADERBOARD and its fallback; leave the screen unwired (no new entry point).
+privacy-settings.tsx — (a) Fix the column mismatch: the screen saves comment_permission but comments.ts:189 reads who_can_comment — align both to who_can_comment (verify against live schema; migrate the screen's save key, not the DB). (b) Verify which toggles are actually enforced server-side (mention_permission and story_permission confirmed enforced; check who_can_message — it IS enforced in messages.ts). (c) For every UNENFORCED toggle (post_view_permission, activity_visibility, story_reply_permission, and any others found): grey out with a "Coming soon" label so no privacy toggle lies to users.
+advertise.tsx — replace its direct anon supabase.from("ad_campaigns") insert with a call to the existing /api/ads/campaign route (architecture rule: mobile never calls supabase directly). Screen stays unwired.
+
+PART B — Friends feed empty for haceriz (follows accounts with content):
+
+In /api/feed/friends: report the EXACT relationship filter — mutual follows required, or just accounts I follow? The empty-state copy ("Follow people back") suggests mutual. If mutual-only: change to one-directional (posts from everyone I follow) — Instagram behavior. Log the pipeline for haceriz's id: follows count → resolved author ids → posts passing filters → where it drops to zero; { data, error } checked at each step, report any swallowed error. Check the RPC-vs-fallback path (does an RPC failure return empty instead of falling back?). Update the empty-state copy to match the final rule.
+
+Rules: api-server service-role; { data, error } destructured; live-schema column names; typecheck both packages.
+Report: per-item what was found + changed (files/lines), the friends-feed relationship rule before→after with logged counts, any surprises. Do not push or deploy.
