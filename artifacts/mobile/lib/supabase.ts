@@ -103,6 +103,7 @@ export interface Message {
   shared_content_type?: "post" | "reel" | "confession";
   shared_content_id?: string;
   shared_preview?: SharedPreview;
+  reactions?: Array<{ userId: string; emoji: string }>;
 }
 
 export interface Conversation {

@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -24,7 +25,8 @@ import { SnapCaptureSheet, SnapViewerModal } from "@/components/SnapViewer";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { fetchMessages, getOtherUserActivity, markMessagesRead, sendMessageToUser } from "@/lib/db";
+import { fetchMessages, getOtherUserActivity, markMessagesRead, reactToMessage, sendMessageToUser } from "@/lib/db";
+import { ReactionPickerModal } from "@/components/ReactionPickerModal";
 import { SharedContentCard } from "@/components/SharedContentCard";
 import {
   encodeSnap,

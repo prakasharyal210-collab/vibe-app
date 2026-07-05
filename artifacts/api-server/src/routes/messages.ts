@@ -199,6 +199,25 @@ async function enrichSharedMessages(
   });
 }
 
+// Enrich messages with their emoji reactions (emoji + userId per message).
+async function enrichReactions(
+  messages: any[],
+  sb: ReturnType<typeof makeSupabase>,
+): Promise<any[]> {
+  const ids = messages.map((m) => m.id as string).filter(Boolean);
+  if (!ids.length) return messages;
+  const { data } = await sb
+    .from("message_reactions")
+    .select("message_id, user_id, emoji")
+    .in("message_id", ids);
+  const map = new Map<string, Array<{ userId: string; emoji: string }>>();
+  for (const r of (data ?? []) as any[]) {
+    if (!map.has(r.message_id)) map.set(r.message_id, []);
+    map.get(r.message_id)!.push({ userId: r.user_id, emoji: r.emoji });
+  }
+  return messages.map((m) => ({ ...m, reactions: map.get(m.id) ?? [] }));
+}
+
 // GET /api/messages?myId=&otherId=&limit=100
 // Fetch messages between two users (service-role bypasses RLS)
 router.get("/", async (req, res) => {
@@ -225,7 +244,8 @@ router.get("/", async (req, res) => {
     return;
   }
   const normalised = (data ?? []).map(normalise);
-  res.json({ messages: await enrichSharedMessages(normalised, myId, sb) });
+  const withShared = await enrichSharedMessages(normalised, myId, sb);
+  res.json({ messages: await enrichReactions(withShared, sb) });
 });
 
 // POST /api/messages
@@ -630,6 +650,16 @@ router.post("/react", async (req, res) => {
     return;
   }
   const sb = makeSupabase();
+  // Verify the reactor is a participant in this conversation
+  const { data: msgRow } = await sb
+    .from("messages")
+    .select("sender_id, receiver_id")
+    .eq("id", messageId)
+    .maybeSingle();
+  if (!msgRow || ((msgRow as any).sender_id !== userId && (msgRow as any).receiver_id !== userId)) {
+    res.status(403).json({ error: "Not a participant in this conversation" });
+    return;
+  }
   try {
     const { data: existing } = await sb
       .from("message_reactions")

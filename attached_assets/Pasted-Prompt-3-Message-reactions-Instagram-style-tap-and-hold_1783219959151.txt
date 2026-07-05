@@ -1,0 +1,27 @@
+Prompt 3 — Message reactions (Instagram-style tap-and-hold):
+
+Build message emoji reactions in the chat (artifacts/mobile + artifacts/api-server). Architecture rules: all DB via api-server service-role; always destructure { data, error }; verify column names against live schema.
+
+Migration (output SQL, don't run): new table message_reactions: id uuid pk default gen_random_uuid(), message_id uuid NOT NULL references messages(id) on delete cascade, user_id uuid NOT NULL, emoji text NOT NULL, created_at timestamptz default now(), UNIQUE(message_id, user_id) — one reaction per user per message, changeable via upsert. RLS enabled + service_role policy, consistent with existing tables. Index on message_id.
+API: POST /api/messages/:messageId/react body { emoji } — upsert (tapping a different emoji replaces; tapping the SAME emoji removes the reaction — check-then-delete on match). Verify the reactor is a participant in that conversation. Include reactions (emoji + count + whether viewer reacted) in the GET /messages enrichment.
+Mobile: long-press on any message bubble → small emoji picker row appears above the bubble (quick set: ❤️ 😂 😮 😢 🔥 👍 — Instagram-style, plus check if the app has an existing emoji picker to reuse for "more"). Selected reaction renders as a small badge on the bubble's bottom corner (emoji + count if >1). Tapping the badge shows who reacted (simple list). Works on text, photo, and shared-content messages.
+Realtime: check how new messages currently arrive (per the audit — subscription or polling) and make reactions update the same way so both sides see them live.
+⚠️ Gesture check: verify long-press doesn't conflict with any existing message gestures (copy? snap-photo viewing?). Report what long-press currently does on messages.
+Typecheck both, report files changed + migration SQL for review.
+
+
+
+Prompt 4 — Reply-to-message (swipe to quote):
+
+Build reply-to-message (quote replies) in the chat. Same architecture rules.
+
+Migration (output SQL, don't run): ALTER TABLE messages ADD COLUMN IF NOT EXISTS reply_to_message_id uuid NULL REFERENCES messages(id) ON DELETE SET NULL;
+API: send endpoint accepts reply_to_message_id; GET /messages enriches replies with a compact quoted payload of the original (sender username, text snippet 60 chars or "📷 Photo" / "📎 Shared post" for non-text types). Handle deleted originals ("Message deleted").
+Mobile: swipe-right on any message bubble → sets reply context: a small quoted preview bar appears above the text input (original sender + snippet + × to cancel), send attaches the id. In the thread, reply messages render the quoted snippet in a muted mini-block above the bubble text; tapping the quote scrolls to the original message (if loaded).
+⚠️ Gesture check: swipe-right must not conflict with existing gestures (back-navigation swipe on the screen edge, any swipe-to-delete). Use a proper gesture handler with an activation threshold; report what swipe currently does.
+Reactions (from Prompt 3) and replies must coexist on the same message.
+Typecheck both, report files changed + migration SQL for review.
+
+
+
+Both come back with migration SQL for review before running — same drill. Run 3 first, ship it, then 4 (they touch the same files; sequential avoids merge chaos).

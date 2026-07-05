@@ -896,6 +896,20 @@ export async function sendMessageToUser(
   return null;
 }
 
+export async function reactToMessage(
+  messageId: string,
+  userId: string,
+  emoji: string,
+): Promise<{ reacted: boolean; emoji: string }> {
+  const res = await fetch(`${API_BASE}/messages/react`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messageId, userId, emoji }),
+  });
+  if (!res.ok) throw new Error("react failed");
+  return res.json();
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export async function searchProfiles(query: string, viewerId?: string): Promise<Profile[]> {
