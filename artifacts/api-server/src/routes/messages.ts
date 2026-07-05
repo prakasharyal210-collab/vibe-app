@@ -214,6 +214,8 @@ router.post("/", async (req, res) => {
 // Mark all messages from sender to receiver as read (sets read_at = now).
 // Registered BEFORE /:id so the literal path wins over the param route.
 // body: { myId, otherId }
+// Read receipts are withheld while the conversation is a pending request
+// (otherId sent myId a request that hasn't been accepted yet) — Instagram rule.
 router.patch("/read", async (req, res) => {
   const { myId, otherId } = req.body as { myId?: string; otherId?: string };
   if (!myId || !otherId) {
@@ -222,6 +224,28 @@ router.patch("/read", async (req, res) => {
   }
   const sb = makeSupabase();
   try {
+    // Check if the conversation is a pending request FROM otherId TO myId.
+    // If so, withhold read receipts — the sender should not know the recipient
+    // has seen the messages until they explicitly Accept the request.
+    const [u1, u2] = [myId, otherId].sort();
+    const { data: conv } = await sb
+      .from("conversations")
+      .select("is_request, requested_by")
+      .eq("user1_id", u1)
+      .eq("user2_id", u2)
+      .maybeSingle();
+
+    const isPendingRequestFromOther =
+      conv &&
+      (conv as any).is_request === true &&
+      (conv as any).requested_by === otherId;
+
+    if (isPendingRequestFromOther) {
+      // Silently succeed but do NOT update read_at — sender stays unaware
+      res.json({ ok: true });
+      return;
+    }
+
     await sb
       .from("messages")
       .update({ read_at: new Date().toISOString() })
