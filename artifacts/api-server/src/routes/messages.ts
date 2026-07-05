@@ -363,6 +363,42 @@ router.post("/", async (req, res) => {
     }
   }
 
+  // ── Vibe-match gate ────────────────────────────────────────────────────────
+  // Two users with no social relationship (neither follows the other) can only
+  // DM if they have a mutual vibe_match.  This is the server-side enforcement
+  // for the Find Vibe "messaging is earned by a match" rule — the UI no longer
+  // offers a pre-match contact path, but this gate ensures the constraint holds
+  // even if the API is called directly.
+  //
+  // "Social relationship" = at least one follow in either direction.
+  // If both a social relationship AND who_can_message restrictions already
+  // passed above, we skip this check (the social gate already applied).
+  // This only bites strangers: people who found each other via Find Vibe and
+  // have not yet followed each other.
+  {
+    const [followAB, followBA] = await Promise.all([
+      sb.from("follows").select("follower_id")
+        .eq("follower_id", senderId).eq("following_id", receiverId).maybeSingle(),
+      sb.from("follows").select("follower_id")
+        .eq("follower_id", receiverId).eq("following_id", senderId).maybeSingle(),
+    ]);
+    const hasSocialRelationship = !!(followAB.data || followBA.data);
+
+    if (!hasSocialRelationship) {
+      // Require a mutual vibe_match (both directions must be present with status='matched').
+      const [matchAB, matchBA] = await Promise.all([
+        sb.from("vibe_matches").select("id")
+          .eq("sender_id", senderId).eq("receiver_id", receiverId).eq("status", "matched").maybeSingle(),
+        sb.from("vibe_matches").select("id")
+          .eq("sender_id", receiverId).eq("receiver_id", senderId).eq("status", "matched").maybeSingle(),
+      ]);
+      if (!matchAB.data || !matchBA.data) {
+        res.status(403).json({ error: "You can only message your matches" });
+        return;
+      }
+    }
+  }
+
   // DB column is "content", not "text".
   // Auto-detect snap messages so Snaps tab can filter by message_type='snap'.
   const isSnap = (text ?? "").startsWith("__SNAP__:");

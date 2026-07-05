@@ -1,0 +1,21 @@
+You're restructuring Find Vibe from "anyone can message on sight" to proper match-gated messaging — that's the correct dating-app model (Tinder/Hinge/Bumble all work this way). Messaging is EARNED by a mutual match, not free on first sight. It also kills the creep vector of strangers spamming icebreakers.
+
+FIND VIBE FLOW CHANGE: Remove icebreaker popup — messaging only unlocks after MUTUAL vibe match
+Current broken flow: viewing/swiping a profile in Find Vibe pops a "Send a Message 💜 / Break the ice" sheet with icebreaker options — letting users message people who never accepted them. Remove this entirely and enforce the standard dating-app rule:
+THE RULE:
+
+Person A sends a vibe (likes/swipes right on) Person B.
+Person B sees the request and can accept (vibe back) or deny. Denial is silent — A is never notified of a rejection.
+Messaging between two people in Find Vibe unlocks ONLY when both have vibed each other (mutual match) — the existing vibe_matches mutual-detection already writes both directions; that's the gate.
+No icebreaker popup, no "send a message before connecting" — ever. Pre-match contact does not exist in Find Vibe.
+
+CHANGES:
+
+Remove the icebreaker sheet (the "Send a Message 💜 / Break the ice with X" bottom sheet with music/travel/coffee/game/sunset options + "Skip ice breaker") from the Find Vibe deck flow in artifacts/mobile/. Delete its trigger; the component file can stay if referenced elsewhere, but nothing in Find Vibe should open it. Report what triggered it (on swipe? on profile open?).
+Swipe flow becomes pure: swipe right/vibe = sends the vibe silently, next card. Swipe left = pass, next card. No interruption between cards.
+Server-side gate (critical — UI hiding is not enforcement): in artifacts/api-server, the message-send path must reject (403 "You can only message your matches") any Find Vibe–context DM between users who do NOT have a mutual match in vibe_matches — unless they already have a normal social relationship that permits DMs (the who_can_message + follows logic from the messages rebuild stays as-is for the social side; this gate is specifically for Find Vibe strangers). Report how the two contexts are distinguished or reconciled.
+Match moment stays: when a mutual match occurs, the existing match celebration/Matches tab flow is the entry point to chat (MatchChatView). Verify that path still works after removing the icebreaker sheet.
+Deny flow: confirm what denying/passing on an incoming vibe request does today — it must NOT notify the sender, and must remove the request from the receiver's view. Report current behavior.
+
+Rules: all DB via api-server service-role; { data, error } destructured; verify column names against live schema (vibe_matches, vibe_swipes, vibe_requests); mobile never calls supabase.from/.rpc.
+Typecheck, report: what triggered the popup, files changed, how the server gate distinguishes vibe-context from social-context messaging, deny behavior. Do not push or deploy.

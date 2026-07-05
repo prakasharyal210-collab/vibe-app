@@ -1016,7 +1016,6 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
   const [matchCard, setMatchCard] = useState<VibeCard | null>(null);
   const [gameCard, setGameCard] = useState<VibeCard | null>(null);
-  const [iceBreakerCard, setIceBreakerCard] = useState<VibeCard | null>(null);
   const [achievement, setAchievement] = useState<Achievement | null>(null);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -1041,11 +1040,6 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       })
       .catch(() => {});
   }, [userId]);
-
-  const proceedAfterIceBreaker = (card: VibeCard) => {
-    setIceBreakerCard(null);
-    setTimeout(() => setGameCard(card), 300);
-  };
 
   const handleSwipe = useCallback((direction: "left" | "right", isSuper = false) => {
     const card = cards[currentIndex];
@@ -1104,18 +1098,12 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
     if (userId && card) {
       vibeSwipe(userId, card.id, isSuper ? "super" : direction)
         .then((result) => {
-          if (direction === "right" || isSuper) {
-            if (result === "matched") {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setTimeout(() => setMatchCard(card), 400);
-            } else if (!isSuper) {
-              setTimeout(() => setIceBreakerCard(card), 400);
-            }
+          if ((direction === "right" || isSuper) && result === "matched") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            setTimeout(() => setMatchCard(card), 400);
           }
         })
-        .catch(() => {
-          if (direction === "right" && !isSuper) setTimeout(() => setIceBreakerCard(card), 400);
-        });
+        .catch(() => {});
       if (direction === "right" || isSuper) {
         updateVibeScore(userId, 10, "Sent vibe").catch(() => {});
         checkAchievements(userId)
@@ -1126,8 +1114,6 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       if (isSuper) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         setTimeout(() => setMatchCard(card), 500);
-      } else if (direction === "right") {
-        setTimeout(() => setIceBreakerCard(card), 400);
       }
     }
   }, [cards, currentIndex, userId, translateX, translateY, dailySwipeCount, consecutiveLefts, cooldownUntil]);
@@ -1290,14 +1276,6 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       {matchCard && <MatchOverlay card={matchCard} onClose={() => setMatchCard(null)} />}
       <AchievementModal visible={!!achievement} achievement={achievement} onClose={() => setAchievement(null)} />
 
-      <IceBreakerSheet
-        card={iceBreakerCard}
-        visible={!!iceBreakerCard}
-        onSend={(card, msg) => {
-          proceedAfterIceBreaker(card);
-        }}
-        onSkip={(card) => proceedAfterIceBreaker(card)}
-      />
 
       <VibeGamesModal
         card={gameCard}
