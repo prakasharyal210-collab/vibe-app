@@ -1271,12 +1271,15 @@ export default function SettingsScreen() {
         ════════════════════════════════════════════════════ */}
         <View style={styles.section}>
           <SecLabel label="Creator Tools" />
-          <Card>
-            <Row icon="megaphone-outline" iconBg="#7C3AED" label="Advertise on Gundruk"
-              sub="Reach millions of engaged users"
-              onPress={() => router.push("/advertise" as any)}
-              isLast />
-          </Card>
+          <View style={{ opacity: 0.6 }}>
+            <Card>
+              <Row icon="megaphone-outline" iconBg="#7C3AED" label="Advertise on Gundruk"
+                sub="Coming soon"
+                onPress={() => Alert.alert("Coming soon 🚀", "Advertising is coming soon — stay tuned!")}
+                rightEl={<Ionicons name="lock-closed-outline" size={16} color="#7C3AED" />}
+                isLast />
+            </Card>
+          </View>
         </View>
 
         {/* ════════════════════════════════════════════════════
