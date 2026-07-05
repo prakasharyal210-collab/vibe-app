@@ -54,15 +54,9 @@ export default function LocationScreen() {
         const c: number = json.count ?? 0;
         setPosts(data);
         setCount(c);
-        if (!data.length) throw new Error("empty");
+        // data.length === 0 is handled by ListEmptyComponent — no fake fallback
       } catch {
-        const mock = Array.from({ length: 9 }, (_, i) => ({
-          id: String(i),
-          image_url: `https://picsum.photos/seed/loc${name}${i}/300/300`,
-          likes_count: Math.floor(Math.random() * 8000 + 200),
-        }));
-        setPosts(mock);
-        setCount(Math.floor(Math.random() * 5000 + 100));
+        // network error — posts stays []
       } finally {
         setLoading(false);
       }

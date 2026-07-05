@@ -51,13 +51,8 @@ export default function SoundsScreen() {
       .then(({ data }) => {
         if (data?.length) {
           setPosts(data);
-        } else {
-          setPosts(Array.from({ length: 6 }, (_, i) => ({
-            id: String(i),
-            image_url: `https://picsum.photos/seed/snd${title}${i}/300/300`,
-            likes_count: Math.floor(Math.random() * 5000 + 50),
-          })));
         }
+        // else: leave posts as [] — ListEmptyComponent handles the empty state
       })
       .then(() => setLoading(false), () => setLoading(false));
   }, [title]);
@@ -138,7 +133,15 @@ export default function SoundsScreen() {
           )
         )}
         ListEmptyComponent={
-          loading ? <View style={styles.loader}><ActivityIndicator color="#7C3AED" size="large" /></View> : null
+          loading
+            ? <View style={styles.loader}><ActivityIndicator color="#7C3AED" size="large" /></View>
+            : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyEmoji}>🎵</Text>
+                <Text style={styles.emptyTitle}>No posts with this sound yet</Text>
+                <Text style={styles.emptySub}>Be the first to use it!</Text>
+              </View>
+            )
         }
       />
     </View>
@@ -162,6 +165,10 @@ const styles = StyleSheet.create({
   actionBtnText: { fontSize: 13, fontFamily: "Poppins_600SemiBold", color: "#7C3AED" },
   sectionLabel: { fontSize: 12, fontFamily: "Poppins_600SemiBold", paddingHorizontal: 16, paddingBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
   loader: { height: 200, alignItems: "center", justifyContent: "center" },
+  emptyState: { alignItems: "center", paddingVertical: 60, paddingHorizontal: 24 },
+  emptyEmoji: { fontSize: 40, marginBottom: 12 },
+  emptyTitle: { fontSize: 15, fontFamily: "Poppins_600SemiBold", color: "#fff", marginBottom: 6, textAlign: "center" },
+  emptySub: { fontSize: 13, fontFamily: "Poppins_400Regular", color: "#9CA3AF", textAlign: "center" },
   gridImg: { width: ITEM, height: ITEM },
   reelBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.55)", borderRadius: 4, padding: 3 },
   likesRow: { position: "absolute", bottom: 5, left: 6, flexDirection: "row", alignItems: "center", gap: 3 },

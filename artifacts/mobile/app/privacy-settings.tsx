@@ -246,9 +246,9 @@ export default function PrivacySettingsScreen() {
     fetchUserSettings(userId).then((s) => {
       setPrivateAccount(s.private_account);
       setPostViewPermission(s.post_view_permission);
-      setCommentPermission(s.comment_permission);
+      setCommentPermission(s.who_can_comment);
       setMentionPermission(s.mention_permission);
-      setMessagePermission(s.message_permission);
+      setMessagePermission(s.who_can_message);
       setActivityVisibility(s.activity_visibility);
       setStoryPermission(s.story_permission);
       setStoryReplyPermission(s.story_reply_permission);
@@ -307,9 +307,10 @@ export default function PrivacySettingsScreen() {
             <PRow
               icon="eye-outline" iconBg="#3B82F6"
               label="Who can see your posts"
-              sub={labelFor(POST_VIEW_OPTIONS, postViewPermission)}
+              sub={`${labelFor(POST_VIEW_OPTIONS, postViewPermission)} · Coming soon`}
               onPress={() => setShowPostViewPicker(true)}
               rightEl={chevron}
+              faded
               isLast
             />
           </PCard>
@@ -384,15 +385,17 @@ export default function PrivacySettingsScreen() {
             <PRow
               icon="radio-button-on-outline" iconBg="#06B6D4"
               label="Show Activity Status"
-              sub={activityVisibility ? "Others can see when you're online" : "Your activity status is hidden"}
+              sub={(activityVisibility ? "Others can see when you're online" : "Your activity status is hidden") + " · Coming soon"}
               rightEl={
                 <Switch
                   value={activityVisibility}
                   onValueChange={(v) => { setActivityVisibility(v); save({ activity_visibility: v }); }}
                   trackColor={{ false: colors.muted, true: "#06B6D4" }}
                   thumbColor="#fff"
+                  disabled
                 />
               }
+              faded
               isLast
             />
           </PCard>
@@ -412,9 +415,10 @@ export default function PrivacySettingsScreen() {
             <PRow
               icon="return-up-back-outline" iconBg="#6366F1"
               label="Allow Story Replies"
-              sub={labelFor(STORY_REPLY_OPTIONS, storyReplyPermission)}
+              sub={`${labelFor(STORY_REPLY_OPTIONS, storyReplyPermission)} · Coming soon`}
               onPress={() => setShowStoryReplyPicker(true)}
               rightEl={chevron}
+              faded
               isLast
             />
           </PCard>
@@ -434,7 +438,7 @@ export default function PrivacySettingsScreen() {
       <OptionPicker
         visible={showCommentPicker} title="Who can comment on your posts"
         options={COMMENT_OPTIONS} selected={commentPermission}
-        onSelect={(v) => { setCommentPermission(v); save({ comment_permission: v as any }); }}
+        onSelect={(v) => { setCommentPermission(v); save({ who_can_comment: v as any }); }}
         onClose={() => setShowCommentPicker(false)}
       />
       <OptionPicker
@@ -446,7 +450,7 @@ export default function PrivacySettingsScreen() {
       <OptionPicker
         visible={showMessagePicker} title="Who can send you DMs"
         options={MESSAGE_OPTIONS} selected={messagePermission}
-        onSelect={(v) => { setMessagePermission(v); save({ message_permission: v as any }); }}
+        onSelect={(v) => { setMessagePermission(v); save({ who_can_message: v as any }); }}
         onClose={() => setShowMessagePicker(false)}
       />
       <OptionPicker

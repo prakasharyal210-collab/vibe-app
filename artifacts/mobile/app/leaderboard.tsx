@@ -21,17 +21,7 @@ const REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 type Period = "weekly" | "monthly" | "alltime";
 
-const MOCK_LEADERBOARD: LeaderboardEntry[] = Array.from({ length: 10 }, (_, i) => ({
-  id: `lb${i}`,
-  user_id: `u${i}`,
-  period: "weekly",
-  rank: i + 1,
-  score: Math.floor(10000 - i * 780 + Math.random() * 200),
-  profiles: {
-    username: ["luna_sky", "marcus_vibe", "zoe.creates", "kai_adventures", "nadia.official", "alex.w", "maya_art", "jay_create", "sofia_near", "mia_nearby"][i],
-    avatar_url: undefined,
-  },
-}));
+// MOCK_LEADERBOARD removed — screen shows real data only or an empty state.
 
 function RankBadge({ rank }: { rank: number }) {
   if (rank === 1) return <Text style={styles.medal}>👑</Text>;
@@ -45,7 +35,7 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
-function LeaderboardRow({ entry, index }: { entry: LeaderboardEntry; index: number }) {
+function LeaderboardRow({ entry, index, maxScore }: { entry: LeaderboardEntry; index: number; maxScore: number }) {
   const colors = useColors();
   const slideAnim = useRef(new Animated.Value(40)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -105,7 +95,7 @@ function LeaderboardRow({ entry, index }: { entry: LeaderboardEntry; index: numb
               end={{ x: 1, y: 0 }}
               style={[
                 styles.scoreBarFill,
-                { width: `${Math.min(100, (entry.score / (MOCK_LEADERBOARD[0]?.score ?? 10000)) * 100)}%` as any },
+                { width: `${Math.min(100, (entry.score / maxScore) * 100)}%` as any },
               ]}
             />
           </View>
@@ -125,7 +115,7 @@ export default function LeaderboardScreen() {
   const insets = useSafeAreaInsets();
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const [period, setPeriod] = useState<Period>("weekly");
-  const [entries, setEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState(Date.now());
   const [countdown, setCountdown] = useState("");
@@ -133,8 +123,7 @@ export default function LeaderboardScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     const data = await fetchLeaderboard(period);
-    if (data.length > 0) setEntries(data);
-    else setEntries(MOCK_LEADERBOARD.map(e => ({ ...e, period })));
+    setEntries(data);
     setLastRefreshed(Date.now());
     setLoading(false);
   }, [period]);
@@ -215,7 +204,14 @@ export default function LeaderboardScreen() {
         <FlatList
           data={entries}
           keyExtractor={(e) => e.id}
-          renderItem={({ item, index }) => <LeaderboardRow entry={item} index={index} />}
+          renderItem={({ item, index }) => <LeaderboardRow entry={item} index={index} maxScore={entries[0]?.score ?? 10000} />}
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", paddingVertical: 64 }}>
+              <Text style={{ fontSize: 32, marginBottom: 12 }}>🏆</Text>
+              <Text style={{ color: "#fff", fontSize: 15, fontFamily: "Poppins_600SemiBold", marginBottom: 6 }}>No rankings yet</Text>
+              <Text style={{ color: "#9CA3AF", fontSize: 13, fontFamily: "Poppins_400Regular" }}>Rankings will appear once creators start posting</Text>
+            </View>
+          }
           ListHeaderComponent={
             <View style={styles.podium}>
               <Text style={styles.podiumTitle}>This Week's Vibers</Text>

@@ -889,8 +889,8 @@ export default function SettingsScreen() {
     if (!userId) return;
     fetchUserSettings(userId).then((s) => {
       setPrivateAccount(s.private_account);
-      setCommentPermission(s.comment_permission);
-      setMessagePermission(s.message_permission);
+      setCommentPermission(s.who_can_comment);
+      setMessagePermission(s.who_can_message);
       setDuetPermission(s.duet_permission);
       setLikedPrivate(s.liked_private);
     }).catch(() => {});
@@ -1364,10 +1364,10 @@ export default function SettingsScreen() {
 
       {/* ── Pickers ── */}
       <OptionPicker visible={showCommentPicker} title="Who can comment" options={COMMENT_OPTIONS} selected={commentPermission}
-        onSelect={(v) => { setCommentPermission(v); persistSetting({ comment_permission: v as any }); showToast("Saved ✅"); }}
+        onSelect={(v) => { setCommentPermission(v); persistSetting({ who_can_comment: v as any }); showToast("Saved ✅"); }}
         onClose={() => setShowCommentPicker(false)} />
       <OptionPicker visible={showMessagePicker} title="Who can message me" options={MESSAGE_OPTIONS} selected={messagePermission}
-        onSelect={(v) => { setMessagePermission(v); persistSetting({ message_permission: v as any }); showToast("Saved ✅"); }}
+        onSelect={(v) => { setMessagePermission(v); persistSetting({ who_can_message: v as any }); showToast("Saved ✅"); }}
         onClose={() => setShowMessagePicker(false)} />
       <OptionPicker visible={showDuetPicker} title="Who can duet / remix" options={DUET_OPTIONS} selected={duetPermission}
         onSelect={(v) => { setDuetPermission(v); persistSetting({ duet_permission: v as any }); showToast("Saved ✅"); }}

@@ -15,7 +15,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/lib/supabase";
 
 const CTA_OPTIONS = [
   "Learn More",
