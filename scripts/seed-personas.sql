@@ -459,25 +459,6 @@ INSERT INTO public.couple_links (
 ON CONFLICT (requester_id, receiver_id) DO NOTHING;
 
 
--- ---------------------------------------------------------------------------
--- 5. Update profiles.couple_id for the linked personas
--- ---------------------------------------------------------------------------
-
-UPDATE public.profiles
-SET couple_id = 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01'
-WHERE id IN (
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05',
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06'
-);
-
-UPDATE public.profiles
-SET couple_id = 'c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02'
-WHERE id IN (
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14',
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15'
-);
-
-
 COMMIT;
 
 
