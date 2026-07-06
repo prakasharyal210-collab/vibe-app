@@ -8,6 +8,8 @@
     "supabase-migrate": "tsx ./src/supabase-migrate.mts",
     "run-couple-migration": "tsx ./src/run-couple-migration.mts",
     "run-couple-feed-migration": "tsx ./src/run-couple-feed-migration.mts",
+    "generate-seed-content": "tsx ./src/generate-seed-content.ts",
+    "seed-content": "tsx ./src/seed-content.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

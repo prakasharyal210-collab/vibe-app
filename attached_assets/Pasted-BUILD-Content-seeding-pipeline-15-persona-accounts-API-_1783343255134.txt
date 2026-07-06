@@ -1,0 +1,28 @@
+BUILD: Content seeding pipeline — 15 persona accounts + API-driven content seeder (Reddit-style cold start)
+We're seeding Gundruk with persona accounts posting authentic-feeling content so early real users never see an empty feed. Three deliverables. CRITICAL RULE: every persona account gets show_in_matching = false — seed accounts must NEVER appear in Find Vibe decks, never send/accept vibes, never DM. Content only.
+DELIVERABLE 1 — scripts/seed-personas.sql (SQL FILE ONLY, do not run — for my review):
+Creates 15 persona accounts: auth.users rows (confirmed emails like persona1@gundrukapp.com pattern, random secure passwords) + profiles rows. Personas — Nepali diaspora spread with distinct identities (name, username, city, bio in their voice):
+
+The Kathmandu foodie (momo/street food content)
+The Sydney student (homesick, uni life, diaspora feels)
+The trekking photographer (Pokhara/mountains)
+The meme lord (Nepali humor)
+The newly-married couple wife (couple/confession content)
+Her husband (the other half — these two get an accepted couple_links row so they can post couple content + confessions)
+The cricket/football fanatic
+The Toronto nurse (work-life, diaspora)
+The music guy (Nepali artists, lok dohori to rap)
+The fashion/thrift girl
+The London techie
+The gym bro (desi gains humor)
+The chiya addict / philosophy poster
+The Melbourne cafe couple - partner A
+Partner B (second accepted couple for confession variety + future Couple Quiz Battles between seed couples)
+Every profile: show_in_matching = false, realistic bios, created_at staggered across the past 3 weeks. Avatar URLs left as placeholder constants I'll fill (or use ui-avatars.com generated URLs as temporary defaults). Include a verification SELECT at the end.
+
+DELIVERABLE 2 — scripts/seed-content.ts (in artifacts/api-server or scripts/):
+A Node script that reads scripts/seed-content-batch.json and posts each item through the EXISTING api-server endpoints (running server required) — NOT direct supabase inserts — so moderation, counters, categories, and rendering all work exactly like real posts. Supports item types: post (caption + optional image URL from Pexels API — key already in env — searched by a query field per item), poll (question + 2-4 options, feed or confession), confession (couple personas only, with their couple context), comment (personaId comments on another seed post by index reference), like (persona likes a seed post). Each item: { personaUsername, type, payload, scheduleHint }. Script resolves persona userIds by username via the DB, posts sequentially with small random delays, logs each result, { data, error } checked everywhere, summary table at the end (created/failed). Add a --dry-run flag that validates the JSON and resolves personas without posting.
+DELIVERABLE 3 — scripts/generate-seed-content.ts:
+Uses the ANTHROPIC_API_KEY (same pattern as the moderation/welcome code) to generate seed-content-batch.json: takes the 15 persona definitions (embed their personality sheets in this script as the single source of truth), asks Claude to write 7 days of content: ~6-8 items/day mixed across personas — posts in each persona's distinct voice (Nepali-English code-switching where natural, "yo semester is killing me yaar" energy), 2-3 polls (fun debates: momo vs chowmein, arranged vs love marriage opinions — keep it warm not divisive), 2 couple confessions (relatable, wholesome-to-bittersweet range), and inter-persona comments so threads feel alive. Output valid JSON matching Deliverable 2's schema. Content rules baked into the generation prompt: no politics, no real people, nothing that would trip our own moderation, feels like real 20-somethings not marketing copy.
+Architectural rules: content creation ONLY via api-server endpoints; { data, error } destructured; verify column names against live schema (profiles: full_name, show_in_matching; couple_links: requester_id/receiver_id); SQL file output-only.
+Typecheck, report: the SQL file path, both script paths, how to run each, and paste 3 sample generated content items so I can check the voice quality. Do not run the SQL, do not execute the seeder against production yet.
