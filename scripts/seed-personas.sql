@@ -427,7 +427,17 @@ INSERT INTO public.profiles (
   NOW() - INTERVAL '2 days 12 hours'
 )
 
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  username          = EXCLUDED.username,
+  full_name         = EXCLUDED.full_name,
+  bio               = EXCLUDED.bio,
+  age               = EXCLUDED.age,
+  gender            = EXCLUDED.gender,
+  location          = EXCLUDED.location,
+  avatar_url        = EXCLUDED.avatar_url,
+  show_in_matching  = EXCLUDED.show_in_matching,
+  relationship_status = EXCLUDED.relationship_status,
+  created_at        = EXCLUDED.created_at;
 
 
 -- ---------------------------------------------------------------------------
