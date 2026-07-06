@@ -1,73 +1,85 @@
 [
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
-    "personaName": "Bikash Tamang",
-    "caption": "light finds a way through everything",
-    "category": "photography",
-    "imageQuery": "misty mountain peak sunrise dramatic light",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "when the steam hits different ✨ #food #foodie",
+    "category": "food",
+    "imageQuery": "ramen bowl steam close up dark food photography",
     "fallbackQueries": [
-      "foggy mountain landscape golden hour",
-      "landscape golden hour"
+      "noodle soup bowl dark background restaurant",
+      "food photography dark background"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
     "personaName": "Sagar Pandey",
-    "caption": "sometimes the setlist writes itself ✨",
+    "caption": "lost in the sound #music",
     "category": "music",
     "imageQuery": "concert stage lights crowd silhouette",
     "fallbackQueries": [
-      "music festival lights atmosphere",
-      "city bokeh night"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "when the broth hits different",
-    "category": "food",
-    "imageQuery": "ramen bowl close up steam dark background",
-    "fallbackQueries": [
-      "noodle soup restaurant photography moody",
-      "food photography dark background"
+      "music festival crowd sunset lights",
+      "portrait natural light"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
     "personaName": "Deepak Magar",
-    "caption": "leg day therapy 🏋️",
+    "caption": "leg day therapy 🏋️ #fitness #gymlife",
     "category": "fitness",
-    "imageQuery": "barbell squat gym dramatic lighting",
+    "imageQuery": "barbell deadlift gym dramatic lighting",
     "fallbackQueries": [
-      "weightlifting athlete intense focus",
+      "weight training equipment dark gym",
       "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "silence speaks volumes #photography #landscape",
+    "category": "photography",
+    "imageQuery": "misty mountain valley fog golden hour",
+    "fallbackQueries": [
+      "dramatic landscape morning light clouds",
+      "landscape golden hour"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "caption": "mornings done right ☕ #coffee #cafe",
+    "category": "food",
+    "imageQuery": "latte art heart top down natural light",
+    "fallbackQueries": [
+      "cappuccino foam design overhead cafe",
+      "food photography dark background"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
     "personaName": "Riya Gurung",
-    "caption": "finals week but make it golden hour",
+    "caption": "golden hour never misses ✨ #lifestyle #goldenhour",
     "category": "lifestyle",
-    "imageQuery": "university library window golden hour studying",
+    "imageQuery": "coastal sunset silhouette person walking beach",
     "fallbackQueries": [
-      "student desk books warm sunlight",
-      "cozy interior window light"
+      "beach golden hour waves soft light",
+      "landscape golden hour"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
     "personaName": "Nisha Thapa",
-    "caption": "vintage never apologizes",
+    "caption": "vintage energy only #fashion #style",
     "category": "fashion",
-    "imageQuery": "vintage clothing flat lay aesthetic dark",
+    "imageQuery": "vintage denim jacket flat lay textured fabric",
     "fallbackQueries": [
-      "thrift fashion pieces composition",
+      "thrift store clothing arrangement overhead",
       "portrait natural light"
     ]
   },
@@ -75,47 +87,35 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
     "personaName": "Kiran Adhikari",
-    "caption": "3am code hits different",
+    "caption": "late nights, clean code #tech #coding",
     "category": "tech",
-    "imageQuery": "laptop coding setup dark moody coffee",
+    "imageQuery": "laptop screen dark coffee shop moody lighting",
     "fallbackQueries": [
-      "developer workspace minimal night",
+      "macbook desk minimal setup night",
       "city bokeh night"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-    "personaName": "Sunita Poudel",
-    "caption": "rosetta game strong today",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "caption": "pasta carbonara solved my entire week #food #homecooking",
     "category": "food",
-    "imageQuery": "latte art top down coffee dark wood",
+    "imageQuery": "pasta carbonara close up dark food photography",
     "fallbackQueries": [
-      "specialty coffee cup morning aesthetic",
+      "spaghetti plate overhead moody kitchen",
       "food photography dark background"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
-    "personaName": "Priya Rai",
-    "caption": "slow mornings are underrated",
-    "category": "lifestyle",
-    "imageQuery": "cozy bedroom morning light window soft",
-    "fallbackQueries": [
-      "interior design warm natural sunlight",
-      "cozy interior window light"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
     "personaName": "Aakash Limbu",
-    "caption": "THAT GOAL THO",
+    "caption": "THAT'S HOW YOU DO IT 🔥 #sports #football",
     "category": "sports",
     "imageQuery": "stadium floodlights crowd celebration night",
     "fallbackQueries": [
-      "football match atmosphere dramatic",
+      "soccer goal net lights dramatic",
       "city bokeh night"
     ]
   },
@@ -123,35 +123,35 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
     "personaName": "Smriti Basnet",
-    "caption": "finding magic in the in-between moments",
-    "category": "spiritual",
-    "imageQuery": "tea cup window morning light peaceful",
+    "caption": "finding magic in the in-between moments #lifestyle #cozy",
+    "category": "lifestyle",
+    "imageQuery": "tea cup window morning light soft bokeh",
     "fallbackQueries": [
-      "meditation space soft bokeh calm",
+      "coffee mug rain window cozy",
       "cozy interior window light"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
-    "personaName": "Rohan Rai",
-    "caption": "carbonara solves everything",
-    "category": "food",
-    "imageQuery": "pasta carbonara close up dark food photography",
-    "fallbackQueries": [
-      "italian pasta plate restaurant lighting",
-      "food photography dark background"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
     "personaName": "Suraj Bhattarai",
-    "caption": "when the group chat goes silent",
+    "caption": "nobody asked but here we are #viral #memes",
     "category": "memes",
-    "imageQuery": "empty phone notification screen minimal dark",
+    "imageQuery": "surprised face expression close up dramatic light",
     "fallbackQueries": [
-      "smartphone alone aesthetic moody",
+      "reaction portrait bold contrast lighting",
+      "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
+    "personaName": "Anisha Karki",
+    "caption": "shift done, city lights on #lifestyle #citylife",
+    "category": "lifestyle",
+    "imageQuery": "city street night bokeh lights winter",
+    "fallbackQueries": [
+      "urban evening glow pedestrian blurred",
       "city bokeh night"
     ]
   },
@@ -159,71 +159,47 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
     "personaName": "Nabin Maharjan",
-    "caption": "bread attempt number twelve",
+    "caption": "sunday cooking energy #food #cooking",
     "category": "food",
-    "imageQuery": "artisan bread baking close up rustic",
+    "imageQuery": "curry bowl steam close up dark background",
     "fallbackQueries": [
-      "fresh baked loaf kitchen warm",
+      "stew pot overhead kitchen moody",
       "food photography dark background"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
-    "personaName": "Anisha Karki",
-    "caption": "night shift city never sleeps either",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "caption": "slow mornings hit different #lifestyle #home",
     "category": "lifestyle",
-    "imageQuery": "city street night bokeh winter lights",
+    "imageQuery": "cozy bedroom morning light window soft",
     "fallbackQueries": [
-      "urban night walk glow atmospheric",
-      "city bokeh night"
+      "interior bed sheets sunlight warm",
+      "cozy interior window light"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
     "personaName": "Bikash Tamang",
-    "caption": "patience rewarded",
-    "category": "nature",
-    "imageQuery": "long exposure waterfall forest misty",
+    "caption": "chasing light #photography #travel",
+    "category": "travel",
+    "imageQuery": "northern lights reflection lake dark sky",
     "fallbackQueries": [
-      "waterfall rocks silk water dramatic",
+      "aurora borealis water mirror night",
       "landscape golden hour"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
-    "personaName": "Sagar Pandey",
-    "caption": "vinyl never lies",
-    "category": "music",
-    "imageQuery": "vinyl record turntable warm light aesthetic",
-    "fallbackQueries": [
-      "record player vintage moody close",
-      "portrait natural light"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "this sushi deserves applause",
-    "category": "food",
-    "imageQuery": "fresh sushi platter dark background restaurant",
-    "fallbackQueries": [
-      "japanese cuisine close up elegant",
-      "food photography dark background"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
     "personaName": "Deepak Magar",
-    "caption": "meal prep Sunday locked in",
-    "category": "food",
-    "imageQuery": "meal prep containers protein food photography dark",
+    "caption": "meal prep game strong 💪 #fitness #mealprep",
+    "category": "fitness",
+    "imageQuery": "protein meal prep containers dark food photography",
     "fallbackQueries": [
-      "healthy food bowls top down clean",
+      "chicken rice broccoli bowl overhead",
       "food photography dark background"
     ]
   },
@@ -235,47 +211,71 @@
     "poll": {
       "question": "pineapple on pizza: what's the verdict?",
       "options": [
-        "absolute crime against humanity",
-        "actually slaps and you're afraid to admit it",
-        "only if I'm drunk enough",
-        "I pretend to hate it but secretly love it"
+        "crime against humanity",
+        "actually elite",
+        "depends on my mood",
+        "never tried it"
       ],
       "duration_hours": 48
     }
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
-    "personaName": "Riya Gurung",
-    "caption": "brunch state of mind",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "this plating deserves respect #foodie #finedining",
     "category": "food",
-    "imageQuery": "brunch flat lay pancakes coffee natural light",
+    "imageQuery": "fine dining plate artistic presentation dark",
     "fallbackQueries": [
-      "breakfast table top down aesthetic",
+      "gourmet dish plated overhead restaurant",
       "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
+    "personaName": "Sagar Pandey",
+    "caption": "vinyl nights #music #vinyl",
+    "category": "music",
+    "imageQuery": "vinyl record turntable warm light close up",
+    "fallbackQueries": [
+      "record player spinning retro aesthetic",
+      "portrait natural light"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
     "personaName": "Nisha Thapa",
-    "caption": "thrift haul goes crazy",
-    "category": "art",
-    "imageQuery": "fabric texture close up dramatic light colorful",
+    "caption": "thrift finds that changed the game #fashion #thrift",
+    "category": "fashion",
+    "imageQuery": "vintage clothing haul flat lay colorful",
     "fallbackQueries": [
-      "textile art design macro bold",
+      "thrifted outfits arrangement top down",
       "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "brunch state of mind ☕ #food #brunch",
+    "category": "food",
+    "imageQuery": "brunch flat lay avocado toast coffee natural light",
+    "fallbackQueries": [
+      "breakfast spread overhead cafe style",
+      "food photography dark background"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
     "personaName": "Kiran Adhikari",
-    "caption": "rain makes the city honest",
-    "category": "lifestyle",
-    "imageQuery": "city street rain night neon reflection",
+    "caption": "rain reflections, city thoughts #photography #urban",
+    "category": "photography",
+    "imageQuery": "city street rain reflection neon lights night",
     "fallbackQueries": [
-      "urban wet pavement bokeh lights",
+      "wet pavement urban glow evening",
       "city bokeh night"
     ]
   },
@@ -283,23 +283,23 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
     "personaName": "Sunita Poudel",
-    "caption": "Sunday done right",
-    "category": "lifestyle",
-    "imageQuery": "cafe window morning light cozy aesthetic",
+    "caption": "flat white perfection #coffee #barista",
+    "category": "food",
+    "imageQuery": "flat white coffee art top down marble table",
     "fallbackQueries": [
-      "coffee shop interior warm sunlight",
-      "cozy interior window light"
+      "espresso cup overhead cafe minimal",
+      "food photography dark background"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
-    "personaName": "Priya Rai",
-    "caption": "cooking for two never gets old",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "caption": "homemade pizza trial #47 #food #homemade",
     "category": "food",
-    "imageQuery": "home cooking pasta close up warm kitchen",
+    "imageQuery": "homemade pizza close up rustic dark background",
     "fallbackQueries": [
-      "dinner plate romantic lighting intimate",
+      "wood fired pizza overhead kitchen",
       "food photography dark background"
     ]
   },
@@ -307,11 +307,11 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
     "personaName": "Aakash Limbu",
-    "caption": "match day energy unmatched",
+    "caption": "game day energy unmatched #sports #basketball",
     "category": "sports",
-    "imageQuery": "basketball court arena lights dramatic atmosphere",
+    "imageQuery": "basketball court arena lights dramatic night",
     "fallbackQueries": [
-      "sports venue crowd excitement night",
+      "indoor stadium crowd atmosphere glow",
       "city bokeh night"
     ]
   },
@@ -319,84 +319,48 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
     "personaName": "Smriti Basnet",
-    "caption": "reading corner therapy",
+    "caption": "rainy window kind of day #lifestyle #rain",
     "category": "lifestyle",
-    "imageQuery": "cozy reading corner lamp books soft light",
+    "imageQuery": "rain window droplets bokeh soft light",
     "fallbackQueries": [
-      "bookshelf warm glow peaceful space",
+      "water glass blurred background cozy",
       "cozy interior window light"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
-    "personaName": "Rohan Rai",
-    "caption": "city lights dinner view",
-    "category": "lifestyle",
-    "imageQuery": "apartment window city skyline night bokeh",
-    "fallbackQueries": [
-      "urban view evening lights atmospheric",
-      "city bokeh night"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
-    "personaName": "Suraj Bhattarai",
-    "caption": "vibe: optimistically doomed",
-    "category": "comedy",
-    "imageQuery": "person contemplating laptop screen dark humor aesthetic",
-    "fallbackQueries": [
-      "desk chaos relatable minimal moody",
-      "portrait natural light"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
-    "personaName": "Nabin Maharjan",
-    "caption": "curry recipe finally came through",
-    "category": "food",
-    "imageQuery": "curry bowl close up steam dark photography",
-    "fallbackQueries": [
-      "stew dish spicy warm lighting",
-      "food photography dark background"
     ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
     "personaName": "Anisha Karki",
-    "caption": "post-shift walk clears everything",
-    "category": "fitness",
-    "imageQuery": "person walking city street night peaceful",
+    "caption": "cozy night in after a long one #lifestyle #selfcare",
+    "category": "lifestyle",
+    "imageQuery": "cozy apartment candles blanket warm light",
     "fallbackQueries": [
-      "urban evening stroll bokeh calm",
-      "city bokeh night"
+      "home interior evening glow peaceful",
+      "cozy interior window light"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
-    "personaName": "Bikash Tamang",
-    "caption": "waiting for perfect light is always worth it",
-    "category": "travel",
-    "imageQuery": "desert sand dunes golden hour dramatic shadows",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+    "personaName": "Nabin Maharjan",
+    "caption": "bread that actually rose this time 🍞 #food #baking",
+    "category": "food",
+    "imageQuery": "sourdough bread loaf rustic dark food photography",
     "fallbackQueries": [
-      "landscape dune sunset epic light",
-      "landscape golden hour"
+      "fresh baked bread cutting board overhead",
+      "food photography dark background"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
-    "personaName": "Deepak Magar",
-    "caption": "chest day never disappoints",
-    "category": "fitness",
-    "imageQuery": "barbell bench press gym dramatic lighting athlete",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "caption": "sunday reset mode activated #lifestyle #sunday",
+    "category": "lifestyle",
+    "imageQuery": "cozy reading corner lamp books warm",
     "fallbackQueries": [
-      "weightlifting workout intense focus strength",
-      "portrait natural light"
+      "living room armchair afternoon light peaceful",
+      "cozy interior window light"
     ]
   },
   {
@@ -405,49 +369,36 @@
     "personaName": "Aakash Limbu",
     "category": "sports",
     "poll": {
-      "question": "greatest athlete debate settled once and for all:",
+      "question": "settling this: beach vacation or mountain escape?",
       "options": [
-        "MJ and it's not even close",
-        "LeBron changed the game entirely",
-        "Messi's football legacy untouchable",
-        "Serena Williams dominance unmatched"
+        "beach all day",
+        "mountains only",
+        "why not both"
       ],
       "duration_hours": 72
     }
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
-    "personaName": "Riya Gurung",
-    "caption": "ocean walks solve things therapy can't",
-    "category": "nature",
-    "imageQuery": "ocean wave sunset silhouette peaceful beach",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "long exposure magic #photography #longexposure",
+    "category": "photography",
+    "imageQuery": "long exposure waterfall forest silky water",
     "fallbackQueries": [
-      "coastal evening golden hour calm",
+      "flowing stream rocks motion blur nature",
       "landscape golden hour"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "street tacos hit different at 2am",
-    "category": "food",
-    "imageQuery": "tacos close up street food dark moody photography",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    "personaName": "Deepak Magar",
+    "caption": "progress not perfection 💯 #fitness #gains",
+    "category": "fitness",
+    "imageQuery": "gym mirror selfie physique progress lighting",
     "fallbackQueries": [
-      "mexican food plate restaurant dramatic light",
-      "food photography dark background"
-    ]
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
-    "personaName": "Nisha Thapa",
-    "caption": "editorial energy unlocked",
-    "category": "fashion",
-    "imageQuery": "editorial portrait model dramatic light bold fashion",
-    "fallbackQueries": [
-      "fashion photography artistic shadow striking",
+      "workout athlete body dark background",
       "portrait natural light"
     ]
   },
@@ -455,23 +406,47 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
     "personaName": "Sagar Pandey",
-    "caption": "headphones in, world off",
+    "caption": "headphones in, world out #music #vibes",
     "category": "music",
-    "imageQuery": "headphones neon light dark aesthetic music",
+    "imageQuery": "headphones neon light dark aesthetic close up",
     "fallbackQueries": [
-      "audio equipment moody glow close",
-      "city bokeh night"
+      "audio equipment colorful glow moody",
+      "portrait natural light"
     ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
-    "personaName": "Priya Rai",
-    "caption": "mornings like this make sense",
-    "category": "lifestyle",
-    "imageQuery": "coffee cup cozy blanket morning window light",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "sushi that made me rethink everything #food #sushi",
+    "category": "food",
+    "imageQuery": "fresh sushi platter dark background close up",
     "fallbackQueries": [
-      "breakfast bed peaceful sunlight warm",
+      "sashimi rolls overhead restaurant presentation",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "editorial mood only #fashion #editorial",
+    "category": "fashion",
+    "imageQuery": "editorial portrait model dramatic side light",
+    "fallbackQueries": [
+      "fashion photography moody black background",
+      "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "campus vibes on point #education #student",
+    "category": "education",
+    "imageQuery": "university library books study aesthetic natural light",
+    "fallbackQueries": [
+      "student desk laptop notes warm glow",
       "cozy interior window light"
     ]
   },
@@ -479,12 +454,36 @@
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
     "personaName": "Kiran Adhikari",
-    "caption": "debugging till sunrise apparently",
+    "caption": "midnight debugging sessions #tech #developer",
     "category": "tech",
-    "imageQuery": "coding setup minimal desk night neon keyboard",
+    "imageQuery": "coding setup minimal neon keyboard dark",
     "fallbackQueries": [
-      "developer workspace dark ambient glow",
+      "computer screen code night desk",
       "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "caption": "pour over perfection ☕ #coffee #specialtycoffee",
+    "category": "food",
+    "imageQuery": "pour over coffee drip close up morning light",
+    "fallbackQueries": [
+      "hand brewing coffee filter overhead",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "energy unmatched #viral #comedy",
+    "category": "comedy",
+    "imageQuery": "laughing person portrait dramatic light candid",
+    "fallbackQueries": [
+      "joyful expression close up bold contrast",
+      "portrait natural light"
     ]
   }
 ]
