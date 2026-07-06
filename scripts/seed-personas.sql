@@ -219,34 +219,7 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- ---------------------------------------------------------------------------
--- 2. public.users
---    couple_links references users(id) — this table must have a matching row.
---    If your schema defines public.users differently, adjust columns below.
---    ON CONFLICT (id) DO NOTHING makes it safe to re-run.
--- ---------------------------------------------------------------------------
-
-INSERT INTO public.users (id)
-VALUES
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14'),
-  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15')
-ON CONFLICT (id) DO NOTHING;
-
-
--- ---------------------------------------------------------------------------
--- 3. public.profiles
+-- 2. public.profiles
 --    Avatar URLs use ui-avatars.com as temporary placeholders.
 --    Replace with real CDN URLs before launch.
 --    show_in_matching = FALSE on all personas — never in Find Vibe deck.
