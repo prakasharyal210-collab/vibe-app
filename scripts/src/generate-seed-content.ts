@@ -248,7 +248,8 @@ You will produce a JSON array of batch items.  Each item must strictly conform t
     personaName: string;         // human-readable name for logging
     caption?: string;            // for "post" and "poll" items
     content?: string;            // for "confession" items (what appears on the confession feed)
-    imageQuery?: string;         // Pexels search query when a photo would enhance the post
+    imageQuery?: string;         // PRIMARY Pexels search query when a photo would enhance the post
+    fallbackQueries?: string[];  // EXACTLY 2 fallback queries, specific → generic (only when imageQuery is set)
     category?: string;           // e.g. "Food", "Travel", "Humor", "Sports", "Music", "Fashion", "Fitness", "Lifestyle", "Tech"
     coupleId?: string;           // required for confessions — copy exactly from couple definitions
     age?: number;                // optional for confessions — the poster's age
@@ -270,7 +271,19 @@ Rules:
    - Thoughtful posts (philosopher, photographer): 1 paragraph, max 4 sentences
 5. Polls must have 2-4 options that feel like genuine Nepali community debates.
 6. Confessions must be raw and relatable couple moments — not sappy, not generic. Think: the chai incident, the dal bhat negotiation, the 3am fight about the wet towel.
-7. imageQuery: include only for posts where a real photo would make sense. Leave null for text-only posts, polls, and most confessions.
+7. imageQuery + fallbackQueries rules:
+   - Set imageQuery only for posts where a real photo genuinely enhances the content.
+   - Leave imageQuery absent for text-only posts, polls, and most confessions.
+   - When imageQuery is set, ALWAYS include fallbackQueries with EXACTLY 2 entries:
+       fallbackQueries[0] — slightly broader / subject-only (drop the location/ethnicity qualifier)
+       fallbackQueries[1] — fully generic beautiful equivalent (works for any culture)
+   - Examples of good chains:
+       "nepali jhol momo soup"  →  ["dumplings steam bowl", "asian street food"]
+       "annapurna sunrise trek" →  ["himalaya mountain sunrise", "mountain peak golden light"]
+       "sydney harbour walk"    →  ["harbour city waterfront", "city bridge water"]
+       "toronto winter nurse"   →  ["hospital corridor worker", "healthcare professional portrait"]
+       "kathmandu thrift market"→  ["vintage clothing market stall", "colourful fabric market"]
+   - Do NOT repeat the same word across all three queries.
 8. Stagger variety: not every item from a persona should be the same type. Mix posts, occasional polls, confessions for couple personas.
 9. Return ONLY the JSON array — no markdown, no explanation, no surrounding text.`;
 }

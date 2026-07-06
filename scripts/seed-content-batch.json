@@ -1,0 +1,412 @@
+[
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "bro the jhol momo at that corner shop in Asan hit different at 11pm. steam rising, that first bite when the soup burns your tongue but you don't even care. peak Kathmandu energy yaar 🔥",
+    "imageQuery": "nepali jhol momo soup steam",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "week 3 of semester and I'm already eating mi goreng for dinner again. ama would be so disappointed. called her and she just said 'khana thik cha?' and I lied 😭 missing ghar-ko dal bhat hits different at midnight yaar",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "first light on Machhapuchhre. 6am. everything quiet except the wind.",
+    "imageQuery": "annapurna mountain nepal sunrise",
+    "category": "Photography"
+  },
+  {
+    "type": "poll",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "settle this once and for all",
+    "category": "Humor",
+    "poll": {
+      "question": "ultimate nepali breakfast:",
+      "options": [
+        "chiura-dahi-achar",
+        "sel roti-chiya",
+        "puri tarkari",
+        "just chiya"
+      ],
+      "duration_hours": 24
+    }
+  },
+  {
+    "type": "confession",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "content": "he leaves wet towels on the bed. EVERY. SINGLE. DAY. I've explained this 47 times. yesterday I put the wet towel on his pillow and he had the audacity to laugh and say 'okay point made'. we're two months in and this might be our first real test as a married couple.",
+    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
+    "age": 26,
+    "location": "Lalitpur"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "caption": "NEPAL CRICKET JUST DID THAT. 3AM WATCHING SESSION WORTH IT. bro I'm calling in sick tomorrow I don't even care 🏏🔥",
+    "category": "Sports"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
+    "personaName": "Anisha Karki",
+    "caption": "12 hour shift done. walked out into -15°C Toronto winter. made it home and the first thing I did was call ama. she asked if I ate and I said yes (I didn't). cooked maggi at 11pm and it tasted like home. this is the life we chose yaar 💙",
+    "imageQuery": "toronto winter night nurse",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "caption": "made kebabs. she said they were 'okay'. ate four of them. marriage is just cooking for someone who won't admit you're good at it.",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
+    "personaName": "Sagar Pandey",
+    "caption": "found this lok dohori artist from Jumla on YouTube with 400 views. voice like honey and mountains. adding to the playlist no one asked for. this is what nepali music should sound like yaar 🎵",
+    "category": "Music"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "thrift haul from Asan today: hand-embroidered kurta (probably 30 years old), vintage dhaka scarf, cotton wrap skirt. total: Rs 850. fast fashion could never. also that aunty at the shop gave me chiya and life advice for free ✨ #sustainablefashion #thriftktm",
+    "imageQuery": "kathmandu asan market fabric textiles",
+    "category": "Fashion"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "personaName": "Kiran Adhikari",
+    "caption": "spent £4.50 on a flat white today. that's 750 rupees. that's lunch for three days back home. London has broken my brain but I still bought the coffee.",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    "personaName": "Deepak Magar",
+    "caption": "chest day done. 5am Dubai gym energy different bro. then came home and ate dal bhat because protein is protein yaar 💪🍚 #gainz",
+    "imageQuery": "gym workout chest press",
+    "category": "Fitness"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+    "personaName": "Smriti Basnet",
+    "caption": "been thinking about how we say 'khana khanu bhayo?' instead of hello. food as love language. checking if someone ate as checking if they're okay. there's something tender about that. anyway time for my third chiya of the day.",
+    "imageQuery": "nepal tea cup morning chitwan",
+    "category": "Philosophy"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "caption": "Sunday morning flat white at the usual spot. Melbourne sun hitting different today. texted him 'should we try making momo tonight' and he replied 'already bought the mincer'. this is what they mean by love language ☕️💛",
+    "imageQuery": "melbourne cafe coffee flat white morning",
+    "category": "Food"
+  },
+  {
+    "type": "confession",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "content": "she reorganized my entire kitchen last week. I couldn't find the spatula for three days. finally asked her where it was. she said 'in the logical place' with a straight face. I'm an engineer. nothing about her organization system is logical. but I didn't say that because I like being alive.",
+    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
+    "age": 28,
+    "location": "Lalitpur"
+  },
+  {
+    "type": "poll",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "caption": "important football debate rn",
+    "category": "Sports",
+    "poll": {
+      "question": "watching position for big matches:",
+      "options": [
+        "home alone (superstition)",
+        "with the boys (chaos)",
+        "sports bar (expensive but worth)",
+        "streaming at work (dangerous)"
+      ],
+      "duration_hours": 48
+    }
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "okay controversial take but the chhoila at this Patan spot > everywhere else in the valley. that smoky flavor, the spice level, the way they serve it with chiura... bro I'm going back tomorrow 🔥 #momoking rates this 9/10",
+    "imageQuery": "nepali chhoila dish spicy",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "prof asked where I'm from today. said Nepal. he said 'oh near India'. didn't have the energy to explain geography. just smiled and died inside a little. यो त हरेक दिन हो yaar 😑",
+    "category": "Diaspora"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+    "personaName": "Nabin Maharjan",
+    "caption": "attempted dal bhat for Sunday lunch. she said 'the dal is... interesting'. her family on video call tried to be nice but I saw ama's face. coding is easier than cooking yaar 😅",
+    "imageQuery": "cooking dal bhat nepal rice lentils",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "nepali parents will say 'ghar ma k chaina ra' and then the fridge has one tomato and yesterday's bhat",
+    "category": "Humor"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "Phewa Lake at dusk. tourist boats empty. just the hills and their reflection. this is why I stay.",
+    "imageQuery": "phewa lake pokhara reflection sunset",
+    "category": "Photography"
+  },
+  {
+    "type": "confession",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "content": "we had our first fight over sambar. SAMBAR. I made it for breakfast and he said 'this tastes like the one from that place in Kathmandu' and I said 'which place' and he couldn't remember. spent 20 minutes arguing about whether it was the spot near Patan Dhoka or the one in Pulchowk. we're both from Nepal. we live in Melbourne. it's 7am. what are we doing.",
+    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02",
+    "age": 27,
+    "location": "Melbourne"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
+    "personaName": "Anisha Karki",
+    "caption": "night shift done. made biryani at 8am because time is a construct when you're a nurse. ama called and said 'basnu, khana khanu, sutnu'. yes ama that's literally all I do. miss you 💙",
+    "imageQuery": "biryani cooking homemade nepali",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
+    "personaName": "Sagar Pandey",
+    "caption": "listening to Narayan Gopal at 2am hits different. some nights you just need 'euta manche ko' and your feelings yaar 🎵",
+    "category": "Music"
+  },
+  {
+    "type": "poll",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "no wrong answers (lying)",
+    "category": "Humor",
+    "poll": {
+      "question": "best wai wai flavor:",
+      "options": [
+        "original (purist)",
+        "chicken (classic)",
+        "vegetable (who hurt you)",
+        "that green one (chaos)"
+      ],
+      "duration_hours": 24
+    }
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "outfit of the day: thrifted dhaka vest (Rs 200), vintage kurta from ama's closet (free + sentimental value), secondhand jeans. sustainable fashion isn't just trendy it's literally how our parents and grandparents lived yaar ✨",
+    "imageQuery": "nepali dhaka fabric traditional vest",
+    "category": "Fashion"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "caption": "wifey life update: learned that 'I'll do it later' in husband language means 'I will never do this unless reminded 6 times'. the dishes have been in the sink for 18 hours. we're in a standoff. send help.",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "personaName": "Kiran Adhikari",
+    "caption": "debugged code for 4 hours. fixed it. turns out I misspelled a variable name. this is my life now. missing the days when biggest problem was load shedding yaar 💻",
+    "imageQuery": "coding laptop coffee shop london",
+    "category": "Tech"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    "personaName": "Deepak Magar",
+    "caption": "leg day = best day. bro the nepali guy at my gym asked if I'm training for bodybuilding. I said no just trying to eat more dal bhat guilt-free 😂💪",
+    "category": "Fitness"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+    "personaName": "Smriti Basnet",
+    "caption": "third chiya of the day. thinking about how we're all just trying our best and sometimes our best is just getting through the day. that's okay. that's enough. anyway this chiya is particularly good today ☕️",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "confession",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+    "personaName": "Nabin Maharjan",
+    "content": "she falls asleep during every movie. EVERY. SINGLE. ONE. chooses the movie, says she's been wanting to watch it forever, asleep by minute 23. last night I paused it and she woke up and said 'why'd you stop it I was watching'. babe your eyes were closed. she said 'I was listening'. I love her but this is insane.",
+    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02",
+    "age": 29,
+    "location": "Melbourne"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "today's mission: find the best choila in Thamel. tried three places. verdict: the one near that bookshop wins. spice level nearly killed me but that's how you know it's good bro 🌶️🔥",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "caption": "Nepal playing tomorrow. already nervous. already planned my sick day. already know I'm watching it alone for good luck. this is what sports does to you yaar 🏏",
+    "category": "Sports"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "assignment due in 6 hours. haven't started. scrolling Gundruk instead. this is fine. everything is fine. ama if you're reading this I'm studying I promise 📚😭",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "caption": "she rearranged the spice cabinet. said it's 'more efficient'. can't find the haldi. this is my life now.",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "caption": "Melbourne winter morning = extra shot in the flat white. barista knows my order now. this city gets you yaar ☕️✨",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "caught a porter on the Annapurna trail yesterday. 70 years old. carrying more than me. humbling doesn't begin to describe it. posted with permission 🙏",
+    "imageQuery": "nepal trekking porter mountain trail",
+    "category": "Photography"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "nepali mom: we have food at home. food at home: 3 day old tarkari and questionable bhat. and you eat it because waste is sin.",
+    "category": "Humor"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
+    "personaName": "Anisha Karki",
+    "caption": "patient today asked me where I'm from. said Nepal. she said 'oh I love Thai food'. I just... I smiled. healthcare is already hard enough yaar 😅",
+    "category": "Lifestyle"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
+    "personaName": "Sagar Pandey",
+    "caption": "hot take: Nepathya's 'Resham' is the greatest nepali song ever made and I will die on this hill. fight me but respectfully because it's too good to argue about 🎵",
+    "category": "Music"
+  },
+  {
+    "type": "confession",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "content": "he does this thing where he puts empty containers back in the fridge. EMPTY. like the mental load of checking if there's actually dahi left before I make my morning chiura isn't enough. yesterday I opened three empty containers. THREE. when I confronted him he said 'oh I thought there was a little left'. babe. the container was bone dry. we've been married 2 months and this might end us.",
+    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
+    "age": 26,
+    "location": "Lalitpur"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "Asan thrift scores today: 1960s brass buttons (Rs 50), hand-woven dhaka headband (Rs 100), vintage Nepali magazines for art projects (Rs 30). total: Rs 180. the stories these things hold yaar ✨📿",
+    "category": "Fashion"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "personaName": "Kiran Adhikari",
+    "caption": "remote work sounds great until you realize you're in bed at 2pm on a Tuesday eating cereal and your last human interaction was the Tesco delivery guy. London living hits different yaar 💻",
+    "category": "Tech"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    "personaName": "Deepak Magar",
+    "caption": "rest day. ate momo. no regrets. tomorrow we train harder bro 🥟💪 #dalbhatpower",
+    "category": "Fitness"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+    "personaName": "Smriti Basnet",
+    "caption": "fourth chiya. thinking about how 'ke garne' is both acceptance and rebellion. what to do = everything and nothing. anyway the chiya is getting cold so ke garne ☕️",
+    "category": "Philosophy"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "caption": "WE WON. WE ACTUALLY WON. called in sick for this. worth every second. Nepal cricket supremacy yaar 🏏🔥🇳🇵",
+    "category": "Sports"
+  },
+  {
+    "type": "confession",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "content": "relationship poll: should I be mad that he talks to his mom more than he talks to me?? like we're on the couch and his mom calls and suddenly he's a completely different person. all 'hajur ama' and 'thik cha' and laughing at her jokes. hangs up and goes back to one-word answers with me. babe I'm RIGHT HERE. is this normal or should I be concerned???",
+    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02",
+    "age": 27,
+    "location": "Melbourne",
+    "poll": {
+      "question": "is he a mama's boy or is this just nepali son things?",
+      "options": [
+        "completely normal desi behavior",
+        "yellow flag but manageable",
+        "red flag run",
+        "idk I do the same with my mom"
+      ],
+      "duration_hours": 72
+    }
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "sometimes you just need late night momos and good conversation yaar. found both at 11:30pm near Patan Dhoka. the aunty remembered my order. this is home 🥟",
+    "imageQuery": "nepali street food vendor night momos",
+    "category": "Food"
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "submitted assignment at 11:59pm. immediately got text from ama asking if I ate dinner. the answer is no but I will lie. standard nepali diaspora behavior 😭📱",
+    "category": "Diaspora"
+  }
+]
