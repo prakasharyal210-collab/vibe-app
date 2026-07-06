@@ -1,461 +1,490 @@
 [
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "bro i just had jhol momo at this hole-in-the-wall place near asan and i'm not joking when i say the achar had me sweating like i ran a marathon. peak kathmandu energy. would do it again. 10/10. 🔥",
-    "imageQuery": "nepali jhol momo soup steam",
-    "fallbackQueries": [
-      "dumplings soup bowl asian",
-      "steaming soup bowl comfort food"
-    ],
-    "category": "Food"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
-    "personaName": "Riya Gurung",
-    "caption": "assignment due in 6 hours and i'm here making maggi at 2am thinking about ama's tarkari. sydney doesn't hit the same yaar 😭",
-    "category": "Lifestyle"
-  },
-  {
-    "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
     "personaName": "Bikash Tamang",
-    "caption": "Golden hour at Phewa Lake. Some days the light just does all the talking.",
-    "imageQuery": "phewa lake pokhara golden hour reflection",
+    "caption": "light finds a way through everything",
+    "category": "photography",
+    "imageQuery": "misty mountain peak sunrise dramatic light",
     "fallbackQueries": [
-      "himalayan lake sunset reflection",
-      "mountain lake golden light mirror"
-    ],
-    "category": "Photography"
-  },
-  {
-    "type": "poll",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
-    "personaName": "Suraj Bhattarai",
-    "caption": "settle this once and for all",
-    "poll": {
-      "question": "what's the superior late night move?",
-      "options": [
-        "wai wai dry",
-        "wai wai soup",
-        "maggi",
-        "actual food (coward)"
-      ],
-      "duration_hours": 24
-    },
-    "category": "Humor"
-  },
-  {
-    "type": "confession",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
-    "personaName": "Priya Rai",
-    "content": "he told me he'd do the dishes 'in 5 minutes' three hours ago and is now asleep on the couch. i'm standing here with a wet sponge debating if this is grounds for divorce in month 2 of marriage.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
-    "age": 26,
-    "location": "Lalitpur"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
-    "personaName": "Aakash Limbu",
-    "caption": "NEPAL JUST WON AND I'M SCREAMING AT 3AM MY NEIGHBOURS HATE ME BUT WE DON'T CARE LET'S GOOOOO 🇳🇵🏏",
-    "category": "Sports"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
-    "personaName": "Anisha Karki",
-    "caption": "12 hour shift done. toronto winter hitting different when you leave the hospital and it's already dark. made dal bhat when i got home because nothing else was gonna cut it. calling ama in 10.",
-    "imageQuery": "toronto winter hospital night nurse walking",
-    "fallbackQueries": [
-      "hospital corridor worker winter",
-      "healthcare professional evening city"
-    ],
-    "category": "Lifestyle"
+      "foggy mountain landscape golden hour",
+      "landscape golden hour"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
     "personaName": "Sagar Pandey",
-    "caption": "just discovered this lok dohori artist from dhading and bro... the vocals??? why is no one talking about this. adding to the gundruk playlist immediately.",
-    "category": "Music"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
-    "personaName": "Nisha Thapa",
-    "caption": "found this vintage dhaka fabric at asan market today for 200 rupees and i'm about to turn it into the sickest jacket you've ever seen. sustainable fashion is literally just paying attention yaar ✨",
-    "imageQuery": "kathmandu asan market colorful fabric stall",
+    "caption": "sometimes the setlist writes itself ✨",
+    "category": "music",
+    "imageQuery": "concert stage lights crowd silhouette",
     "fallbackQueries": [
-      "vintage textile market stall",
-      "colorful fabric market traditional"
-    ],
-    "category": "Fashion"
+      "music festival lights atmosphere",
+      "city bokeh night"
+    ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-    "personaName": "Kiran Adhikari",
-    "caption": "spent £12 on lunch today in london and thought about how that's like 2000 rupees and could've gotten me a full khana set with extras back home. the pain is real.",
-    "category": "Lifestyle"
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "when the broth hits different",
+    "category": "food",
+    "imageQuery": "ramen bowl close up steam dark background",
+    "fallbackQueries": [
+      "noodle soup restaurant photography moody",
+      "food photography dark background"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
     "personaName": "Deepak Magar",
-    "caption": "leg day complete bro. dubai heat + squats = different type of suffering. but we don't skip. never skip. dal bhat power 💪🏽",
-    "imageQuery": "gym workout legs squat dubai",
+    "caption": "leg day therapy 🏋️",
+    "category": "fitness",
+    "imageQuery": "barbell squat gym dramatic lighting",
     "fallbackQueries": [
-      "gym workout fitness training",
-      "weight training athlete legs"
-    ],
-    "category": "Fitness"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
-    "personaName": "Smriti Basnet",
-    "caption": "made chiya at 11pm and realized i've been using tea as a coping mechanism for literally everything. bad day? chiya. good day? chiya. existential crisis? chiya. the cup is both the problem and the solution.",
-    "imageQuery": "nepal tea cup night evening light",
-    "fallbackQueries": [
-      "tea cup evening warm light",
-      "hot beverage night comfort"
-    ],
-    "category": "Lifestyle"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-    "personaName": "Sunita Poudel",
-    "caption": "found a new cafe in fitzroy with the most perfect flat white and now my whole sunday is saved ☕️ melbourne you're doing something right",
-    "imageQuery": "melbourne cafe flat white latte art",
-    "fallbackQueries": [
-      "coffee latte art barista",
-      "cafe flat white specialty coffee"
-    ],
-    "category": "Food"
-  },
-  {
-    "type": "confession",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
-    "personaName": "Rohan Rai",
-    "content": "she said my cooking was 'fine' but then finished the entire pot and asked if there were leftovers. i'm taking that as a win.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
-    "age": 28,
-    "location": "Lalitpur"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
-    "personaName": "Nabin Maharjan",
-    "caption": "spent 3 hours making dal bhat from scratch for sunday lunch. sunita's mom on video call said 'thik cha' which i'm pretty sure is the highest compliment i'll ever receive.",
-    "category": "Food"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "unpopular opinion: the best momo spots don't have fancy interiors. if the tiles are cracked and there's exactly one uncle running the whole operation, that's where the magic is. thamel vs reality.",
-    "category": "Food"
+      "weightlifting athlete intense focus",
+      "portrait natural light"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
     "personaName": "Riya Gurung",
-    "caption": "group project meeting and i'm the only one who showed up on time. this is why i have trust issues. sydney uni really testing my patience yaar 🙃",
-    "category": "Lifestyle"
-  },
-  {
-    "type": "poll",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
-    "personaName": "Aakash Limbu",
-    "caption": "champions league final watch party — what's the move?",
-    "poll": {
-      "question": "how are we watching the big match?",
-      "options": [
-        "sports bar with the boys",
-        "home alone full focus",
-        "streaming with snacks",
-        "not watching (jail)"
-      ],
-      "duration_hours": 48
-    },
-    "category": "Sports"
+    "caption": "finals week but make it golden hour",
+    "category": "lifestyle",
+    "imageQuery": "university library window golden hour studying",
+    "fallbackQueries": [
+      "student desk books warm sunlight",
+      "cozy interior window light"
+    ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
-    "personaName": "Bikash Tamang",
-    "caption": "Annapurna South from Poon Hill at sunrise. Waited two hours in the cold. Worth every second.",
-    "imageQuery": "annapurna mountain sunrise poon hill nepal",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "vintage never apologizes",
+    "category": "fashion",
+    "imageQuery": "vintage clothing flat lay aesthetic dark",
     "fallbackQueries": [
-      "himalaya mountain sunrise trekking",
-      "mountain peak golden sunrise light"
-    ],
-    "category": "Photography"
+      "thrift fashion pieces composition",
+      "portrait natural light"
+    ]
   },
   {
-    "type": "confession",
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "personaName": "Kiran Adhikari",
+    "caption": "3am code hits different",
+    "category": "tech",
+    "imageQuery": "laptop coding setup dark moody coffee",
+    "fallbackQueries": [
+      "developer workspace minimal night",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
     "personaName": "Sunita Poudel",
-    "content": "he tried to make momo from scratch last night because i said i missed kathmandu food and they were... not good. but i ate them anyway and said they were amazing because watching him try was the cutest thing i've ever seen.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02",
-    "age": 25,
-    "location": "Melbourne"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
-    "personaName": "Suraj Bhattarai",
-    "caption": "remember when load shedding was a thing and we all just sat in the dark pretending we had plans. simpler times.",
-    "category": "Humor"
+    "caption": "rosetta game strong today",
+    "category": "food",
+    "imageQuery": "latte art top down coffee dark wood",
+    "fallbackQueries": [
+      "specialty coffee cup morning aesthetic",
+      "food photography dark background"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
     "personaName": "Priya Rai",
-    "caption": "wifey life update: found out he keeps his shoes in the bedroom and i keep mine by the door and we've been passive-aggressively moving each other's shoes for a week. marriage is wild yaar 😂",
-    "category": "Lifestyle"
+    "caption": "slow mornings are underrated",
+    "category": "lifestyle",
+    "imageQuery": "cozy bedroom morning light window soft",
+    "fallbackQueries": [
+      "interior design warm natural sunlight",
+      "cozy interior window light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "caption": "THAT GOAL THO",
+    "category": "sports",
+    "imageQuery": "stadium floodlights crowd celebration night",
+    "fallbackQueries": [
+      "football match atmosphere dramatic",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+    "personaName": "Smriti Basnet",
+    "caption": "finding magic in the in-between moments",
+    "category": "spiritual",
+    "imageQuery": "tea cup window morning light peaceful",
+    "fallbackQueries": [
+      "meditation space soft bokeh calm",
+      "cozy interior window light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "caption": "carbonara solves everything",
+    "category": "food",
+    "imageQuery": "pasta carbonara close up dark food photography",
+    "fallbackQueries": [
+      "italian pasta plate restaurant lighting",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "when the group chat goes silent",
+    "category": "memes",
+    "imageQuery": "empty phone notification screen minimal dark",
+    "fallbackQueries": [
+      "smartphone alone aesthetic moody",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+    "personaName": "Nabin Maharjan",
+    "caption": "bread attempt number twelve",
+    "category": "food",
+    "imageQuery": "artisan bread baking close up rustic",
+    "fallbackQueries": [
+      "fresh baked loaf kitchen warm",
+      "food photography dark background"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
     "personaName": "Anisha Karki",
-    "caption": "sunday biryani ritual complete. called ama while cooking and she walked me through it like i'm still 12. toronto winter feels less cold when the kitchen smells like home.",
-    "imageQuery": "biryani cooking pot rice nepali spices",
+    "caption": "night shift city never sleeps either",
+    "category": "lifestyle",
+    "imageQuery": "city street night bokeh winter lights",
     "fallbackQueries": [
-      "biryani rice cooking pot",
-      "spiced rice dish homemade"
-    ],
-    "category": "Food"
+      "urban night walk glow atmospheric",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "patience rewarded",
+    "category": "nature",
+    "imageQuery": "long exposure waterfall forest misty",
+    "fallbackQueries": [
+      "waterfall rocks silk water dramatic",
+      "landscape golden hour"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
+    "personaName": "Sagar Pandey",
+    "caption": "vinyl never lies",
+    "category": "music",
+    "imageQuery": "vinyl record turntable warm light aesthetic",
+    "fallbackQueries": [
+      "record player vintage moody close",
+      "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "this sushi deserves applause",
+    "category": "food",
+    "imageQuery": "fresh sushi platter dark background restaurant",
+    "fallbackQueries": [
+      "japanese cuisine close up elegant",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    "personaName": "Deepak Magar",
+    "caption": "meal prep Sunday locked in",
+    "category": "food",
+    "imageQuery": "meal prep containers protein food photography dark",
+    "fallbackQueries": [
+      "healthy food bowls top down clean",
+      "food photography dark background"
+    ]
   },
   {
     "type": "poll",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
-    "personaName": "Sagar Pandey",
-    "caption": "nepali music hot take time",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "category": "memes",
     "poll": {
-      "question": "what's the best era of nepali music?",
+      "question": "pineapple on pizza: what's the verdict?",
       "options": [
-        "classic lok dohori",
-        "2000s pop/rock",
-        "modern rap scene",
-        "they're all good (correct)"
+        "absolute crime against humanity",
+        "actually slaps and you're afraid to admit it",
+        "only if I'm drunk enough",
+        "I pretend to hate it but secretly love it"
+      ],
+      "duration_hours": 48
+    }
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
+    "personaName": "Riya Gurung",
+    "caption": "brunch state of mind",
+    "category": "food",
+    "imageQuery": "brunch flat lay pancakes coffee natural light",
+    "fallbackQueries": [
+      "breakfast table top down aesthetic",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "thrift haul goes crazy",
+    "category": "art",
+    "imageQuery": "fabric texture close up dramatic light colorful",
+    "fallbackQueries": [
+      "textile art design macro bold",
+      "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+    "personaName": "Kiran Adhikari",
+    "caption": "rain makes the city honest",
+    "category": "lifestyle",
+    "imageQuery": "city street rain night neon reflection",
+    "fallbackQueries": [
+      "urban wet pavement bokeh lights",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
+    "personaName": "Sunita Poudel",
+    "caption": "Sunday done right",
+    "category": "lifestyle",
+    "imageQuery": "cafe window morning light cozy aesthetic",
+    "fallbackQueries": [
+      "coffee shop interior warm sunlight",
+      "cozy interior window light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "caption": "cooking for two never gets old",
+    "category": "food",
+    "imageQuery": "home cooking pasta close up warm kitchen",
+    "fallbackQueries": [
+      "dinner plate romantic lighting intimate",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "caption": "match day energy unmatched",
+    "category": "sports",
+    "imageQuery": "basketball court arena lights dramatic atmosphere",
+    "fallbackQueries": [
+      "sports venue crowd excitement night",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
+    "personaName": "Smriti Basnet",
+    "caption": "reading corner therapy",
+    "category": "lifestyle",
+    "imageQuery": "cozy reading corner lamp books soft light",
+    "fallbackQueries": [
+      "bookshelf warm glow peaceful space",
+      "cozy interior window light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
+    "personaName": "Rohan Rai",
+    "caption": "city lights dinner view",
+    "category": "lifestyle",
+    "imageQuery": "apartment window city skyline night bokeh",
+    "fallbackQueries": [
+      "urban view evening lights atmospheric",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
+    "personaName": "Suraj Bhattarai",
+    "caption": "vibe: optimistically doomed",
+    "category": "comedy",
+    "imageQuery": "person contemplating laptop screen dark humor aesthetic",
+    "fallbackQueries": [
+      "desk chaos relatable minimal moody",
+      "portrait natural light"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
+    "personaName": "Nabin Maharjan",
+    "caption": "curry recipe finally came through",
+    "category": "food",
+    "imageQuery": "curry bowl close up steam dark photography",
+    "fallbackQueries": [
+      "stew dish spicy warm lighting",
+      "food photography dark background"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
+    "personaName": "Anisha Karki",
+    "caption": "post-shift walk clears everything",
+    "category": "fitness",
+    "imageQuery": "person walking city street night peaceful",
+    "fallbackQueries": [
+      "urban evening stroll bokeh calm",
+      "city bokeh night"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
+    "personaName": "Bikash Tamang",
+    "caption": "waiting for perfect light is always worth it",
+    "category": "travel",
+    "imageQuery": "desert sand dunes golden hour dramatic shadows",
+    "fallbackQueries": [
+      "landscape dune sunset epic light",
+      "landscape golden hour"
+    ]
+  },
+  {
+    "type": "post",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
+    "personaName": "Deepak Magar",
+    "caption": "chest day never disappoints",
+    "category": "fitness",
+    "imageQuery": "barbell bench press gym dramatic lighting athlete",
+    "fallbackQueries": [
+      "weightlifting workout intense focus strength",
+      "portrait natural light"
+    ]
+  },
+  {
+    "type": "poll",
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
+    "personaName": "Aakash Limbu",
+    "category": "sports",
+    "poll": {
+      "question": "greatest athlete debate settled once and for all:",
+      "options": [
+        "MJ and it's not even close",
+        "LeBron changed the game entirely",
+        "Messi's football legacy untouchable",
+        "Serena Williams dominance unmatched"
       ],
       "duration_hours": 72
-    },
-    "category": "Music"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
-    "personaName": "Nisha Thapa",
-    "caption": "thrift haul: vintage kurta (150rs), handwoven scarf (200rs), confidence (priceless). asan market never misses 🛍️",
-    "category": "Fashion"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
-    "personaName": "Kiran Adhikari",
-    "caption": "debugging code at 1am in london while it's morning back home and ama is asking via whatsapp if i ate breakfast. the duality of nepali diaspora life.",
-    "category": "Tech"
-  },
-  {
-    "type": "confession",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
-    "personaName": "Nabin Maharjan",
-    "content": "we had our first proper fight last week over wet bathroom towels. i thought marriage would be about big romantic gestures but it's actually about agreeing where the towel goes. still figuring it out.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02",
-    "age": 27,
-    "location": "Melbourne"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
-    "personaName": "Deepak Magar",
-    "caption": "rest day but still did a light walk because sitting still feels wrong bro. dubai marina at sunset. gym life but make it scenic 🌅",
-    "category": "Fitness"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
-    "personaName": "Smriti Basnet",
-    "caption": "there's something about being nepali and never quite fitting into the boxes people make for you. too traditional for some, too modern for others. so you just make chiya and exist loudly in the in-between.",
-    "category": "Philosophy"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
-    "personaName": "Rohan Rai",
-    "caption": "made kebabs. she pretended not to be impressed. ate four. i'm keeping score.",
-    "category": "Food"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "someone please explain why patan's momo places hit different. is it the water? the vibes? divine intervention? went there today and my life has changed bro.",
-    "imageQuery": "patan nepal street food vendor momo",
-    "fallbackQueries": [
-      "street food vendor stall asia",
-      "food vendor traditional market"
-    ],
-    "category": "Food"
+    }
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
     "personaName": "Riya Gurung",
-    "caption": "walked past a nepali restaurant in sydney today and almost cried. didn't go in because i'm broke but i stood outside for like 10 minutes just smelling the air. this is what homesickness looks like yaar 😭",
-    "category": "Diaspora"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03",
-    "personaName": "Bikash Tamang",
-    "caption": "Caught a street vendor in Pokhara's old town. The afternoon light was doing all the work. Sometimes you don't need mountains.",
-    "imageQuery": "pokhara nepal street vendor afternoon light",
+    "caption": "ocean walks solve things therapy can't",
+    "category": "nature",
+    "imageQuery": "ocean wave sunset silhouette peaceful beach",
     "fallbackQueries": [
-      "street vendor traditional market",
-      "market vendor warm afternoon light"
-    ],
-    "category": "Photography"
+      "coastal evening golden hour calm",
+      "landscape golden hour"
+    ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
-    "personaName": "Suraj Bhattarai",
-    "caption": "why do nepali uncles think they can fix literally anything with tape and willpower. my dad once fixed a chair with string and it lasted 5 years. respect.",
-    "category": "Humor"
-  },
-  {
-    "type": "confession",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
-    "personaName": "Priya Rai",
-    "content": "we've been married for 2 months and i just found out he's been secretly buying me my favorite chocolate every week and hiding it in the drawer for when i have bad days. i'm not crying you're crying.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
-    "age": 26,
-    "location": "Lalitpur"
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
+    "personaName": "Aarav Shrestha",
+    "caption": "street tacos hit different at 2am",
+    "category": "food",
+    "imageQuery": "tacos close up street food dark moody photography",
+    "fallbackQueries": [
+      "mexican food plate restaurant dramatic light",
+      "food photography dark background"
+    ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
-    "personaName": "Aakash Limbu",
-    "caption": "nepal's bowling attack today was INSANE. woke up the whole building celebrating that last wicket. we're winning everything this year i'm calling it now 🇳🇵",
-    "category": "Sports"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08",
-    "personaName": "Anisha Karki",
-    "caption": "night shift brain: ordered coffee in nepali at tim hortons and the cashier just stared at me. toronto i love you but sometimes my brain is still in kathmandu.",
-    "category": "Lifestyle"
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
+    "personaName": "Nisha Thapa",
+    "caption": "editorial energy unlocked",
+    "category": "fashion",
+    "imageQuery": "editorial portrait model dramatic light bold fashion",
+    "fallbackQueries": [
+      "fashion photography artistic shadow striking",
+      "portrait natural light"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09",
     "personaName": "Sagar Pandey",
-    "caption": "just made a 4-hour nepali road trip playlist and it's a journey from lok dohori to rap to 2000s nostalgia. if you know you know. link in bio maybe if i remember.",
-    "category": "Music"
+    "caption": "headphones in, world off",
+    "category": "music",
+    "imageQuery": "headphones neon light dark aesthetic music",
+    "fallbackQueries": [
+      "audio equipment moody glow close",
+      "city bokeh night"
+    ]
   },
   {
     "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10",
-    "personaName": "Nisha Thapa",
-    "caption": "wore a full traditional dhaka outfit today and got 'where did you buy that?' like bestie i MADE it. thrift + skills = actual fashion. respect the craft ✨",
-    "category": "Fashion"
+    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05",
+    "personaName": "Priya Rai",
+    "caption": "mornings like this make sense",
+    "category": "lifestyle",
+    "imageQuery": "coffee cup cozy blanket morning window light",
+    "fallbackQueries": [
+      "breakfast bed peaceful sunlight warm",
+      "cozy interior window light"
+    ]
   },
   {
     "type": "post",
     "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
     "personaName": "Kiran Adhikari",
-    "caption": "remote work means i can wear a shirt for zoom calls and pajamas below. living the dream except when i forget and stand up mid-meeting.",
-    "category": "Tech"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12",
-    "personaName": "Deepak Magar",
-    "caption": "cardio day. ran 10k in dubai heat. if dal bhat can fuel entire mountains it can fuel this bro. never doubt the power. 🏃🏽‍♂️💪🏽",
-    "category": "Fitness"
-  },
-  {
-    "type": "confession",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14",
-    "personaName": "Sunita Poudel",
-    "content": "he stays up late on video calls with my family in nepal even though he has work early the next day because he knows it makes me happy. didn't know i needed someone like this.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c02",
-    "age": 25,
-    "location": "Melbourne"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13",
-    "personaName": "Smriti Basnet",
-    "caption": "the thing about living in a small nepali town is everyone knows everyone's business but somehow no one knows anything useful. it's both comforting and absolutely chaotic.",
-    "category": "Lifestyle"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
-    "personaName": "Rohan Rai",
-    "caption": "she asked me to pick up groceries. i came back with everything except what she asked for. marriage is just improvisation at this point.",
-    "category": "Lifestyle"
-  },
-  {
-    "type": "poll",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04",
-    "personaName": "Suraj Bhattarai",
-    "caption": "the eternal nepali debate",
-    "poll": {
-      "question": "dal bhat vs momo — final answer",
-      "options": [
-        "dal bhat power (correct)",
-        "momo supremacy",
-        "both (enlightened)",
-        "neither (banned)"
-      ],
-      "duration_hours": 48
-    },
-    "category": "Humor"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15",
-    "personaName": "Nabin Maharjan",
-    "caption": "sunday morning in melbourne: made chiya the way ama taught me, sunita said it tasted like home. that's the bar now. no pressure.",
-    "category": "Food"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01",
-    "personaName": "Aarav Shrestha",
-    "caption": "tried a new chowmein place in thamel and honestly bro it was mid. the jhol momo saved the experience though. you win some you lose some. 7/10 overall.",
-    "category": "Food"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02",
-    "personaName": "Riya Gurung",
-    "caption": "exam tomorrow and i'm watching nepali tiktoks at 3am. sydney uni really bringing out the worst study habits in me yaar 📚😭",
-    "category": "Lifestyle"
-  },
-  {
-    "type": "confession",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06",
-    "personaName": "Rohan Rai",
-    "content": "she leaves little notes in my lunch box when i go to work. today it said 'don't forget we're out of milk' which is the most romantic thing anyone's ever written me.",
-    "coupleId": "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380c01",
-    "age": 28,
-    "location": "Lalitpur"
-  },
-  {
-    "type": "post",
-    "personaId": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07",
-    "personaName": "Aakash Limbu",
-    "caption": "watching nepal cricket is good for the heart they said. it'll be fun they said. i've aged 10 years in the last 3 overs. this team will be the death of me (affectionate).",
-    "category": "Sports"
+    "caption": "debugging till sunrise apparently",
+    "category": "tech",
+    "imageQuery": "coding setup minimal desk night neon keyboard",
+    "fallbackQueries": [
+      "developer workspace dark ambient glow",
+      "city bokeh night"
+    ]
   }
 ]
