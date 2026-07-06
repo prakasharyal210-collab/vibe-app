@@ -274,16 +274,25 @@ Rules:
 7. imageQuery + fallbackQueries rules:
    - Set imageQuery only for posts where a real photo genuinely enhances the content.
    - Leave imageQuery absent for text-only posts, polls, and most confessions.
+   - CRITICAL — NO location-specific terms: imageQuery and fallbackQueries must NEVER contain
+     "nepal", "nepali", "kathmandu", "pokhara", "annapurna", "himalaya", "himalayan",
+     "sydney", "toronto", "london", "dubai", "melbourne", "biratnagar", "chitwan", or any
+     other city/country/region name. The caption carries the cultural context; the image
+     only needs to match the subject's VIBE at a universal level.
+   - Query the subject, mood, and aesthetic — NOT the geography:
+       Momo post          → "dumplings steam bowl food photography"   NOT "nepali momo"
+       Annapurna sunrise  → "mountain peak sunrise golden light"      NOT "annapurna sunrise"
+       Asan thrift haul   → "vintage clothing flat lay aesthetic"      NOT "kathmandu market"
+       Dal bhat attempt   → "home cooked curry rice bowl"             NOT "nepali dal bhat"
+       Nurse after shift  → "city winter night snow street"           NOT "toronto nurse winter"
+       Chiya philosophy   → "tea cup window morning light cozy"       NOT "nepali chiya"
+       Cricket win        → "stadium floodlights crowd celebration"   NOT "nepal cricket"
    - When imageQuery is set, ALWAYS include fallbackQueries with EXACTLY 2 entries:
-       fallbackQueries[0] — slightly broader / subject-only (drop the location/ethnicity qualifier)
-       fallbackQueries[1] — fully generic beautiful equivalent (works for any culture)
-   - Examples of good chains:
-       "nepali jhol momo soup"  →  ["dumplings steam bowl", "asian street food"]
-       "annapurna sunrise trek" →  ["himalaya mountain sunrise", "mountain peak golden light"]
-       "sydney harbour walk"    →  ["harbour city waterfront", "city bridge water"]
-       "toronto winter nurse"   →  ["hospital corridor worker", "healthcare professional portrait"]
-       "kathmandu thrift market"→  ["vintage clothing market stall", "colourful fabric market"]
-   - Do NOT repeat the same word across all three queries.
+       fallbackQueries[0] — slightly broader subject/mood (still no location terms)
+       fallbackQueries[1] — guaranteed-universal beauty shot that always has Pexels results
+                            e.g. "food photography dark background", "landscape golden hour",
+                                 "city bokeh night", "portrait natural light", "cozy interior window"
+   - Do NOT repeat the same word across all three queries in a chain.
 8. Stagger variety: not every item from a persona should be the same type. Mix posts, occasional polls, confessions for couple personas.
 9. Return ONLY the JSON array — no markdown, no explanation, no surrounding text.`;
 }

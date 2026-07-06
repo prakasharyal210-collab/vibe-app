@@ -20,7 +20,7 @@
  *
  * UPDATE_IMAGES mode
  * ──────────────────
- * Re-fetches a better image (large2x, width ≥ 1500 px) for every batch item
+ * Re-fetches a better image (original, width ≥ 2500 px) for every batch item
  * that has BOTH imageQuery AND postId set, then applies it to the existing
  * post via the best available API path:
  *
@@ -97,7 +97,7 @@ const DRY_RUN       = process.env["DRY_RUN"] === "true";
 const UPDATE_IMAGES = process.env["UPDATE_IMAGES"] === "true";
 
 /** Minimum qualifying photo width in pixels */
-const MIN_WIDTH = 1500;
+const MIN_WIDTH = 2500;
 /** If fewer than this many qualify, advance to the next query in the chain */
 const MIN_RESULTS = 3;
 /** Pick randomly from the top N qualifying results for variety */
@@ -184,7 +184,7 @@ async function fetchPexelsImage(
     // Pick randomly from top TOP_N qualifying results
     const pool = qualified.slice(0, TOP_N);
     const photo = pool[Math.floor(Math.random() * pool.length)]!;
-    const imgUrl = photo.src.large2x || photo.src.large || photo.src.original;
+    const imgUrl = photo.src.original || photo.src.large2x || photo.src.large;
 
     console.log(
       `    🔍  [${qi + 1}/${chain.length}] "${query}" → ` +
