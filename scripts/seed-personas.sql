@@ -292,7 +292,7 @@ INSERT INTO public.profiles (
   'recently married (2 months ago) and still figuring out what that means 😭 she/her | Lalitpur',
   25, 'female', 'Lalitpur',
   'https://ui-avatars.com/api/?name=Priya+Rai&background=2D0A1F&color=F472B6&size=256&bold=true&format=png',
-  false, 'Linked',
+  false, 'Married',
   0, 0, 0,
   NOW() - INTERVAL '15 days'
 ),
@@ -305,7 +305,7 @@ INSERT INTO public.profiles (
   'husband of @priya.rai.np | engineer by degree, kebab enthusiast by calling | Lalitpur',
   27, 'male', 'Lalitpur',
   'https://ui-avatars.com/api/?name=Rohan+Rai&background=1A0A2E&color=E2A84B&size=256&bold=true&format=png',
-  false, 'Linked',
+  false, 'Married',
   0, 0, 0,
   NOW() - INTERVAL '15 days'
 ),
@@ -409,7 +409,7 @@ INSERT INTO public.profiles (
   'barista + cafe hop addict | Melbourne | I moved here for study and stayed for the coffee culture and Nabin',
   26, 'female', 'Melbourne, Australia',
   'https://ui-avatars.com/api/?name=Sunita+Poudel&background=2D0A1F&color=F472B6&size=256&bold=true&format=png',
-  false, 'Linked',
+  false, 'In a Relationship',
   0, 0, 0,
   NOW() - INTERVAL '2 days 12 hours'
 ),
@@ -422,7 +422,7 @@ INSERT INTO public.profiles (
   '@sunita.melb''s person | software dev Melbourne | cooking dal bhat on Sundays trying to impress her family on video call',
   28, 'male', 'Melbourne, Australia',
   'https://ui-avatars.com/api/?name=Nabin+Maharjan&background=1A0A2E&color=60B8F7&size=256&bold=true&format=png',
-  false, 'Linked',
+  false, 'In a Relationship',
   0, 0, 0,
   NOW() - INTERVAL '2 days 12 hours'
 )
