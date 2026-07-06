@@ -473,7 +473,6 @@ SELECT
   p.location,
   p.show_in_matching,
   p.relationship_status,
-  p.couple_id,
   a.email,
   a.email_confirmed_at IS NOT NULL AS auth_confirmed,
   p.created_at::date AS joined_date
