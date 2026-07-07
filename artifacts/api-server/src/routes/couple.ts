@@ -370,6 +370,16 @@ router.get("/status", async (req, res) => {
 
     if (link) {
       const partnerId = (link as any).requester_id === userId ? (link as any).receiver_id : (link as any).requester_id;
+
+      // Guard: a self-linked row (requester_id === receiver_id) is corrupt data.
+      // Both sides would resolve to the same profile → "Prakash & Prakash" display.
+      // Treat it as no couple rather than surfacing the bad data.
+      if (partnerId === userId) {
+        req.log.warn({ userId, coupleId: (link as any).id }, "couple/status: self-linked row detected, treating as none");
+        res.json({ status: "none" });
+        return;
+      }
+
       const [{ data: partner }, { data: myProfile }] = await Promise.all([
         sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", partnerId).maybeSingle(),
         sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", userId).maybeSingle(),

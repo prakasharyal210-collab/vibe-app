@@ -138,14 +138,17 @@ function AnimatedCard({
 
 // ─── Monochrome avatar circle ─────────────────────────────────────────────────
 
-function MonoAvatar({ uri }: { uri: string | null }) {
+function MonoAvatar({ uri, name }: { uri: string | null; name?: string | null }) {
+  // Show the first letter of the name instead of a grey person icon when
+  // avatar_url is null — reviewer saw an empty placeholder next to "You & Prakash".
+  const initial = name ? name.charAt(0).toUpperCase() : "?";
   return (
     <View style={s.avatarCircle}>
       {uri ? (
         <Image source={{ uri }} style={s.avatarImg} />
       ) : (
         <View style={[s.avatarImg, s.avatarFallback]}>
-          <Ionicons name="person" size={26} color={P.muted} />
+          <Text style={s.avatarInitial}>{initial}</Text>
         </View>
       )}
     </View>
@@ -322,9 +325,9 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
         {/* ── Header ────────────────────────────────────────────────────── */}
         <View style={s.headerWrap}>
           <View style={s.avatarRow}>
-            <MonoAvatar uri={myProfile?.avatar_url ?? null} />
+            <MonoAvatar uri={myProfile?.avatar_url ?? null} name={myProfile?.full_name || myProfile?.username} />
             <PulsingHeart />
-            <MonoAvatar uri={partner?.avatar_url ?? null} />
+            <MonoAvatar uri={partner?.avatar_url ?? null} name={partnerFirst} />
           </View>
 
           <Text style={s.coupleName}>You & {partnerFirst}</Text>
@@ -538,6 +541,7 @@ const s = StyleSheet.create({
   },
   avatarImg: { width: 63, height: 63, borderRadius: 31.5 },
   avatarFallback: { flex: 1, alignItems: "center", justifyContent: "center" },
+  avatarInitial: { fontSize: 24, fontWeight: "700", color: "#ffffff" },
   coupleName: {
     color: P.text,
     fontFamily: "Poppins_700Bold",

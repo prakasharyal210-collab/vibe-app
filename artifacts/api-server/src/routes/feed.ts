@@ -73,7 +73,13 @@ async function enrichWithCoupleData(
   for (const p of profiles ?? []) profileMap.set(p.id as string, p);
 
   const linkMap = new Map<string, any>();
-  for (const l of links) linkMap.set(l.id as string, l);
+  for (const l of links) {
+    // Skip self-linked rows (requester_id === receiver_id) — corrupt data that
+    // would produce "Prakash & Prakash" coupleName in the feed.
+    if ((l as any).requester_id !== (l as any).receiver_id) {
+      linkMap.set(l.id as string, l);
+    }
+  }
 
   return rows.map((row) => {
     if (!row.is_couple_post || !row.couple_id) return row;

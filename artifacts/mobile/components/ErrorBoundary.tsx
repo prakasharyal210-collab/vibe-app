@@ -30,6 +30,16 @@ export class ErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, info: { componentStack: string }): void {
+    // Always log — the root <ErrorBoundary> in _layout.tsx passes no onError prop,
+    // which previously meant crashes were silently swallowed with zero console output.
+    console.error(
+      "[ErrorBoundary] Caught render error:",
+      error?.message ?? error,
+      "\nStack:",
+      error?.stack ?? "(no stack)",
+      "\nComponent stack:",
+      info.componentStack,
+    );
     if (typeof this.props.onError === "function") {
       this.props.onError(error, info.componentStack);
     }

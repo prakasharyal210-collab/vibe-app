@@ -1,0 +1,19 @@
+FIX: Apple rejection (2.1.0 + 2.3.10) — iOS Google Sign In broken, crash screen, couple display bugs
+Apple rejected iOS build 1.0.2 (15). Reviewer screenshots show four issues. Fix all:
+1. Google Sign In broken on iOS (CRITICAL — the main rejection cause):
+Reviewer screenshot shows: "Sign In failed to load — Client Id property iosClientId must be defined to use Google auth on this platform."
+The Google Sign In configuration only has googleWebClientId (in app.json extra) — no iOS client ID exists. Fix:
+
+Find where Google Sign In is configured/initialized in artifacts/mobile (likely GoogleSignin.configure(...) or the expo-auth-session setup) — report the file and current config.
+Add support for an iosClientId read from app.json extra (e.g. extra.googleIosClientId) and pass it into the Google config on iOS.
+Add a placeholder entry "googleIosClientId": "PASTE_IOS_CLIENT_ID_HERE" in app.json extra — I will create the iOS OAuth client in Google Cloud Console and paste the real value.
+Also report: does the iOS Google flow need the REVERSED_CLIENT_ID URL scheme in app.json ios.infoPlist (CFBundleURLTypes)? If yes, add the config structure with a placeholder for that too, and tell me exactly what value to paste where.
+Defensive fallback: if iosClientId is missing at runtime, the Google button should show a clean "Google Sign In unavailable" state instead of the crash-looking error screen — never a scary yellow triangle.
+
+2. "Something went wrong — Please reload the app" crash screen:
+Reviewer hit a full-screen error boundary. Investigate: what triggers this screen (find the error boundary component), and add logging of the underlying error to it. Check the guest/logged-out browsing flow specifically (reviewer screenshots show browsing posts logged-out with a "Join Gundruk" sheet) — reproduce logged-out browsing → tapping around → look for unhandled errors when auth-required calls fire without a session. Any API call failing while logged out must degrade gracefully (show signup prompt), never crash to the error boundary.
+3. "Prakash & Prakash" confession display (metadata/completeness):
+Reviewer screenshot shows a confession attributed to "Prakash & Prakash" — same person as both partners. Investigate: is this bad test data (a self-coupled couple_links row) or a display bug where partner names both resolve to the same profile? Fix the display logic if it's a bug; if it's data, report the offending couple_links row so I can clean it in Supabase.
+4. Couple tab partner display:
+Reviewer screenshot shows "You & Prakash" with an empty/placeholder partner avatar. Fix: partner avatar should always render (image or initial fallback), never an empty grey person icon.
+Rules: api-server service-role; { data, error } checked; live schema columns. Typecheck both packages. Report per-issue: root cause, files changed, and the exact Google Cloud values I need to create/paste. Do not push or build.
