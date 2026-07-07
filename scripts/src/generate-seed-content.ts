@@ -29,7 +29,7 @@ export interface PollDef {
 }
 
 export interface BatchItem {
-  type: "post" | "poll";
+  type: "post" | "poll" | "confession";
   personaId: string;
   personaName?: string;
   caption?: string;
@@ -185,6 +185,21 @@ export const PERSONAS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Couple personas — alternate within each pair across batches
+// Pair 0: priya.rai.np / rohanrai.life
+// Pair 1: sunita.melb  / nabin.melb
+// ---------------------------------------------------------------------------
+
+const COUPLE_PAIRS = [
+  [PERSONAS[4], PERSONAS[5]],  // priya.rai.np / rohanrai.life
+  [PERSONAS[13], PERSONAS[14]], // sunita.melb  / nabin.melb
+] as const;
+
+// Monotonic batch counter — advances every generateBatch() call; controls which
+// persona within each couple pair posts the confession this batch.
+let _batchCount = 0;
+
+// ---------------------------------------------------------------------------
 // Anthropic helpers
 // ---------------------------------------------------------------------------
 
@@ -223,7 +238,7 @@ function parseJSONArray(raw: string): BatchItem[] {
 }
 
 // ---------------------------------------------------------------------------
-// Prompt builders (parameterised for programmatic use)
+// Prompt builders — photo posts + polls only (confessions generated separately)
 // ---------------------------------------------------------------------------
 
 function buildSystemPrompt(totalItems: number, pollCount: number): string {
@@ -338,6 +353,97 @@ Return ONLY the JSON array.`;
 }
 
 // ---------------------------------------------------------------------------
+// Confession generation — separate Claude call for focused quality
+// ---------------------------------------------------------------------------
+
+function buildConfessionSystemPrompt(): string {
+  return `You are generating confession posts for Gundruk, a dark-themed global social app.
+
+Output a JSON array where each item matches:
+  {
+    "type": "confession",
+    "personaId": "<provided UUID>",
+    "personaName": "<provided name>",
+    "caption": "<the confession text>",
+    "category": "love" or "lifestyle"
+  }
+
+VOICE: warm, funny, universally relatable married/couple-life observations.
+Think: a witty tweet about your spouse that makes everyone who's been in a long-term
+relationship nod immediately.
+
+TOPIC POOL — pick different ones for each persona:
+  • the wet towel always ends up on the bed
+  • "I'll do it later" as a full life philosophy
+  • in-laws calling at the exact worst moment
+  • whose turn it is to cook / the negotiation
+  • he/she said they "cleaned up" (found evidence to the contrary)
+  • snoring denial — absolute conviction they don't snore
+  • the fridge that only one person can navigate
+  • Sunday plans vs actual Sunday
+  • asking "what do you want for dinner" as a relationship stress test
+  • 3am phone brightness, no remorse
+  • the passive-aggressive thermostat wars
+  • buying something and pretending it's been in the house forever
+
+RULES:
+• 1–2 sentences. Conversational tone. Lowercase energy is fine.
+• 0–2 emojis max, only where they genuinely add.
+• End with 1–2 hashtags: #love  #lifestyle  #couplelife  #marriedlife
+• ZERO location references — no Nepal, Melbourne, Sydney, or any place name.
+• No imageQuery field — these are text-only posts.
+• Each confession must use a DIFFERENT topic from the pool above.
+• Do NOT write the same joke twice with different wording.
+
+OUTPUT: raw JSON array only. No markdown. No explanation.`;
+}
+
+function buildConfessionUserPrompt(
+  personas: Array<{ id: string; handle: string; name: string }>,
+): string {
+  const sheets = personas.map(p =>
+    `  id: "${p.id}"  @${p.handle}  (${p.name})`,
+  ).join("\n");
+
+  return `Generate exactly ${personas.length} confession posts, one per persona below.
+
+PERSONAS:
+${sheets}
+
+Each persona gets one confession. Pick a different topic from the pool for each.
+Return ONLY the JSON array.`;
+}
+
+async function generateConfessions(toggle: number): Promise<BatchItem[]> {
+  // toggle 0 → first persona in each pair (priya, sunita)
+  // toggle 1 → second persona in each pair (rohan, nabin)
+  const selectedPersonas = COUPLE_PAIRS.map(pair => pair[toggle]);
+
+  const system   = buildConfessionSystemPrompt();
+  const userMsg  = buildConfessionUserPrompt(selectedPersonas.map(p => ({ id: p.id, handle: p.handle, name: p.name })));
+  const rawReply = await callClaude(system, userMsg);
+  const items    = parseJSONArray(rawReply);
+
+  // Normalise: ensure type is "confession"
+  return items.map(item => ({ ...item, type: "confession" as const }));
+}
+
+// ---------------------------------------------------------------------------
+// Merge helper — spread confessions evenly through the main array
+// ---------------------------------------------------------------------------
+
+function mergeWithConfessions(main: BatchItem[], confessions: BatchItem[]): BatchItem[] {
+  if (confessions.length === 0) return main;
+  const result = [...main];
+  const step   = Math.floor(result.length / (confessions.length + 1));
+  // Insert from end to preserve earlier positions
+  for (let i = confessions.length - 1; i >= 0; i--) {
+    result.splice((i + 1) * step, 0, confessions[i]!);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
 // Validation helpers
 // ---------------------------------------------------------------------------
 
@@ -360,6 +466,9 @@ function validateItems(items: BatchItem[]): string[] {
     if (item.type === "post" && !item.imageQuery) {
       violations.push(`item[${i}] (@${item.personaName ?? item.personaId.slice(-4)}) is a post but missing imageQuery`);
     }
+    if (item.type === "confession" && !item.caption) {
+      violations.push(`item[${i}] (@${item.personaName ?? item.personaId.slice(-4)}) is a confession but missing caption`);
+    }
   }
   return violations;
 }
@@ -370,15 +479,33 @@ function validateItems(items: BatchItem[]): string[] {
 
 /**
  * Generate a batch of seed content items via Claude.
+ *
+ * Batch composition per `count` items:
+ *   • 2 confessions (couple personas, alternating per batch)
+ *   • floor(count / pollEvery) polls
+ *   • remainder: photo posts
+ *
  * @param count      Total items to generate (default 40)
- * @param pollEvery  Produce 1 poll per N items (default 20, so ~5% polls)
+ * @param pollEvery  Produce 1 poll per N items (default 20)
  */
 export async function generateBatch(count: number = 40, pollEvery: number = 20): Promise<BatchItem[]> {
-  const pollCount  = Math.max(1, Math.floor(count / pollEvery));
-  const system     = buildSystemPrompt(count, pollCount);
-  const userMsg    = buildUserPrompt(count, pollCount);
-  const rawReply   = await callClaude(system, userMsg);
-  return parseJSONArray(rawReply);
+  const toggle         = _batchCount++ % 2;
+  const confessionCount = 2;
+  const pollCount      = Math.max(1, Math.floor(count / pollEvery));
+  const photoAndPollCount = count - confessionCount;  // items Claude generates
+
+  // Run both Claude calls in parallel
+  const [photosAndPolls, confessions] = await Promise.all([
+    (async () => {
+      const system  = buildSystemPrompt(photoAndPollCount, pollCount);
+      const userMsg = buildUserPrompt(photoAndPollCount, pollCount);
+      const raw     = await callClaude(system, userMsg);
+      return parseJSONArray(raw);
+    })(),
+    generateConfessions(toggle),
+  ]);
+
+  return mergeWithConfessions(photosAndPolls, confessions);
 }
 
 // ---------------------------------------------------------------------------
@@ -394,10 +521,14 @@ async function main(): Promise<void> {
 
   const count     = 40;
   const pollEvery = 20;
+  const confessionCount = 2;
   const pollCount = Math.max(1, Math.floor(count / pollEvery));
+  const photoCount = count - confessionCount - pollCount;
 
-  console.log(`\n✨  Generating ${count} seed items (${count - pollCount} photo posts + ${pollCount} polls) via Claude ${MODEL}…`);
-  console.log(`    This may take 20–40 seconds.\n`);
+  console.log(`\n✨  Generating ${count} seed items:`);
+  console.log(`    ${photoCount} photo posts + ${pollCount} polls + ${confessionCount} confessions`);
+  console.log(`    via Claude ${MODEL}…\n`);
+  console.log(`    (2 parallel Claude calls — may take 20–40 seconds)\n`);
 
   let items: BatchItem[];
   try {
@@ -416,10 +547,10 @@ async function main(): Promise<void> {
     console.warn(`\n⚠️  ${violations.length} validation issue(s):`);
     for (const v of violations) console.warn(`   • ${v}`);
   } else {
-    console.log(`✅  Validation clean — zero banned terms, all posts have imageQuery\n`);
+    console.log(`✅  Validation clean\n`);
   }
 
-  // Print 4 samples from different categories
+  // Print 4 photo post samples from different categories
   const byCategory = new Map<string, BatchItem>();
   for (const item of items) {
     if (item.type === "post" && item.category && !byCategory.has(item.category)) {
@@ -429,7 +560,7 @@ async function main(): Promise<void> {
   const samples = [...byCategory.values()].slice(0, 4);
 
   console.log("─────────────────────────────────────────");
-  console.log("4 sample posts (different categories):");
+  console.log("4 sample photo posts (different categories):");
   console.log("─────────────────────────────────────────\n");
   for (const [i, s] of samples.entries()) {
     const handle = PERSONAS.find(p => p.id === s.personaId)?.handle ?? s.personaId;
@@ -441,6 +572,21 @@ async function main(): Promise<void> {
     console.log();
   }
 
+  // Print confessions
+  const confessions = items.filter(i => i.type === "confession");
+  if (confessions.length > 0) {
+    console.log("─────────────────────────────────────────");
+    console.log("Confessions:");
+    console.log("─────────────────────────────────────────\n");
+    for (const c of confessions) {
+      const handle = PERSONAS.find(p => p.id === c.personaId)?.handle ?? c.personaId;
+      console.log(`  @${handle}  [${c.category}]`);
+      console.log(`  "${c.caption}"`);
+      console.log();
+    }
+  }
+
+  // Print polls
   const polls = items.filter(i => i.type === "poll");
   if (polls.length > 0) {
     console.log("─────────────────────────────────────────");
