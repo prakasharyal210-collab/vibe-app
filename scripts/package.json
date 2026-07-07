@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "supabase-migrate": "tsx ./src/supabase-migrate.mts",
@@ -13,11 +17,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@types/node": "catalog:"
+    "@types/node": "^25.3.3"
   },
   "dependencies": {
     "@types/pg": "^8.20.0",
     "pg": "^8.20.0",
-    "tsx": "catalog:"
+    "tsx": "^4.21.0"
   }
 }

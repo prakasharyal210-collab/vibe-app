@@ -4,7 +4,7 @@
 #   Source:        same GitHub repo as vibe-app
 #   Root Dir:      scripts          ← MUST be "scripts" (not "artifacts/api-server")
 #   Builder:       Nixpacks         ← select explicitly in Settings → Build
-#   Build command: pnpm install --frozen-lockfile
+#   Build command: npm install -g pnpm && pnpm install --frozen-lockfile
 #   Start command: pnpm --filter @workspace/scripts run seed-content
 #
 # Dashboard settings for the vibe-app service (no change needed if already working):
@@ -12,7 +12,7 @@
 
 [build]
 builder = "nixpacks"
-buildCommand = "pnpm install --frozen-lockfile"
+buildCommand = "npm install -g pnpm && pnpm install --frozen-lockfile"
 
 [deploy]
 startCommand = "pnpm --filter @workspace/scripts run seed-content"
