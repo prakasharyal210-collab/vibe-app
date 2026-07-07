@@ -57,6 +57,38 @@ const CATEGORIES = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// 13 thematic image-content buckets — broader than app categories.
+// Each persona is assigned 2–3 buckets that match their personality.
+// Claude is told to rotate through ALL 13 across the batch so the feed
+// shows real variety, not just food/lifestyle/music every time.
+// ---------------------------------------------------------------------------
+
+type ThemeCategory =
+  | "Food" | "Nature" | "Travel" | "Lifestyle" | "Fashion"
+  | "Fitness/Sports" | "Animals" | "Business/Tech" | "Music"
+  | "Art & Design" | "Wellness" | "Celebrations" | "Transportation";
+
+// Keyed by persona UUID so we can look up in buildUserPrompt without
+// modifying the exported PERSONAS tuple.
+const PERSONA_CATEGORIES: Record<string, ThemeCategory[]> = {
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01": ["Food", "Travel", "Lifestyle"],           // momoking_ktm
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a02": ["Lifestyle", "Travel", "Wellness"],        // sydneydarling_np
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a03": ["Nature", "Travel", "Art & Design"],       // pokharapeaks
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a04": ["Business/Tech", "Celebrations", "Transportation"], // desi_chaos_np
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a05": ["Lifestyle", "Food", "Wellness"],          // priya.rai.np
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a06": ["Food", "Business/Tech", "Lifestyle"],     // rohanrai.life
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a07": ["Fitness/Sports", "Celebrations", "Travel"], // aakash_eleven
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a08": ["Wellness", "Lifestyle", "Nature"],        // nurse_anisha_ca
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a09": ["Music", "Art & Design", "Lifestyle"],     // lopdohori_sagar
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a10": ["Fashion", "Art & Design", "Lifestyle"],   // nisha.thrifts
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11": ["Business/Tech", "Transportation", "Music"], // kiran_in_london
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12": ["Fitness/Sports", "Food", "Wellness"],     // deepak_gainz
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13": ["Wellness", "Lifestyle", "Nature"],        // chiyaandthoughts
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14": ["Food", "Lifestyle", "Celebrations"],      // sunita.melb
+  "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15": ["Food", "Lifestyle", "Animals"],           // nabin.melb
+};
+
+// ---------------------------------------------------------------------------
 // Persona definitions — IDs MUST match seed-personas.sql
 // Exported so seed-content.ts can build rhythm tables without duplication.
 // ---------------------------------------------------------------------------
@@ -298,24 +330,55 @@ IMAGE QUERY RULES — CRITICAL
   himalaya, himalayan, sydney, toronto, london, dubai, melbourne, australian,
   canadian, british, indian, asian, south asian, and any country/city/region name.
 • Think like a Getty/Unsplash art director: dramatic light, beautiful composition, 4K.
-• Proven high-result subjects on Pexels:
-    food:        "pasta carbonara close up dark food photography"
-                 "latte art top down coffee" | "fresh sushi platter dark background"
-    travel:      "northern lights reflection lake" | "desert sand dunes golden hour"
-    fitness:     "barbell deadlift gym dramatic lighting" | "runner silhouette sunset beach"
-    music:       "concert stage lights crowd" | "vinyl record turntable warm light"
-    fashion:     "editorial portrait model dramatic light" | "vintage clothing flat lay"
-    photography: "long exposure waterfall forest" | "milky way stars dark sky"
-    tech:        "laptop coffee shop dark moody" | "neon city rain reflection"
-    sports:      "stadium floodlights crowd celebration" | "surfer wave barrel"
-    nature:      "autumn forest path fog" | "ocean wave sunset silhouette"
-    lifestyle:   "cozy reading corner lamp books" | "brunch flat lay natural light"
-• imageQuery: the most specific beautiful version of this post's subject
-• fallbackQueries[0]: slightly broader, same subject, different angle
-• fallbackQueries[1]: guaranteed-universal that always resolves on Pexels:
-    "food photography dark background" / "landscape golden hour" /
-    "city bokeh night" / "portrait natural light" / "cozy interior window light"
-• Never repeat the same word across all three entries.
+• Reference queries by theme — pick the closest match to this post's content:
+
+  Food            "pasta carbonara close up dark food photography"
+                  "latte art top down specialty coffee" | "sushi platter dark background"
+                  "homemade bread baking golden crust" | "fruit smoothie bowl overhead"
+
+  Nature          "misty forest path golden hour" | "ocean wave sunset silhouette"
+                  "mountain peak dramatic clouds" | "autumn leaves bokeh sunlight"
+
+  Travel          "cobblestone street cafe morning light" | "desert sand dunes golden hour"
+                  "road trip highway horizon sunset" | "city skyline night bokeh"
+
+  Lifestyle       "cozy reading nook lamp rain window" | "brunch flat lay natural light"
+                  "morning coffee aesthetic warm tones" | "minimalist bedroom soft light"
+
+  Fashion         "street style editorial portrait dramatic light" | "vintage clothing flat lay"
+                  "monochrome outfit minimal background" | "accessories close up texture"
+
+  Fitness/Sports  "barbell deadlift gym dramatic lighting" | "runner silhouette sunrise beach"
+                  "stadium floodlights crowd celebration" | "yoga pose outdoor sunrise"
+
+  Animals         "golden retriever portrait natural light" | "cat window sunbeam bokeh"
+                  "wildlife bird close up nature" | "dog park action blur"
+
+  Business/Tech   "minimal desk setup dark aesthetic monitor" | "laptop neon glow dark room"
+                  "coding screen dark mode close up" | "coffee notebook workspace morning"
+
+  Music           "concert stage lights crowd silhouette" | "vinyl record turntable warm light"
+                  "guitarist spotlight dark stage" | "headphones neon bokeh studio"
+
+  Art & Design    "modern architecture geometric shadow" | "abstract paint splash close up"
+                  "colorful mural urban wall texture" | "sculpture museum dramatic light"
+
+  Wellness        "morning yoga stretch mat sunlight" | "spa stones candle calm water"
+                  "meditation garden serene path" | "herbal tea hands steam close up"
+
+  Celebrations    "string lights party bokeh warm" | "birthday cake candles dark background"
+                  "champagne glasses golden sparkle" | "confetti celebration aerial"
+
+  Transportation  "vintage car city night reflection" | "train window rain landscape blur"
+                  "motorcycle mountain road winding aerial" | "bicycle street golden hour"
+
+• imageQuery: most specific, most photogenic version of this exact post's subject
+• fallbackQueries[0]: slightly broader angle, same theme
+• fallbackQueries[1]: guaranteed-safe catch-all that always resolves on Pexels —
+    pick from: "food photography dark background" / "landscape golden hour" /
+    "city bokeh night" / "portrait natural light" / "cozy interior warm light" /
+    "nature sunlight bokeh" / "abstract texture close up"
+• Never repeat the same keyword across all three entries.
 
 ═══════════════════════════════════════════════════════
 POLL RULES
@@ -332,22 +395,43 @@ Return ONLY the raw JSON array. No markdown fences. No explanation.`;
 
 function buildUserPrompt(totalItems: number, pollCount: number): string {
   const photoCount = totalItems - pollCount;
-  const personaSheets = PERSONAS.map(p =>
-    `  id: "${p.id}"  @${p.handle}  (${p.name})
-   niche: ${p.niche} | vibe: ${p.vibe}
-   imageStyle: ${p.imageStyle}`,
-  ).join("\n\n");
+
+  // Include each persona's assigned theme categories in the sheet so Claude
+  // knows which buckets to draw from per account, while the overall batch
+  // instruction tells it to cover ALL 13 themes across the full array.
+  const personaSheets = PERSONAS.map(p => {
+    const themes = (PERSONA_CATEGORIES[p.id] ?? []).join(", ");
+    return `  id: "${p.id}"  @${p.handle}  (${p.name})
+   niche: ${p.niche} | themes: ${themes}
+   vibe: ${p.vibe}
+   imageStyle: ${p.imageStyle}`;
+  }).join("\n\n");
+
+  const allThemes = [
+    "Food", "Nature", "Travel", "Lifestyle", "Fashion",
+    "Fitness/Sports", "Animals", "Business/Tech", "Music",
+    "Art & Design", "Wellness", "Celebrations", "Transportation",
+  ].join(", ");
 
   return `Generate exactly ${totalItems} items (${photoCount} photo posts + ${pollCount} poll${pollCount === 1 ? "" : "s"}) distributed across all 15 personas.
 
-Each persona should appear at least once. Vary categories — don't give the same category to the same persona twice. Interleave personas so items from different accounts are mixed throughout the array (not persona-by-persona).
+THEME COVERAGE (critical):
+The 13 image themes are: ${allThemes}
+• Every persona posts from their listed themes only — don't force a fitness persona to post fashion.
+• Across the FULL batch, every theme must appear at least once. Check coverage before finalising.
+• Within a persona's themes, rotate — don't assign the same theme to the same persona twice.
+
+DISTRIBUTION RULES:
+• Each persona appears at least once.
+• Interleave personas throughout the array (not persona-by-persona blocks).
+• Vary both theme AND app category within each persona's assigned themes.
 
 PERSONAS:
 ${personaSheets}
 
-Caption must match the persona's vibe AND the image subject. imageQuery must match the imageStyle guidance. No geography anywhere.
+Caption must match the persona's vibe AND the image subject. imageQuery must match the imageStyle guidance and the chosen theme. No geography anywhere.
 
-${pollCount > 0 ? `Assign the ${pollCount === 1 ? "poll" : `${pollCount} polls`} to different personas (prefer niche: memes or sports for one). Both ${pollCount === 1 ? "poll" : "polls"} must be fun global debates with no location references.` : ""}
+${pollCount > 0 ? `Assign the ${pollCount === 1 ? "poll" : `${pollCount} polls`} to different personas (prefer niche: memes or sports for one). Polls must be fun global debates with no location references.` : ""}
 
 Return ONLY the JSON array.`;
 }
