@@ -108,11 +108,11 @@ const SUPABASE_URL   = (process.env["SUPABASE_URL"] ?? "").replace(/\/$/, "");
 const SUPABASE_KEY   = process.env["SUPABASE_SERVICE_ROLE_KEY"] ?? "";
 const USE_DB         = !!(SUPABASE_URL && SUPABASE_KEY);
 
-/** "START-END" in UTC hours.  e.g. "21-14" = active 21:00–13:59 UTC (wraps midnight).
- *  Default quiet window 14:00–21:00 UTC covers:
- *    14:00 UTC = 19:45 Nepal / 00:00 Melbourne — both winding down
- *    21:00 UTC = 02:45 Nepal / 08:00 Melbourne — both waking up */
-const POST_HOURS_UTC = process.env["POST_HOURS_UTC"] ?? "21-14";
+/** "START-END" in UTC hours.  e.g. "0-20" = active 00:00–19:59 UTC.
+ *  Default sleep window 20:00–00:00 UTC covers ~2am–6am NPT deep night:
+ *    00:00 UTC = 05:45 NPT / 10:00 AEST — both waking up   → seeder starts
+ *    20:00 UTC = 01:45 NPT / 06:00 AEST — both past midnight → seeder sleeps */
+const POST_HOURS_UTC = process.env["POST_HOURS_UTC"] ?? "0-20";
 
 const MIN_WIDTH        = 2500;
 const MIN_RESULTS      = 3;
@@ -233,17 +233,29 @@ async function dbGet<T>(key: string, fallback: T): Promise<T> {
 }
 
 async function dbSet(key: string, value: unknown): Promise<void> {
+  // Serialize to a UTF-8 byte buffer first.  Using a Uint8Array (not a plain
+  // string) ensures Node.js undici never misroutes the payload into a header
+  // slot — the source of "ByteString contains non-Latin1 code point" errors
+  // when captions include →, emoji, or curly quotes.
+  const bodyBytes = new TextEncoder().encode(
+    JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+  );
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/seeder_state`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/seeder_state`, {
       method: "POST",
       headers: {
-        apikey:         SUPABASE_KEY,
-        Authorization:  `Bearer ${SUPABASE_KEY}`,
-        "Content-Type": "application/json",
-        Prefer:         "resolution=merge-duplicates",
+        apikey:           SUPABASE_KEY,
+        Authorization:    `Bearer ${SUPABASE_KEY}`,
+        "Content-Type":   "application/json",
+        "Content-Length": String(bodyBytes.byteLength),
+        Prefer:           "resolution=merge-duplicates",
       },
-      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+      body: bodyBytes,
     });
+    // Always drain the response body so undici can reuse the connection.
+    // Skipping this is the other trigger for ByteString errors on subsequent
+    // requests — the old response stream leaks into the next one.
+    await res.text().catch(() => undefined);
   } catch (e: any) {
     console.warn(`    ⚠  dbSet("${key}") failed: ${e?.message}`);
   }
