@@ -2,19 +2,18 @@
 #
 # Dashboard settings:
 #   Root Dir:      scripts
-#   Builder:       Nixpacks
-#   Build command: (leave blank — install is handled by nixpacks.toml)
-#   Start command: npx tsx ./src/seed-content.ts
+#   Builder:       Docker (auto-detected from scripts/Dockerfile)
+#   Build command: (leave blank)
+#   Start command: (leave blank — CMD in Dockerfile handles it)
 #
-# Why nixpacks.toml: Nixpacks auto-detects "packageManager": "pnpm" and
-# hardcodes `pnpm i --frozen-lockfile` in the generated Dockerfile, ignoring
-# buildCommand. The [phases.install] override in nixpacks.toml replaces that
-# with --no-frozen-lockfile (needed because pnpm-lock.yaml is at repo root,
-# not inside scripts/).
+# Why Dockerfile instead of Nixpacks:
+#   Nixpacks hardcodes `pnpm i --frozen-lockfile` when it sees "packageManager"
+#   in package.json and ignores nixpacks.toml phase overrides. The lockfile
+#   lives at repo root, unreachable from Root Dir = scripts. Docker sidesteps
+#   all of this: npm install from package.json, tsx in node_modules/.bin, done.
 
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
 
 [deploy]
-startCommand = "npx tsx ./src/seed-content.ts"
 restartPolicyType = "ON_FAILURE"
