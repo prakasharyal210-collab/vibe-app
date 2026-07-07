@@ -1,22 +1,19 @@
 # Railway config for the drip-seeder worker service.
 #
-# Dashboard settings for the drip-seeder service:
-#   Source:        same GitHub repo as vibe-app
-#   Root Dir:      scripts          ← MUST be "scripts"
-#   Builder:       Nixpacks         ← select explicitly in Settings → Build
-#   Build command: npx pnpm@10.26.1 install
+# Dashboard settings:
+#   Root Dir:      scripts
+#   Builder:       Nixpacks
+#   Build command: (leave blank — install is handled by nixpacks.toml)
 #   Start command: npx tsx ./src/seed-content.ts
 #
-# Notes:
-#   - Root Dir = "scripts" → build runs inside scripts/, pnpm-lock.yaml is at repo
-#     root and unreachable, so --frozen-lockfile must NOT be used.
-#   - pnpm --filter requires workspace root context; since cwd is scripts/ at
-#     runtime, we invoke tsx directly instead.
-#   - npx tsx works because tsx is in dependencies and installed into node_modules/.bin.
+# Why nixpacks.toml: Nixpacks auto-detects "packageManager": "pnpm" and
+# hardcodes `pnpm i --frozen-lockfile` in the generated Dockerfile, ignoring
+# buildCommand. The [phases.install] override in nixpacks.toml replaces that
+# with --no-frozen-lockfile (needed because pnpm-lock.yaml is at repo root,
+# not inside scripts/).
 
 [build]
 builder = "nixpacks"
-buildCommand = "npx pnpm@10.26.1 install"
 
 [deploy]
 startCommand = "npx tsx ./src/seed-content.ts"
