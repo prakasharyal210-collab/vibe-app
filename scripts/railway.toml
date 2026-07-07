@@ -1,3 +1,15 @@
+# Railway config for the drip-seeder worker service.
+#
+# Dashboard settings for the drip-seeder service:
+#   Source:        same GitHub repo as vibe-app
+#   Root Dir:      scripts          ← MUST be "scripts" (not "artifacts/api-server")
+#   Builder:       Nixpacks         ← select explicitly in Settings → Build
+#   Build command: pnpm install --frozen-lockfile
+#   Start command: pnpm --filter @workspace/scripts run seed-content
+#
+# Dashboard settings for the vibe-app service (no change needed if already working):
+#   Root Dir:  /  (repo root)  — finds root Dockerfile, uses Docker builder
+
 [build]
 builder = "nixpacks"
 buildCommand = "pnpm install --frozen-lockfile"
