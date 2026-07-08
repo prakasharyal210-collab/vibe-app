@@ -37,7 +37,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["PASTE_REVERSED_IOS_CLIENT_ID_HERE"]
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.375944530592-o2jngbbb3otgnhkhn8ohv28s1gd9c0eo"
+            ]
           }
         ]
       },
@@ -127,7 +129,7 @@
         "projectId": "c60fdd9d-6ced-4370-86de-24d16864e642"
       },
       "googleWebClientId": "375944530592-m00jil1hf5ppqq02mnfgrgiaen3f2a8s.apps.googleusercontent.com",
-      "googleIosClientId": "PASTE_IOS_CLIENT_ID_HERE"
+      "googleIosClientId": "375944530592-o2jngbbb3otgnhkhn8ohv28s1gd9c0eo.apps.googleusercontent.com"
     },
     "owner": "prakasharyal210"
   }
