@@ -64396,7 +64396,11 @@ async function enrichWithCoupleData(supabase, rows) {
   const profileMap = /* @__PURE__ */ new Map();
   for (const p of profiles ?? []) profileMap.set(p.id, p);
   const linkMap = /* @__PURE__ */ new Map();
-  for (const l of links) linkMap.set(l.id, l);
+  for (const l of links) {
+    if (l.requester_id !== l.receiver_id) {
+      linkMap.set(l.id, l);
+    }
+  }
   return rows.map((row) => {
     if (!row.is_couple_post || !row.couple_id) return row;
     const link = linkMap.get(row.couple_id);
@@ -66885,6 +66889,11 @@ router40.get("/status", async (req, res) => {
     const { data: link } = await sb.from("couple_links").select("*").or(`requester_id.eq.${userId},receiver_id.eq.${userId}`).eq("status", "accepted").order("accepted_at", { ascending: false }).maybeSingle();
     if (link) {
       const partnerId = link.requester_id === userId ? link.receiver_id : link.requester_id;
+      if (partnerId === userId) {
+        req.log.warn({ userId, coupleId: link.id }, "couple/status: self-linked row detected, treating as none");
+        res.json({ status: "none" });
+        return;
+      }
       const [{ data: partner }, { data: myProfile }] = await Promise.all([
         sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", partnerId).maybeSingle(),
         sb.from("profiles").select("id, username, avatar_url, full_name").eq("id", userId).maybeSingle()
