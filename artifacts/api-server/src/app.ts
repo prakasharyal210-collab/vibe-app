@@ -146,6 +146,13 @@ app.get("/reset-redirect", (_req, res) => {
 // ─── API routes ───────────────────────────────────────────────────────────────
 app.use("/api", router);
 
+// TEMPORARY — remove after Sentry capture is verified in production.
+// Confirms Sentry.setupExpressErrorHandler below actually reports thrown
+// errors end-to-end.
+app.get("/api/debug-sentry-test", () => {
+  throw new Error("Sentry test error - safe to ignore, will be removed after verification");
+});
+
 // Must be registered AFTER all routes so it can catch errors thrown inside
 // them. If SENTRY_DSN was never set (see src/instrument.ts), Sentry has no
 // active client and this call is a safe no-op.
