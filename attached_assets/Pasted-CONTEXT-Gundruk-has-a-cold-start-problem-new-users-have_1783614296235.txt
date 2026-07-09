@@ -1,0 +1,34 @@
+CONTEXT: Gundruk has a cold-start problem — new users have an empty Friends tab since they haven't followed anyone yet. We want to add an onboarding step right after signup that prompts new users to follow a curated set of accounts, so the app feels alive from their first session.
+
+Architecture reminder:
+- Mobile is artifacts/mobile (Expo SDK 54 / React Native)
+- API is artifacts/api-server (Express on Railway)
+- ALL DB access routes through api-server; mobile never calls supabase.from()/.rpc() directly
+- follows table uses follower_id/following_id
+- 15 seed persona accounts exist (fixed UUIDs a0eebc99-...a01 through a15), all show_in_matching = false — these are legitimate content-posting accounts, safe to suggest as follows (NOT dating profiles, just regular content accounts)
+- Deploy: API changes via git push (Railway auto-deploy). Mobile JS-only changes via eas update. This feature is pure JS/UI — should not require a native rebuild, verify this assumption as you go and flag if something forces a native change.
+
+DIAGNOSE FIRST:
+1. Find the current signup/onboarding flow in artifacts/mobile (search for verify-email.tsx or wherever the flow lands after a new user completes signup — report the exact file and what currently happens right after successful signup/verification).
+2. Check if there's already a "suggested accounts to follow" endpoint anywhere in api-server. If not, confirm none exists.
+3. Report how many total accounts currently exist that COULD be suggested (seed personas + any real users), so we know if a suggestion pool is realistic yet.
+
+IMPLEMENT:
+1. API: Add a new endpoint GET /api/onboarding/suggested-follows that returns a list of accounts to suggest — prioritize the 15 seed personas (varied content categories if that data exists) plus any real users with meaningful post history, sensible limit (e.g. 10-15 suggestions).
+2. Mobile: Add a new onboarding screen shown once, immediately after successful signup verification (before landing on the main feed) — a simple scrollable list of suggested accounts with avatar, name, a sample of their content/category, and a Follow/Following toggle button per account. Include a "Continue" button at the bottom (enabled regardless of how many they followed — don't force a minimum, but maybe default a few as pre-selected/pre-followed so Continue feels natural without friction).
+3. On "Continue", persist the follows via a batch call to the existing follow endpoint(s) for whichever accounts they selected, then proceed to the main feed as normal.
+4. This screen should only show ONCE per new signup — add a flag (e.g. has_completed_onboarding boolean on users table, or reuse an existing similar flag if one exists — check first) so returning users never see it again.
+5. Reuse existing UI patterns/components (Follow button styling, avatar components, etc.) already in the codebase rather than building new ones from scratch — report what you reused.
+
+ALSO — fallback empty state:
+6. Check the current Friends/Following tab's empty state (when a user has followed nobody). If it's currently blank or unclear, add a simple empty state with a message like "Follow people to see their posts here" and a button that routes to a "Discover people" screen — reuse the suggested-follows endpoint from step 1 for this screen's content too, so we're not building two separate suggestion systems.
+
+DO NOT:
+- Do not touch Confession Room, reels, or the main "For You" feed ranking work — separate scope
+- Do not push, deploy, or run eas update — I'll do that myself after review
+
+AFTER IMPLEMENTATION:
+- Typecheck
+- Report every file changed (mobile + api-server)
+- Confirm whether this is truly OTA-deployable (JS-only) or if it touches anything requiring a native rebuild
+- Suggest how to manually test: create a fresh test account, verify the onboarding follow screen appears once, verify it doesn't reappear on next login, verify Friends tab shows content from whoever was followed

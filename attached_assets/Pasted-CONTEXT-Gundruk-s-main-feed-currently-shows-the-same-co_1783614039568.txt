@@ -1,0 +1,37 @@
+CONTEXT: Gundruk's main feed currently shows the same content to every user (no personalization). We want to add a real "For You" ranking algorithm so different users see feeds weighted toward their own interests, similar in spirit to the hot-ranking formula already used in the Confession Room (score = (reactions + comments*2 + poll_votes*1.5 + active_poll_bonus_5) / (hours+2)^1.5).
+
+Architecture reminder:
+- API is artifacts/api-server (Express on Railway)
+- ALL DB access routes through api-server with service-role key; mobile never calls supabase.from()/.rpc() directly
+- DB is Supabase project tatroqgcyebuqqkhmvpa
+- Deploy: git push origin main (Railway auto-deploys) — this is a backend-only change, no mobile/native changes needed, safe to ship without touching app store submissions
+- Known schema facts: users table uses full_name (not display_name); follows uses follower_id/following_id
+
+DIAGNOSE FIRST:
+1. Find the current feed endpoint (likely something like GET /api/feed or GET /api/posts in api-server) and report exactly how it currently queries/orders posts.
+2. Check if posts have a category or content-type field already (mentioned in prior context: food, nature, travel, lifestyle, fashion, fitness, animals, business/tech, music, art, wellness, celebrations, transportation — confirm these exist as an actual column).
+3. Check if there's already a table tracking what posts a user has liked (likely post_likes or reactions table) — report its schema.
+4. Check if there's a table tracking what a user has already seen/viewed in their feed — report if this exists or not.
+
+IMPLEMENT (v1 ranking algorithm):
+1. Create a new scoring function for the main feed (separate from confession ranking, but similar pattern) that combines:
+   a. Follow-graph boost: posts from accounts the requesting user follows get a significant score multiplier (e.g. 3x) vs posts from accounts they don't follow
+   b. Engagement score: likes + comments*2, using existing tables
+   c. Recency decay: similar formula to confession ranking — newer posts score higher, older posts fade (use the same (hours+2)^1.5 decay pattern for consistency, or propose a similar one if post volume/velocity differs from confessions)
+   d. Category affinity: if a category column exists on posts, calculate the requesting user's top 3 liked categories from their like history (simple count, not ML), and give a modest score boost (e.g. 1.5x) to posts matching those categories
+2. Exclude posts the user has already seen in their current session/recent feed pulls if a seen-tracking mechanism exists; if none exists, do NOT build one in this pass — just note it as a gap, keep this implementation simpler for now
+3. Update the feed endpoint to use this new scoring function instead of (or alongside, if there's a reason to keep both) the current ordering
+4. Make sure the query performs reasonably — if scoring requires pulling all posts into memory to score in JS rather than doing it in SQL, flag that as a performance concern and propose whether it's acceptable for current post volume or needs a SQL-level approach instead
+5. Add a query parameter or config flag to fall back to pure chronological ordering if needed (useful for debugging/comparison)
+
+DO NOT:
+- Do not touch the Confession Room ranking (already works, separate system)
+- Do not touch reels
+- Do not build a seen-post tracking table in this pass unless one already exists — keep scope contained
+- Do not push or deploy — I'll review and do that myself
+
+AFTER IMPLEMENTATION:
+- Typecheck
+- Report every file changed with a clear explanation of the scoring formula actually implemented
+- Report any performance concerns about how the query executes at current scale
+- Suggest how I could manually test that two different user accounts (e.g. one following mostly food personas vs one following mostly travel personas) actually see different feed ordering

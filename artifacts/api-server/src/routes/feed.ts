@@ -283,9 +283,38 @@ router.get("/foryou", async (req, res) => {
   // end up with far fewer results than requested (or zero), making the filter
   // appear broken to the user.  Jump straight to the direct query which applies
   // the is_video predicate at the database level.
-  if (!contentType) {
-    // Try v2 first (personalised + ranked). RPC returns no profile info, so we
-    // enrich with a secondary profiles batch lookup.
+  //
+  // ?rank=chrono bypasses all personalised RPCs entirely for debugging/
+  // comparison — falls straight through to the plain created_at-ordered query
+  // at the bottom of this handler.
+  const rankMode = req.query["rank"] as string | undefined;
+  if (!contentType && rankMode !== "chrono") {
+    // Try v3 first — follow-graph boost (3x) + top-3 liked-category boost
+    // (1.5x) applied on top of the existing engagement/recency `score`.
+    // See scripts/for-you-v3-ranking-migration.sql for the RPC definition.
+    const { data: v3Data, error: v3Err } = await supabase.rpc(
+      "get_for_you_feed_v3",
+      { p_user_id: userId, p_limit: limit, p_offset: offset },
+    );
+    if (!v3Err && Array.isArray(v3Data) && v3Data.length > 0) {
+      const enriched = await enrichWithProfiles(supabase, v3Data);
+      const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
+      const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
+      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const out = limitPollsToTop5(filtered);
+      res.json({ data: out, source: "v3" });
+      return;
+    }
+    if (v3Err) {
+      req.log.info(
+        { err: v3Err.message },
+        "foryou: v3 RPC unavailable — run scripts/for-you-v3-ranking-migration.sql in Supabase to activate follow/category boost ranking",
+      );
+    }
+
+    // Fall back to v2 (personalised + ranked, creator-affinity only in this
+    // project's DB — see migration script comments). RPC returns no profile
+    // info, so we enrich with a secondary profiles batch lookup.
     const { data: v2Data, error: v2Err } = await supabase.rpc(
       "get_for_you_feed_v2",
       { p_user_id: userId, p_limit: limit, p_offset: offset },

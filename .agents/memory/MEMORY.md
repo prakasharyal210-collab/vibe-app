@@ -1,4 +1,5 @@
 - [Vibe app mock-to-Supabase audit](vibe-supabase-audit.md) — all mock initial states removed; profile screen rewired to real DB lookups
+- [For You feed v2 prod state](for-you-feed-v2-prod-state.md) — v2's category-affinity term is a silent no-op in prod (categories[] never backfilled); posts.score mostly stale (cron never scheduled); use singular posts.category instead.
 - [Vibe ads system](ads-system.md) — feed ads every 4 posts, reel ads every 3 reels; house ads fallback; AdCard + ReelAdCard + advertise screen all wired in.
 - [Vibe design system](vibe-design-system.md) — Dark Luxury palette and floating glass pill tab bar; never change AdCard/ReelAdCard/ads.ts colors.
 - [Snap message feature](snap-feature.md) — Snapchat-style snaps encoded in message text field as __SNAP__:{...}; no DB migration needed.
