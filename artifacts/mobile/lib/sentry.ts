@@ -1,3 +1,5 @@
+import type React from "react";
+
 /**
  * Thin wrapper around @sentry/react-native.
  *
@@ -36,5 +38,21 @@ export function captureException(error: unknown): void {
     SentryModule?.captureException(error);
   } catch {
     // Never let error reporting itself crash the app.
+  }
+}
+
+/**
+ * Wraps the root component with Sentry.wrap() (navigation/render crash
+ * capture). Returns the component unchanged if Sentry never initialized
+ * (DSN missing, or native module unavailable e.g. Expo Go).
+ */
+export function wrapSentry<P extends object>(
+  RootComponent: React.ComponentType<P>,
+): React.ComponentType<P> {
+  if (!SentryModule) return RootComponent;
+  try {
+    return SentryModule.wrap(RootComponent);
+  } catch {
+    return RootComponent;
   }
 }

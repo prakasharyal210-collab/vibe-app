@@ -21,7 +21,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CoupleProvider } from "@/context/CoupleContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { initSentry } from "@/lib/sentry";
+import { initSentry, wrapSentry } from "@/lib/sentry";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -142,7 +142,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     // Explicit require instead of ...Ionicons.font spread — ensures the key
     // 'ionicons' (lowercase, matching createIconSet's fontName) is always
@@ -255,3 +255,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default wrapSentry(RootLayout);

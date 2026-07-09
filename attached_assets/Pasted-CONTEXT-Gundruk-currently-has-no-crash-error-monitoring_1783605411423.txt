@@ -1,0 +1,49 @@
+CONTEXT: Gundruk currently has no crash/error monitoring. If the API crashes, an Edge Function fails, or the mobile app throws an uncaught error, we only find out from user reports or by accident. We need visibility into production errors across both the API server and mobile app before wider launch.
+
+Architecture reminder: 
+- API is artifacts/api-server (Express on Railway)
+- Mobile is artifacts/mobile (Expo SDK 54 / React Native)
+- ALL DB access routes through api-server with service-role key; mobile never calls supabase.from()/.rpc() directly
+- Deploys: API via git push origin main (Railway auto-deploy). Mobile JS via eas update, native via eas build.
+
+TASK: Add Sentry error monitoring to both artifacts/api-server and artifacts/mobile.
+
+DIAGNOSE FIRST:
+1. Check package.json in both artifacts/api-server and artifacts/mobile to confirm neither already has @sentry/node or @sentry/react-native installed. Report what you find before proceeding.
+
+FOR artifacts/api-server (Express, Sentry Node SDK):
+1. Install @sentry/node: npm install @sentry/node --save
+2. Create a new file artifacts/api-server/instrument.js (or .ts matching the project's file convention) that initializes Sentry FIRST, before any other imports. Use this structure:
+   const Sentry = require("@sentry/node"); // or import * as Sentry from "@sentry/node" if ESM
+   Sentry.init({
+     dsn: process.env.SENTRY_DSN,
+     tracesSampleRate: 0.1,
+     enabled: !!process.env.SENTRY_DSN,
+   });
+3. This instrument file must be required/imported at the absolute top of the main entry point (find the real entry file — likely src/app.ts or src/index.ts — report which one), before any other imports including express itself.
+4. Add Sentry's Express error handler middleware AFTER all existing routes are registered but before any final custom error handler, per whatever @sentry/node version gets installed (check its docs/README for the exact current integration pattern for Express — package versions matter here, don't assume old syntax).
+5. Read DSN only from process.env.SENTRY_DSN. If missing, Sentry must no-op silently, not crash the app on boot.
+6. Do NOT hardcode the DSN anywhere in code.
+
+FOR artifacts/mobile (Expo SDK 54, React Native):
+1. Install @sentry/react-native: npx expo install @sentry/react-native
+2. Initialize Sentry in the root layout file (app/_layout.tsx — confirm this is the actual root first) at the top of the file, before the component definition:
+   import * as Sentry from '@sentry/react-native';
+   Sentry.init({
+     dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+     enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+   });
+3. Wrap the root exported component with Sentry.wrap() if the currently-installed SDK version supports it (check its docs) so navigation/render crashes are captured.
+4. Read DSN only from process.env.EXPO_PUBLIC_SENTRY_DSN (must use EXPO_PUBLIC_ prefix to be client-accessible). Do NOT hardcode it.
+5. Must no-op gracefully if the env var is missing — do not crash the app.
+
+DO NOT:
+- Do not hardcode any DSN in code
+- Do not run eas build, eas update, or git push — I will handle all deploys myself
+- Do not create Sentry projects or accounts — already done
+
+AFTER IMPLEMENTATION:
+- Typecheck both artifacts/api-server and artifacts/mobile
+- Report every file changed with a summary of each change
+- Confirm the exact env var names needed: SENTRY_DSN (for Railway) and EXPO_PUBLIC_SENTRY_DSN (for EAS build/update env config)
+- Tell me if EXPO_PUBLIC_SENTRY_DSN needs to be added to eas.json under the production build profile, or if it can just be set as an EAS secret — report which approach the current eas.json setup requires
