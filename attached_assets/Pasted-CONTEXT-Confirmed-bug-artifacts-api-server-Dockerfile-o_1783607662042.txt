@@ -1,0 +1,19 @@
+CONTEXT: Confirmed bug — artifacts/api-server/Dockerfile only does COPY dist ./dist and never rebuilds from source. dist/ is force-tracked in git (un-ignored via .gitignore negation rule), meaning every Railway deploy ships whatever dist/index.mjs happened to be committed, not a fresh build from current src/. This has likely caused stale-code deploys in the past without anyone noticing.
+
+TASK: Fix the Dockerfile to build from source inside the container, so every deploy is guaranteed fresh.
+
+1. Open artifacts/api-server/Dockerfile
+2. Rewrite it to:
+   - Copy package.json/lockfile first
+   - Install dependencies (use whatever package manager the project uses — check for pnpm-lock.yaml, package-lock.json, or yarn.lock to confirm; the repo is a pnpm workspace per prior notes, so likely pnpm)
+   - Copy the full source (src/, build.mjs, tsconfig, etc. — whatever build.mjs needs)
+   - Run the actual build command (check package.json for the exact "build" script name)
+   - Only then copy the built dist/ output forward into the final run stage
+   - Keep the ffmpeg apk install step
+   - Keep the same CMD at the end
+3. Consider using a multi-stage build (builder stage installs deps + builds, final stage only has the built dist/ + ffmpeg + node runtime) to keep the final image small — but only do this if it doesn't overcomplicate things; a single-stage build that just builds fresh is an acceptable fix too if multi-stage adds risk.
+4. Update artifacts/api-server/.gitignore to remove the negation rule that force-tracks dist/ (the "!artifacts/api-server/dist" line) — since the Dockerfile will now build it fresh, we should stop committing the compiled output at all. This prevents the stale-artifact problem from ever recurring.
+5. If dist/ is currently tracked in git, tell me the exact git rm --cached command needed to untrack it (do not run it yourself — I'll run it manually to be safe).
+6. Typecheck if applicable, and report the full new Dockerfile contents plus the .gitignore change.
+
+DO NOT push, deploy, or run git rm — diagnosis + file edits only, report everything for my review before I commit.
