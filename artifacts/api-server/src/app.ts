@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import * as Sentry from "@sentry/node";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -144,5 +145,10 @@ app.get("/reset-redirect", (_req, res) => {
 
 // ─── API routes ───────────────────────────────────────────────────────────────
 app.use("/api", router);
+
+// Must be registered AFTER all routes so it can catch errors thrown inside
+// them. If SENTRY_DSN was never set (see src/instrument.ts), Sentry has no
+// active client and this call is a safe no-op.
+Sentry.setupExpressErrorHandler(app);
 
 export default app;

@@ -21,8 +21,13 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CoupleProvider } from "@/context/CoupleContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { initSentry } from "@/lib/sentry";
 
 SplashScreen.preventAutoHideAsync();
+
+// No-ops if EXPO_PUBLIC_SENTRY_DSN is not set, or if running in an
+// environment (e.g. Expo Go) where the native module is unavailable.
+initSentry();
 
 const queryClient = new QueryClient();
 

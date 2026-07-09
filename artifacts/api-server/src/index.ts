@@ -9,6 +9,10 @@
  *   every `makeSupabase()` call throws and all routes return 500.
  */
 
+// Sentry must be the very first import so its instrumentation is in place
+// before any other module (express, supabase, etc.) is loaded.
+import "./instrument";
+
 // ─── WebSocket polyfill ────────────────────────────────────────────────────
 // Must run before the first import that triggers @supabase/realtime-js.
 // We import `ws` (a proper dependency) and set it globally so that
