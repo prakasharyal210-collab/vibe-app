@@ -143,14 +143,6 @@ app.get("/reset-redirect", (_req, res) => {
   );
 });
 
-// TEMPORARY — remove after Sentry capture is verified in production.
-// Confirms Sentry.setupExpressErrorHandler below actually reports thrown
-// errors end-to-end. Registered BEFORE the /api router so its own
-// catch-all/404 handler never intercepts this request first.
-app.get("/api/debug-sentry-test", () => {
-  throw new Error("Sentry test error - safe to ignore, will be removed after verification");
-});
-
 // ─── API routes ───────────────────────────────────────────────────────────────
 app.use("/api", router);
 
