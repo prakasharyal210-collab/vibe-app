@@ -1,0 +1,16 @@
+CONTEXT: We discovered artifacts/api-server/Dockerfile only does COPY dist ./dist and never rebuilds from source — meaning every Railway deploy ships whatever dist/index.mjs is currently committed in git, not a fresh build. Root Directory constraints mean we can't easily fix this by building inside Docker (the container can't reach the pnpm workspace root). Instead, we need a safeguard so nobody (including future me/Replit) commits a stale dist/ by accident.
+
+TASK: Add a build-freshness guard so it's impossible to accidentally push stale compiled code.
+
+1. In artifacts/api-server/package.json, look at the existing "build" script (uses esbuild via build.mjs per earlier context).
+2. Add a new script called "check-build-fresh" that:
+   - Compares the modification time of the newest file in src/ against the modification time of dist/index.mjs
+   - Exits with a non-zero code and a clear error message like "dist/ is stale — run 'pnpm run build' before committing" if any src/ file is newer than dist/index.mjs
+   - Exits 0 silently if dist/ is up to date
+   You can implement this as a small Node script (e.g. scripts/check-build-fresh.mjs) invoked by the package.json script, using fs.statSync mtime comparisons walking src/ recursively.
+3. Add a git pre-commit hook (using husky if it's already in the repo's devDependencies at the root, otherwise a simple .git/hooks/pre-commit shell script — check the repo root package.json and root-level config first to see what's already set up before choosing an approach) that runs this check ONLY when files under artifacts/api-server/src/ are staged for commit, and blocks the commit if it fails.
+4. Also add a comment at the top of artifacts/api-server/Dockerfile explaining clearly: "This Dockerfile does NOT build from source — it copies the dist/ folder committed in git. Always run 'pnpm run build' in artifacts/api-server before committing changes to src/. This is a known limitation (Root Directory scoping prevents building inside Docker from this context) — see [date] discussion for details. TODO: revisit building from repo-root context once things are less time-critical."
+5. Typecheck / verify the hook works by describing how you tested it (or if you can't actually run git commit in this sandbox, explain exactly how I should test it myself once I pull these changes).
+6. Report every file changed.
+
+DO NOT push or deploy — I'll do that myself after reviewing.

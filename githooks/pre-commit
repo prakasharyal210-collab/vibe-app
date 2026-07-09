@@ -1,0 +1,22 @@
+#!/bin/sh
+# Blocks commits that touch artifacts/api-server/src/ without a matching
+# fresh build in artifacts/api-server/dist/. See artifacts/api-server/Dockerfile
+# for why this guard exists (Dockerfile ships the committed dist/ as-is).
+#
+# Setup (one-time, per clone):
+#   git config core.hooksPath githooks
+
+staged_api_server_src=$(git diff --cached --name-only --diff-filter=ACMR -- 'artifacts/api-server/src/')
+
+if [ -n "$staged_api_server_src" ]; then
+  (cd artifacts/api-server && node ./scripts/check-build-fresh.mjs)
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo ""
+    echo "Commit blocked: artifacts/api-server/src/ has staged changes but dist/ is stale."
+    echo "Run 'pnpm --filter @workspace/api-server run build', then 'git add artifacts/api-server/dist', and commit again."
+    exit 1
+  fi
+fi
+
+exit 0
