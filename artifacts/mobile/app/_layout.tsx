@@ -22,6 +22,7 @@ import { CoupleProvider } from "@/context/CoupleContext";
 import { RealtimeProvider } from "@/context/RealtimeContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { initSentry, wrapSentry } from "@/lib/sentry";
+import { hasSeenFollowOnboarding } from "@/lib/followOnboarding";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -60,7 +61,10 @@ function RootLayoutNav() {
       if (needsOnboarding) {
         router.replace("/(auth)/setup-profile");
       } else {
-        router.replace("/(tabs)/feed");
+        const u = session.user;
+        hasSeenFollowOnboarding(u.id).then((seen) => {
+          router.replace(seen ? "/(tabs)/feed" : "/(auth)/onboarding-follow");
+        });
       }
     }
   }, [session, loading, needsOnboarding, needsPasswordReset]);

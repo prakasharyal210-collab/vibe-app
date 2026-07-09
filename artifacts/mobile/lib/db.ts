@@ -2471,6 +2471,34 @@ export async function getSuggestedUsersForFindFriends(
   return MOCK_SOCIAL_SUGGESTED;
 }
 
+export interface SuggestedFollowAccount {
+  id: string;
+  username: string;
+  full_name?: string;
+  avatar_url?: string;
+  bio?: string;
+  category?: string | null;
+  posts_count?: number;
+  is_verified?: boolean;
+}
+
+// Powers both the post-signup onboarding follow screen and the
+// "Discover people" empty-state screen — one shared suggestion pool.
+export async function getOnboardingSuggestedFollows(
+  userId: string,
+  limit = 15,
+): Promise<SuggestedFollowAccount[]> {
+  try {
+    const params = new URLSearchParams({ userId, limit: String(limit) });
+    const res = await fetch(`${API_BASE}/onboarding/suggested-follows?${params.toString()}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.suggestions)) return json.suggestions as SuggestedFollowAccount[];
+    }
+  } catch {}
+  return [];
+}
+
 export async function toggleFollowUser(myId: string, otherId: string): Promise<boolean> {
   // Route through API server — bypasses RLS + avoids Android Supabase hang
   try {

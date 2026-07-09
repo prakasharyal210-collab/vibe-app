@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
+import { getOnboardingSuggestedFollows } from "@/lib/db";
 
 interface SuggestedUser {
   id: string;
@@ -54,7 +55,6 @@ export default function SuggestedUsersScreen() {
   const [followed, setFollowed] = useState<Set<string>>(new Set());
 
   const uid = session?.user?.id;
-  const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
@@ -64,24 +64,22 @@ export default function SuggestedUsersScreen() {
     (async () => {
       setLoading(true);
       try {
-        // Route through API server (service-role key) to bypass RLS on profiles table.
-        const res = await fetch(
-          `${API_BASE}/users/search?q=&viewer_id=${encodeURIComponent(uid)}&limit=20`,
-          { signal: controller.signal },
-        );
-        if (res.ok && !cancelled) {
-          const json = await res.json();
-          const profiles: SuggestedUser[] = (json.profiles ?? []).slice(0, 20);
-          if (profiles.length) {
-            setUsers(profiles.map((u, i) => ({
-              ...u,
+        // Same suggestion pool as the post-signup onboarding screen —
+        // one shared "who to follow" system, not two separate ones.
+        const suggestions = await getOnboardingSuggestedFollows(uid, 20);
+        if (!cancelled) {
+          if (suggestions.length) {
+            setUsers(suggestions.map((u, i) => ({
+              id: u.id,
+              username: u.username,
+              avatar_url: u.avatar_url,
+              bio: u.bio || (u.category ? `${u.category}` : undefined),
+              is_verified: u.is_verified,
               reason: MOCK_SUGGESTED[i % MOCK_SUGGESTED.length]?.reason ?? "Suggested for you",
             })));
           } else {
             setUsers(MOCK_SUGGESTED);
           }
-        } else if (!cancelled) {
-          setUsers(MOCK_SUGGESTED);
         }
       } catch {
         if (!cancelled) setUsers(MOCK_SUGGESTED);

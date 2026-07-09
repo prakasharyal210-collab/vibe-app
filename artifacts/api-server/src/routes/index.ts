@@ -67,6 +67,7 @@ router.use("/engage", engageRouter);
 router.use("/messages", messagesRouter);
 router.use("/users", usersSetupRouter);
 router.use("/users", usersOnboardingRouter);
+router.use("/onboarding", usersOnboardingRouter);
 router.use("/users", usersContactsRouter);
 router.use("/moderation", moderationRouter);
 router.use("/did", didRouter);

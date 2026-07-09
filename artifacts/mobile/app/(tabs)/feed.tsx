@@ -938,8 +938,8 @@ export default function FeedScreen() {
         <View>
           <View style={emptyStyles.wrap}>
             <Text style={emptyStyles.emoji}>👥</Text>
-            <Text style={[emptyStyles.title, { color: colors.foreground }]}>No posts yet</Text>
-            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Posts from people you follow will appear here</Text>
+            <Text style={[emptyStyles.title, { color: colors.foreground }]}>Nothing here yet</Text>
+            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>Follow people to see their posts here</Text>
           </View>
           <SuggestedCTA colors={colors} />
         </View>

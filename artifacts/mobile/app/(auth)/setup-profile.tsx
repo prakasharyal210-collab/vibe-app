@@ -15,6 +15,7 @@ import { GundrukLogo } from "@/components/GundrukLogo";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/context/AuthContext";
 import { ensureUserSetup } from "@/lib/db";
+import { hasSeenFollowOnboarding } from "@/lib/followOnboarding";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 
@@ -75,7 +76,8 @@ export default function SetupProfileScreen() {
       const u = session!.user;
       await ensureUserSetup(u.id, username, u.email ?? undefined);
       clearNeedsOnboarding();
-      router.replace("/(tabs)/feed");
+      const seen = await hasSeenFollowOnboarding(u.id);
+      router.replace(seen ? "/(tabs)/feed" : "/(auth)/onboarding-follow");
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
