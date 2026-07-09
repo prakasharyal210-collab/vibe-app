@@ -16,6 +16,7 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://0a3c58ec95f5b1bd9ef5a62b9cd49e6a@o4511705631031296.ingest.us.sentry.io/4511705678151680",
         "EXPO_PUBLIC_API_URL": "https://vibe-app-production-d1d9.up.railway.app",
         "YOUTUBE_API_KEY": "AIzaSyAckamAeulF1LeciYO6N-nIZ6_F5Ch4npE",
         "PEXELS_API_KEY": "M6Wgr4Zu9xjUcj7Y8Smr94wzjmlWtXhoPXC3Qw1zGFS9ID92WwqjAieP"
@@ -34,6 +35,7 @@
         "EXPO_PUBLIC_SUPABASE_URL": "https://tatroqgcyebuqqkhmvpa.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_PqzFyJK0m-HoZuBvKib4pw_VOgrSuzF",
         "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://0a3c58ec95f5b1bd9ef5a62b9cd49e6a@o4511705631031296.ingest.us.sentry.io/4511705678151680",
         "EXPO_PUBLIC_API_URL": "https://vibe-app-production-d1d9.up.railway.app",
         "YOUTUBE_API_KEY": "AIzaSyAckamAeulF1LeciYO6N-nIZ6_F5Ch4npE",
         "PEXELS_API_KEY": "M6Wgr4Zu9xjUcj7Y8Smr94wzjmlWtXhoPXC3Qw1zGFS9ID92WwqjAieP"
