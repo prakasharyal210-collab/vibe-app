@@ -62,7 +62,10 @@ async function buildAll() {
       "@swc/*",
       "@aws-sdk/*",
       "@azure/*",
-      "@opentelemetry/*",
+      // NOTE: @opentelemetry/* is intentionally NOT externalized (unlike the
+      // other defensive entries in this list) — @sentry/node imports
+      // @opentelemetry/instrumentation, and this Dockerfile only copies
+      // dist/ (no node_modules), so it must be bundled to work at runtime.
       "@google-cloud/*",
       "@google/*",
       "googleapis",
