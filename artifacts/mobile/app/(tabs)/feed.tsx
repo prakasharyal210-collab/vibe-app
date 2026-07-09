@@ -1116,11 +1116,7 @@ export default function FeedScreen() {
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {
                   if (state.loadingMore) {
-                    return (
-                      <View style={{ paddingVertical: 20, alignItems: "center" }}>
-                        <Text style={{ color: colors.mutedForeground, fontFamily: "Poppins_400Regular", fontSize: 13 }}>Loading more...</Text>
-                      </View>
-                    );
+                    return <SkeletonPost />;
                   }
                   return null;
                 }}
@@ -1136,7 +1132,7 @@ export default function FeedScreen() {
                 onEndReached={() => {
                   if (activeTab === tab.id) loadTabData(tab.id);
                 }}
-                onEndReachedThreshold={0.4}
+                onEndReachedThreshold={0.6}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled
                 maintainVisibleContentPosition={{ minIndexForVisible: 0 }}

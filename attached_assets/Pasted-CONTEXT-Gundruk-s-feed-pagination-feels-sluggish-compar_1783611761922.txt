@@ -1,0 +1,28 @@
+CONTEXT: Gundruk's feed pagination feels sluggish compared to Instagram. Currently it appears to trigger loading the next page only when the user hits the very bottom of the scroll (100%), and shows a bare "Loading more..." text label with no visual placeholder — making every pagination feel like a stall, unlike Instagram which prefetches ahead of time and shows skeleton placeholders.
+
+Architecture reminder:
+- Mobile is artifacts/mobile (Expo SDK 54 / React Native)
+- ALL DB access routes through artifacts/api-server with service-role key; mobile never calls supabase.from()/.rpc() directly
+- This is a pure JS/logic change — deployable via eas update --branch production (OTA), no native build needed
+
+TASK: Improve feed pagination to feel closer to Instagram's smoothness.
+
+DIAGNOSE FIRST:
+1. Find the main feed screen component (likely app/(tabs)/feed.tsx or similar — search for where "Loading more" text is rendered, and report the exact file/line).
+2. Find the FlatList/FlashList (or whatever list component is used) and report its current onEndReached, onEndReachedThreshold, and any pagination-trigger logic.
+3. Report what happens visually right now when loading the next page (confirm it's literally just a text string with no skeleton).
+
+IMPLEMENT:
+1. Change onEndReachedThreshold to trigger earlier — around 0.5-0.7 (50-70% scrolled through remaining content) instead of whatever it currently is, so the next page starts fetching well before the user reaches the bottom.
+2. Add a debounce/guard so this doesn't fire multiple duplicate requests if the user scrolls fast (check if one already exists — likely a isLoadingMore or similar boolean guard; if missing, add one).
+3. Replace the bare "Loading more..." text with a skeleton placeholder component that visually matches a post card's shape (gray/shimmer rounded rectangle roughly matching a real post's dimensions) — check if a Skeleton or shimmer component already exists anywhere in the codebase to reuse; if not, create a simple one using React Native's Animated API or a lightweight shimmer effect (no new heavy dependency needed, a simple opacity pulse animation is enough — do not add a new library for this unless something appropriate is already installed).
+4. Apply the same skeleton-instead-of-text pattern to any other feed-like lists in the app if they share this issue (confessions feed, profile posts tab, etc.) — check each surface, consistent with the "audit all surfaces" lesson from before.
+
+DO NOT:
+- Do not touch reels — this is feed pagination only for this pass
+- Do not run eas update or any deploy — I'll do that myself after review
+
+AFTER IMPLEMENTATION:
+- Typecheck
+- Report every file changed
+- Describe how to visually test this (what to look for when scrolling the feed)
