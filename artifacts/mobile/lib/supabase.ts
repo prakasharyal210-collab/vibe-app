@@ -54,6 +54,8 @@ export interface Post {
   hide_share_count?: boolean;
   thumbnail_url?: string;
   post_type?: "photo" | "video" | "poll" | "mood";
+  image_width?: number;
+  image_height?: number;
 }
 
 export interface Reel {

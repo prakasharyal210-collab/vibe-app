@@ -402,6 +402,8 @@ router.post("/create", async (req, res) => {
     coupleId,
     isCouplePost,
     poll,
+    width,
+    height,
   } = req.body as {
     userId: string;
     imageBase64?: string;
@@ -410,6 +412,8 @@ router.post("/create", async (req, res) => {
     ext?: string;
     postType?: "photo" | "video" | "mood";
     caption?: string;
+    width?: number;
+    height?: number;
     options?: {
       location?: string;
       taggedUsers?: string[];
@@ -627,6 +631,8 @@ router.post("/create", async (req, res) => {
     ...(validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}),
     ...(isFirstPost ? { is_first_post: true } : {}),
     ...(isMoodPost ? { post_type: "mood" } : {}),
+    ...(typeof width === "number" && width > 0 ? { image_width: width } : {}),
+    ...(typeof height === "number" && height > 0 ? { image_height: height } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
@@ -695,6 +701,16 @@ router.post("/create", async (req, res) => {
     const r7 = await sb.from("posts").insert(payloadNoPostType).select("id").single();
     insertData = r7.data as { id: string } | null;
     insertErr = r7.error;
+  }
+  if (insertErr?.message?.includes("image_width") || insertErr?.message?.includes("image_height")) {
+    // image_width/image_height columns not yet migrated — strip and retry.
+    // Post still persists; PostCard falls back to its onLoad-based aspect-ratio detection.
+    const payloadNoDims = { ...payload };
+    delete payloadNoDims.image_width;
+    delete payloadNoDims.image_height;
+    const r8 = await sb.from("posts").insert(payloadNoDims).select("id").single();
+    insertData = r8.data as { id: string } | null;
+    insertErr = r8.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");

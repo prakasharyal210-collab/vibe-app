@@ -9,15 +9,18 @@ import {
   Alert,
   Dimensions,
   FlatList,
+  LayoutAnimation,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -57,6 +60,11 @@ import {
 import { AchievementModal } from "@/components/AchievementModal";
 import PollCard from "@/components/PollCard";
 import { usePostRealtime } from "@/context/RealtimeContext";
+
+// LayoutAnimation is Android-opt-in; harmless no-op if already enabled elsewhere.
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // ── Couple header sub-component (module-level to avoid remount on each render) ─
 export function CoupleHeaderRow({ post, style }: { post: any; style?: object }) {
@@ -186,7 +194,15 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   // rather than blocking on a separate dimension probe, so there's no gap
   // while we wait to find out the real size.
   const DEFAULT_ASPECT_RATIO = 4 / 3;
+  // Posts created after the image-dimensions migration carry their real
+  // width/height on the record itself — use that as the source of truth so
+  // the container is sized correctly on the very first render, with no
+  // post-paint resize at all. Falls back to the module cache (already-seen
+  // posts) or the neutral 4:3 guess for older posts that predate this data.
+  const knownAspectRatio =
+    post.image_width && post.image_height ? post.image_width / post.image_height : null;
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number>(() => {
+    if (knownAspectRatio) return knownAspectRatio;
     const url = (post.images && post.images.length > 0 ? post.images[0] : post.image_url) ?? null;
     return (url ? _ratioCache.get(url) : undefined) ?? DEFAULT_ASPECT_RATIO;
   });
@@ -213,6 +229,13 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   useEffect(() => {
     const url = images[0];
     if (!url) { setMediaAspectRatio(1); return; }
+    if (knownAspectRatio) {
+      // Seed the shared cache from the post record itself so scroll-back and
+      // any other PostCard instance for this image also skip the onLoad path.
+      _ratioCache.set(url, knownAspectRatio);
+      setMediaAspectRatio(knownAspectRatio);
+      return;
+    }
     const cached = _ratioCache.get(url);
     if (cached) setMediaAspectRatio(cached);
   }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -222,6 +245,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     const r = w / h;
     if (_ratioCache.get(url) === r) return;
     _ratioCache.set(url, r);
+    // Older posts (no stored width/height) still learn their ratio from the
+    // load event and resize after paint — animate that resize instead of an
+    // instant snap so it reads as a smooth adjustment, not a flicker/black frame.
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setMediaAspectRatio(r);
   }, []);
 

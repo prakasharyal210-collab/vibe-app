@@ -1,0 +1,20 @@
+CONTEXT: Confirmed root cause — PostCard.tsx resizes the media container height AFTER the image has already painted (via onLoad → setMediaAspectRatio), causing a post-paint layout shift that corrupts rendering inside the virtualized FlatList, especially at index 2 (the unlucky mid-scroll-settle position). This is the "loads then disappears" bug.
+
+TASK: Fix by knowing the aspect ratio BEFORE first paint, not learning it after.
+
+1. Check if posts already have width/height metadata stored anywhere (post record, upload pipeline) — e.g. does posts/create.ts capture image dimensions at upload time and store them (even if not currently used for this purpose)? Report what's available.
+
+2. If width/height ARE available on the post record: use that to compute the correct aspect ratio on the VERY FIRST render, before the image ever paints — no guess, no post-load resize needed. Only fall back to the current onLoad-based approach for posts that predate this data existing (older posts without stored dimensions).
+
+3. If width/height are NOT currently stored: 
+   a. Add capture of image dimensions at upload time (mobile side, when the user picks/takes a photo — expo-image-picker or expo-image-manipulator can report this) and pass them to posts/create.ts to store on the post record.
+   b. For EXISTING posts that lack this data, keep the current best-effort default-then-resize behavior, but make the resize less disruptive: instead of snapping to a new height instantly after paint, consider whether the layout shift can be avoided architecturally (e.g., always reserve a reasonably generous default height that rarely needs to shrink, or cross-fade between old/new container size instead of an instant snap) — use your judgment on which mitigation is most robust, but the primary fix is #2 (known dimensions before paint) for all NEW posts going forward.
+
+4. Typecheck.
+
+AFTER IMPLEMENTATION:
+- Report exactly what changed
+- Confirm whether this requires a mobile app change only (OTA-safe) or touches the upload pipeline in a way that needs testing
+- Report clearly: will this fix apply to NEW posts only, or can it also fix EXISTING posts (like sunita.melb's post) retroactively? If existing posts still need the old resize behavior, at least confirm whether the resize-after-paint behavior itself can be made non-disruptive (e.g., using LayoutAnimation to smooth the transition instead of an instant snap)
+
+DO NOT push or deploy — report first, this is a meaningful architectural fix and I want to review it before shipping.

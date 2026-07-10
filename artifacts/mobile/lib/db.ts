@@ -2,6 +2,7 @@ import { captureException } from './sentry';
 import { readAsStringAsync, getInfoAsync } from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
+import { Image as RNImage } from 'react-native';
 import {
   MOCK_HASHTAGS,
   MOCK_NOTIFICATIONS,
@@ -1694,6 +1695,8 @@ export async function uploadPostMedia(
       // Generate thumbnail from the local file's first frame so the profile grid
       // can show a static image instead of trying to load the remote video at render time.
       let thumbnailBase64: string | undefined;
+      let videoWidth: number | undefined;
+      let videoHeight: number | undefined;
       try {
         const { uri: rawThumbUri } = await withTimeout(
           VideoThumbnails.getThumbnailAsync(uri, { time: 0 }),
@@ -1710,6 +1713,10 @@ export async function uploadPostMedia(
           'video post thumbnail compress'
         );
         thumbnailBase64 = await withTimeout(localUriToBase64(compressedThumb.uri), 8_000, 'video post thumbnail read');
+        // Thumbnail's dimensions approximate the video's own aspect ratio —
+        // stored so PostCard can size the container before the video loads.
+        videoWidth = compressedThumb.width;
+        videoHeight = compressedThumb.height;
       } catch {
         // Thumbnail generation failed — post will upload without a static thumbnail.
         // The profile grid will fall back to the visible gradient + play-icon placeholder.
@@ -1735,6 +1742,8 @@ export async function uploadPostMedia(
             ext: videoExt,
             postType: options?.postType ?? "video",
             caption,
+            width: videoWidth,
+            height: videoHeight,
             options: { ...options, visibility: options?.visibility ?? 'public' },
             coupleId: options?.coupleId,
             isCouplePost: options?.isCouplePost,
@@ -1754,7 +1763,12 @@ export async function uploadPostMedia(
 
     // ── Photo path ────────────────────────────────────────────────────────
     // Compress + resize before upload (skip for GIFs — manipulator strips animation)
+    // Also captures the final width/height so the server can store the real
+    // aspect ratio on the post — PostCard can then size its container correctly
+    // on the very first render instead of guessing and resizing after onLoad.
     let uploadUri = uri;
+    let mediaWidth: number | undefined;
+    let mediaHeight: number | undefined;
     if (!isGif) {
       try {
         const result = await withTimeout(
@@ -1767,8 +1781,26 @@ export async function uploadPostMedia(
           'image compress'
         );
         uploadUri = result.uri;
+        mediaWidth = result.width;
+        mediaHeight = result.height;
       } catch {
         // Compression failed — fall back to original
+      }
+    } else {
+      // GIFs skip the manipulator (which would strip animation), so read
+      // dimensions via a lightweight probe instead.
+      try {
+        const size = await withTimeout(
+          new Promise<{ width: number; height: number }>((resolve, reject) => {
+            RNImage.getSize(uri, (width, height) => resolve({ width, height }), reject);
+          }),
+          5_000,
+          'gif size probe'
+        );
+        mediaWidth = size.width;
+        mediaHeight = size.height;
+      } catch {
+        // Size probe failed — post still uploads, PostCard falls back to onLoad detection
       }
     }
 
@@ -1794,6 +1826,8 @@ export async function uploadPostMedia(
           ext,
           postType: options?.postType ?? "photo",
           caption,
+          width: mediaWidth,
+          height: mediaHeight,
           options: { ...options, visibility: options?.visibility ?? 'public' },
           coupleId: options?.coupleId,
           isCouplePost: options?.isCouplePost,
