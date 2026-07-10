@@ -66,6 +66,12 @@ router.get("/check-username", async (req, res) => {
 });
 
 // GET /api/users/search?q=<query>&limit=20
+// NOTE: when q is empty this endpoint is used as a "suggested people" feed
+// (e.g. getSuggestedUsersForFindFriends) rather than an explicit username
+// search. In that mode we must exclude accounts with 0 posts — otherwise
+// empty/dead profiles get suggested to follow, same bug class as the
+// onboarding suggested-follows endpoint. An explicit text search (q set)
+// still returns 0-post accounts, since the user searched for them by name.
 router.get("/search", async (req, res) => {
   const q = ((req.query["q"] as string) ?? "").trim();
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
@@ -78,10 +84,12 @@ router.get("/search", async (req, res) => {
     // does not have .or() — this caused a runtime TypeError on Railway.
     let baseQuery = sb
       .from("profiles")
-      .select("id, username, full_name, bio, avatar_url, followers_count, is_verified, is_private");
+      .select("id, username, full_name, bio, avatar_url, followers_count, posts_count, is_verified, is_private");
 
     if (q) {
       baseQuery = baseQuery.or(`username.ilike.%${q}%,full_name.ilike.%${q}%`);
+    } else {
+      baseQuery = baseQuery.gt("posts_count", 0);
     }
 
     const { data, error } = await baseQuery

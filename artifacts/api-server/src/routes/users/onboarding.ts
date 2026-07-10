@@ -82,23 +82,30 @@ router.get("/suggested-follows", async (req, res) => {
     }
 
     // Seed personas: fixed UUID range a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a01..a15
+    // NOTE: personas MUST also pass a posts_count > 0 filter — without it, a persona
+    // whose seed posts haven't been generated yet (or were deleted) can be suggested
+    // as a dead, empty-profile follow. This was the root cause of "chiyaandthoughts"
+    // (posts_count 0 at the time) appearing as a suggestion despite the intent that
+    // ONLY accounts with real content ever surface here.
     const { data: personas, error: personaErr } = await sb
       .from("profiles")
       .select("id, username, full_name, avatar_url, bio, account_category, posts_count, is_verified")
       .gte("id", "a0eebc99-0000-0000-0000-000000000000")
       .lte("id", "a0eebc99-ffff-ffff-ffff-ffffffffffff")
       .not("username", "is", null)
+      .gt("posts_count", 0)
       .order("posts_count", { ascending: false });
     if (personaErr) req.log.warn({ error: personaErr.message }, "suggested-follows persona query warn");
 
     const personaPool = (personas ?? []).filter((p: any) => !excludeIds.has(p.id));
 
-    // Real users with meaningful post history (excluding personas + already-followed)
+    // Real users with meaningful post history (excluding personas + already-followed).
+    // Minimum bar is posts_count > 0 (at least 1 real post) — no exceptions.
     const { data: realUsers, error: realErr } = await sb
       .from("profiles")
       .select("id, username, full_name, avatar_url, bio, account_category, posts_count, is_verified")
       .not("username", "is", null)
-      .gt("posts_count", 3)
+      .gt("posts_count", 0)
       .order("posts_count", { ascending: false })
       .limit(50);
     if (realErr) req.log.warn({ error: realErr.message }, "suggested-follows real-user query warn");
