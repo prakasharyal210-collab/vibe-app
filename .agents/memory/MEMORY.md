@@ -39,3 +39,4 @@
 - [Friends feed poll fix: client-side enrichment](friends-feed-polls.md) — clientEnrichWithPolls() in db.ts queries Supabase anon client directly for poll data on any posts without post.poll; called at end of getFriendsFeed; belt-and-suspenders vs Railway deployment lag.
 - [Supabase Storage image transform helper](supabase-image-transform.md) — lib/imageUrl.ts thumbUrl()/cardUrl() rewrite public object URLs to the render/image endpoint; requires Image Transformations enabled on the Supabase plan.
 - [Post-signup follow onboarding](onboarding-follow-flow.md) — gated by AsyncStorage flag not a DB column (stays OTA-deployable); one shared suggested-follows endpoint powers onboarding + suggested-users + Friends empty state.
+- [Seeder silently creates text-only posts on Pexels failure](seeder-silent-text-posts.md) — scripts/src/seed-content.ts postToFeed() posts even when fetchPexelsImage returns null; api-server defaults media_url to "" not null; not yet fixed.
