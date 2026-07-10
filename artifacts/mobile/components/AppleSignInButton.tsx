@@ -1,6 +1,5 @@
 import * as AppleAuthentication from "expo-apple-authentication";
 import React, { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { supabase } from "@/lib/supabase";
 
 const API_URL = process.env["EXPO_PUBLIC_API_URL"] ?? "";
@@ -63,31 +62,17 @@ export function AppleSignInButton({ onError }: Props) {
     }
   };
 
+  // Apple's own button component — required by Guideline 4 for a clear,
+  // unambiguous button affordance (correct rounded shape, Apple logo + label,
+  // native press feedback). Never re-style this with custom borders/colors
+  // beyond the officially supported buttonStyle options.
   return (
-    <TouchableOpacity
+    <AppleAuthentication.AppleAuthenticationButton
+      buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+      buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+      cornerRadius={14}
+      style={{ height: 52, width: "100%", opacity: loading ? 0.6 : 1 }}
       onPress={handlePress}
-      disabled={loading}
-      style={styles.btn}
-      activeOpacity={0.75}
-    >
-      <Text style={styles.icon}></Text>
-      <Text style={styles.label}>
-        {loading ? "Signing in…" : "Sign in with Apple"}
-      </Text>
-    </TouchableOpacity>
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  btn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: "#000",
-    gap: 10,
-  },
-  icon: { fontSize: 17, color: "#fff" },
-  label: { fontSize: 15, fontFamily: "Poppins_500Medium", color: "#fff" },
-});
