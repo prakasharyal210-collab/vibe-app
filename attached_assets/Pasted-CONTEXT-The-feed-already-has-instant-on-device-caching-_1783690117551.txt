@@ -1,0 +1,25 @@
+CONTEXT: The feed already has instant on-device caching (built earlier tonight, using AsyncStorage — see feedCache.ts for the pattern). We want the same treatment for the user's OWN profile screen: show cached profile data (stats, grid) instantly on open, refresh silently in the background. This is safe to add now since the profile 0/0/0 bug was already fixed with proper retry/error-state handling earlier tonight.
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- Deploy: JS-only, OTA-deployable via eas update
+- Reuse the exact same caching pattern already established in lib/feedCache.ts
+
+TASK: Add instant caching for the user's own profile.
+
+1. Create lib/profileCache.ts, mirroring feedCache.ts's pattern: getCachedProfile(userId) / setCachedProfile(userId, data), same AsyncStorage key-prefix + TTL approach (48h TTL, same as feed cache — keep consistent).
+2. Cache the lightweight profile data: stats (posts/followers/following counts), bio, avatar URL, and the first page of grid post IDs/thumbnails — NOT full images (same "don't cache images, expo-image handles that" rule as feed cache).
+3. In profile.tsx, on mount: check cache first. If present and not expired, render immediately (skip loading state) while firing the real network fetch silently in the background — same "paint cache, refresh silently, merge results" pattern as loadTabWithCache() in feed.tsx.
+4. On successful fresh fetch, update the cache.
+5. Preserve the existing retry/error-state behavior (from tonight's profile bug fix) for the case where BOTH cache is empty/expired AND the network fetch fails — should still show the proper "Couldn't load profile — Retry" state, not a blank/broken screen.
+6. Typecheck.
+
+DO NOT:
+- Do not touch other users' profile screens in this pass — own profile only, for now
+- Do not cache images — expo-image's own disk cache already handles that
+- Do not push or deploy — report first
+
+AFTER:
+- Report every file changed
+- Confirm OTA-safe
+- Describe how to test: view your profile once (seeds cache), force-close app, reopen, tap profile tab — should show instantly with your data, then silently refresh

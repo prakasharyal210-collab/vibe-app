@@ -52,6 +52,7 @@ import { useColors } from "@/hooks/useColors";
 import { Profile, supabase } from "@/lib/supabase";
 import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
 import { BASE_URL, shareContent } from "@/lib/share";
+import { getCachedProfile, setCachedProfile, CachedGridItem } from "@/lib/profileCache";
 
 const PV_API_BASE = (process.env.EXPO_PUBLIC_API_URL ?? "") + "/api";
 const { width: W, height: H } = Dimensions.get("window");
@@ -944,6 +945,11 @@ export default function ProfileScreen() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [profileLoadError, setProfileLoadError] = useState(false);
   const [profileRetrying, setProfileRetrying] = useState(false);
+  // Mirrors the most recently loaded first-page grid metadata (no full
+  // images) so profile-stats cache writes can bundle it without needing
+  // loadProfileOnce and loadMyPosts to share state directly.
+  const lastGridItemsRef = useRef<CachedGridItem[]>([]);
+  const primedFromCacheRef = useRef(false);
 
   // ── Realtime profile counts ──────────────────────────────────────────────
   const rtProfile = useProfileRealtime(session?.user?.id ?? null, {
@@ -1084,7 +1090,13 @@ export default function ProfileScreen() {
     // Both sources failed — nothing to show, caller should retry.
     if (!profileData && !statsOk) return false;
 
-    setProfile((prev) => ({ ...prev, ...(profileData as Profile ?? {}), ...liveCounts }));
+    setProfile((prev) => {
+      const next = { ...prev, ...(profileData as Profile ?? {}), ...liveCounts };
+      // Cache is intentionally best-effort and fire-and-forget — a write
+      // failure should never block or affect the profile screen itself.
+      void setCachedProfile(uid, { profile: next, gridItems: lastGridItemsRef.current });
+      return next;
+    });
     return true;
   }, []);
 
@@ -1112,6 +1124,25 @@ export default function ProfileScreen() {
     setProfileLoadError(true);
   }, [loadProfileOnce]);
 
+  // Paint instantly from cache before hitting the network. If a fresh-enough
+  // cached profile exists, render it immediately (no spinner, no error flash)
+  // while the real fetches below run silently in the background and refresh
+  // the screen with live data. Cache-miss (or expired cache) falls through to
+  // the normal loading flow, including the retry/error state on failure.
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid || primedFromCacheRef.current) return;
+    primedFromCacheRef.current = true;
+    getCachedProfile(uid).then((cached) => {
+      if (!cached) return;
+      setProfile((prev) => ({ ...prev, ...cached.profile }));
+      if (cached.gridItems.length > 0) {
+        lastGridItemsRef.current = cached.gridItems;
+        setMyPosts(cached.gridItems.map((p) => ({ ...p, isOwn: true } as GridItem)));
+      }
+    });
+  }, [session?.user?.id]);
+
   useEffect(() => {
     if (!session?.user?.id) return;
     loadProfile(session.user.id);
@@ -1131,8 +1162,27 @@ export default function ProfileScreen() {
 
   const loadMyPosts = useCallback(async (uid: string) => {
     const results = await fetchProfilePosts(uid, uid);
-    setMyPosts(results.map(p => ({ ...p, isOwn: true })));
-  }, []);
+    const items = results.map(p => ({ ...p, isOwn: true }));
+    setMyPosts(items);
+    // Keep a ref of the lightweight grid metadata (no full images) so the
+    // profile-stats cache write above can bundle them into the same entry.
+    lastGridItemsRef.current = items.slice(0, 21).map((p): CachedGridItem => ({
+      id: p.id,
+      image_url: p.image_url,
+      media_url: (p as any).media_url,
+      thumbnail_url: (p as any).thumbnail_url,
+      isReel: p.isReel,
+      is_video: p.is_video,
+      likes: p.likes,
+      comments: p.comments,
+      caption: p.caption,
+      post_type: p.post_type,
+      visibility: p.visibility,
+      duration: p.duration,
+      is_pinned: (p as any).is_pinned,
+    }));
+    void setCachedProfile(uid, { profile, gridItems: lastGridItemsRef.current });
+  }, [profile]);
 
   const handleGridLongPress = useCallback((item: GridItem) => {
     const isReel = item.isReel || item.id.startsWith("reel_");
