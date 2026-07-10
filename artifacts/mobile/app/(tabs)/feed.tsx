@@ -48,6 +48,7 @@ import {
 import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { POST_CATEGORIES } from "@/lib/categories";
+import { cardUrl } from "@/lib/imageUrl";
 
 const { width: W, height: H } = Dimensions.get("window");
 const PAGE_SIZE = 20;
@@ -300,7 +301,7 @@ function TrendingFeed({ posts, colors }: { posts: TrendingPost[]; colors: any })
         >
           <View style={{ position: "relative" }}>
             <Image
-              source={{ uri: p.thumbnail_url ?? p.media_url ?? p.image_url }}
+              source={{ uri: cardUrl(p.thumbnail_url ?? p.media_url ?? p.image_url) }}
               style={{ width: "100%", aspectRatio: 4 / 3 }}
               resizeMode="cover"
             />

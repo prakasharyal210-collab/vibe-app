@@ -1,0 +1,29 @@
+CONTEXT: Gundruk's images are stored in Supabase Storage but served at full original resolution (2500px+) everywhere, including small feed cards and profile grid thumbnails. This wastes bandwidth and slows rendering significantly. Supabase Storage supports built-in on-the-fly image transformations via a `transform` option on getPublicUrl()/createSignedUrl(), requiring Pro Plan or above (confirm this is enabled — check Supabase Dashboard > Storage > Settings > Image Transformations toggle).
+
+Architecture reminder:
+- Mobile is artifacts/mobile (Expo SDK 54 / React Native)
+- API is artifacts/api-server — image URLs are likely constructed either server-side (in API responses) or client-side (mobile calling Supabase Storage URLs directly for public buckets)
+- This should be OTA-deployable if changes are JS-only
+
+DIAGNOSE FIRST:
+1. Find where image URLs are constructed/returned for: feed post cards, profile grid thumbnails, reels thumbnails, story avatars — report the exact file(s) and whether URLs come from api-server responses or are built client-side in mobile code.
+2. Confirm whether Supabase Storage buckets used for these images are public or private (affects whether we use getPublicUrl or createSignedUrl transform options).
+3. Report the current Supabase plan tier if discoverable from any config/env, or note that I need to manually verify Pro Plan is active in the Supabase dashboard (I will check this myself).
+
+IMPLEMENT (only proceed with this if diagnosis confirms feasibility — report back first if anything blocks it):
+1. Create a small reusable helper function (e.g. in lib/imageUrl.ts) that takes a base Supabase Storage image URL/path and a desired size preset, and returns the transformed URL using Supabase's transform query params (?width=X&height=Y or via the SDK's transform option, whichever fits how URLs are currently built).
+2. Define 2-3 sensible size presets: e.g. "thumbnail" (~200px, for grid cells), "card" (~600px, for feed cards), "full" (no transform, for fullscreen post viewer) — adjust based on actual UI dimensions found in diagnosis.
+3. Apply "thumbnail" preset to: profile grid images, hashtag/location/sounds grid images (the ones already converted to FlashList/expo-image).
+4. Apply "card" preset to: main feed post images, reel thumbnails.
+5. Leave "full" (untransformed) for: fullscreen photo viewer, story viewer.
+6. Typecheck.
+
+DO NOT:
+- Do not change how images are uploaded/stored — only how they're requested/displayed
+- Do not touch video files — image transformations don't apply to video
+- Do not push or deploy — I'll review first, especially since this could affect Supabase billing
+
+AFTER IMPLEMENTATION:
+- Report every file changed
+- Report the exact size presets chosen and reasoning
+- Flag clearly: will this be OTA-deployable, and any billing/cost consideration I should know about (e.g. "first 100 images/month free, then $5/1000" — estimate rough scale of impact given current post volume from earlier context)

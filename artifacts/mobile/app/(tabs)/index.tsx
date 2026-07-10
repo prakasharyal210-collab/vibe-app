@@ -48,6 +48,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { checkReelLiked, likeReelOnly, toggleReelLike, toggleLike, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
+import { cardUrl } from "@/lib/imageUrl";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
@@ -405,7 +406,7 @@ function ReelItem({ reel, isActive, onComplete, onRequireLogin, isLoggedIn, soun
         );
       })() : (
         <Image
-          source={{ uri: reel.image }}
+          source={{ uri: cardUrl(reel.image) }}
           style={StyleSheet.absoluteFill}
           contentFit="cover"
           transition={300}

@@ -40,6 +40,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { fetchProfilePosts, fetchUserPolls, getProfileStats, PollPostItem, ProfileGridItem, fetchHighlights, createHighlight, deleteHighlight, togglePinPost, StoryHighlight, fetchMyStories, addStoryToHighlight, HighlightStory } from "@/lib/db";
+import { thumbUrl } from "@/lib/imageUrl";
 import PollCard, { PollData } from "@/components/PollCard";
 import QRCode from "react-native-qrcode-svg";
 import { captureRef } from "react-native-view-shot";
@@ -165,12 +166,12 @@ function GridPageCell({
       {item.is_video && (item.media_url ?? item.image_url) ? (
         <VideoGridCell
           videoUri={(item.media_url ?? item.image_url)!}
-          thumbUrl={item.thumbnail_url}
+          thumbUrl={thumbUrl(item.thumbnail_url)}
           style={styles.gridImage}
         />
       ) : (
         <Image
-          source={{ uri: item.media_url ?? item.image_url ?? undefined }}
+          source={{ uri: thumbUrl(item.media_url ?? item.image_url) }}
           style={styles.gridImage}
           resizeMode="cover"
         />

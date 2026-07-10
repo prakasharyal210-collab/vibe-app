@@ -17,6 +17,7 @@ import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { supabase, Reel, formatCount } from "@/lib/supabase";
+import { cardUrl } from "@/lib/imageUrl";
 import { shareContent } from "@/lib/share";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -105,7 +106,7 @@ export default function ReelDetailScreen() {
   }
 
   const username = (reel as any).profiles?.username ?? "user";
-  const thumbnail = reel.thumbnail_url ?? `https://picsum.photos/seed/${reel.id}/450/900`;
+  const thumbnail = cardUrl(reel.thumbnail_url) ?? `https://picsum.photos/seed/${reel.id}/450/900`;
   const videoUrl = reel.video_url;
 
   const handleVideoTap = () => {

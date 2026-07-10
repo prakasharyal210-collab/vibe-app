@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { thumbUrl } from "@/lib/imageUrl";
 
 const { width: W } = Dimensions.get("window");
 const ITEM = (W - 3) / 3;
@@ -113,7 +114,7 @@ export default function LocationScreen() {
         }
         renderItem={({ item }: { item: (typeof posts)[number] }) => (
           <TouchableOpacity activeOpacity={0.85} style={{ position: "relative" }}>
-            <Image source={{ uri: item.media_url ?? item.image_url }} style={styles.gridImg} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={item.media_url ?? item.image_url} />
+            <Image source={{ uri: thumbUrl(item.media_url ?? item.image_url) }} style={styles.gridImg} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={item.media_url ?? item.image_url} />
             {item.is_reel && (
               <View style={styles.reelBadge}>
                 <Ionicons name="play" size={11} color="#fff" />

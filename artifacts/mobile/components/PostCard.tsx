@@ -37,6 +37,7 @@ import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
 import { ShareSheet } from "@/components/ShareSheet";
 import { useColors } from "@/hooks/useColors";
 import { Post, timeAgo } from "@/lib/supabase";
+import { cardUrl } from "@/lib/imageUrl";
 import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -761,7 +762,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                   onPress={() => handleMediaTap(images.indexOf(item))}
                 >
                   <Image
-                    source={{ uri: item }}
+                    source={{ uri: cardUrl(item) }}
                     style={{ width: CARD_W, height: imgH }}
                     contentFit={imgResizeMode}
                     cachePolicy="memory-disk"
