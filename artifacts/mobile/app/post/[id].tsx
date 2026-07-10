@@ -1038,7 +1038,10 @@ export default function PostDetailScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.scroll}
       >
-        {/* ── Media card — video player or photo ──────────────────────────── */}
+        {/* ── Media card — video player or photo. Skipped entirely for
+            text-only posts (no images, no video) so no empty space is
+            reserved for nonexistent media. ─────────────────────────────── */}
+        {(images.length > 0 || (isVideoPost && videoSrc)) && (
         <View style={S.imageShadow}>
           <View style={[S.imageCard, { height: imgH }]}>
 
@@ -1247,6 +1250,7 @@ export default function PostDetailScreen() {
             )}
           </View>
         </View>
+        )}
 
         {/* ── Action bar: like · comment · save · share ─────────────────── */}
         <View style={S.actionBar}>
