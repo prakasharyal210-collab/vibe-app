@@ -3,13 +3,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import { Image } from "expo-image";
 import React, { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { timeAgo } from "@/lib/supabase";
 import { CreateStorySheet, PendingStory, PostedStoryViewer } from "./CreateStorySheet";
 import {
   Dimensions,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -226,10 +226,10 @@ function StoryViewer({ stories, startIndex, onClose }: StoryViewerProps) {
         ) : (
           <>
             {/* Blurred background — same image scaled to fill, then diffused */}
-            <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+            <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={storyImage} />
             <BlurView intensity={90} tint="dark" style={StyleSheet.absoluteFill} />
             {/* Sharp foreground — full image, no cropping */}
-            <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+            <Image source={{ uri: storyImage }} style={StyleSheet.absoluteFill} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={storyImage} />
             <LinearGradient
               colors={["rgba(0,0,0,0.55)", "transparent", "transparent", "rgba(0,0,0,0.65)"]}
               style={StyleSheet.absoluteFill}

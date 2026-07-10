@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import React from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { SharedPreview } from "@/lib/supabase";
 import { UserAvatar } from "./UserAvatar";
@@ -79,7 +80,10 @@ export function SharedContentCard({ contentType, contentId: _contentId, preview 
         <Image
           source={{ uri: preview.thumbnail_url }}
           style={styles.thumbnail}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
+          recyclingKey={preview.thumbnail_url}
         />
       ) : (
         <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.muted }]}>

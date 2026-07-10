@@ -4,6 +4,7 @@ import { ZodiacSignBadge } from "@/components/ZodiacSignBadge";
 import { SuggestedAccountsRow } from "@/components/SuggestedAccountsRow";
 import { LinearGradient } from "expo-linear-gradient";
 import { Video, ResizeMode } from "expo-av";
+import { Image } from "expo-image";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -14,7 +15,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   Modal,
   PanResponder,
   Platform,
@@ -120,8 +120,8 @@ function VideoGridCell({ videoUri, thumbUrl, style }: { videoUri: string; thumbU
     return () => { cancelled = true; };
   }, [videoUri, thumbUrl]);
 
-  if (thumbUrl) return <Image source={{ uri: thumbUrl }} style={style} resizeMode="cover" />;
-  if (thumbUri) return <Image source={{ uri: thumbUri }} style={style} resizeMode="cover" />;
+  if (thumbUrl) return <Image source={{ uri: thumbUrl }} style={style} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={thumbUrl} />;
+  if (thumbUri) return <Image source={{ uri: thumbUri }} style={style} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={thumbUri} />;
 
   // Visible video-post placeholder — gradient background + play icon.
   // Shows while thumbnail is loading or if generation fails.
@@ -544,7 +544,7 @@ function PhotoViewer({
               {(p.is_video || p.isReel) && (p.video_url || (p.is_video && p.image_url)) ? (
                 <VideoItem item={p} isActive={idx === i} />
               ) : (
-                <Image source={{ uri: p.image_url }} style={pvStyles.photo} resizeMode="contain" />
+                <Image source={{ uri: p.image_url }} style={pvStyles.photo} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={p.image_url} />
               )}
             </View>
           ))}
@@ -1675,7 +1675,7 @@ export default function ProfileScreen() {
                         return next;
                       })}
                     >
-                      <Image source={{ uri: item.media_url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+                      <Image source={{ uri: item.media_url }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={item.media_url} />
                       {selected && (
                         <View style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: "#8B5CF6", alignItems: "center", justifyContent: "center" }}>
                           <Ionicons name="checkmark" size={14} color="#fff" />

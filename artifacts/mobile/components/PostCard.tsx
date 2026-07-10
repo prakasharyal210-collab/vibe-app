@@ -3,12 +3,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Video, ResizeMode } from "expo-av";
+import { Image } from "expo-image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
   FlatList,
-  Image,
+  Image as RNImage,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -203,7 +204,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     if (cached) { setMediaAspectRatio(cached); return; }
     // Unknown image: show shimmer (null) while we fetch dimensions
     setMediaAspectRatio(null);
-    Image.getSize(
+    RNImage.getSize(
       url,
       (w, h) => {
         if (w && h) {
@@ -505,7 +506,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                 activeOpacity={0.9}
                 onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
               >
-                <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} resizeMode="contain" />
+                <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={item} />
               </TouchableOpacity>
             )}
             scrollEnabled={images.length > 1}
@@ -752,7 +753,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                   <Image
                     source={{ uri: item }}
                     style={{ width: CARD_W, height: imgH }}
-                    resizeMode={imgResizeMode}
+                    contentFit={imgResizeMode}
+                    cachePolicy="memory-disk"
+                    transition={200}
+                    recyclingKey={item}
                   />
                 </TouchableOpacity>
               )}

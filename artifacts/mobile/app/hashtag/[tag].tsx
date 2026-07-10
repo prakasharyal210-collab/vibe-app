@@ -2,11 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
+import { Image } from "expo-image";
+import { FlashList } from "@shopify/flash-list";
 import {
   ActivityIndicator,
   Dimensions,
-  FlatList,
-  Image,
   Platform,
   StyleSheet,
   Text,
@@ -98,17 +98,15 @@ export default function HashtagScreen() {
           <Text style={[styles.emptyHint, { color: colors.mutedForeground }]}>Be the first to post!</Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={posts}
           keyExtractor={(p) => p.id}
           numColumns={3}
-          columnWrapperStyle={{ gap: 1.5 }}
-          ItemSeparatorComponent={() => <View style={{ height: 1.5 }} />}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
-          renderItem={({ item }) => (
+          renderItem={({ item }: { item: (typeof posts)[number] }) => (
             <TouchableOpacity activeOpacity={0.85} style={{ position: "relative" }}>
-              <Image source={{ uri: item.media_url }} style={styles.gridImg} resizeMode="cover" />
+              <Image source={{ uri: item.media_url }} style={styles.gridImg} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={item.media_url} />
               {item.is_reel && (
                 <View style={styles.reelBadge}><Ionicons name="play" size={11} color="#fff" /></View>
               )}

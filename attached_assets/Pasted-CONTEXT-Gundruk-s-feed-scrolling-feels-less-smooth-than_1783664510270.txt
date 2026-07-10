@@ -1,0 +1,35 @@
+CONTEXT: Gundruk's feed/scrolling feels less smooth than Instagram. Research points to two main causes: (1) using React Native's default Image component instead of expo-image (which has proper caching, causes flickering and UI-thread blocking during decode/resize), and (2) using FlatList instead of FlashList (which delivers significantly better virtualized scroll performance).
+
+Architecture reminder:
+- Mobile is artifacts/mobile (Expo SDK 54 / React Native)
+- This should be a JS/dependency-only change — deployable via eas update (OTA), no native rebuild needed UNLESS expo-image or FlashList require new native modules not already linked. Verify this and flag clearly if a native rebuild becomes necessary.
+
+DIAGNOSE FIRST:
+1. Check artifacts/mobile/package.json — is expo-image already installed? Is @shopify/flash-list (FlashList) already installed? Report what's currently there.
+2. Find every place in the codebase using React Native's default Image component for post/reel content (feed cards, reel player, profile grids, story/highlight thumbnails, etc.) — list every file.
+3. Find every FlatList used for scrollable content feeds (main feed, reels, profile posts grid, Friends tab, confession feed, etc.) — list every file and report current props (especially any performance-related props already set like removeClippedSubviews, initialNumToRender, windowSize).
+
+IMPLEMENT (do this incrementally, file by file, and report progress — do not attempt everything in one giant edit):
+
+1. Install expo-image if not present: npx expo install expo-image
+2. Install @shopify/flash-list if not present: npx expo install @shopify/flash-list
+3. For each Image usage found in step 2, replace React Native's Image with expo-image's Image, using:
+   - contentFit="cover" (or whatever matches current resizeMode)
+   - cachePolicy="memory-disk"
+   - transition={200}
+   - recyclingKey={item.id} (for any image inside a list, to prevent flicker on recycle)
+   - Keep existing styling/dimensions exactly as they are — only swap the component and add these performance props
+4. For each FlatList found in step 3 that renders feed-style content (NOT small non-scrolling lists like a settings menu), convert to FlashList from @shopify/flash-list. Note: FlashList requires an estimatedItemSize prop — pick a reasonable estimate based on the actual card height in each case, and report what value was used.
+5. Do NOT touch: any FlatList used for tiny non-performance-critical lists (e.g. a short settings menu, a modal picker) — only convert genuinely scrollable content feeds.
+
+AFTER EACH FILE CHANGE:
+- Typecheck after every batch of changes, not just at the end
+- Report exactly which files were changed and confirm no native module linking errors occurred
+
+AFTER ALL IMPLEMENTATION:
+- Full typecheck across the workspace
+- Report every file changed, grouped by (a) Image swaps and (b) FlashList swaps
+- Confirm explicitly: is this still safe to ship via eas update, or does anything here require eas build? (FlashList sometimes has native codegen requirements in newer React Native architecture — check and report honestly, don't assume)
+- Suggest how to visually test: what to look for (image flicker on scroll-recycle, smoother frame rate scrolling through feed vs before)
+
+DO NOT push or deploy — I'll review and decide on deployment method myself once I know if it's OTA-safe or needs a build.

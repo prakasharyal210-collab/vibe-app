@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Image, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Image } from "expo-image";
 
 const COLORS = ["#7C3AED", "#F97316", "#10B981", "#3B82F6", "#EC4899", "#06B6D4"];
 
@@ -46,6 +47,10 @@ export function UserAvatar({ username, url, size = 40, style, showBorder = false
             StyleSheet.absoluteFill,
             { borderRadius: size / 2, opacity: imageLoaded ? 1 : 0 },
           ]}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          transition={200}
+          recyclingKey={url}
           onLoad={() => setImageLoaded(true)}
           onError={() => setImageError(true)}
         />

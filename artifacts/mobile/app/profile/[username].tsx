@@ -4,11 +4,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as VideoThumbnails from "expo-video-thumbnails";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { Image } from "expo-image";
 import {
   Alert,
   Animated,
   Dimensions,
-  Image,
   Linking,
   Modal,
   Platform,
@@ -97,7 +97,7 @@ function VideoGridCell({ videoUrl, style }: { videoUrl: string; style: object })
   }, [videoUrl]);
 
   if (thumb) {
-    return <Image source={{ uri: thumb }} style={style as any} resizeMode="cover" />;
+    return <Image source={{ uri: thumb }} style={style as any} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={thumb} />;
   }
   return (
     <View style={[style as any, { overflow: "hidden" }]}>
@@ -308,7 +308,7 @@ function PinnedPostCard({
 }) {
   return (
     <TouchableOpacity style={ppStyles.card} activeOpacity={0.88} onPress={onPress}>
-      <Image source={{ uri: post.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image source={{ uri: post.image }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={post.image} />
       <LinearGradient
         colors={["transparent", "rgba(0,0,0,0.82)"]}
         style={StyleSheet.absoluteFill}
@@ -421,7 +421,7 @@ function ProfileGridThumb({ item, onPress }: { item: GridThumbData; onPress: () 
       {needsVideoCell && item.videoUrl ? (
         <VideoGridCell videoUrl={item.videoUrl} style={styles.gridImage} />
       ) : (
-        <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
+        <Image source={{ uri: item.image }} style={styles.gridImage} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={item.image} />
       )}
       {item.isVideo && (
         <View style={styles.videoOverlay} pointerEvents="none">
@@ -922,7 +922,7 @@ export default function UserProfileScreen() {
               >
                 <Text style={styles.partnerEmoji}>💑</Text>
                 {(profile as any).partner.avatar_url ? (
-                  <Image source={{ uri: (profile as any).partner.avatar_url }} style={styles.partnerAvatarSmall} />
+                  <Image source={{ uri: (profile as any).partner.avatar_url }} style={styles.partnerAvatarSmall} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                 ) : (
                   <View style={[styles.partnerAvatarSmall, styles.partnerAvatarFallback]}>
                     <Text style={{ fontSize: 10 }}>👤</Text>
