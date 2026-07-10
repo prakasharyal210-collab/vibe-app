@@ -685,6 +685,31 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </TouchableOpacity>
       </View>
 
+      {/* Mood title — a Mood post's text is its headline, so it renders here,
+          directly under the username/timestamp header and above the action
+          row, rather than in the normal caption slot below the actions. This
+          block is exclusive to post_type === "mood"; every other post type's
+          layout is untouched. */}
+      {isMoodPost ? (
+        <View style={styles.moodTitleContainer}>
+          <Text style={[styles.moodTitleText, { color: colors.foreground }]}>
+            {(post.caption ?? "").split(/(#\w+)/g).map((part, i) =>
+              part.startsWith("#") ? (
+                <Text
+                  key={i}
+                  style={styles.moodTitleHashtag}
+                  onPress={() => router.push(`/hashtag/${encodeURIComponent(part.slice(1))}` as any)}
+                >
+                  {part}
+                </Text>
+              ) : (
+                <Text key={i}>{part}</Text>
+              )
+            )}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Media area — video or image carousel.
           Container height = CARD_W / realAspectRatio (exact fit, no gaps, no crop).
           Extreme portraits (taller than 1.25× width) are capped + use cover.
@@ -700,24 +725,8 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             colors={["#4C1D6B", "#7A2354", "#8A3A12"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={styles.moodCard}
-          >
-            <Text style={styles.moodCardText}>
-              {(post.caption ?? "").split(/(#\w+)/g).map((part, i) =>
-                part.startsWith("#") ? (
-                  <Text
-                    key={i}
-                    style={styles.moodCardHashtag}
-                    onPress={() => router.push(`/hashtag/${encodeURIComponent(part.slice(1))}` as any)}
-                  >
-                    {part}
-                  </Text>
-                ) : (
-                  <Text key={i}>{part}</Text>
-                )
-              )}
-            </Text>
-          </LinearGradient>
+            style={styles.moodAccentBar}
+          />
         </View>
       ) : hasMedia ? (
         (() => {
@@ -1324,8 +1333,9 @@ const styles = StyleSheet.create({
   caption: { fontSize: 14, fontFamily: "Poppins_400Regular", lineHeight: 21 },
   captionUsername: { fontFamily: "Poppins_700Bold" },
   hashTag: { color: "#8B5CF6", fontFamily: "Poppins_500Medium" },
-  moodCard: { borderRadius: 18, paddingVertical: 28, paddingHorizontal: 20, minHeight: 100, justifyContent: "center" },
-  moodCardText: { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 17, lineHeight: 27 },
-  moodCardHashtag: { color: "#F0ABFC" },
+  moodAccentBar: { height: 4, borderRadius: 2 },
+  moodTitleContainer: { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 10 },
+  moodTitleText: { color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 20, lineHeight: 27 },
+  moodTitleHashtag: { color: "#EC4899" },
   postTimestamp: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 1 },
 });
