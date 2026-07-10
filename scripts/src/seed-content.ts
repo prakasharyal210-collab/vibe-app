@@ -418,8 +418,20 @@ async function postToFeed(
 ): Promise<{ data: any; error: string | null; photoId?: string }> {
   let image: FetchedImage | null = null;
   if (item.imageQuery) {
+    // fetchPexelsImage() already walks the full [imageQuery, ...fallbackQueries]
+    // chain (2 pages each) internally before giving up and returning null — so
+    // there is no separate retry to add here. We only need to make sure that
+    // when the whole chain is exhausted, we do NOT fall through and create a
+    // caption-only post with an empty image_url.
+    console.log(`    🔍  Fetching image for @${item.personaId} — trying "${item.imageQuery}" + ${item.fallbackQueries?.length ?? 0} fallback quer${item.fallbackQueries?.length === 1 ? "y" : "ies"}…`);
     image = await fetchPexelsImage(item.imageQuery, item.fallbackQueries, usedIds);
-    if (image) console.log(`    📷  ${image.credit}`);
+    if (image) {
+      console.log(`    📷  ${image.credit}`);
+    } else {
+      const msg = `Pexels image fetch failed for @${item.personaId} — all fallback queries exhausted, skipping post creation for this cycle`;
+      console.warn(`    ⚠️  ${msg}`);
+      return { data: null, error: `SKIPPED_NO_IMAGE: ${msg}` };
+    }
   }
 
   const body: Record<string, unknown> = {

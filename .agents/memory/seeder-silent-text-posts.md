@@ -9,4 +9,4 @@ description: Why some seed-persona posts end up with no image; not yet fixed, fl
 
 **Why it matters:** confirmed root cause of at least one real seed post (`nabin.melb`, "...third hour of negotiation...") shipping with `image_url: ""`, `media_url: ""` — Pexels image search/download silently failed and the post was created anyway.
 
-**How to apply:** if asked to fix, the choices are (a) make `postToFeed` skip/retry the queue item when `fetchPexelsImage` returns null instead of posting without media, or (b) have `/api/posts/create` require media unless the request explicitly opts into a text-only post type. Not implemented yet — left for explicit user decision.
+**Fixed (2026-07-10):** `postToFeed()` now returns early with a `SKIPPED_NO_IMAGE` error (no API call made) when `fetchPexelsImage()` exhausts its fallback chain and returns null, instead of falling through to create a captionless-image post. `posts/create.ts` intentionally left untouched — real-user upload validation is a separate concern. The seeder runs as its own Railway service (`glistening-warmth`); this fix needs a redeploy of that service specifically, not the main api-server or an EAS update.
