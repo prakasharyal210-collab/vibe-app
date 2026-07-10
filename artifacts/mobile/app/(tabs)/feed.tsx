@@ -49,6 +49,7 @@ import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { POST_CATEGORIES } from "@/lib/categories";
 import { cardUrl } from "@/lib/imageUrl";
+import { getCachedFeed, setCachedFeed } from "@/lib/feedCache";
 
 const { width: W, height: H } = Dimensions.get("window");
 const PAGE_SIZE = 20;
@@ -634,7 +635,10 @@ export default function FeedScreen() {
     setTabStates((prev) => ({ ...prev, [tab]: { ...prev[tab], ...update } }));
   }, []);
 
-  const loadTabData = useCallback(async (tab: FeedTabId, reset = false) => {
+  // `silent`: background refresh after a cache-hydrated instant paint — never
+  // shows the loading spinner and never blanks posts already on screen; the
+  // fresh response is merged in (new items first) once it arrives.
+  const loadTabData = useCallback(async (tab: FeedTabId, reset = false, silent = false) => {
     const state = tabStatesRef.current[tab];
     const offset = reset ? 0 : state.offset;
 
@@ -647,10 +651,15 @@ export default function FeedScreen() {
 
     // Snapshot existing posts BEFORE wiping them so a failed refresh can restore
     // them — a broken network call must never blank a feed that was working.
+    // Also used as the base to merge into for silent (cache-backed) refreshes.
     const previousPosts = reset ? [...tabStatesRef.current[tab].posts] : [];
 
-    if (reset) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
-    else updateTab(tab, { loadingMore: true });
+    if (reset) {
+      if (!silent) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
+      // else: keep the cache-hydrated posts on screen, no spinner, no wipe.
+    } else {
+      updateTab(tab, { loadingMore: true });
+    }
 
     try {
       let data: Post[] = [];
@@ -673,11 +682,17 @@ export default function FeedScreen() {
         return;
       }
 
-      // Keep existing accumulated posts; only wipe on an explicit reset.
+      // Keep existing accumulated posts; only wipe on an explicit (non-silent) reset.
       // Previously a cycle-wrap (offset===0 on pagination) cleared prev which
       // erased all accumulated posts — that bug is removed.
-      const prev = reset ? [] : tabStatesRef.current[tab].posts;
-      const merged = [...prev, ...data];
+      // Silent reset (cache-backed background refresh): merge fresh data IN FRONT
+      // of what's already on screen so new items land at the top and dedup below
+      // keeps the fresh copy of any post that changed (e.g. updated like counts)
+      // — old cache-only items that didn't come back in this page simply trail
+      // behind until the next real pagination fetch.
+      const merged = reset
+        ? (silent ? [...data, ...previousPosts] : [...data])
+        : [...tabStatesRef.current[tab].posts, ...data];
       const seenIds = new Set<string>();
       const deduped = merged.filter((p, i) => {
         const key = p.id ? `id:${p.id}` : `idx:${i}`;
@@ -691,7 +706,7 @@ export default function FeedScreen() {
       // more — hasMore: false prevents further onEndReached triggers.
       // Do not cycle offset back to 0; pull-to-refresh is the correct way to restart.
       const atEnd = data.length < PAGE_SIZE;
-      const nextOffset = atEnd ? offset : offset + data.length;
+      const nextOffset = atEnd ? offset : deduped.length;
       const hasMore = !atEnd;
 
       updateTab(tab, {
@@ -702,6 +717,13 @@ export default function FeedScreen() {
         hasMore,
       });
       loadedTabs.current.add(tab);
+
+      // Cache the lightweight feed JSON (post rows, no images) for instant paint
+      // on the next cold start. Only cache real reset loads — never pagination
+      // pages or the logged-out mock feed.
+      if (reset && userId && data.length > 0) {
+        void setCachedFeed(tab, userId, deduped);
+      }
     } catch (e: any) {
       console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message, '| previousPosts:', previousPosts.length);
       // Refresh failed — restore the pre-refresh snapshot so the feed never goes
@@ -718,8 +740,23 @@ export default function FeedScreen() {
     }
   }, [userId, updateTab]);
 
+  // Try to paint instantly from cache before hitting the network. If a fresh-
+  // enough cached feed exists, render it immediately (no spinner) and kick off
+  // a silent background refresh; otherwise fall back to the normal loading flow.
+  const loadTabWithCache = useCallback(async (tab: FeedTabId) => {
+    if (!userId) { loadTabData(tab, true); return; }
+    const cached = await getCachedFeed(tab, userId);
+    if (cached && cached.length > 0) {
+      updateTab(tab, { posts: cached, loading: false, offset: cached.length, hasMore: true });
+      loadedTabs.current.add(tab);
+      loadTabData(tab, true, true);
+    } else {
+      loadTabData(tab, true, false);
+    }
+  }, [userId, loadTabData, updateTab]);
+
   useEffect(() => {
-    loadTabData("foryou", true);
+    loadTabWithCache("foryou");
   }, [userId]);
 
   // Do NOT reload data on focus — that resets scroll position mid-read.
@@ -826,16 +863,16 @@ export default function FeedScreen() {
     const tab = TABS[index].id;
     setActiveTabIndex(index);
     pagerRef.current?.scrollTo({ x: index * W, animated: true });
-    if (!loadedTabs.current.has(tab)) loadTabData(tab, true);
-  }, [loadTabData]);
+    if (!loadedTabs.current.has(tab)) loadTabWithCache(tab);
+  }, [loadTabWithCache]);
 
   const onPagerMomentumEnd = useCallback((e: any) => {
     const index = Math.round(e.nativeEvent.contentOffset.x / W);
     const tab = TABS[index].id;
     setActiveTabIndex(index);
     isScrollingPager.current = false;
-    if (!loadedTabs.current.has(tab)) loadTabData(tab, true);
-  }, [loadTabData]);
+    if (!loadedTabs.current.has(tab)) loadTabWithCache(tab);
+  }, [loadTabWithCache]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

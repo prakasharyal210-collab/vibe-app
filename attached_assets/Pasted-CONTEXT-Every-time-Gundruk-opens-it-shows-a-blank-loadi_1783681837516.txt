@@ -1,0 +1,30 @@
+CONTEXT: Every time Gundruk opens, it shows a blank/loading state and fetches everything fresh over the network — a full cold start every single time. Instagram avoids this by caching the last-loaded feed on-device and showing it INSTANTLY on app open, then silently refreshing in the background and merging in new content. This is the single highest-impact change for making app-open feel fast.
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- Deploy: JS-only change, OTA-deployable via eas update
+
+TASK: Add feed caching so the app shows content instantly on open, before any network request completes.
+
+DIAGNOSE FIRST:
+1. Find the main feed screen (app/(tabs)/feed.tsx) and report exactly what happens on mount right now — does it show a blank/loading state until the first API response arrives?
+2. Check if AsyncStorage or any local storage is already used anywhere in the app (for patterns to reuse) — report what's already available.
+
+IMPLEMENT:
+1. On successful feed fetch, cache the response (post IDs + essential display data — not full images, just the JSON feed data) to AsyncStorage, keyed by tab (For You / Friends) and possibly by user ID.
+2. On feed screen mount, BEFORE making any network request: check AsyncStorage for a cached feed. If one exists, render it IMMEDIATELY (skip the loading spinner entirely for this case).
+3. Simultaneously (not blocking the above), fire the real network request in the background as normal.
+4. When the fresh network response arrives, diff it against what's currently shown: merge in any new posts at the top, update any changed like/comment counts, but do this smoothly (no jarring full re-render/flash) — ideally just prepend new items and let existing rendered items stay as they are.
+5. Set a reasonable cache expiry (e.g., don't show cached data older than 24-48 hours as the instant-render fallback — if the cache is stale beyond that, just show the normal loading state instead).
+6. Apply the same pattern to both "For You" and "Friends" tabs.
+7. Typecheck.
+
+DO NOT:
+- Do not cache full images (that's already handled by expo-image's own disk cache) — only cache the lightweight feed JSON (post IDs, captions, counts, etc.)
+- Do not touch reels in this pass — feed only
+- Do not push or deploy — I'll review first
+
+AFTER IMPLEMENTATION:
+- Report every file changed
+- Confirm OTA-safe
+- Describe how to test: force-close the app while online, reopen — feed should show your last-seen posts instantly, with a brief moment where fresh data replaces/merges in behind the scenes (should be nearly invisible if done right)
