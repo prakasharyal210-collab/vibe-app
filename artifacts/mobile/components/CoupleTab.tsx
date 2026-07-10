@@ -39,13 +39,39 @@ const P = {
 
 const API = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api/couple";
 
+// Requests hang instead of failing when the backend is slow/unreachable (e.g.
+// cold Railway instance) — with no timeout, a tapped button had no way to
+// ever recover and just looked permanently dead. 12s balances giving a slow
+// cold-start a real chance to respond vs. leaving the user staring at a
+// spinner indefinitely.
+const COUPLE_API_TIMEOUT_MS = 12000;
+
+class CoupleApiError extends Error {}
+
 async function coupleApi(path: string, method = "GET", body?: object) {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), COUPLE_API_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${API}${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new CoupleApiError((data as any)?.error ?? `Request failed (${res.status})`);
+    }
+    return await res.json();
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new CoupleApiError("Request timed out — please check your connection and try again");
+    }
+    if (e instanceof CoupleApiError) throw e;
+    throw new CoupleApiError("Network error — please try again");
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 interface Partner {
@@ -198,6 +224,15 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   const [compEntry, setCompEntry] = useState<{ id: string; couple_name: string; vote_count: number } | null>(null);
   const [compRank, setCompRank] = useState<number | null>(null);
 
+  // Per-action busy state so a slow/hung request shows an obvious in-progress
+  // state on the exact button pressed (instead of nothing happening), and
+  // always clears — success or failure — so the button never gets stuck.
+  const [sendingRequestId, setSendingRequestId] = useState<string | null>(null);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
+  const [nudging, setNudging] = useState(false);
+
   const fetchStatus = useCallback(async () => {
     if (!userId) return;
     try {
@@ -236,33 +271,43 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   };
 
   const sendRequest = async (receiverId: string, receiverName: string) => {
+    if (sendingRequestId) return;
+    setSendingRequestId(receiverId);
     try {
-      const data = await coupleApi("/request", "POST", { requesterId: userId, receiverId });
-      if (data.error) { Alert.alert("Error", data.error); return; }
+      await coupleApi("/request", "POST", { requesterId: userId, receiverId });
       Alert.alert("💌 Sent!", `Couple request sent to ${receiverName}`);
       setSearchText(""); setSearchResults([]);
       fetchStatus();
-    } catch {
-      Alert.alert("Error", "Failed to send request");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Failed to send request");
+    } finally {
+      setSendingRequestId(null);
     }
   };
 
   const acceptRequest = async (coupleId: string) => {
+    if (acceptingId || decliningId) return;
+    setAcceptingId(coupleId);
     try {
-      const data = await coupleApi("/accept", "POST", { coupleId, userId });
-      if (data.error) { Alert.alert("Error", data.error); return; }
+      await coupleApi("/accept", "POST", { coupleId, userId });
       fetchStatus();
-    } catch {
-      Alert.alert("Error", "Failed to accept request");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Failed to accept request");
+    } finally {
+      setAcceptingId(null);
     }
   };
 
   const declineRequest = async (coupleId: string) => {
+    if (acceptingId || decliningId) return;
+    setDecliningId(coupleId);
     try {
       await coupleApi("/decline", "POST", { coupleId, userId });
       fetchStatus();
-    } catch {
-      Alert.alert("Error", "Failed to decline");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Failed to decline");
+    } finally {
+      setDecliningId(null);
     }
   };
 
@@ -276,9 +321,16 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           text: "Unlink",
           style: "destructive",
           onPress: async () => {
-            if (status?.status !== "coupled") return;
-            await coupleApi("/unlink", "DELETE", { coupleId: status.couple.id, userId });
-            fetchStatus();
+            if (status?.status !== "coupled" || unlinking) return;
+            setUnlinking(true);
+            try {
+              await coupleApi("/unlink", "DELETE", { coupleId: status.couple.id, userId });
+              fetchStatus();
+            } catch (e: any) {
+              Alert.alert("Error", e?.message ?? "Failed to unlink");
+            } finally {
+              setUnlinking(false);
+            }
           },
         },
       ]
@@ -286,15 +338,18 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   };
 
   const sendNudge = async () => {
-    if (status?.status !== "coupled") return;
+    if (status?.status !== "coupled" || nudging) return;
     const partnerId =
       status.couple.requester_id === userId ? status.couple.receiver_id : status.couple.requester_id;
+    setNudging(true);
     try {
       await coupleApi("/nudge", "POST", { senderId: userId, partnerId });
       setNudgeSent(true);
       setTimeout(() => setNudgeSent(false), 3000);
-    } catch {
-      Alert.alert("Error", "Failed to send nudge");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Failed to send nudge");
+    } finally {
+      setNudging(false);
     }
   };
 
@@ -399,15 +454,19 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           />
 
           {/* Thinking of You nudge */}
-          <AnimatedCard onPress={sendNudge} delay={420}>
+          <AnimatedCard onPress={() => { if (!nudging) sendNudge(); }} delay={420}>
             <View style={s.featureCard}>
               <View style={s.iconTile}>
-                <Text style={s.tileEmoji}>{nudgeSent ? "✅" : "💞"}</Text>
+                {nudging ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={s.tileEmoji}>{nudgeSent ? "✅" : "💞"}</Text>
+                )}
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={s.cardTitle}>{nudgeSent ? "Nudge sent!" : "Thinking of You"}</Text>
+                <Text style={s.cardTitle}>{nudging ? "Sending..." : nudgeSent ? "Nudge sent!" : "Thinking of You"}</Text>
                 <Text style={s.cardSub}>
-                  {nudgeSent ? "They'll know you're thinking of them" : "Send a gentle nudge to your partner"}
+                  {nudging ? "" : nudgeSent ? "They'll know you're thinking of them" : "Send a gentle nudge to your partner"}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={P.chevron} />
@@ -415,8 +474,16 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           </AnimatedCard>
         </View>
 
-        <TouchableOpacity onPress={unlink} style={s.unlinkBtn}>
-          <Text style={s.unlinkText}>Unlink Couple</Text>
+        <TouchableOpacity
+          onPress={unlink}
+          style={[s.unlinkBtn, unlinking && s.btnDisabledDim]}
+          disabled={unlinking}
+        >
+          {unlinking ? (
+            <ActivityIndicator size="small" color={P.muted} />
+          ) : (
+            <Text style={s.unlinkText}>Unlink Couple</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     );
@@ -464,9 +531,14 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
                 </View>
                 <TouchableOpacity
                   onPress={() => sendRequest(u.id, u.full_name || u.username)}
-                  style={s.sendRequestBtn}
+                  style={[s.sendRequestBtn, sendingRequestId === u.id && s.btnDisabledDim]}
+                  disabled={sendingRequestId !== null}
                 >
-                  <Text style={s.sendRequestText}>Request</Text>
+                  {sendingRequestId === u.id ? (
+                    <ActivityIndicator size="small" color="#000000" />
+                  ) : (
+                    <Text style={s.sendRequestText}>Request</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             ))}
@@ -503,11 +575,27 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
                 <Text style={s.incomingUser}>@{req.requester?.username}</Text>
               </View>
               <View style={s.incomingBtns}>
-                <TouchableOpacity onPress={() => acceptRequest(req.id)} style={s.acceptBtn}>
-                  <Text style={{ color: "#000000", fontFamily: "Poppins_700Bold", fontSize: 13 }}>Accept</Text>
+                <TouchableOpacity
+                  onPress={() => acceptRequest(req.id)}
+                  style={[s.acceptBtn, (acceptingId !== null || decliningId !== null) && s.btnDisabledDim]}
+                  disabled={acceptingId !== null || decliningId !== null}
+                >
+                  {acceptingId === req.id ? (
+                    <ActivityIndicator size="small" color="#000000" />
+                  ) : (
+                    <Text style={{ color: "#000000", fontFamily: "Poppins_700Bold", fontSize: 13 }}>Accept</Text>
+                  )}
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => declineRequest(req.id)} style={s.declineBtn}>
-                  <Text style={{ color: P.muted, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>Decline</Text>
+                <TouchableOpacity
+                  onPress={() => declineRequest(req.id)}
+                  style={[s.declineBtn, (acceptingId !== null || decliningId !== null) && s.btnDisabledDim]}
+                  disabled={acceptingId !== null || decliningId !== null}
+                >
+                  {decliningId === req.id ? (
+                    <ActivityIndicator size="small" color={P.muted} />
+                  ) : (
+                    <Text style={{ color: P.muted, fontFamily: "Poppins_600SemiBold", fontSize: 13 }}>Decline</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             </View>
@@ -580,6 +668,7 @@ const s = StyleSheet.create({
   // ── Unlink ─────────────────────────────────────────────────────────────────
   unlinkBtn: { marginTop: 28, alignSelf: "center", padding: 12 },
   unlinkText: { fontFamily: "Poppins_400Regular", fontSize: 13, color: P.muted },
+  btnDisabledDim: { opacity: 0.5 },
 
   // ── Non-coupled ─────────────────────────────────────────────────────────────
   heroSection: { alignItems: "center", paddingTop: 60, paddingBottom: 32, paddingHorizontal: 24, gap: 10 },
