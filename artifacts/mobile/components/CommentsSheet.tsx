@@ -169,6 +169,8 @@ export function CommentsSheet({
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [replyTo, setReplyTo] = useState<{ id: string; username: string } | null>(null);
   const listRef = useRef<FlatList>(null);
@@ -196,15 +198,16 @@ export function CommentsSheet({
   const loadComments = async () => {
     setLoading(true);
     try {
-      const data = contentType === "reel"
+      const page = contentType === "reel"
         ? await fetchReelComments(postId)
         : await fetchComments(postId);
-      setComments(data);
+      setComments(page.comments);
+      setNextCursor(page.cursor);
 
       // Batch-fetch which comments the current user has already liked
       const userId = session?.user?.id;
-      if (userId && data.length > 0) {
-        const ids = data.map((c) => c.id).join(",");
+      if (userId && page.comments.length > 0) {
+        const ids = page.comments.map((c) => c.id).join(",");
         try {
           const res = await fetch(`${API_BASE}/comments/liked?userId=${encodeURIComponent(userId)}&commentIds=${ids}&contentType=${contentType}`);
           if (res.ok) {
@@ -215,6 +218,35 @@ export function CommentsSheet({
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreComments = async () => {
+    if (!nextCursor || loadingMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const page = contentType === "reel"
+        ? await fetchReelComments(postId, nextCursor)
+        : await fetchComments(postId, nextCursor);
+      if (page.comments.length > 0) {
+        setComments((c) => [...c, ...page.comments]);
+
+        // Batch-fetch liked state for the newly appended comments
+        const userId = session?.user?.id;
+        if (userId) {
+          const ids = page.comments.map((c) => c.id).join(",");
+          try {
+            const res = await fetch(`${API_BASE}/comments/liked?userId=${encodeURIComponent(userId)}&commentIds=${ids}&contentType=${contentType}`);
+            if (res.ok) {
+              const json = await res.json();
+              setLikedIds((prev) => new Set<string>([...prev, ...(json.likedIds ?? [])]));
+            }
+          } catch {}
+        }
+      }
+      setNextCursor(page.cursor);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -356,6 +388,8 @@ export function CommentsSheet({
               )}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 12 }}
+              onEndReached={loadMoreComments}
+              onEndReachedThreshold={0.4}
               ListEmptyComponent={
                 <View style={styles.empty}>
                   <Ionicons name="chatbubble-outline" size={40} color={colors.mutedForeground} />
@@ -363,6 +397,19 @@ export function CommentsSheet({
                     No comments yet. Be the first!
                   </Text>
                 </View>
+              }
+              ListFooterComponent={
+                loadingMore ? (
+                  <View style={styles.loadMoreRow}>
+                    <ActivityIndicator color="#8B5CF6" size="small" />
+                  </View>
+                ) : nextCursor ? (
+                  <TouchableOpacity style={styles.loadMoreRow} onPress={loadMoreComments}>
+                    <Text style={[styles.loadMoreText, { color: colors.mutedForeground }]}>
+                      Load more comments
+                    </Text>
+                  </TouchableOpacity>
+                ) : null
               }
             />
           )}
@@ -456,6 +503,8 @@ const styles = StyleSheet.create({
   sortBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14 },
   sortText: { fontSize: 12, fontFamily: "Poppins_600SemiBold" },
   loadingRow: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 60 },
+  loadMoreRow: { paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  loadMoreText: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   commentRow: {
     flexDirection: "row",
     paddingHorizontal: 14,

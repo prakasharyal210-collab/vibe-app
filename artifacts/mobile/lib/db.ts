@@ -64,17 +64,23 @@ function notifText(type: string, message?: string): string {
 
 // ─── Comments ─────────────────────────────────────────────────────────────────
 
-export async function fetchComments(postId: string): Promise<Comment[]> {
+export interface CommentsPage {
+  comments: Comment[];
+  cursor: string | null;
+}
+
+export async function fetchComments(postId: string, before?: string | null): Promise<CommentsPage> {
   // Route through API server (service-role key) — direct Supabase anon-key calls
   // hang forever under RLS and never resolve, leaving the spinner stuck.
   try {
-    const res = await fetch(`${API_BASE}/comments?postId=${encodeURIComponent(postId)}`);
+    const cursorParam = before ? `&before=${encodeURIComponent(before)}` : "";
+    const res = await fetch(`${API_BASE}/comments?postId=${encodeURIComponent(postId)}${cursorParam}`);
     if (res.ok) {
       const json = await res.json();
-      return (json.comments ?? []) as Comment[];
+      return { comments: (json.comments ?? []) as Comment[], cursor: json.cursor ?? null };
     }
   } catch {}
-  return [];
+  return { comments: [], cursor: null };
 }
 
 export async function addComment(
@@ -107,16 +113,17 @@ export async function addComment(
 
 // ─── Reel Comments ────────────────────────────────────────────────────────────
 
-export async function fetchReelComments(reelId: string): Promise<Comment[]> {
+export async function fetchReelComments(reelId: string, before?: string | null): Promise<CommentsPage> {
   // Route through API server (service-role key) — direct anon-key calls hang under RLS.
   try {
-    const res = await fetch(`${API_BASE}/comments?reelId=${encodeURIComponent(reelId)}`);
+    const cursorParam = before ? `&before=${encodeURIComponent(before)}` : "";
+    const res = await fetch(`${API_BASE}/comments?reelId=${encodeURIComponent(reelId)}${cursorParam}`);
     if (res.ok) {
       const json = await res.json();
-      return (json.comments ?? []) as Comment[];
+      return { comments: (json.comments ?? []) as Comment[], cursor: json.cursor ?? null };
     }
   } catch {}
-  return [];
+  return { comments: [], cursor: null };
 }
 
 export async function addReelComment(

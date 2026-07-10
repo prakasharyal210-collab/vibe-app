@@ -43,74 +43,111 @@ function checkProfanity(text: string): { ok: boolean; reason?: string } {
 
 // ─── GET /api/comments ────────────────────────────────────────────────────────
 // Fetch comments for a post or reel via service-role key (bypasses RLS).
-// Query params: postId OR reelId
-// Returns: Comment[]  (same shape used by the mobile client)
+// Query params:
+//   postId OR reelId (required)
+//   limit  (optional, default 50, max 50)
+//   before (optional cursor — an ISO created_at string; returns comments
+//           strictly older than this timestamp, i.e. the next page)
+// Returns: { comments: Comment[], cursor: string | null }
+//   cursor is the created_at of the oldest returned comment, to pass as
+//   `before` on the next request; null means there are no more comments.
+// Backward compatible: callers that don't send `before`/`limit` and only
+// read `comments` (ignoring the new `cursor` field) behave exactly as before.
 router.get("/", async (req, res) => {
-  const { postId, reelId } = req.query as { postId?: string; reelId?: string };
+  const { postId, reelId, before } = req.query as { postId?: string; reelId?: string; before?: string };
   if (!postId && !reelId) {
     res.status(400).json({ error: "postId or reelId required" });
     return;
   }
+  const rawLimit = parseInt(String((req.query as any).limit ?? "50"), 10);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 50;
   const sb = makeSupabase();
+
+  // Given a page of comments (already sliced to `limit`), compute the cursor
+  // to hand back: the created_at of the oldest (last) item, or null if the
+  // page wasn't full (meaning there's nothing older left).
+  function nextCursor(page: any[], gotExtra: boolean): string | null {
+    if (!gotExtra || page.length === 0) return null;
+    const last = page[page.length - 1];
+    return last?.created_at ?? null;
+  }
 
   try {
     if (reelId) {
-      // Try the RPC first (richer data, handles content normalisations)
-      const { data: rpcData, error: rpcErr } = await sb.rpc("get_reel_comments", {
-        p_reel_id: reelId,
-        p_user_id: null,
-      });
-      if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
-        // RPC may already normalise content→text; ensure text field is always set
-        const normalised = (rpcData as any[]).map((c: any) => ({
-          ...c,
-          text: c.text ?? c.content ?? "",
-        }));
-        res.json({ comments: normalised });
-        return;
+      // First page (no cursor): try the RPC first (richer data, handles
+      // content normalisations). Paginated requests (cursor present) always
+      // go through the direct select below, since the RPC doesn't support cursors.
+      if (!before) {
+        const { data: rpcData, error: rpcErr } = await sb.rpc("get_reel_comments", {
+          p_reel_id: reelId,
+          p_user_id: null,
+        });
+        if (!rpcErr && rpcData && (rpcData as any[]).length > 0) {
+          // RPC may already normalise content→text; ensure text field is always set
+          const normalised = (rpcData as any[]).map((c: any) => ({
+            ...c,
+            text: c.text ?? c.content ?? "",
+          }));
+          // RPC has no built-in limit, so slice to `limit` here for consistency
+          // with the paginated fallback path below.
+          const gotExtra = normalised.length > limit;
+          const page = normalised.slice(0, limit);
+          res.json({ comments: page, cursor: nextCursor(page, gotExtra) });
+          return;
+        }
       }
-      // Fallback: direct select (safe — service-role key)
-      const { data, error } = await sb
+      // Fallback / paginated path: direct select (safe — service-role key)
+      let query = sb
         .from("reel_comments")
         .select("*, profiles:user_id(id, username, avatar_url)")
         .eq("reel_id", reelId)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(limit + 1);
+      if (before) query = query.lt("created_at", before);
+      const { data, error } = await query;
       if (error) {
         req.log.warn({ error: error.message }, "reel_comments fetch error");
-        res.json({ comments: [] });
+        res.json({ comments: [], cursor: null });
         return;
       }
+      const rows = data ?? [];
+      const gotExtra = rows.length > limit;
+      const page = rows.slice(0, limit);
       // DB column is `content`; mobile CommentsSheet reads `.text` — map here
-      const mapped = (data ?? []).map((c: any) => ({
+      const mapped = page.map((c: any) => ({
         ...c,
         text: c.text ?? c.content ?? "",
         parent_comment_id: c.parent_comment_id ?? c.reply_to ?? null,
       }));
-      res.json({ comments: mapped });
+      res.json({ comments: mapped, cursor: nextCursor(page, gotExtra) });
       return;
     }
 
     // Post comments — DB column is `content`; CommentsSheet reads `.text`
-    const { data, error } = await sb
+    let query = sb
       .from("comments")
       .select("*, profiles:user_id(id, username, avatar_url)")
       .eq("post_id", postId!)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(limit + 1);
+    if (before) query = query.lt("created_at", before);
+    const { data, error } = await query;
     if (error) {
       req.log.warn({ error: error.message }, "comments fetch error");
-      res.json({ comments: [] });
+      res.json({ comments: [], cursor: null });
       return;
     }
-    const mapped = (data ?? []).map((c: any) => ({
+    const rows = data ?? [];
+    const gotExtra = rows.length > limit;
+    const page = rows.slice(0, limit);
+    const mapped = page.map((c: any) => ({
       ...c,
       text: c.text ?? c.content ?? "",
     }));
-    res.json({ comments: mapped });
+    res.json({ comments: mapped, cursor: nextCursor(page, gotExtra) });
   } catch (err: any) {
     req.log.error({ err: err?.message }, "comments GET exception");
-    res.json({ comments: [] });
+    res.json({ comments: [], cursor: null });
   }
 });
 

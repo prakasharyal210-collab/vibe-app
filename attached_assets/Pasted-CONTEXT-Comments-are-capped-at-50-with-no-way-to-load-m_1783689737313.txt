@@ -1,0 +1,30 @@
+CONTEXT: Comments are capped at 50 with no way to load more — GET /api/comments does a flat LIMIT 50 with no pagination, no cursor, no "load more" mechanism in CommentsSheet.tsx. Any post/reel with 51+ comments permanently hides everything past the 50th. Likes and comment submission are already properly optimistic (confirmed working) — this task is purely about pagination.
+
+Architecture reminder:
+- API: artifacts/api-server (Express on Railway)
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- Deploy: API via git push (Railway auto-deploy). Mobile via eas update (OTA) if JS-only.
+
+TASK: Add cursor-based pagination to comments, with a "load more" control in the UI.
+
+API side (artifacts/api-server/src/routes/comments.ts):
+1. Add support for a cursor query param (e.g. ?before=<created_at>&limit=50, or an id-based cursor — use whatever's simplest given the existing created_at DESC ordering).
+2. First page: no cursor, return newest 50 comments + a cursor value pointing to the last item.
+3. Subsequent pages: accept the cursor, return the next 50 older comments + a new cursor (or null if no more).
+4. Keep the existing response shape mostly intact, just add the cursor field so this doesn't break anything else calling this endpoint.
+
+Mobile side (CommentsSheet.tsx):
+1. Track the current cursor and whether more comments exist.
+2. Add a "Load more comments" button/row at the bottom of the list (or trigger via onEndReached if the sheet is scrollable — check current implementation and use whichever fits existing patterns).
+3. On load more, fetch the next page using the cursor and append to the existing list (don't replace).
+4. Show a small loading indicator while fetching more.
+5. Reuse existing UI patterns (loading spinners, etc.) already in the codebase rather than building new ones.
+
+Typecheck both.
+
+AFTER:
+- Report every file changed
+- Confirm OTA-safe for mobile changes, and that API changes are backward compatible (won't break if an older app version calls the endpoint without the new cursor param)
+- Suggest how to manually test: find or create a post with 55+ comments, confirm the first 50 show, confirm "load more" reveals the rest
+
+DO NOT push or deploy — report first.
