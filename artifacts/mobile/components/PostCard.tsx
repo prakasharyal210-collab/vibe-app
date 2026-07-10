@@ -9,7 +9,6 @@ import {
   Alert,
   Dimensions,
   FlatList,
-  Image as RNImage,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -179,12 +178,16 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [isPinned, setIsPinned] = useState((post as any).is_pinned ?? false);
   const insets = useSafeAreaInsets();
   const qrViewRef = useRef<View>(null);
-  // null = dimensions not yet known → show shimmer placeholder.
   // Initialise from module-level cache so already-seen posts render at the
-  // correct height immediately (no layout jump on scroll-back).
-  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(() => {
+  // correct height immediately (no layout jump on scroll-back). Unknown images
+  // start at a neutral 4:3 guess (matches the old error fallback) instead of
+  // `null` — the media container renders immediately at this guessed height
+  // rather than blocking on a separate dimension probe, so there's no gap
+  // while we wait to find out the real size.
+  const DEFAULT_ASPECT_RATIO = 4 / 3;
+  const [mediaAspectRatio, setMediaAspectRatio] = useState<number>(() => {
     const url = (post.images && post.images.length > 0 ? post.images[0] : post.image_url) ?? null;
-    return url ? (_ratioCache.get(url) ?? null) : null;
+    return (url ? _ratioCache.get(url) : undefined) ?? DEFAULT_ASPECT_RATIO;
   });
   const videoRef = useRef<Video>(null);
   const heartScale = useSharedValue(1);
@@ -195,27 +198,31 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
   // Resolve the image's real aspect ratio so the container height = CARD_W / ratio
   // (no black gaps, no crop). Uses a module-level cache — synchronous for images
-  // already in RN's decode cache, eliminating the flash-then-resize on scroll-back.
+  // already seen, eliminating the flash-then-resize on scroll-back.
+  //
+  // Dimensions are captured from expo-image's own onLoad event (see the
+  // renderItem below) rather than a separate `Image.getSize` probe. A separate
+  // probe uses RN's legacy Image cache/network pipeline, which is completely
+  // disconnected from expo-image's own cache — so it duplicates the network
+  // fetch and can resolve much later than the image itself finishes loading.
+  // That produced a visible "pop" / layout gap once the slow probe finally
+  // resolved and the card resized out from under already-scrolled content.
+  // Reading dimensions off the real load event guarantees the resize happens
+  // at the same moment the image itself becomes visible — never later.
   useEffect(() => {
     const url = images[0];
     if (!url) { setMediaAspectRatio(1); return; }
-    // Serve from cache immediately — no state update needed if already correct
     const cached = _ratioCache.get(url);
-    if (cached) { setMediaAspectRatio(cached); return; }
-    // Unknown image: show shimmer (null) while we fetch dimensions
-    setMediaAspectRatio(null);
-    RNImage.getSize(
-      url,
-      (w, h) => {
-        if (w && h) {
-          const r = w / h;
-          _ratioCache.set(url, r);
-          setMediaAspectRatio(r);
-        }
-      },
-      () => { setMediaAspectRatio(4 / 3); } // fallback on error
-    );
+    if (cached) setMediaAspectRatio(cached);
   }, [post.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleMediaLoad = useCallback((url: string | undefined, w?: number, h?: number) => {
+    if (!url || !w || !h) return;
+    const r = w / h;
+    if (_ratioCache.get(url) === r) return;
+    _ratioCache.set(url, r);
+    setMediaAspectRatio(r);
+  }, []);
 
   // Detect video posts — check is_video flag OR file extension on the URL
   const videoUrl = post.is_video
@@ -679,15 +686,14 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
       {/* Media area — video or image carousel.
           Container height = CARD_W / realAspectRatio (exact fit, no gaps, no crop).
           Extreme portraits (taller than 1.25× width) are capped + use cover.
-          While dimensions are loading, a thin shimmer placeholder avoids a large
-          wrong-size box flashing before the real height is known.
+          Renders immediately at a neutral 4:3 guess for never-before-seen media
+          (see DEFAULT_ASPECT_RATIO above) and resizes in-place once the real
+          dimensions arrive via the media's own onLoad event — no separate probe,
+          no indefinite shimmer, no late resize happening out from under content
+          the user has already scrolled past.
           Skipped entirely for media-less posts (polls, text posts). */}
       {hasMedia ? (
-        mediaAspectRatio === null ? (
-          // Shimmer — shown only for truly first-load images not yet in _ratioCache.
-          // Height is a neutral 56vw so the card isn't massively tall or collapsed.
-          <View style={[styles.imageContainer, styles.shimmer, { height: CARD_W * 0.56 }]} />
-        ) : (() => {
+        (() => {
         const isExtremePortrait = (CARD_W / mediaAspectRatio) > MAX_PORTRAIT_H;
         const imgH = isExtremePortrait ? MAX_PORTRAIT_H : CARD_W / mediaAspectRatio;
         // Always cover: the container is already sized to CARD_W × (CARD_W / ratio),
@@ -708,6 +714,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               isMuted={!isActive}
               onPlaybackStatusUpdate={(s) => {
                 if (s.isLoaded) setVideoPlaying(s.isPlaying);
+              }}
+              onReadyForDisplay={(e) => {
+                const size = (e as any)?.naturalSize;
+                if (size?.width && size?.height) handleMediaLoad(videoUrl!, size.width, size.height);
               }}
             />
             {/* Play/pause indicator — visual only, no touch handling */}
@@ -745,7 +755,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               scrollEventThrottle={16}
               extraData={mediaAspectRatio}
               style={{ height: imgH }}
-              renderItem={({ item }) => (
+              renderItem={({ item, index }) => (
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={() => handleMediaTap(images.indexOf(item))}
@@ -757,6 +767,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                     cachePolicy="memory-disk"
                     transition={200}
                     recyclingKey={item}
+                    onLoad={index === 0 ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
                   />
                 </TouchableOpacity>
               )}

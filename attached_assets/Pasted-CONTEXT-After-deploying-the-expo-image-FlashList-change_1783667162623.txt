@@ -1,0 +1,23 @@
+CONTEXT: After deploying the expo-image + FlashList changes, testing on a real device shows a visible bug in the main feed (app/(tabs)/feed.tsx) — a large black/empty gap appears between a post and the next content below it, before the skeleton loading placeholders. Screenshot shows: a post renders correctly, then a big dead empty space, then skeleton shapes appear far below with visible spacing issues.
+
+Note: app/(tabs)/feed.tsx itself was NOT converted to FlashList in the last pass (deliberately left as FlatList per earlier decision) — so this bug is likely NOT related to the FlashList conversion, but could be related to:
+- The SkeletonPost component's sizing/layout not matching real post card dimensions correctly
+- A layout/style issue introduced or exposed by the expo-image swap in PostCard.tsx
+- An existing bug in the ListFooterComponent spacing that became visible now
+
+TASK: Diagnose and fix the visible gap/spacing bug in the main feed.
+
+1. Open app/(tabs)/feed.tsx and examine the ListFooterComponent (where SkeletonPost renders during pagination) and the main FlatList's overall layout/style props.
+2. Open the SkeletonPost component (components/SkeletonLoader.tsx per earlier context) and compare its height/margin/padding against a real PostCard's actual rendered dimensions — look for a mismatch that could cause a large gap.
+3. Check PostCard.tsx for any layout changes introduced by the expo-image swap — specifically check if the image's aspect-ratio calculation (mentioned earlier: kept RN's Image.getSize via RNImage alias for aspect-ratio probing) is behaving correctly, or if there's now a race condition where the container renders at an odd/wrong height before the image dimensions resolve, creating a visible gap.
+4. Reproduce if possible by reasoning through the render sequence: what does the layout look like in the moment between "post card container mounts" and "image aspect ratio resolves and applies"?
+5. Fix whatever layout mismatch or race condition is found.
+6. Typecheck.
+
+AFTER FIX:
+- Report exactly what was wrong and what was changed
+- Confirm this is still a pure JS/style fix, OTA-deployable
+- Describe how I should visually verify the fix (what to look for scrolling the feed)
+
+DO NOT touch FlashList conversion for feed.tsx/index.tsx in this pass — that's separate, planned work. This is strictly a bug-fix pass for the gap issue.
+DO NOT push or deploy — I'll review first.
