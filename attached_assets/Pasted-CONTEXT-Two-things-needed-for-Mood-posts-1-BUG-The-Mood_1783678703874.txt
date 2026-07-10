@@ -1,0 +1,26 @@
+CONTEXT: Two things needed for Mood posts.
+
+1. BUG: The Mood composer's "Share Mood" button fails with the old generic validation error ("must include a photo, a video, or a poll") — it's calling the wrong submit function instead of the dedicated createMoodPost() helper built for this feature.
+
+2. NEW SCOPE DECISION: Mood posts should ONLY appear in the Friends tab (posts from accounts the user follows), NEVER in the main "For You" algorithmic feed. This is intentional — Mood posts are meant to feel more personal/intimate, seen only by people you're actually connected with.
+
+TASK:
+
+PART A — Fix the submit bug:
+1. Find the Mood composer screen and its Share button handler.
+2. Confirm it's calling the wrong function (likely generic createPost() instead of createMoodPost()).
+3. Fix it to call createMoodPost() correctly.
+
+PART B — Restrict Mood posts to Friends tab only:
+1. Find where the main "For You" feed query lives (likely in api-server, wherever the algorithmic/general feed endpoint is) and find where the Friends tab query lives (posts from followed accounts).
+2. Add a filter to the "For You"/main feed query: exclude posts where post_type = 'mood'.
+3. Confirm the Friends tab query does NOT have this exclusion — Mood posts should show there normally alongside Photo/Video/Poll posts from followed accounts.
+4. Check profile grids too: should a user's OWN profile grid show their own Mood posts? (Reasonable default: yes, you can always see your own content on your own profile — only the algorithmic For You feed excludes them from strangers). Confirm this makes sense or flag if you think differently.
+5. Typecheck.
+
+AFTER IMPLEMENTATION:
+- Report every file changed for both parts
+- Confirm OTA-safe
+- Suggest how to manually test: create a Mood post, confirm it succeeds now, confirm it does NOT appear in "For You" feed, confirm it DOES appear in Friends tab (from an account you follow) and on the poster's own profile grid
+
+DO NOT push or deploy — I'll review first.

@@ -224,6 +224,13 @@ router.get("/foryou", async (req, res) => {
     return rows.filter((r) => r.category === category);
   }
 
+  // Mood posts are intentionally excluded from the algorithmic "For You" feed —
+  // they're meant to feel personal/intimate and only surface to people the
+  // poster actually follows (Friends tab). Never apply this to /friends.
+  function excludeMoodPosts(rows: any[]): any[] {
+    return rows.filter((r) => r.post_type !== "mood");
+  }
+
   // Re-sort RPC results when caller requests non-default ordering
   function sortRows(rows: any[]): any[] {
     if (sort === "most_liked") return [...rows].sort((a, b) => ((b.likes_count ?? 0) - (a.likes_count ?? 0)));
@@ -300,7 +307,7 @@ router.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v3Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(excludeMoodPosts(enrichedPolls.filter((p: any) => p.is_archived !== true)))));
       const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v3" });
       return;
@@ -323,7 +330,7 @@ router.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v2Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(excludeMoodPosts(enrichedPolls.filter((p: any) => p.is_archived !== true)))));
       const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v2" });
       return;
@@ -338,7 +345,7 @@ router.get("/foryou", async (req, res) => {
       const enriched = await enrichWithProfiles(supabase, v1Data);
       const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
       const enrichedPolls = await enrichWithPolls(supabase, enrichedCouple, userId);
-      const filtered = sortRows(filterByCategory(filterByContentType(enrichedPolls.filter((p: any) => p.is_archived !== true))));
+      const filtered = sortRows(filterByCategory(filterByContentType(excludeMoodPosts(enrichedPolls.filter((p: any) => p.is_archived !== true)))));
       const out = limitPollsToTop5(filtered);
       res.json({ data: out, source: "v1" });
       return;
@@ -372,7 +379,7 @@ router.get("/foryou", async (req, res) => {
   const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
   const freshPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   res.json({
-    data: limitPollsToTop5(freshPolls),
+    data: limitPollsToTop5(excludeMoodPosts(freshPolls)),
     source: "fresh",
   });
 });
