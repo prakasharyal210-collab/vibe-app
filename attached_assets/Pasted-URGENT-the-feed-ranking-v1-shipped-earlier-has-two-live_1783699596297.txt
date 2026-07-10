@@ -1,0 +1,20 @@
+URGENT — the feed ranking v1 shipped earlier has two live bugs:
+
+1. Feed only shows ~9-10 posts then stops entirely — pagination appears broken with the new JS-computed ranking. The old chronological pagination (offset/cursor by created_at) doesn't compose with a scored/reordered result set.
+
+2. Feed heavily over-shows content the user already liked/engaged with — the category-affinity boost + follow boost appear to be over-concentrating familiar content instead of mixing in fresh/diverse posts.
+
+TASK:
+
+1. Diagnose the pagination break: how does /api/feed/foryou handle page 2+ requests now? Does the ranking only score the first candidate pool and return nothing for subsequent pages? Report the exact mechanism.
+
+2. Fix pagination to work with ranking. Standard approach: fetch a LARGER candidate pool (e.g. 100-200 recent posts), score and rank the whole pool once, then paginate WITHIN the ranked result (client passes page/offset into the ranked list, or the ranked result is windowed server-side). Alternatively cache the ranked order per user briefly (60s) so pages are consistent. Choose whichever fits the existing structure best, but the feed must scroll deep again.
+
+3. Tune the over-concentration: 
+   - Reduce category affinity boost from 1.5x to something gentler (e.g. 1.2x)
+   - Add a diversity guard: cap consecutive posts from the same author (max 2 in a row) and inject some pure-recency posts (e.g. every 4th-5th slot pulls from newest-regardless-of-score) so the feed always has fresh variety
+   - Already-liked posts by this user should arguably rank LOWER, not higher — the user has seen them. Check: does the current scoring accidentally boost posts the user personally liked (via the engagement score counting their own like)? If so, add a small penalty or exclusion for posts the requesting user has already liked.
+
+4. Typecheck, and verify with a real query: fetch page 1 and page 2 for a test user and confirm 20+ distinct posts come back across pages with no duplicates.
+
+DO NOT push or deploy — report first. This is live and visibly degraded, so speed matters, but I want to see the fix before it ships.

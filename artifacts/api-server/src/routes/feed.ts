@@ -209,16 +209,41 @@ function limitPollsToTop5(posts: any[]): any[] {
 //
 // Ties broken by created_at desc.
 const FOLLOW_BOOST = 3.0;
-const CATEGORY_BOOST = 1.5;
+// Lowered from 1.5 → 1.2 (v1.1 tuning pass): 1.5x combined with the follow
+// boost was over-concentrating the feed around a user's existing habits
+// instead of surfacing fresh/diverse content.
+const CATEGORY_BOOST = 1.2;
+// A post the requesting user already liked has already been seen by them —
+// it should rank lower, not higher. Without this, `likes_count` (which
+// includes the user's own like) was accidentally rewarding posts the user
+// has already engaged with. Penalty, not exclusion, so a genuinely great
+// already-liked post can still surface occasionally rather than vanishing.
+const OWN_LIKE_PENALTY = 0.4;
 // Bound on how many recent candidate posts get pulled into memory to be
 // scored — see the performance note in the final report for why this needs
 // to move to a SQL-side computation once post volume grows materially.
-const CANDIDATE_POOL_SIZE = 300;
+// Lowered from 300 → 200 per the v1.1 tuning pass (still comfortably covers
+// 10 pages of 20 before falling back to the RPC chain).
+const CANDIDATE_POOL_SIZE = 200;
+// Ranked order is cached per-user for this long so that page 2, 3, ... of
+// the SAME browsing session windows into an IDENTICAL ranked list rather
+// than a freshly recomputed one (new posts / changed like counts between
+// requests could otherwise shuffle boundaries and cause skipped/duplicated
+// posts across pages).
+const RANK_CACHE_TTL_MS = 60_000;
+
+// Mood posts are intentionally excluded from the algorithmic "For You" feed —
+// they're meant to feel personal/intimate and only surface to people the
+// poster actually follows (Friends tab). Never apply this to /friends.
+function excludeMoodPosts(rows: any[]): any[] {
+  return rows.filter((r) => r.post_type !== "mood");
+}
 
 function computeForYouScore(
   post: any,
   followedIds: Set<string>,
   topCategories: Set<string>,
+  likedPostIds: Set<string>,
 ): number {
   const likes = (post.likes_count as number | undefined) ?? 0;
   const comments = (post.comments_count as number | undefined) ?? 0;
@@ -228,29 +253,84 @@ function computeForYouScore(
   const base = engagement / Math.pow(hoursSincePosted + 2, 1.5);
   const followBoost = followedIds.has(post.user_id as string) ? FOLLOW_BOOST : 1.0;
   const categoryBoost = post.category && topCategories.has(post.category as string) ? CATEGORY_BOOST : 1.0;
-  return base * followBoost * categoryBoost;
+  const ownLikePenalty = likedPostIds.has(post.id as string) ? OWN_LIKE_PENALTY : 1.0;
+  return base * followBoost * categoryBoost * ownLikePenalty;
+}
+
+// Diversity guard applied to the FULL ranked pool (before pagination windowing,
+// so it stays stable across pages):
+//  - never more than 2 consecutive posts from the same author
+//  - every 5th slot is forced to be the highest-scoring post NOT already
+//    placed, drawn preferentially from posts newer than the current slot's
+//    neighbors — a lightweight "inject fresh/diverse variety" guard rather
+//    than a strict recency-only slot, so it doesn't fight the ranking too hard.
+function diversifyFeed(ranked: any[]): any[] {
+  const remaining = [...ranked];
+  const out: any[] = [];
+  let lastAuthor: string | null = null;
+  let consecutiveCount = 0;
+
+  while (remaining.length > 0) {
+    const nextSlot = out.length + 1;
+    let pickIdx = 0;
+
+    // Every 5th slot: prefer the most-recently-created post still remaining
+    // (pure recency, ignoring score) to guarantee fresh variety.
+    if (nextSlot % 5 === 0) {
+      let newestIdx = 0;
+      let newestMs = -Infinity;
+      for (let i = 0; i < remaining.length; i++) {
+        const ms = parseUTCMs(remaining[i].created_at);
+        if (ms > newestMs) { newestMs = ms; newestIdx = i; }
+      }
+      pickIdx = newestIdx;
+    }
+
+    // Author-diversity cap: skip forward past same-author posts if we've
+    // already placed 2 in a row from this author.
+    if (lastAuthor && consecutiveCount >= 2) {
+      const altIdx = remaining.findIndex((p) => p.user_id !== lastAuthor);
+      if (altIdx !== -1) pickIdx = altIdx;
+    }
+
+    const [picked] = remaining.splice(pickIdx, 1);
+    out.push(picked);
+
+    if (picked.user_id === lastAuthor) {
+      consecutiveCount++;
+    } else {
+      lastAuthor = picked.user_id;
+      consecutiveCount = 1;
+    }
+  }
+
+  return out;
 }
 
 // Simple COUNT/GROUP BY/LIMIT-3 over the requesting user's like history — no
 // ML, matches the same "simple count" approach as the poll ranking above.
-// Cold-start (no likes yet) returns an empty set, which computeForYouScore
-// treats as "no category boost applies" rather than throwing.
-async function getTopLikedCategories(supabase: SupabaseClient, userId: string): Promise<Set<string>> {
+// Cold-start (no likes yet) returns empty sets, which computeForYouScore
+// treats as "no category boost / no own-like penalty applies" rather than
+// throwing. Also returns the raw liked post id set for the own-like penalty.
+async function getUserLikeSignals(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ topCategories: Set<string>; likedPostIds: Set<string> }> {
   const { data: likedRows, error: likedErr } = await supabase
     .from("post_likes")
     .select("post_id")
     .eq("user_id", userId);
-  if (likedErr || !likedRows?.length) return new Set();
+  if (likedErr || !likedRows?.length) return { topCategories: new Set(), likedPostIds: new Set() };
 
-  const likedPostIds = [...new Set(likedRows.map((r: any) => r.post_id as string).filter(Boolean))];
-  if (!likedPostIds.length) return new Set();
+  const likedPostIds = new Set(likedRows.map((r: any) => r.post_id as string).filter(Boolean));
+  if (!likedPostIds.size) return { topCategories: new Set(), likedPostIds };
 
   const { data: likedPosts, error: postsErr } = await supabase
     .from("posts")
     .select("category")
-    .in("id", likedPostIds)
+    .in("id", [...likedPostIds])
     .not("category", "is", null);
-  if (postsErr || !likedPosts?.length) return new Set();
+  if (postsErr || !likedPosts?.length) return { topCategories: new Set(), likedPostIds };
 
   const counts = new Map<string, number>();
   for (const row of likedPosts) {
@@ -262,7 +342,60 @@ async function getTopLikedCategories(supabase: SupabaseClient, userId: string): 
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([cat]) => cat);
-  return new Set(top3);
+  return { topCategories: new Set(top3), likedPostIds };
+}
+
+// Per-user cache of the fully ranked + diversified candidate pool (unfiltered
+// by category/content-type — those are applied after reading from cache, since
+// they're cheap array filters and keeping them out of the cache key avoids a
+// combinatorial explosion of cached variants per user).
+const rankedFeedCache = new Map<string, { expiresAt: number; ranked: any[] }>();
+
+async function getRankedForYouPool(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<any[]> {
+  const cached = rankedFeedCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.ranked;
+
+  const [followRows, { topCategories, likedPostIds }] = await Promise.all([
+    supabase.from("follows").select("following_id").eq("follower_id", userId),
+    getUserLikeSignals(supabase, userId),
+  ]);
+  const followedIds = new Set(
+    (followRows.data ?? []).map((r: any) => r.following_id as string).filter(Boolean),
+  );
+
+  const { data: candidates, error: candErr } = await supabase
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
+    .order("created_at", { ascending: false })
+    .limit(CANDIDATE_POOL_SIZE);
+
+  if (candErr) throw candErr;
+
+  const withCoupleAndPolls = await enrichWithPolls(
+    supabase,
+    await enrichWithCoupleData(supabase, excludeMoodPosts(candidates ?? [])),
+    userId,
+  );
+
+  // Cap poll posts to the top 5 across the WHOLE pool before pagination —
+  // doing this per-page-window (the v1.0 bug) could shrink an individual
+  // page below `limit`, which the mobile client misreads as "end of feed"
+  // and permanently stops pagination after that page.
+  const pollCapped = limitPollsToTop5(withCoupleAndPolls);
+
+  const scored = pollCapped
+    .map((post: any) => ({ post, score: computeForYouScore(post, followedIds, topCategories, likedPostIds) }))
+    .sort((a, b) => b.score - a.score || (parseUTCMs(b.post.created_at) - parseUTCMs(a.post.created_at)));
+
+  const ranked = diversifyFeed(scored.map((s) => s.post));
+
+  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked });
+  return ranked;
 }
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
@@ -293,13 +426,6 @@ router.get("/foryou", async (req, res) => {
   function filterByCategory(rows: any[]): any[] {
     if (!category) return rows;
     return rows.filter((r) => r.category === category);
-  }
-
-  // Mood posts are intentionally excluded from the algorithmic "For You" feed —
-  // they're meant to feel personal/intimate and only surface to people the
-  // poster actually follows (Friends tab). Never apply this to /friends.
-  function excludeMoodPosts(rows: any[]): any[] {
-    return rows.filter((r) => r.post_type !== "mood");
   }
 
   // Re-sort RPC results when caller requests non-default ordering
@@ -373,38 +499,15 @@ router.get("/foryou", async (req, res) => {
     // v1 JS-computed ranking (see computeForYouScore above) — this is the
     // primary path. It is self-contained (no dependency on speculative
     // Supabase RPCs/columns) and guarantees the exact documented formula.
+    // The ranked+diversified pool is computed ONCE (and cached briefly — see
+    // RANK_CACHE_TTL_MS) then windowed by offset/limit here, so page 2, 3, ...
+    // all slice into the SAME stable ordering instead of each recomputing an
+    // independent top-N that could disagree at page boundaries.
     // On any error it falls through to the v3/v2/v1 RPC chain below.
     try {
-      const [followRows, topCategories] = await Promise.all([
-        supabase.from("follows").select("following_id").eq("follower_id", userId),
-        getTopLikedCategories(supabase, userId),
-      ]);
-      const followedIds = new Set(
-        (followRows.data ?? []).map((r: any) => r.following_id as string).filter(Boolean),
-      );
-
-      const { data: candidates, error: candErr } = await supabase
-        .from("posts")
-        .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
-        .or("visibility.eq.public,visibility.is.null")
-        .or("is_archived.eq.false,is_archived.is.null")
-        .order("created_at", { ascending: false })
-        .limit(CANDIDATE_POOL_SIZE);
-
-      if (candErr) throw candErr;
-
-      const withCoupleAndPolls = await enrichWithPolls(
-        supabase,
-        await enrichWithCoupleData(supabase, excludeMoodPosts(candidates ?? [])),
-        userId,
-      );
-
-      const scored = withCoupleAndPolls
-        .map((post: any) => ({ post, score: computeForYouScore(post, followedIds, topCategories) }))
-        .sort((a, b) => b.score - a.score || (parseUTCMs(b.post.created_at) - parseUTCMs(a.post.created_at)));
-
-      const page = filterByCategory(filterByContentType(scored.map((s) => s.post))).slice(offset, offset + limit);
-      const out = limitPollsToTop5(page);
+      const ranked = await getRankedForYouPool(supabase, userId);
+      const filtered = filterByCategory(filterByContentType(ranked));
+      const out = filtered.slice(offset, offset + limit);
       res.json({ data: out, source: "v1-js-ranked" });
       return;
     } catch (e: any) {
