@@ -89,6 +89,34 @@ const PERSONA_CATEGORIES: Record<string, ThemeCategory[]> = {
 };
 
 // ---------------------------------------------------------------------------
+// TEMPORARY CATEGORY OVERRIDE
+// ---------------------------------------------------------------------------
+// Set to a single ThemeCategory to force EVERY persona/post to draw from that
+// one theme only (image queries, captions, and app `category` field). Set
+// back to `null` to restore the full 13-theme mix / normal PERSONA_CATEGORIES
+// rotation. This is the ONLY line that needs to change to revert.
+const CATEGORY_OVERRIDE: ThemeCategory | null = "Nature";
+
+// Maps each image theme bucket to the matching app-facing category value
+// (must stay in sync with CATEGORIES above / artifacts/mobile/lib/categories.ts)
+// so overridden posts are tagged consistently, not just image-wise.
+const THEME_TO_APP_CATEGORY: Record<ThemeCategory, (typeof CATEGORIES)[number]> = {
+  "Food": "food",
+  "Nature": "nature",
+  "Travel": "travel",
+  "Lifestyle": "other",
+  "Fashion": "fashion",
+  "Fitness/Sports": "fitness",
+  "Animals": "pets",
+  "Business/Tech": "tech",
+  "Music": "music",
+  "Art & Design": "art",
+  "Wellness": "spiritual",
+  "Celebrations": "culture",
+  "Transportation": "other",
+};
+
+// ---------------------------------------------------------------------------
 // Persona definitions — IDs MUST match seed-personas.sql
 // Exported so seed-content.ts can build rhythm tables without duplication.
 // ---------------------------------------------------------------------------
@@ -275,10 +303,21 @@ function parseJSONArray(raw: string): BatchItem[] {
 
 function buildSystemPrompt(totalItems: number, pollCount: number): string {
   const photoCount = totalItems - pollCount;
-  const categoryList = CATEGORIES.join(", ");
+  const categoryList = CATEGORY_OVERRIDE
+    ? THEME_TO_APP_CATEGORY[CATEGORY_OVERRIDE]
+    : CATEGORIES.join(", ");
 
   return `You are generating seed content for Gundruk, a dark-themed global social app.
-
+${CATEGORY_OVERRIDE ? `
+═══════════════════════════════════════════════════════
+TEMPORARY MODE: NATURE-ONLY
+═══════════════════════════════════════════════════════
+Every single item in this batch — regardless of persona — must be Nature-themed:
+imageQuery, fallbackQueries, caption, and category must ALL be nature content
+(landscapes, forests, oceans, mountains, wildlife scenery, weather, plants).
+Ignore each persona's normal niche/themes for this batch; only their voice/vibe
+carries over. Do not generate food, fashion, tech, fitness, etc. this batch.
+` : ""}
 Output a JSON array of exactly ${totalItems} items. Each item must match this TypeScript interface:
 
   interface BatchItem {
@@ -400,26 +439,30 @@ function buildUserPrompt(totalItems: number, pollCount: number): string {
   // knows which buckets to draw from per account, while the overall batch
   // instruction tells it to cover ALL 13 themes across the full array.
   const personaSheets = PERSONAS.map(p => {
-    const themes = (PERSONA_CATEGORIES[p.id] ?? []).join(", ");
+    const themes = CATEGORY_OVERRIDE ? CATEGORY_OVERRIDE : (PERSONA_CATEGORIES[p.id] ?? []).join(", ");
     return `  id: "${p.id}"  @${p.handle}  (${p.name})
    niche: ${p.niche} | themes: ${themes}
    vibe: ${p.vibe}
    imageStyle: ${p.imageStyle}`;
   }).join("\n\n");
 
-  const allThemes = [
-    "Food", "Nature", "Travel", "Lifestyle", "Fashion",
-    "Fitness/Sports", "Animals", "Business/Tech", "Music",
-    "Art & Design", "Wellness", "Celebrations", "Transportation",
-  ].join(", ");
+  const allThemes = CATEGORY_OVERRIDE
+    ? CATEGORY_OVERRIDE
+    : [
+        "Food", "Nature", "Travel", "Lifestyle", "Fashion",
+        "Fitness/Sports", "Animals", "Business/Tech", "Music",
+        "Art & Design", "Wellness", "Celebrations", "Transportation",
+      ].join(", ");
 
   return `Generate exactly ${totalItems} items (${photoCount} photo posts + ${pollCount} poll${pollCount === 1 ? "" : "s"}) distributed across all 15 personas.
 
 THEME COVERAGE (critical):
-The 13 image themes are: ${allThemes}
+${CATEGORY_OVERRIDE
+  ? `NATURE-ONLY MODE IS ACTIVE — the only image theme is: ${allThemes}. Every persona posts Nature content this batch, ignoring their usual themes below (their niche/vibe/imageStyle still shapes voice and photo style choices within Nature).`
+  : `The 13 image themes are: ${allThemes}
 • Every persona posts from their listed themes only — don't force a fitness persona to post fashion.
 • Across the FULL batch, every theme must appear at least once. Check coverage before finalising.
-• Within a persona's themes, rotate — don't assign the same theme to the same persona twice.
+• Within a persona's themes, rotate — don't assign the same theme to the same persona twice.`}
 
 DISTRIBUTION RULES:
 • Each persona appears at least once.
