@@ -16,6 +16,16 @@ function extractHashtags(text: string): string[] {
   return matches ? [...new Set(matches.map((h) => h.slice(1).toLowerCase()))] : [];
 }
 
+// Shared poll-option validation — same rule used both to gate a poll-only
+// post at request time and to actually persist the poll after insert, so
+// the two can never disagree about what counts as a "valid poll".
+function getValidPollOptions(poll?: { options?: unknown }): string[] {
+  if (!poll || !Array.isArray(poll.options)) return [];
+  return (poll.options as unknown[])
+    .filter((o): o is string => typeof o === "string" && o.trim().length > 0)
+    .slice(0, 4);
+}
+
 // Upsert a hashtag name → returns its UUID.
 // Inserts into `hashtags(name)` if new (posts_count = 1), or increments posts_count for existing.
 // All failures are swallowed — hashtag persistence is non-critical.
@@ -419,6 +429,23 @@ router.post("/create", async (req, res) => {
     return;
   }
 
+  // ── Content-presence guard ────────────────────────────────────────────────
+  // The Create flow only offers three post types — Photo, Video, Poll — and
+  // each must carry its own content. A request with neither media nor a
+  // valid poll (e.g. an upstream image-fetch failure that silently dropped
+  // imageBase64, or a stripped-down curl request) is rejected up front
+  // rather than becoming a blank/broken post.
+  const hasImage = !!imageBase64;
+  const validPollOptions = getValidPollOptions(poll);
+  const hasValidPoll = validPollOptions.length >= 2;
+  if (!hasImage && !hasValidPoll) {
+    res.status(400).json({
+      error:
+        "A post must include a photo, a video, or a poll with at least 2 options.",
+    });
+    return;
+  }
+
   // ── Belt-and-braces mime/postType mismatch guard ──────────────────────────
   // The client picker already restricts to the correct media type, but this
   // server check catches any bypass (e.g. curl, modified client).
@@ -469,6 +496,17 @@ router.post("/create", async (req, res) => {
   }
 
   const isVideoMime = mimeType.startsWith("video/");
+
+  // ── Media-upload success guard ─────────────────────────────────────────────
+  // imageBase64 was provided (so this is a Photo or Video post, per the
+  // content-presence guard above), but the storage upload above failed —
+  // do not fall through and create a post with an empty media_url.
+  if (hasImage && !mediaUrl) {
+    res.status(400).json({
+      error: `Failed to upload your ${isVideoMime ? "video" : "photo"}. Please try again.`,
+    });
+    return;
+  }
 
   // Upload video thumbnail if provided (stored as a separate JPEG in the posts bucket)
   let thumbnailUrl: string | null = null;
@@ -646,11 +684,12 @@ router.post("/create", async (req, res) => {
   const postId = (insertData as { id: string }).id;
 
   // ── Create poll if provided (non-fatal — post already persisted) ──────────────
-  if (poll && Array.isArray(poll.options) && poll.options.length >= 2) {
+  // Reuses the same `validPollOptions` computed by the content-presence guard
+  // above, so the gate that allowed the request through and the logic that
+  // actually creates the poll can never disagree about what "valid" means.
+  if (hasValidPoll && poll) {
     try {
-      const validOpts = (poll.options as string[])
-        .filter((o) => typeof o === "string" && o.trim())
-        .slice(0, 4);
+      const validOpts = validPollOptions;
       if (validOpts.length >= 2) {
         const durH = [24, 72, 168, 336, 720].includes(poll.duration_hours) ? poll.duration_hours : 24;
         const endsAt = new Date(Date.now() + durH * 3_600_000).toISOString();

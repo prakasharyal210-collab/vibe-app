@@ -1,0 +1,26 @@
+CONTEXT: We found and fixed a seeder bug where posts could be created with an empty media_url when image fetch failed. This exposed a real gap: artifacts/api-server/src/routes/posts/create.ts currently allows a post to be created even without valid media (media_url: mediaUrl ?? "" — no validation blocking an empty string). The Create flow only offers three post types: Photo Post, Video Post, Poll — each should REQUIRE its corresponding content. This needs to be enforced server-side, not just assumed from client-side UI restrictions, since client-side checks can be bypassed or fail silently (as the seeder bug proved).
+
+TASK: Add proper server-side validation to posts/create.ts so each post type strictly requires its content.
+
+DIAGNOSE FIRST:
+1. Open artifacts/api-server/src/routes/posts/create.ts and report the current request body shape — how does the API currently determine if a post is a "photo post," "video post," or "poll post"? Is there an explicit type field, or is it inferred from which fields are present?
+2. Report the current validation (if any) for each case.
+3. Check if polls-migration.sql's CHECK constraint (mentioned in earlier context: exactly-one-parent post_id XOR confession_post_id) or any other DB-level constraint already partially covers this, so we don't duplicate logic unnecessarily.
+
+IMPLEMENT:
+1. Add explicit validation in posts/create.ts:
+   - If the post is a photo post: reject (400 error) if there's no valid, non-empty image URL/media_url.
+   - If the post is a video post: reject (400 error) if there's no valid, non-empty video URL.
+   - If the post is a poll post: reject (400 error) if there's no valid poll data (question + at least 2 options, matching whatever the existing polls system already validates elsewhere — reuse that logic if it exists rather than duplicating).
+2. Return clear error messages so the mobile client (and the seeder) can show/log a meaningful reason for rejection, not just a generic 400.
+3. Make sure this doesn't break legitimate existing flows — e.g. confirm a poll-only post (no photo/video, just a poll) is still allowed if that's an existing supported pattern (per earlier context: "Poll-first composer" exists), and isn't accidentally caught by the photo/video validation.
+4. Typecheck.
+
+AFTER IMPLEMENTATION:
+- Report every validation rule added, exactly as implemented
+- Confirm whether this could break any existing legitimate post type combination — walk through each of the three post types and confirm the new validation still allows the correct/expected shape
+- Confirm this is API-only — deployable via git push (Railway), no mobile app changes, no eas update needed
+- Suggest how to manually test: what request would now get correctly rejected that previously would have been wrongly accepted
+
+DO NOT touch the seeder (scripts/) in this pass — already fixed separately.
+DO NOT push or deploy — I'll review first, this touches core post-creation so I want to check it carefully before it goes live.
