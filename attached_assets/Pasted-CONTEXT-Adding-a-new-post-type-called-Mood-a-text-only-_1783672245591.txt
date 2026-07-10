@@ -1,0 +1,35 @@
+CONTEXT: Adding a new post type called "Mood" — a text-only post option in the Create flow, similar in spirit to Twitter/Threads text posts but styled with Gundruk's own gradient card treatment. Currently Create only offers Photo Post / Video Post / Poll, each requiring their respective media (enforced client-side, and we're separately adding server-side enforcement too).
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- API: artifacts/api-server (Express on Railway)
+- ALL DB access routes through api-server with service-role key
+- Deploy: API via git push (Railway auto-deploy). Mobile via eas update if JS-only, eas build if native changes needed — flag clearly which this requires.
+
+DESIGN SPEC (approved mockup):
+- Card has a soft gradient background using brand colors (#8B5CF6 purple → #EC4899 pink → #F97316 orange, muted/darkened for a card background rather than the bright CTA-button version), rounded corners, generous padding (~28px vertical, 20px horizontal)
+- Text renders large (~17px), medium weight, white, line-height ~1.6
+- Optional hashtags render below in a lighter tint of the gradient (e.g. light purple/pink)
+- No image/video container at all for this post type
+- Standard like/comment/share/save action row below, same as other post types
+
+DIAGNOSE FIRST:
+1. Report the current Create screen structure (Video Post / Photo Post / Poll cards) — find the file and how each option navigates to its composer.
+2. Report how post_type (or equivalent) is currently determined/stored in the posts table — is there an explicit type column, or is it inferred? 
+3. Report how PostCard.tsx currently decides how to render a post (media vs no media) so we know where to hook in the new "Mood" rendering path.
+
+IMPLEMENT:
+1. API (posts/create.ts): Add explicit support for a "mood" post type — allow creation with no media_url when post_type === 'mood', but REQUIRE non-empty caption text in that case. This should coexist with the stricter media-required validation we're adding for photo/video posts in the separate pass — mood posts are the intentional exception, not a loophole.
+2. Mobile Create screen: Add a fourth option card "Mood" alongside Photo Post / Video Post / Poll, using an appropriate Tabler-style icon already in use elsewhere in the app if possible.
+3. New composer screen for Mood: a simple full-screen text input (large, centered or top-aligned), showing a live preview of the gradient card as they type (if feasible within scope — otherwise just a clean text input with character limit, preview optional for v1), hashtag support consistent with other composers, Post button.
+4. PostCard.tsx: add rendering branch for post_type === 'mood' — render the gradient card treatment per the design spec above instead of attempting to render a (nonexistent) media container.
+5. Apply the same Mood rendering treatment anywhere PostCard-style content appears (profile grid — decide sensible thumbnail treatment for a mood post in a photo grid context, likely just showing a smaller version of the gradient card with truncated text).
+6. Typecheck.
+
+AFTER IMPLEMENTATION:
+- Report every file changed
+- Confirm explicitly: OTA-deployable via eas update, or does anything (new icon assets, native config) require eas build?
+- Suggest exact steps to manually test creating and viewing a Mood post
+
+DO NOT touch the separate photo/video media-required validation work — that's a different pass, just make sure Mood is correctly exempted from it.
+DO NOT push or deploy — I'll review first, this is a new feature and I want to see it end to end before it goes live.

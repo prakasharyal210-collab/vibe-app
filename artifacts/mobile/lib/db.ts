@@ -1500,6 +1500,7 @@ export interface ProfileGridItem {
   created_at: string;
   is_pinned?: boolean;
   visibility?: string;
+  post_type?: "photo" | "video" | "poll" | "mood";
 }
 
 function isVideoMediaUrl(url: string): boolean {
@@ -1549,6 +1550,7 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
           created_at: p.created_at,
           is_pinned: p.is_pinned ?? false,
           visibility: p.visibility ?? 'public',
+          post_type: p.post_type ?? undefined,
         };
       });
       const reels: ProfileGridItem[] = rawReels.map((r: any) => ({
@@ -1622,6 +1624,17 @@ export async function createTextPost(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ userId, caption, poll }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error as string);
+  return { id: data.id as string };
+}
+
+export async function createMoodPost(userId: string, caption: string): Promise<{ id: string }> {
+  const res = await fetch(`${API_BASE}/posts/create`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, caption, postType: "mood" }),
   });
   const data = await res.json();
   if (data.error) throw new Error(data.error as string);

@@ -28,7 +28,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useCoupleStatus } from "@/context/CoupleContext";
 import { CAMERA_FILTERS, type CameraFilter } from "@/components/camera/CameraFilterStrip";
-import { searchVibeUsers, type SocialMatchUser, uploadPostMedia, createTextPost } from "@/lib/db";
+import { searchVibeUsers, type SocialMatchUser, uploadPostMedia, createTextPost, createMoodPost } from "@/lib/db";
 import { MusicPickerSheet } from "@/components/MusicPickerSheet";
 import type { Track } from "@/lib/music";
 import { POST_CATEGORIES, type CategoryId } from "@/lib/categories";
@@ -39,7 +39,7 @@ const PREVIEW_W = W - 32;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type CropRatio = "original" | "1:1" | "4:5";
-type Phase = "idle" | "camera" | "compose" | "uploading" | "poll";
+type Phase = "idle" | "camera" | "compose" | "uploading" | "poll" | "mood";
 type Visibility = "public" | "friends" | "private";
 
 const AUDIENCE_OPTIONS: { key: Visibility; icon: string; label: string; desc: string }[] = [
@@ -221,6 +221,7 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
 
   // Poll
   const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
+  const [moodText, setMoodText] = useState("");
 
   // Tracks which post type the user chose from the entry screen.
   // Drives the gallery picker's mediaTypes restriction (belt-and-braces with server check).
@@ -443,6 +444,26 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
     }
   }, [session, caption, pollDraft]);
 
+  // ── Mood-only post (text post) ───────────────────────────────────────────
+  const handleMoodPost = useCallback(async () => {
+    if (!session?.user?.id) { Alert.alert("Sign in required"); return; }
+    const text = moodText.trim();
+    if (!text) { Alert.alert("Write something to share"); return; }
+    setPhase("uploading");
+    try {
+      await createMoodPost(session.user.id, text);
+      setMoodText(""); setPhase("idle");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Mood posted! ✨", "Your mood is live on Gundruk.", [
+        { text: "View Profile", onPress: () => router.navigate("/(tabs)/profile" as any) },
+        { text: "Post Another", style: "cancel" },
+      ]);
+    } catch (err) {
+      setPhase("mood");
+      Alert.alert("Post failed", err instanceof Error ? err.message : "Please try again.");
+    }
+  }, [session, moodText]);
+
   const discard = useCallback(() => {
     setRawMedia([]); setCaption(""); setLocation("");
     setTaggedUsers([]); setPreviewIdx(0); setCropRatio("original");
@@ -527,12 +548,41 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
           </LinearGradient>
         </TouchableOpacity>
 
+        {/* ── Mood — full-width card ── */}
+        <TouchableOpacity
+          style={[p.pollLandCard, { marginTop: 12 }]}
+          onPress={() => {
+            setMoodText("");
+            setPhase("mood");
+          }}
+          activeOpacity={0.86}
+        >
+          <LinearGradient
+            colors={["#4C1D6B", "#7A2354", "#8A3A12"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[p.pollLandGrad, p.bigCardDark]}
+          >
+            <View style={[p.bigCardIconWrap, { backgroundColor: "rgba(236,72,153,0.2)" }]}>
+              <Ionicons name="chatbox-ellipses" size={30} color="#F0ABFC" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={p.bigCardTitle}>Mood</Text>
+              <Text style={p.bigCardSub}>Share what's on your mind</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="rgba(167,139,250,0.4)" />
+          </LinearGradient>
+        </TouchableOpacity>
+
       </View>
     );
   }
 
   // ── Poll-only composer ───────────────────────────────────────────────────
-  if (phase === "poll" || (phase === "uploading" && rawMedia.length === 0)) {
+  // The `pollDraft !== null` check (rather than just rawMedia.length === 0)
+  // distinguishes this from a Mood post mid-upload, since both are
+  // media-less and briefly sit in phase "uploading".
+  if (phase === "poll" || (phase === "uploading" && rawMedia.length === 0 && pollDraft !== null)) {
     const filledCount = (pollDraft?.options ?? []).filter((o) => o.trim()).length;
     const canShare = filledCount >= 2;
     const isSubmitting = phase === "uploading";
@@ -599,6 +649,99 @@ export default function PostPage({ topInset = 0, bottomInset = 0, isActive = fal
               {isSubmitting
                 ? <ActivityIndicator size="small" color="#fff" />
                 : <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Share Poll 🔥</Text>
+              }
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Mood-only composer ───────────────────────────────────────────────────
+  if (phase === "mood" || (phase === "uploading" && rawMedia.length === 0 && pollDraft === null)) {
+    const isSubmitting = phase === "uploading";
+    const canShare = moodText.trim().length > 0;
+    const moodHashtags = (moodText.match(/#\w+/g) ?? []);
+    return (
+      <View style={[p.fill, { paddingTop: topInset }]}>
+        <StatusBar style="light" />
+
+        {/* Header */}
+        <View style={p.header}>
+          <TouchableOpacity
+            onPress={() => { setMoodText(""); setPhase("idle"); }}
+            style={p.discardBtn}
+            disabled={isSubmitting}
+          >
+            <Text style={p.discardText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={p.headerTitle}>New Mood</Text>
+          <View style={{ width: 60 }} />
+        </View>
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: bottomInset + 24 }}
+        >
+          {/* Live gradient preview — mirrors the design spec for how the
+              Mood card renders in the feed. */}
+          <View style={{ marginHorizontal: 16, marginTop: 12 }}>
+            <LinearGradient
+              colors={["#4C1D6B", "#7A2354", "#8A3A12"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={p.moodPreviewCard}
+            >
+              {moodText.trim() ? (
+                <Text style={p.moodPreviewText}>
+                  {moodText.split(/(#\w+)/g).map((part, i) =>
+                    part.startsWith("#") ? (
+                      <Text key={i} style={p.moodPreviewHashtag}>{part}</Text>
+                    ) : (
+                      <Text key={i}>{part}</Text>
+                    )
+                  )}
+                </Text>
+              ) : (
+                <Text style={p.moodPreviewPlaceholder}>What's on your mind?</Text>
+              )}
+            </LinearGradient>
+          </View>
+
+          {/* Text input */}
+          <View style={[p.captionCard, { marginHorizontal: 16, marginTop: 12 }]}>
+            <TextInput
+              value={moodText}
+              onChangeText={setMoodText}
+              placeholder="Write something to share…"
+              placeholderTextColor="rgba(255,255,255,0.22)"
+              multiline
+              maxLength={280}
+              style={p.captionInput}
+              editable={!isSubmitting}
+              autoFocus
+            />
+            <Text style={p.charCount}>{moodText.length} / 280{moodHashtags.length ? ` · ${moodHashtags.length} hashtag${moodHashtags.length > 1 ? "s" : ""}` : ""}</Text>
+          </View>
+        </ScrollView>
+
+        {/* Share button */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: bottomInset + 12 }}>
+          <TouchableOpacity
+            onPress={handleMoodPost}
+            disabled={!canShare || isSubmitting}
+            activeOpacity={0.85}
+            style={{ opacity: canShare && !isSubmitting ? 1 : 0.38, borderRadius: 18, overflow: "hidden" }}
+          >
+            <LinearGradient
+              colors={["#8B5CF6", "#EC4899", "#F97316"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ paddingVertical: 17, alignItems: "center", justifyContent: "center" }}
+            >
+              {isSubmitting
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 16 }}>Share Mood ✨</Text>
               }
             </LinearGradient>
           </TouchableOpacity>
@@ -1343,6 +1486,12 @@ const p = StyleSheet.create({
   captionCard: { marginHorizontal: 16, marginBottom: 14, backgroundColor: "#0F0F1E", borderRadius: 20, borderWidth: 1, borderColor: "rgba(124,58,237,0.25)", padding: 16 },
   captionInput: { fontSize: 16, fontFamily: "Poppins_400Regular", color: "#F8F8FF", minHeight: 110, textAlignVertical: "top", lineHeight: 24 },
   charCount: { color: "rgba(255,255,255,0.2)", fontFamily: "Poppins_400Regular", fontSize: 11, textAlign: "right", marginTop: 8 },
+
+  // Mood preview card
+  moodPreviewCard: { borderRadius: 20, paddingVertical: 28, paddingHorizontal: 20, minHeight: 120, justifyContent: "center" },
+  moodPreviewText: { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 17, lineHeight: 27 },
+  moodPreviewHashtag: { color: "#F0ABFC" },
+  moodPreviewPlaceholder: { color: "rgba(255,255,255,0.45)", fontFamily: "Poppins_500Medium", fontSize: 17, lineHeight: 27 },
 
   // Crop ratio
   ratioRow: { flexDirection: "row", justifyContent: "center", gap: 10, marginHorizontal: 16, marginBottom: 12 },

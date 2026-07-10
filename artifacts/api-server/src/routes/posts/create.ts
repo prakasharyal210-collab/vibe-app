@@ -408,7 +408,7 @@ router.post("/create", async (req, res) => {
     thumbnailBase64?: string;
     mimeType?: string;
     ext?: string;
-    postType?: "photo" | "video";
+    postType?: "photo" | "video" | "mood";
     caption?: string;
     options?: {
       location?: string;
@@ -430,15 +430,25 @@ router.post("/create", async (req, res) => {
   }
 
   // ── Content-presence guard ────────────────────────────────────────────────
-  // The Create flow only offers three post types — Photo, Video, Poll — and
+  // The Create flow offers four post types — Photo, Video, Poll, Mood — and
   // each must carry its own content. A request with neither media nor a
   // valid poll (e.g. an upstream image-fetch failure that silently dropped
   // imageBase64, or a stripped-down curl request) is rejected up front
-  // rather than becoming a blank/broken post.
+  // rather than becoming a blank/broken post. Mood is the intentional
+  // exception: it is text-only by design, so it is validated separately
+  // (non-empty caption) instead of requiring media or a poll.
+  const isMoodPost = postType === "mood";
   const hasImage = !!imageBase64;
   const validPollOptions = getValidPollOptions(poll);
   const hasValidPoll = validPollOptions.length >= 2;
-  if (!hasImage && !hasValidPoll) {
+  if (isMoodPost) {
+    if (!caption || !caption.trim()) {
+      res.status(400).json({
+        error: "A Mood post needs some text — write something to share.",
+      });
+      return;
+    }
+  } else if (!hasImage && !hasValidPoll) {
     res.status(400).json({
       error:
         "A post must include a photo, a video, or a poll with at least 2 options.",
@@ -616,6 +626,7 @@ router.post("/create", async (req, res) => {
     ...(options.category ? { category: options.category } : {}),
     ...(validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}),
     ...(isFirstPost ? { is_first_post: true } : {}),
+    ...(isMoodPost ? { post_type: "mood" } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
@@ -674,6 +685,16 @@ router.post("/create", async (req, res) => {
     const r6 = await sb.from("posts").insert(payloadNoFirstPost).select("id").single();
     insertData = r6.data as { id: string } | null;
     insertErr = r6.error;
+  }
+  if (insertErr?.message?.includes("post_type")) {
+    // post_type column not yet migrated — strip and retry.
+    // Mood posts still persist (caption-only row), just without the explicit
+    // marker column until the migration runs.
+    const payloadNoPostType = { ...payload };
+    delete payloadNoPostType.post_type;
+    const r7 = await sb.from("posts").insert(payloadNoPostType).select("id").single();
+    insertData = r7.data as { id: string } | null;
+    insertErr = r7.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");
@@ -1037,7 +1058,7 @@ router.get("/saved", async (req, res) => {
   try {
     const { data, error } = await sb
       .from("favourites")
-      .select("post_id, created_at, posts(id, media_url, caption, likes_count, comments_count, user_id, profiles:user_id(username, avatar_url))")
+      .select("post_id, created_at, posts(id, media_url, caption, likes_count, comments_count, user_id, post_type, profiles:user_id(username, avatar_url))")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);

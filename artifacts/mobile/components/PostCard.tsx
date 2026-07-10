@@ -259,6 +259,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
 
   const images = post.images && post.images.length > 0 ? post.images : [post.image_url];
   const hasMedia = !!(images[0]);
+  const isMoodPost = (post as any).post_type === "mood";
 
   const requireAuth = () => {
     if (!isLoggedIn) { onRequireLogin?.(); return true; }
@@ -693,7 +694,32 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
           no indefinite shimmer, no late resize happening out from under content
           the user has already scrolled past.
           Skipped entirely for media-less posts (polls, text posts). */}
-      {hasMedia ? (
+      {isMoodPost ? (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 6 }}>
+          <LinearGradient
+            colors={["#4C1D6B", "#7A2354", "#8A3A12"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.moodCard}
+          >
+            <Text style={styles.moodCardText}>
+              {(post.caption ?? "").split(/(#\w+)/g).map((part, i) =>
+                part.startsWith("#") ? (
+                  <Text
+                    key={i}
+                    style={styles.moodCardHashtag}
+                    onPress={() => router.push(`/hashtag/${encodeURIComponent(part.slice(1))}` as any)}
+                  >
+                    {part}
+                  </Text>
+                ) : (
+                  <Text key={i}>{part}</Text>
+                )
+              )}
+            </Text>
+          </LinearGradient>
+        </View>
+      ) : hasMedia ? (
         (() => {
         const isExtremePortrait = (CARD_W / mediaAspectRatio) > MAX_PORTRAIT_H;
         const imgH = isExtremePortrait ? MAX_PORTRAIT_H : CARD_W / mediaAspectRatio;
@@ -868,8 +894,10 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
         </View>
       </View>
 
-      {/* Caption — plain text only; username + timestamp already in card header */}
-      {(post.caption?.trim() || post.location) ? (
+      {/* Caption — plain text only; username + timestamp already in card header.
+          Skipped for Mood posts since the caption is already rendered inside
+          the gradient card above. */}
+      {!isMoodPost && (post.caption?.trim() || post.location) ? (
         <View style={styles.captionContainer}>
           {post.location && (
             <TouchableOpacity
@@ -1296,5 +1324,8 @@ const styles = StyleSheet.create({
   caption: { fontSize: 14, fontFamily: "Poppins_400Regular", lineHeight: 21 },
   captionUsername: { fontFamily: "Poppins_700Bold" },
   hashTag: { color: "#8B5CF6", fontFamily: "Poppins_500Medium" },
+  moodCard: { borderRadius: 18, paddingVertical: 28, paddingHorizontal: 20, minHeight: 100, justifyContent: "center" },
+  moodCardText: { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 17, lineHeight: 27 },
+  moodCardHashtag: { color: "#F0ABFC" },
   postTimestamp: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 1 },
 });

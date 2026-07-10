@@ -101,6 +101,7 @@ interface GridItem {
   visibility?: string;
   thumbnail_url?: string;
   isOwn?: boolean;
+  post_type?: "photo" | "video" | "poll" | "mood";
 }
 
 function isVideoUrl(url: string): boolean {
@@ -163,7 +164,18 @@ function GridPageCell({
       onPress={onPress}
       onLongPress={onLongPress}
     >
-      {item.is_video && (item.media_url ?? item.image_url) ? (
+      {item.post_type === "mood" ? (
+        <LinearGradient
+          colors={["#4C1D6B", "#7A2354", "#8A3A12"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.gridImage, styles.moodGridCell]}
+        >
+          <Text style={styles.moodGridText} numberOfLines={4}>
+            {item.caption ?? ""}
+          </Text>
+        </LinearGradient>
+      ) : item.is_video && (item.media_url ?? item.image_url) ? (
         <VideoGridCell
           videoUri={(item.media_url ?? item.image_url)!}
           thumbUrl={thumbUrl(item.thumbnail_url)}
@@ -999,6 +1011,7 @@ export default function ProfileScreen() {
               comments: p.comments ?? 0,
               caption: p.caption ?? "",
               isOwn: false,
+              post_type: p.post_type ?? undefined,
             }))
           );
         }
@@ -1162,7 +1175,7 @@ export default function ProfileScreen() {
             const p = payload.new as any;
             const mediaUrl = p.media_url ?? p.image_url ?? '';
             const isVid = isVideoUrl(mediaUrl);
-            setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at, isOwn: true }, ...prev]);
+            setMyPosts((prev) => [{ id: p.id, image_url: mediaUrl, video_url: isVid ? mediaUrl : undefined, is_video: isVid, isReel: false, likes: 0, comments: 0, caption: p.caption ?? '', created_at: p.created_at, isOwn: true, post_type: p.post_type ?? undefined }, ...prev]);
             setProfile((prof) => ({ ...prof, posts_count: (prof.posts_count ?? 0) + 1 }));
           } catch { /* never crash on realtime payload */ }
         })
@@ -1778,6 +1791,8 @@ const styles = StyleSheet.create({
   gridTabRow: { flexDirection: "row", borderBottomWidth: 0.5, marginTop: 4 },
   gridTab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   gridImage: { width: GRID_ITEM, height: GRID_ITEM, backgroundColor: "#1A0A2E" },
+  moodGridCell: { alignItems: "center", justifyContent: "center", padding: 8 },
+  moodGridText: { color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 11, textAlign: "center", lineHeight: 15 },
   reelBadge: { position: "absolute", top: 6, right: 6, backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 6, padding: 3 },
   pinBadge: { position: "absolute", top: 6, left: 6, backgroundColor: "rgba(139,92,246,0.85)", borderRadius: 6, padding: 3 },
   visibilityBadge: { position: "absolute", bottom: 28, right: 4, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 6, paddingHorizontal: 4, paddingVertical: 2 },

@@ -53,6 +53,7 @@ export interface Post {
   hide_like_count?: boolean;
   hide_share_count?: boolean;
   thumbnail_url?: string;
+  post_type?: "photo" | "video" | "poll" | "mood";
 }
 
 export interface Reel {
