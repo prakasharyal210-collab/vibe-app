@@ -674,6 +674,17 @@ export default function FeedScreen() {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
       }
 
+      // TEMP DIAGNOSTIC — swap index0/index2 to test whether the black-image bug
+      // is positional (follows the slot) or tied to the specific post's data.
+      // DO NOT SHIP — remove after diagnosis.
+      if (tab === "foryou" && reset && !silent && data.length > 2) {
+        console.log('[DIAG swap] before: idx0=', data[0].id, data[0].image_url, '| idx2=', data[2].id, data[2].image_url);
+        const tmp = data[0];
+        data[0] = data[2];
+        data[2] = tmp;
+        console.log('[DIAG swap] after: idx0=', data[0].id, data[0].image_url, '| idx2=', data[2].id, data[2].image_url);
+      }
+
       console.log('[loadTabData] tab:', tab, 'data.length:', data.length, 'reset:', reset, 'gen:', gen);
 
       // If a newer reset already started for this tab, discard our stale result.
