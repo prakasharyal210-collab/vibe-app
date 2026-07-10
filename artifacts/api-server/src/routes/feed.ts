@@ -492,7 +492,15 @@ router.get("/friends", async (req, res) => {
     return;
   }
 
-  const freshEnriched = await enrichWithCoupleData(supabase, freshData ?? []);
+  // The direct "*" select returns media_url only — PostCard reads post.image_url.
+  // Bridge the gap here too, same as normaliseFriendsRow does for the RPC path,
+  // or images render as a black gap the size of the media container.
+  const bridged = (freshData ?? []).map((row: any) => ({
+    ...row,
+    image_url: row.image_url ?? row.media_url ?? null,
+  }));
+
+  const freshEnriched = await enrichWithCoupleData(supabase, bridged);
   const freshWithPolls = await enrichWithPolls(supabase, freshEnriched, userId);
   // Strip any archived posts that slipped through (RPC parity)
   const cleaned = freshWithPolls.filter((p: any) => p.is_archived !== true);
