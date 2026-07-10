@@ -1,3 +1,4 @@
+import { captureException } from './sentry';
 import { readAsStringAsync, getInfoAsync } from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as VideoThumbnails from 'expo-video-thumbnails';
@@ -2586,13 +2587,36 @@ export async function checkIsFollowing(followerId: string, followingId: string):
 export async function ensureUserSetup(userId: string, username: string, email?: string): Promise<void> {
   // Route through API server (service-role) — all 4 upserts in one call,
   // bypasses RLS + avoids the Android Supabase direct-client hang on INSERT.
-  try {
-    await fetch(`${API_BASE}/users/setup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, username, email }),
-    });
-  } catch {}
+  // Retries with backoff before giving up — a swallowed failure here leaves
+  // the user with no profiles/wallet/user_settings/vibe_scores row at all.
+  const backoffsMs = [0, 1500, 4000];
+  let lastError: unknown = null;
+  let lastStatus: number | null = null;
+
+  for (let attempt = 0; attempt < backoffsMs.length; attempt++) {
+    const delay = backoffsMs[attempt];
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      const res = await fetch(`${API_BASE}/users/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, username, email }),
+      });
+      if (res.ok) return;
+      lastStatus = res.status;
+      lastError = new Error(`/users/setup responded ${res.status}`);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  // All attempts failed — this must never fail silently again.
+  console.error("[ensureUserSetup] failed after retries", { userId, username, lastStatus, lastError });
+  captureException(
+    lastError instanceof Error
+      ? lastError
+      : new Error(`ensureUserSetup failed after retries for userId=${userId}`)
+  );
 }
 
 // ─── Nearby Users ──────────────────────────────────────────────────────────────

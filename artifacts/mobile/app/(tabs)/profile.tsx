@@ -942,6 +942,8 @@ export default function ProfileScreen() {
   const coupleInfo = useCoupleStatus();
   const [profile, setProfile] = useState<Profile>(MOCK_PROFILE);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState(false);
+  const [profileRetrying, setProfileRetrying] = useState(false);
 
   // ── Realtime profile counts ──────────────────────────────────────────────
   const rtProfile = useProfileRealtime(session?.user?.id ?? null, {
@@ -1020,7 +1022,9 @@ export default function ProfileScreen() {
   }, [activeTab, session?.user?.id]);
 
 
-  const loadProfile = useCallback(async (uid: string) => {
+  // Single attempt at fetching profile + stats. Returns true on success (at
+  // least one source returned real data), false if both sources failed.
+  const loadProfileOnce = useCallback(async (uid: string): Promise<boolean> => {
     // Run Supabase profile fetch and API stats lookup in parallel.
     // The API stats endpoint uses the service-role key, so it bypasses RLS and
     // returns accurate COUNT(*) values — never relies on denormalized counter columns.
@@ -1041,6 +1045,8 @@ export default function ProfileScreen() {
       followers_count: profileData?.followers_count ?? 0,
       following_count: profileData?.following_count ?? 0,
     };
+
+    let statsOk = false;
 
     // Always apply API stats when available — the service-role key bypasses RLS
     // and returns accurate COUNT(*) values. This also handles the case where the
@@ -1065,6 +1071,7 @@ export default function ProfileScreen() {
           total_likes: stats.total_likes ?? 0,
           total_views: stats.total_views ?? 0,
         });
+        statsOk = true;
       } catch (e) {
         console.error("[profile-stats] parse error", e);
       }
@@ -1074,11 +1081,36 @@ export default function ProfileScreen() {
       console.error("[profile-stats] non-ok response", statsResult.value.status);
     }
 
-    // If we have no profile data at all (both sources failed), bail.
-    if (!profileData && liveCounts.posts_count === 0 && liveCounts.followers_count === 0) return;
+    // Both sources failed — nothing to show, caller should retry.
+    if (!profileData && !statsOk) return false;
 
     setProfile((prev) => ({ ...prev, ...(profileData as Profile ?? {}), ...liveCounts }));
+    return true;
   }, []);
+
+  // Wraps loadProfileOnce with automatic retries (2s, then 5s backoff) so a
+  // transient network blip / Railway cold start doesn't silently leave the
+  // screen showing stale zero-value data forever. If all attempts fail, an
+  // explicit error state is surfaced instead of fake zeros.
+  const loadProfile = useCallback(async (uid: string) => {
+    const backoffsMs = [0, 2000, 5000];
+    for (let attempt = 0; attempt < backoffsMs.length; attempt++) {
+      const delay = backoffsMs[attempt];
+      if (delay) {
+        setProfileRetrying(true);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      const ok = await loadProfileOnce(uid);
+      if (ok) {
+        setProfileLoadError(false);
+        setProfileRetrying(false);
+        return;
+      }
+    }
+    // All attempts failed — show an explicit error state, never silent zeros.
+    setProfileRetrying(false);
+    setProfileLoadError(true);
+  }, [loadProfileOnce]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -1319,7 +1351,22 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* ── Stats panel ─────────────────────────────────────────────── */}
+        {/* ── Load error state — never show fake 0/0/0 as if it were real ── */}
+        {profileLoadError ? (
+          <View style={[styles.statsPanel, { backgroundColor: "#141414", borderWidth: 1, borderColor: "rgba(239,68,68,0.4)", alignItems: "center", paddingVertical: 16 }]}>
+            <Ionicons name="cloud-offline-outline" size={22} color="#EF4444" style={{ marginBottom: 6 }} />
+            <Text style={{ color: colors.foreground, fontWeight: "600", marginBottom: 2 }}>Couldn't load your profile</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 12, marginBottom: 10, textAlign: "center" }}>Check your connection and try again.</Text>
+            <TouchableOpacity
+              onPress={() => session?.user?.id && loadProfile(session.user.id)}
+              disabled={profileRetrying}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#8B5CF6", paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20, opacity: profileRetrying ? 0.6 : 1 }}
+            >
+              {profileRetrying ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="refresh" size={16} color="#fff" />}
+              <Text style={{ color: "#fff", fontWeight: "600" }}>{profileRetrying ? "Retrying…" : "Retry"}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
         <View style={[styles.statsPanel, { backgroundColor: "#141414", borderWidth: 1, borderColor: "rgba(212,175,55,0.28)" }]}>
           <View style={styles.statsPanelRow}>
             <StatBlock label="Posts" value={rtProfile.posts_count ?? profile.posts_count ?? 0} valueColor="#fff" />
@@ -1339,6 +1386,7 @@ export default function ProfileScreen() {
             />
           </View>
         </View>
+        )}
 
         <View style={styles.actionButtons}>
           <TouchableOpacity onPress={() => router.push("/edit-profile" as any)} style={[styles.editBtn, { backgroundColor: "#141414", borderColor: "rgba(212,175,55,0.42)" }]}>
