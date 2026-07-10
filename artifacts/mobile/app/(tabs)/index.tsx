@@ -628,6 +628,13 @@ export default function ReelsScreen() {
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
   const displayReels = reels;
 
+  // Instagram-style single-reel-ahead preload: silently buffer index+1's video
+  // (shouldPlay=false, isMuted, invisible 1x1 layer) so the swipe transition
+  // is instant. Decoupled from FlatList virtualization/windowSize so it's
+  // guaranteed regardless of how many items happen to be mounted nearby.
+  // Videos only — no HLS/transcoding, no more than one reel ahead.
+  const nextReel = displayReels[activeIndex + 1];
+
   // Helper: map a posts-table row to the Reel shape
   const postToReel = (p: any): Reel => ({
     id: `post_${p.id}`,
@@ -926,6 +933,23 @@ export default function ReelsScreen() {
         }
       />
 
+      {/* Hidden single-reel-ahead preloader — invisible 1x1 layer, shouldPlay=false,
+          muted. Mounting expo-av's <Video> with a source is enough to make it start
+          buffering even without playing, so this silently warms index+1's video
+          buffer well before the user swipes to it. Never renders for more than one
+          reel ahead, and is fully decoupled from the FlatList above. */}
+      {nextReel?.videoUrl && (
+        <Video
+          key={`preload_${nextReel.id}`}
+          source={{ uri: nextReel.videoUrl }}
+          style={S.hiddenPreload}
+          shouldPlay={false}
+          isMuted
+          resizeMode={ResizeMode.COVER}
+          pointerEvents="none"
+        />
+      )}
+
       {/* ── Fixed top bar ───────────────────────────────────────────────── */}
       <View style={[S.topBar, { paddingTop: topPad + 6 }]} pointerEvents="box-none">
         {/* Following / For You tabs */}
@@ -963,6 +987,7 @@ const S = StyleSheet.create({
 
   // reel
   reelContainer: { width: W, overflow: "hidden", backgroundColor: "#000" },
+  hiddenPreload: { position: "absolute", top: -9999, left: -9999, width: 1, height: 1, opacity: 0 },
   topGrad: { position: "absolute", top: 0, left: 0, right: 0 },
   bottomGrad: { position: "absolute", bottom: 0, left: 0, right: 0 },
 

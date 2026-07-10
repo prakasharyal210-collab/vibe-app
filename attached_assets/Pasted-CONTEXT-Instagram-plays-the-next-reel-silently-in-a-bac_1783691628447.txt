@@ -1,0 +1,28 @@
+CONTEXT: Instagram plays the next reel silently in a background layer before the user even swipes to it, so the swipe transition is instant. Real HLS segmenting is heavy infra we're not building tonight — this is the realistic v1: preload just the next reel so playback starts instantly on swipe, without a visible buffering delay.
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- Deploy: JS-only if using existing video component's preload capability, OTA-deployable — confirm this assumption as you investigate
+- Reels are NOT seeded by the drip-seeder (per earlier context: "Prakash uploads reels manually himself") — so reel volume is likely low right now, worth keeping in mind for testing
+- Known reel player facts from earlier context: 1080p minimum gate, adaptive aspect ratio (9:16 with 20% tolerance), reels player is in app/(tabs)/index.tsx
+
+DIAGNOSE FIRST:
+1. Open app/(tabs)/index.tsx (the reels screen) and report which video component is currently used (expo-av's <Video>, expo-video, or something else) and how playback/pause is currently controlled as the user swipes between reels.
+2. Check if the current video component has any preload/prepare capability — expo-video (the newer library) has a preload/prepare API; expo-av's <Video> has more limited preload support. Report what's actually available given the installed library and version.
+3. Report how reel data is currently fetched/paginated — is there already a "next reel" concept in memory before the user swipes to it, or does each swipe trigger a fresh fetch?
+
+IMPLEMENT (scope depends on diagnosis — use judgment):
+1. When the current reel is playing/visible, identify the NEXT reel in the list (index+1) and begin preloading its video (not playing, just preparing/buffering) using whatever capability the installed video library supports.
+2. If the library supports a "shouldPlay: false, preload: true"-style pattern (silently loaded but not visibly playing), use that. If genuinely not supported by the current library/version without a bigger dependency change, report this clearly rather than forcing something fragile — a partial win (e.g., just prefetching the video URL/first bytes via a HEAD request or similar to warm any CDN/cache) is acceptable as a fallback if full preload isn't cleanly achievable.
+3. Only preload one reel ahead (index+1) — don't over-fetch given reels are typically larger files than images.
+4. Typecheck.
+
+DO NOT:
+- Do not touch the main feed (already done tonight) — reels only
+- Do not attempt real HLS segmenting/transcoding — out of scope
+- Do not push or deploy — report first
+
+AFTER:
+- Report exactly what's achievable given the current video library, and what was implemented
+- Confirm OTA-safe or flag if this requires a native rebuild (e.g. if upgrading expo-av to expo-video is needed and that has native implications)
+- Report honestly if the improvement is meaningful or marginal given current reel volume/usage
