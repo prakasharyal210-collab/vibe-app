@@ -29,6 +29,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Image as ExpoImage } from "expo-image";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
 import { useRealtime } from "@/context/RealtimeContext";
@@ -591,11 +592,43 @@ export default function FeedScreen() {
   // Stable viewability config — item must be ≥60% visible to count as "active"
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
 
+  // Track which image URLs have already been prefetched (per tab) so we never
+  // issue a redundant Image.prefetch() call when the user scrolls back and forth.
+  const prefetchedUrlsRef = useRef<Record<FeedTabId, Set<string>>>({
+    foryou: new Set(),
+    friends: new Set(),
+  });
+
+  // Instagram-style lookahead: prefetch images for posts N+3..N+7 ahead of the
+  // current topmost visible post, using the SAME cardUrl()-transformed URL
+  // PostCard renders, so the prefetch warms the exact cache entry that will be
+  // used. Images only — videos/reels are explicitly out of scope for this pass.
+  const prefetchAhead = useCallback((tab: FeedTabId, fromIndex: number) => {
+    const posts = tabStatesRef.current[tab].posts;
+    const seen = prefetchedUrlsRef.current[tab];
+    for (let i = fromIndex + 3; i <= fromIndex + 7; i++) {
+      const post = posts[i] as any;
+      if (!post) continue;
+      const firstImage = post.images && post.images.length > 0 ? post.images[0] : post.image_url;
+      if (!firstImage) continue; // skip video-only posts — images-only for this pass
+      const url = cardUrl(firstImage);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      ExpoImage.prefetch(url).catch(() => {
+        // Non-fatal — a failed prefetch just means the normal on-render load path kicks in.
+        seen.delete(url);
+      });
+    }
+  }, []);
+
   // Per-tab stable onViewableItemsChanged handlers (must be stable refs for FlatList)
   const viewableHandlers = useRef(
-    TABS.map((tab) => ({ viewableItems }: { viewableItems: Array<{ isViewable: boolean; item: Post }> }) => {
+    TABS.map((tab) => ({ viewableItems }: { viewableItems: Array<{ isViewable: boolean; item: Post; index: number | null }> }) => {
       const top = viewableItems.find((v) => v.isViewable);
       setVisiblePostIds((prev) => ({ ...prev, [tab.id]: top?.item?.id ?? null }));
+      if (top && typeof top.index === "number") {
+        prefetchAhead(tab.id, top.index);
+      }
     })
   ).current;
 

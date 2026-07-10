@@ -1,0 +1,26 @@
+CONTEXT: Instagram prefetches images for upcoming posts (N+3 to N+7) while the user is still viewing the current post, so images are already cached by the time they scroll there. Gundruk currently only loads an image when its post actually renders into the viewport — no lookahead.
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- Deploy: JS-only, OTA-deployable via eas update
+- Feed already has: expo-image (memory-disk caching), instant feed caching (AsyncStorage), earlier pagination trigger (0.6 threshold)
+- Image URLs already go through Supabase transformations (cardUrl() in imageUrl.ts) — prefetch should use the SAME transformed URL the feed will actually render, not the raw original
+
+TASK: Add image prefetching for upcoming feed posts.
+
+1. In app/(tabs)/feed.tsx, find the FlatList's viewability tracking (mentioned in earlier context: viewabilityConfig itemVisiblePercentThreshold 60, tracks a "topmost visible item").
+2. When the viewable item changes, identify the current visible post's index in the posts array.
+3. Prefetch images for posts at index+3 through index+7 (the next 5 posts ahead) using expo-image's prefetch API (Image.prefetch(url) from 'expo-image') — using the SAME cardUrl()-transformed URL that PostCard.tsx will use when it actually renders, so the prefetch and the real render share the same cache entry.
+4. Only prefetch each URL once — track already-prefetched URLs in a ref/set to avoid redundant prefetch calls as the user scrolls back and forth.
+5. Keep this lightweight — don't prefetch on every scroll tick, only when the viewable item actually changes (debounce if needed).
+6. Apply the same pattern to Friends tab if it shares similar structure, otherwise just For You for this pass.
+
+DO NOT:
+- Do not touch reels — separate pass
+- Do not prefetch video files — images only for now
+- Do not push or deploy — report first
+
+AFTER:
+- Report every file changed
+- Confirm OTA-safe
+- Suggest how to test: is there a way to observe prefetching working (network tab, logs, or just noticeably faster image appearance when scrolling normally vs disabling the feature)?
