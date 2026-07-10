@@ -196,8 +196,79 @@ function limitPollsToTop5(posts: any[]): any[] {
   }
 }
 
+// ─── v1 JS-computed "For You" ranking ──────────────────────────────────────────
+// Computed entirely in this process (not a DB RPC) so the exact formula below
+// is guaranteed to run regardless of whether speculative Supabase objects
+// (get_for_you_feed_v3, posts.score, the refresh_recent_scores() cron) are
+// actually deployed/scheduled in this project's Supabase instance.
+//
+// score = (likes_count + comments_count × 2) / (hoursSincePosted + 2)^1.5
+//         × (3.0 if author is followed, else 1.0)
+//         × (1.5 if post.category is one of the user's top-3 most-liked
+//            categories, else 1.0)
+//
+// Ties broken by created_at desc.
+const FOLLOW_BOOST = 3.0;
+const CATEGORY_BOOST = 1.5;
+// Bound on how many recent candidate posts get pulled into memory to be
+// scored — see the performance note in the final report for why this needs
+// to move to a SQL-side computation once post volume grows materially.
+const CANDIDATE_POOL_SIZE = 300;
+
+function computeForYouScore(
+  post: any,
+  followedIds: Set<string>,
+  topCategories: Set<string>,
+): number {
+  const likes = (post.likes_count as number | undefined) ?? 0;
+  const comments = (post.comments_count as number | undefined) ?? 0;
+  const engagement = likes + comments * 2;
+  const createdMs = parseUTCMs(post.created_at as string | undefined);
+  const hoursSincePosted = Math.max(0, (Date.now() - createdMs) / 3_600_000);
+  const base = engagement / Math.pow(hoursSincePosted + 2, 1.5);
+  const followBoost = followedIds.has(post.user_id as string) ? FOLLOW_BOOST : 1.0;
+  const categoryBoost = post.category && topCategories.has(post.category as string) ? CATEGORY_BOOST : 1.0;
+  return base * followBoost * categoryBoost;
+}
+
+// Simple COUNT/GROUP BY/LIMIT-3 over the requesting user's like history — no
+// ML, matches the same "simple count" approach as the poll ranking above.
+// Cold-start (no likes yet) returns an empty set, which computeForYouScore
+// treats as "no category boost applies" rather than throwing.
+async function getTopLikedCategories(supabase: SupabaseClient, userId: string): Promise<Set<string>> {
+  const { data: likedRows, error: likedErr } = await supabase
+    .from("post_likes")
+    .select("post_id")
+    .eq("user_id", userId);
+  if (likedErr || !likedRows?.length) return new Set();
+
+  const likedPostIds = [...new Set(likedRows.map((r: any) => r.post_id as string).filter(Boolean))];
+  if (!likedPostIds.length) return new Set();
+
+  const { data: likedPosts, error: postsErr } = await supabase
+    .from("posts")
+    .select("category")
+    .in("id", likedPostIds)
+    .not("category", "is", null);
+  if (postsErr || !likedPosts?.length) return new Set();
+
+  const counts = new Map<string, number>();
+  for (const row of likedPosts) {
+    const cat = (row as any).category as string | null;
+    if (!cat) continue;
+    counts.set(cat, (counts.get(cat) ?? 0) + 1);
+  }
+  const top3 = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([cat]) => cat);
+  return new Set(top3);
+}
+
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
 // ?userId=...&limit=20&offset=0&content_type=photo|video&sort=newest|most_liked|most_viewed&category=music|...&type=polls
+// ?debug=chronological (or the older ?rank=chrono) bypasses all personalised
+// ranking for side-by-side comparison/debugging.
 router.get("/foryou", async (req, res) => {
   const userId = req.query["userId"] as string | undefined;
   const limit = Math.min(parseInt((req.query["limit"] as string) ?? "20", 10), 50);
@@ -291,12 +362,59 @@ router.get("/foryou", async (req, res) => {
   // appear broken to the user.  Jump straight to the direct query which applies
   // the is_video predicate at the database level.
   //
-  // ?rank=chrono bypasses all personalised RPCs entirely for debugging/
-  // comparison — falls straight through to the plain created_at-ordered query
-  // at the bottom of this handler.
+  // ?rank=chrono / ?debug=chronological both bypass all personalised ranking
+  // entirely for debugging/comparison — falls straight through to the plain
+  // created_at-ordered query at the bottom of this handler.
   const rankMode = req.query["rank"] as string | undefined;
-  if (!contentType && rankMode !== "chrono") {
-    // Try v3 first — follow-graph boost (3x) + top-3 liked-category boost
+  const debugMode = req.query["debug"] as string | undefined;
+  const chronoDebug = rankMode === "chrono" || debugMode === "chronological";
+
+  if (!contentType && !chronoDebug) {
+    // v1 JS-computed ranking (see computeForYouScore above) — this is the
+    // primary path. It is self-contained (no dependency on speculative
+    // Supabase RPCs/columns) and guarantees the exact documented formula.
+    // On any error it falls through to the v3/v2/v1 RPC chain below.
+    try {
+      const [followRows, topCategories] = await Promise.all([
+        supabase.from("follows").select("following_id").eq("follower_id", userId),
+        getTopLikedCategories(supabase, userId),
+      ]);
+      const followedIds = new Set(
+        (followRows.data ?? []).map((r: any) => r.following_id as string).filter(Boolean),
+      );
+
+      const { data: candidates, error: candErr } = await supabase
+        .from("posts")
+        .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+        .or("visibility.eq.public,visibility.is.null")
+        .or("is_archived.eq.false,is_archived.is.null")
+        .order("created_at", { ascending: false })
+        .limit(CANDIDATE_POOL_SIZE);
+
+      if (candErr) throw candErr;
+
+      const withCoupleAndPolls = await enrichWithPolls(
+        supabase,
+        await enrichWithCoupleData(supabase, excludeMoodPosts(candidates ?? [])),
+        userId,
+      );
+
+      const scored = withCoupleAndPolls
+        .map((post: any) => ({ post, score: computeForYouScore(post, followedIds, topCategories) }))
+        .sort((a, b) => b.score - a.score || (parseUTCMs(b.post.created_at) - parseUTCMs(a.post.created_at)));
+
+      const page = filterByCategory(filterByContentType(scored.map((s) => s.post))).slice(offset, offset + limit);
+      const out = limitPollsToTop5(page);
+      res.json({ data: out, source: "v1-js-ranked" });
+      return;
+    } catch (e: any) {
+      req.log.info(
+        { err: e?.message },
+        "foryou: v1 JS ranking failed — falling back to RPC chain",
+      );
+    }
+
+    // Try v3 — follow-graph boost (3x) + top-3 liked-category boost
     // (1.5x) applied on top of the existing engagement/recency `score`.
     // See scripts/for-you-v3-ranking-migration.sql for the RPC definition.
     const { data: v3Data, error: v3Err } = await supabase.rpc(

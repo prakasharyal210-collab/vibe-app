@@ -1,0 +1,35 @@
+CONTEXT: Gundruk's "For You" feed currently shows the same content to every user with no personalization — pure chronological/algorithmic ordering. We want a v1 ranking algorithm so different users see feeds weighted toward their own interests, similar in spirit to the hot-ranking formula already used in Confession Room (score = (reactions + comments*2 + poll_votes*1.5 + active_poll_bonus_5) / (hours+2)^1.5).
+
+Architecture reminder:
+- API: artifacts/api-server (Express on Railway)
+- Deploy: git push (Railway auto-deploy), backend-only, no mobile/native changes needed
+- Known schema facts: users table uses full_name; follows uses follower_id/following_id
+- Mood posts must stay excluded from "For You" (Friends-tab only, per tonight's earlier restriction) — do not break that
+- Comments now support cursor pagination (tonight's fix) — don't need to touch that here, just be aware the posts table/feed queries evolved tonight
+
+DIAGNOSE FIRST:
+1. Find the current /api/feed/foryou endpoint and report exactly how it currently orders posts.
+2. Confirm the existing excludeMoodPosts() filter (from tonight) is still in place and will compose cleanly with new ranking logic.
+3. Check if posts have a category column (referenced in seeder context: food, nature, travel, lifestyle, fashion, fitness, animals, business/tech, music, art, wellness, celebrations, transportation) — confirm this actually exists as a queryable column.
+4. Check if there's a likes/reactions table and a way to determine what categories a given user has liked historically.
+
+IMPLEMENT (v1 ranking algorithm):
+1. Create a scoring function for the main feed combining:
+   a. Follow-graph boost: posts from followed accounts get a significant multiplier (e.g. 3x) vs non-followed accounts
+   b. Engagement score: likes + comments*2
+   c. Recency decay: same (hours+2)^1.5 pattern as confession ranking, for consistency
+   d. Category affinity: compute the requesting user's top 3 liked categories from their like history (simple count), give posts matching those categories a modest boost (e.g. 1.5x)
+2. Update the /foryou endpoint to use this scoring instead of pure chronological ordering, while keeping the existing Mood-post exclusion intact.
+3. If scoring requires pulling all posts into memory to score in JS rather than SQL, flag this as a performance concern given current post volume — propose whether it's acceptable now or needs a SQL-level approach.
+4. Add a fallback: if a user has no like history yet (cold start), skip category affinity and just use follow-boost + engagement + recency (avoid errors on new/empty accounts).
+5. Add a query param to force pure chronological ordering for debugging/comparison (e.g. ?debug=chronological).
+
+DO NOT:
+- Do not touch Confession Room ranking, reels, or Friends tab
+- Do not break the Mood-post exclusion from "For You"
+- Do not push or deploy — report first
+
+AFTER:
+- Report every file changed and the exact scoring formula implemented
+- Report any performance concerns at current scale
+- Suggest how to manually test: compare feed order for two accounts following different sets of people, confirm visible ordering differences
