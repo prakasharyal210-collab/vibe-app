@@ -5,7 +5,7 @@ import type { Post } from "@/lib/supabase";
 // are already cached by expo-image's own disk cache). Lets the feed screen
 // render instantly on app open instead of showing a blank/loading state while
 // waiting for the first network response.
-const CACHE_PFX = "gundruk_feed_cache_v1:";
+const CACHE_PFX = "gundruk_feed_cache_v2:";
 const CACHE_TTL = 48 * 60 * 60 * 1000; // 48h — beyond this, cached data is considered too stale to show
 const MAX_CACHED_POSTS = 20; // one page's worth is enough for an instant first paint
 
