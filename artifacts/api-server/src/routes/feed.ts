@@ -349,14 +349,24 @@ async function getUserLikeSignals(
 // by category/content-type — those are applied after reading from cache, since
 // they're cheap array filters and keeping them out of the cache key avoids a
 // combinatorial explosion of cached variants per user).
-const rankedFeedCache = new Map<string, { expiresAt: number; ranked: any[] }>();
+// poolCutoffAt is the created_at of the oldest raw candidate — everything
+// strictly older than this timestamp is outside the pool and safe to serve
+// as the chronological overflow tail without any risk of duplicates.
+const rankedFeedCache = new Map<string, { expiresAt: number; ranked: any[]; poolCutoffAt: string | null }>();
+
+interface RankedForYouPool {
+  ranked: any[];
+  poolCutoffAt: string | null;
+}
 
 async function getRankedForYouPool(
   supabase: SupabaseClient,
   userId: string,
-): Promise<any[]> {
+): Promise<RankedForYouPool> {
   const cached = rankedFeedCache.get(userId);
-  if (cached && cached.expiresAt > Date.now()) return cached.ranked;
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ranked: cached.ranked, poolCutoffAt: cached.poolCutoffAt };
+  }
 
   const [followRows, { topCategories, likedPostIds }] = await Promise.all([
     supabase.from("follows").select("following_id").eq("follower_id", userId),
@@ -376,6 +386,15 @@ async function getRankedForYouPool(
 
   if (candErr) throw candErr;
 
+  // Capture the oldest created_at from the RAW candidate list before any
+  // in-memory filtering.  DB returns ORDER BY created_at DESC so the last
+  // row is the oldest.  Everything strictly older than this timestamp is
+  // guaranteed to be outside the pool — used by the overflow tail query.
+  const poolCutoffAt: string | null =
+    candidates && candidates.length > 0
+      ? ((candidates[candidates.length - 1] as any).created_at as string ?? null)
+      : null;
+
   const withCoupleAndPolls = await enrichWithPolls(
     supabase,
     await enrichWithCoupleData(supabase, excludeMoodPosts(candidates ?? [])),
@@ -394,8 +413,8 @@ async function getRankedForYouPool(
 
   const ranked = diversifyFeed(scored.map((s) => s.post));
 
-  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked });
-  return ranked;
+  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt });
+  return { ranked, poolCutoffAt };
 }
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
@@ -505,10 +524,53 @@ router.get("/foryou", async (req, res) => {
     // independent top-N that could disagree at page boundaries.
     // On any error it falls through to the v3/v2/v1 RPC chain below.
     try {
-      const ranked = await getRankedForYouPool(supabase, userId);
+      const { ranked, poolCutoffAt } = await getRankedForYouPool(supabase, userId);
       const filtered = filterByCategory(filterByContentType(ranked));
       const out = filtered.slice(offset, offset + limit);
-      res.json({ data: out, source: "v1-js-ranked" });
+
+      if (out.length > 0) {
+        res.json({ data: out, source: "v1-js-ranked" });
+        return;
+      }
+
+      // ── Chronological overflow tail ─────────────────────────────────────────
+      // offset has gone past the ranked pool.  Serve ALL posts older than the
+      // pool's oldest candidate in plain created_at DESC order so the user can
+      // keep scrolling indefinitely.  poolCutoffAt is the created_at of the
+      // oldest raw candidate row (captured before mood/archive filtering), so
+      // every post with created_at < poolCutoffAt is by construction absent
+      // from the pool — zero duplicates, no NOT IN needed.
+      //
+      // chronoOffset maps the global offset into overflow-space:
+      //   filtered.length positions were consumed by the ranked section, so the
+      //   first overflow page starts at overflow-row 0 when offset = filtered.length.
+      const chronoOffset = Math.max(0, offset - filtered.length);
+
+      let overflowQ = supabase
+        .from("posts")
+        .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+        .or("visibility.eq.public,visibility.is.null")
+        .or("is_archived.eq.false,is_archived.is.null")
+        .order("created_at", { ascending: false });
+
+      if (poolCutoffAt) {
+        overflowQ = overflowQ.lt("created_at", poolCutoffAt) as typeof overflowQ;
+      }
+      if (category) {
+        overflowQ = overflowQ.eq("category", category) as typeof overflowQ;
+      }
+
+      const { data: overflowRaw, error: overflowErr } = await overflowQ
+        .range(chronoOffset, chronoOffset + limit - 1);
+
+      if (overflowErr) throw overflowErr;
+
+      // Apply mood filter in memory (post_type column may not exist on all DB
+      // versions — never push it to PostgREST to avoid 42703 errors).
+      const overflowCleaned = excludeMoodPosts(overflowRaw ?? []);
+      const overflowCouple = await enrichWithCoupleData(supabase, overflowCleaned);
+      const overflowPolls = await enrichWithPolls(supabase, overflowCouple, userId);
+      res.json({ data: limitPollsToTop5(overflowPolls), source: "v1-js-ranked-overflow" });
       return;
     } catch (e: any) {
       req.log.info(
