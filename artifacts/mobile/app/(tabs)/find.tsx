@@ -1053,7 +1053,7 @@ const ibStyles = StyleSheet.create({
   skipText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
 
-function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, onReset }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[]; onReset?: () => Promise<void> }) {
+function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, onReset, onCurrentIndexChange }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[]; onReset?: () => Promise<void>; onCurrentIndexChange?: (index: number) => void }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
@@ -1112,8 +1112,10 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       return;
     }
 
-    // Advance card
-    setCurrentIndex((i) => i + 1);
+    // Advance card — notify parent so it can refill the buffer when running low
+    const nextIdx = currentIndex + 1;
+    onCurrentIndexChange?.(nextIdx);
+    setCurrentIndex(nextIdx);
     translateX.value = 0;
     translateY.value = 0;
     Haptics.impactAsync(direction === "right" ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
@@ -1210,6 +1212,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
         <TouchableOpacity
           onPress={async () => {
             setCurrentIndex(0);
+            onCurrentIndexChange?.(0);
             if (onReset) await onReset();
           }}
           style={[styles.reloadBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}
@@ -2358,6 +2361,10 @@ function FindVibeContent() {
   const [sameVibeCards, setSameVibeCards] = useState<VibeCard[]>([]);
   const [cardsLoading, setCardsLoading] = useState(true);
   const [screenError, setScreenError] = useState(false);
+  // Rolling buffer refs for the vibe deck
+  const nearbyCardsRef = useRef<VibeCard[]>([]);
+  useEffect(() => { nearbyCardsRef.current = nearbyCards; }, [nearbyCards]);
+  const refillInProgressRef = useRef(false);
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     showGender: ["everyone"],
     goal: "all",
@@ -2481,6 +2488,50 @@ function FindVibeContent() {
     }
   };
 
+
+  // Rolling buffer for the vibe deck: when fewer than 10 cards remain ahead of
+  // the current swipe index, fetch a fresh batch from the API and append only
+  // profiles not already in the deck (deduplicated by id). Fire-and-forget —
+  // the existing deck stays intact if the fetch fails.
+  const refillVibeDeck = useCallback(async () => {
+    if (!userId || refillInProgressRef.current) return;
+    refillInProgressRef.current = true;
+    try {
+      const apiBase = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+      const res = await fetch(`${apiBase}/vibe/deck?userId=${encodeURIComponent(userId)}`);
+      if (!res.ok) return;
+      const json = (await res.json()) as { profiles?: any[] };
+      const existingIds = new Set(nearbyCardsRef.current.map((c) => c.id));
+      const newCards: VibeMatchProfile[] = (json.profiles ?? [])
+        .map((row: any) => ({
+          id: row.id ?? row.user_id,
+          name: row.full_name ?? row.name ?? row.username ?? "Vibe User",
+          age: row.age ?? 24,
+          image:
+            row.vibe_profile_photo_url ??
+            (Array.isArray(row.vibe_photos) && row.vibe_photos.length > 0 ? row.vibe_photos[0] : null) ??
+            row.avatar_url ??
+            `https://picsum.photos/seed/${row.id ?? row.user_id}/400/600`,
+          bio: row.bio ?? "",
+          vibe_bio: row.vibe_bio,
+          vibe_photos: row.vibe_photos,
+          interests: row.interests ?? [],
+          distance: row.distance_km ? `${Math.round(row.distance_km as number)} km away` : undefined,
+          isOnline: row.is_online ?? false,
+          isVerified: row.is_verified ?? false,
+          gender: row.gender,
+          goal: row.looking_for,
+          vibeScore: row.vibe_score ?? row.compatibility_score,
+          matchInterests: row.shared_interests ?? [],
+        }))
+        .filter((c: VibeMatchProfile) => !existingIds.has(c.id));
+      if (newCards.length > 0) setNearbyCards((prev) => [...prev, ...newCards]);
+    } catch {
+      // non-fatal — deck stays intact
+    } finally {
+      refillInProgressRef.current = false;
+    }
+  }, [userId]);
 
   const handleGoalTap = (goalValue: string) => {
     setGoalSheet(goalValue);
@@ -2700,6 +2751,11 @@ function FindVibeContent() {
               await resetVibeDeck(userId);
               await loadCards(userId, vibePrefs);
             } : undefined}
+            onCurrentIndexChange={(idx) => {
+              // Rolling 10-item buffer: when < 10 cards remain in the deck,
+              // fetch more profiles and append unique ones to the queue.
+              if (nearbyCards.length - idx < 10) void refillVibeDeck();
+            }}
           />
         }
         goalsContent={<GoalsDiscoveryTab onGoalSelect={handleGoalTap} userId={userId} />}

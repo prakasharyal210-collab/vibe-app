@@ -396,6 +396,25 @@ export default function CoupleFeedScreen() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [unreadCount, setUnreadCount] = useState(0);
   const genRef = useRef(0);
+  // Rolling 10-item image prefetch for the confession list
+  const seenConfessionImgsRef = useRef<Set<string>>(new Set());
+  const listDataRef = useRef<any[]>([]);
+  const confessionViewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+  const onConfessionViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      const top = viewableItems.find((v) => v.index !== null);
+      if (!top || top.index === null) return;
+      const items = listDataRef.current;
+      for (let i = top.index + 1; i <= top.index + 10; i++) {
+        const item = items[i] as any;
+        if (!item || "_divider" in item) continue;
+        const url: string | null = item.photo_url ?? item.author?.avatar ?? null;
+        if (!url || seenConfessionImgsRef.current.has(url)) continue;
+        seenConfessionImgsRef.current.add(url);
+        Image.prefetch(url).catch(() => { seenConfessionImgsRef.current.delete(url); });
+      }
+    }
+  ).current;
 
   const fetchUnread = useCallback(async () => {
     if (!userId) return;
@@ -504,6 +523,8 @@ export default function CoupleFeedScreen() {
   const listData: ListItem[] = filteredHot.length > 0
     ? [...filteredNew, { _divider: true as const, id: "__trending_divider__" }, ...filteredHot]
     : [...filteredNew];
+  // Keep the stable handler's ref in sync on every render (no extra re-render)
+  listDataRef.current = listData;
 
   return (
     <View style={[s.container, { paddingTop: insets.top }]}>
@@ -615,6 +636,8 @@ export default function CoupleFeedScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          viewabilityConfig={confessionViewabilityConfig}
+          onViewableItemsChanged={onConfessionViewableItemsChanged}
         />
       )}
     </View>

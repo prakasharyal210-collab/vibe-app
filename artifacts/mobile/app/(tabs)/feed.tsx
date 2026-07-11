@@ -599,14 +599,20 @@ export default function FeedScreen() {
     friends: new Set(),
   });
 
-  // Instagram-style lookahead: prefetch images for posts N+3..N+7 ahead of the
-  // current topmost visible post, using the SAME cardUrl()-transformed URL
-  // PostCard renders, so the prefetch warms the exact cache entry that will be
-  // used. Images only — videos/reels are explicitly out of scope for this pass.
+  // Stable ref to loadTabData — allows the stable viewable handlers (created once
+  // with useRef) to trigger proactive pagination without stale closures.
+  const loadTabDataRef = useRef<(tab: FeedTabId, reset?: boolean, silent?: boolean) => Promise<void>>(
+    () => Promise.resolve(),
+  );
+
+  // Rolling 10-item buffer: prefetch images for posts N+1..N+10 ahead of the
+  // current topmost visible post. Also triggers proactive data pagination when
+  // fewer than 10 posts remain in the buffer — so the next page is already
+  // loading before the user ever sees the bottom.
   const prefetchAhead = useCallback((tab: FeedTabId, fromIndex: number) => {
     const posts = tabStatesRef.current[tab].posts;
     const seen = prefetchedUrlsRef.current[tab];
-    for (let i = fromIndex + 3; i <= fromIndex + 7; i++) {
+    for (let i = fromIndex + 1; i <= fromIndex + 10; i++) {
       const post = posts[i] as any;
       if (!post) continue;
       const firstImage = post.images && post.images.length > 0 ? post.images[0] : post.image_url;
@@ -618,6 +624,12 @@ export default function FeedScreen() {
         // Non-fatal — a failed prefetch just means the normal on-render load path kicks in.
         seen.delete(url);
       });
+    }
+    // Data lookahead: when the user is within 10 posts of the end, proactively
+    // fetch the next page so there is always a full rolling buffer ready.
+    const state = tabStatesRef.current[tab];
+    if (fromIndex >= state.posts.length - 10 && state.hasMore && !state.loadingMore && !state.loading) {
+      void loadTabDataRef.current(tab);
     }
   }, []);
 
@@ -772,6 +784,9 @@ export default function FeedScreen() {
       updateTab(tab, { loading: false, loadingMore: false });
     }
   }, [userId, updateTab]);
+
+  // Keep the stable ref in sync whenever loadTabData is recreated (userId change, etc.)
+  useEffect(() => { loadTabDataRef.current = loadTabData; }, [loadTabData]);
 
   // Try to paint instantly from cache before hitting the network. If a fresh-
   // enough cached feed exists, render it immediately (no spinner) and kick off

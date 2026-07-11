@@ -619,6 +619,11 @@ export default function ReelsScreen() {
   const dragStartIndexRef = useRef(0);
   const [forYouReels, setForYouReels] = useState<Reel[]>([]);
   const [followingReels, setFollowingReels] = useState<Reel[]>([]);
+  // Rolling buffer: track all reel IDs seen this session so loadMoreReels can
+  // append only genuinely new items and never duplicate existing ones.
+  const seenReelIdsRef = useRef<Set<string>>(new Set());
+  // Guard: prevents concurrent loadMoreReels calls (one in-flight at a time).
+  const loadingMoreReelsRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [screenFocused, setScreenFocused] = useState(true);
@@ -737,7 +742,9 @@ export default function ReelsScreen() {
           const body = await res.json();
           const fyData: any[] = body.data ?? [];
           if (__DEV__) console.log(`[Reels] foryou rows=${fyData.length} source=${body.source} t=${Date.now() - t0}ms`);
-          setForYouReels(applyReelDiversity(fyData.map(rowToReel)));
+          const reels = applyReelDiversity(fyData.map(rowToReel));
+          reels.forEach((r) => seenReelIdsRef.current.add(r.id));
+          setForYouReels(reels);
         }
       } catch (e: any) {
         if (__DEV__) console.log(`[Reels] foryou error: ${e?.message} t=${Date.now() - t0}ms`);
@@ -751,7 +758,11 @@ export default function ReelsScreen() {
           const body = await res.json();
           const followData: any[] = body.data ?? [];
           if (__DEV__) console.log(`[Reels] following rows=${followData.length} t=${Date.now() - t0}ms`);
-          if (followData.length > 0) setFollowingReels(followData.map(rowToReel));
+          if (followData.length > 0) {
+            const reels = followData.map(rowToReel);
+            reels.forEach((r) => seenReelIdsRef.current.add(r.id));
+            setFollowingReels(reels);
+          }
         }
       } catch (e: any) {
         if (__DEV__) console.log(`[Reels] following error: ${e?.message} t=${Date.now() - t0}ms`);
@@ -788,6 +799,54 @@ export default function ReelsScreen() {
     setRefreshing(false);
   }, [loadFeed]);
 
+  // Rolling buffer for reels: fetch the next batch and append only genuinely
+  // new items (deduped via seenReelIdsRef). Called proactively when fewer than
+  // 10 reels remain ahead of the current active index so there is never a stall.
+  const loadMoreReels = useCallback(async (tab: "foryou" | "following") => {
+    if (loadingMoreReelsRef.current) return;
+    loadingMoreReelsRef.current = true;
+    try {
+      const uid = session?.user?.id;
+      const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
+      const mapRow = (r: any) => ({
+        id: r.id,
+        image: r.thumbnail_url ?? `https://picsum.photos/seed/${r.id}/450/900`,
+        videoUrl: r.video_url || undefined,
+        username: r.username ?? r.profiles?.username ?? "user",
+        caption: r.caption ?? "",
+        likes: r.likes_count ?? 0,
+        comments: r.comments_count ?? 0,
+        shares: r.shares_count ?? 0,
+        views: r.views_count ?? 0,
+        sound: r.sound_name ?? "Original Sound",
+        isVerified: r.is_verified ?? r.profiles?.is_verified ?? false,
+        allowDownload: r.allow_download ?? true,
+      });
+      if (tab === "foryou") {
+        const uidParam = uid ? `?userId=${encodeURIComponent(uid)}&limit=20` : "?limit=20";
+        const res = await fetch(`${API_BASE}/feed/reels${uidParam}`);
+        if (res.ok) {
+          const body = await res.json();
+          const fresh = (body.data ?? []).map(mapRow).filter((r: any) => !seenReelIdsRef.current.has(r.id));
+          fresh.forEach((r: any) => seenReelIdsRef.current.add(r.id));
+          if (fresh.length > 0) setForYouReels((prev) => [...prev, ...fresh]);
+        }
+      } else if (uid) {
+        const res = await fetch(`${API_BASE}/feed/following-reels?userId=${encodeURIComponent(uid)}&limit=20`);
+        if (res.ok) {
+          const body = await res.json();
+          const fresh = (body.data ?? []).map(mapRow).filter((r: any) => !seenReelIdsRef.current.has(r.id));
+          fresh.forEach((r: any) => seenReelIdsRef.current.add(r.id));
+          if (fresh.length > 0) setFollowingReels((prev) => [...prev, ...fresh]);
+        }
+      }
+    } catch {
+      // non-fatal — existing reels stay on screen
+    } finally {
+      loadingMoreReelsRef.current = false;
+    }
+  }, [session?.user?.id]);
+
   // Tap active Reels tab → jump to first reel + refresh (Instagram/TikTok pattern).
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener("reelsTabPressedWhileActive", () => {
@@ -809,12 +868,17 @@ export default function ReelsScreen() {
 
   // Sync the settled index after native snap completes.
   // snapToInterval handles all the actual snapping — we just track state here.
+  // Also implements the rolling 10-item buffer: when fewer than 10 reels remain
+  // ahead, proactively fetch more so the list never hits a stall.
   const onMomentumScrollEnd = useCallback((e: any) => {
     const idx = Math.round(e.nativeEvent.contentOffset.y / SCREEN_H);
     const clamped = Math.max(0, Math.min(idx, displayReels.length - 1));
     dragStartIndexRef.current = clamped;
     setActiveIndex(clamped);
-  }, [displayReels.length]);
+    if (displayReels.length - clamped < 10) {
+      void loadMoreReels(feedTabRef.current);
+    }
+  }, [displayReels.length, loadMoreReels]);
 
   const handleComplete = useCallback(() => {
     const next = activeIndex + 1;
