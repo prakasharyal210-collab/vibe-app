@@ -70,6 +70,7 @@ import {
   VibeMatchProfile,
   VibePrefsRow,
 } from "@/lib/db";
+import { getCachedVibeDeck, setCachedVibeDeck } from "@/lib/vibeCache";
 import { AchievementModal } from "@/components/AchievementModal";
 import { VibeCardDisplay } from "@/components/VibeCardDisplay";
 import { GradientButton } from "@/components/GradientButton";
@@ -2394,6 +2395,17 @@ function FindVibeContent() {
 
   const loadCards = async (uid: string, prefs: VibePrefsRow | null) => {
     setCardsLoading(true);
+
+    // Instant first paint: show cached deck immediately while the network fetch
+    // runs in the background. Cache TTL is 5 min (vibeCache.ts) so stale data
+    // is skipped automatically. The network result always wins and replaces this.
+    getCachedVibeDeck(uid).then((cached) => {
+      if (cached && cached.length > 0) {
+        setNearbyCards(cached as VibeMatchProfile[]);
+        setCardsLoading(false);
+      }
+    }).catch(() => {});
+
     try {
       const filters = prefs
         ? {
@@ -2452,6 +2464,9 @@ function FindVibeContent() {
         return (isNaN(da) ? 999 : da) - (isNaN(db) ? 999 : db);
       });
       setNearbyCards(sortedNearby);
+      // Persist fresh network result so next tab open (and the auth preload)
+      // has an up-to-date deck ready instantly.
+      if (sortedNearby.length > 0) void setCachedVibeDeck(uid, sortedNearby);
 
       // Load sameVibe cards non-blocking — getVibeMatches uses a direct anon-key RPC
       // that can hang forever under RLS, so never await it in the critical path.

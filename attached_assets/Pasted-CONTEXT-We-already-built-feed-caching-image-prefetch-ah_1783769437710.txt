@@ -1,0 +1,32 @@
+CONTEXT: We already built feed caching + image prefetch-ahead (N+3 to N+7) for the main Feed tonight. Now we want to extend this "always have 10+ items ready ahead of the user" philosophy to every major surface in the app, triggered at the right moments.
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54 / React Native)
+- API: artifacts/api-server
+- Deploy: JS-only changes are OTA-safe via eas update
+- Existing patterns to reuse: feedCache.ts, profileCache.ts, prefetchAhead() in feed.tsx — follow the same AsyncStorage + prefetch conventions already established, don't reinvent
+
+GOALS (implement one at a time, report after each, don't batch everything into one giant change):
+
+1. POST-AUTH PRELOAD: Immediately after signup or signin succeeds (before the user even lands on Feed), kick off background fetches for: first 10+ feed posts, first 10+ reels, and the user's own profile data — all in parallel. By the time the user's first screen renders, this data should already be in flight or cached, so Feed/Reels/Profile all feel instant on first open, not just on cache hits (which only help returning users, not brand new ones).
+
+2. FEED — DEEPER LOOKAHEAD: Confirm current behavior fetches 10+ posts per page (check actual PAGE_SIZE in feed.ts) and that scrolling to post 2 triggers fetching the NEXT 10+, maintaining a consistent "always have a full page buffered ahead" pattern — this may already mostly work from tonight's pagination fix, just verify and report actual current PAGE_SIZE.
+
+3. REELS PRELOAD: On entering the Reels tab, ensure at least 10+ reels are fetched upfront (check current reel fetch — is it already fetching this many, or fewer?). Combine with tonight's next-reel-buffer work — this task is about the INITIAL batch size, not the one-ahead video buffer (separate concern already done).
+
+4. FIND VIBE PRELOAD: When the user opens Find Vibe (or toggles into a specific mode/intention), fetch 10+ match profiles and 10+ "daily match" candidates upfront rather than loading a few and fetching more only on demand. Find the relevant Find Vibe data-fetching code and report current batch size before changing it.
+
+5. CONFESSION ROOM PRELOAD: When Couple Mode activates (partner request sent, or couple link confirmed), fetch 10+ confessions upfront for the Confession Room so it's ready the moment the user taps in, rather than starting from empty and fetching on first visit.
+
+FOR EACH ITEM:
+- Diagnose current batch size / fetch trigger first, report it
+- Only increase to 10+ if it's currently lower — don't blindly change working code
+- Reuse existing cache/prefetch utility patterns, don't create redundant new ones per screen
+- Typecheck after each item
+
+DO NOT:
+- Do not touch video/image transformation logic — just fetch counts and timing
+- Do not push or deploy until I've reviewed each piece
+- Do not attempt all 5 in one giant diff — implement and report one at a time so this stays reviewable
+
+Start with #1 (post-auth preload) and #2 (verify feed lookahead) first, report back, then continue to reels/find-vibe/confessions in follow-up passes.

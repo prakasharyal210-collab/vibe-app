@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { ensureUserSetup } from "@/lib/db";
 import { addNotificationResponseListener, registerForPushNotificationsAsync, setupNotificationHandler } from "@/lib/pushNotifications";
+import { preloadAfterAuth } from "@/lib/preloadCache";
 
 interface AuthContextType {
   session: Session | null;
@@ -105,6 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           registerForPushNotificationsAsync(u.id).catch(() => {});
+          // Warm Feed, Friends, Reels and Profile caches before the first
+          // screen renders — fire-and-forget, never blocks navigation.
+          preloadAfterAuth(u.id);
           setSession(newSession);
           return;
         }
@@ -116,6 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "user";
         ensureUserSetup(u.id, username, u.email ?? undefined).catch(() => {});
         registerForPushNotificationsAsync(u.id).catch(() => {});
+        // Warm Feed, Friends, Reels and Profile caches before the first
+        // screen renders — fire-and-forget, never blocks navigation.
+        preloadAfterAuth(u.id);
       } else if (newSession?.user && _event === "TOKEN_REFRESHED") {
         const u = newSession.user;
         const username =

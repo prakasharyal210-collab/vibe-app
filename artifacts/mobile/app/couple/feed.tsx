@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "@/context/AuthContext";
 import PollCard, { PollData } from "@/components/PollCard";
+import { getCachedCouplePosts, setCachedCouplePosts } from "@/lib/coupleCache";
 
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "").replace(/\/$/, "");
 
@@ -411,10 +412,24 @@ export default function CoupleFeedScreen() {
   }, [userId, token]);
 
   const fetchPosts = useCallback(async (silent = false) => {
+    const cId = coupleId ?? "";
+
+    // Instant first paint from cache — show stale data immediately so the
+    // screen never shows a blank spinner on re-focus. Network result replaces it.
+    if (!silent && cId) {
+      getCachedCouplePosts(cId).then((cached) => {
+        if (cached && (cached.newPosts.length > 0 || cached.hotPosts.length > 0)) {
+          setNewPosts(cached.newPosts as Post[]);
+          setHotPosts(cached.hotPosts as Post[]);
+          setLoading(false);
+        }
+      }).catch(() => {});
+    }
+
     if (!silent) setLoading(true);
     const gen = ++genRef.current;
     try {
-      const url = `${API_BASE}/api/couple-feed/posts?coupleId=${encodeURIComponent(coupleId ?? "")}`;
+      const url = `${API_BASE}/api/couple-feed/posts?coupleId=${encodeURIComponent(cId)}`;
       const res = await fetch(url, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -422,6 +437,10 @@ export default function CoupleFeedScreen() {
       if (gen === genRef.current) {
         setNewPosts(data.newPosts ?? []);
         setHotPosts(data.hotPosts ?? []);
+        // Persist fresh network result for next open
+        if (cId && (data.newPosts?.length > 0 || data.hotPosts?.length > 0)) {
+          void setCachedCouplePosts(cId, { newPosts: data.newPosts ?? [], hotPosts: data.hotPosts ?? [] });
+        }
       }
     } catch {
       if (gen === genRef.current) {
