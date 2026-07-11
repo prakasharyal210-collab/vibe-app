@@ -45,6 +45,7 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { ShareSheet } from "@/components/ShareSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/AuthContext";
 import { checkReelLiked, likeReelOnly, toggleReelLike, toggleLike, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
@@ -626,6 +627,7 @@ export default function ReelsScreen() {
   const loadingMoreReelsRef = useRef(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [reelsError, setReelsError] = useState(false);
   const [screenFocused, setScreenFocused] = useState(true);
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
@@ -729,9 +731,30 @@ export default function ReelsScreen() {
       };
     }
 
+    // ── Instant first paint from lightweight reel metadata cache ─────────────
+    // Only caches For You (the primary tab); Following is user-specific and
+    // changes more often. TTL: 10 min. Stores only metadata, NOT video bytes.
+    const REELS_CACHE_KEY = "gundruk_reels_foryou_v1";
+    const REELS_CACHE_TTL = 10 * 60 * 1000;
+    let cacheLoaded = false;
+    try {
+      const raw = await AsyncStorage.getItem(REELS_CACHE_KEY);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw) as { data: Reel[]; ts: number };
+        if (Array.isArray(data) && data.length > 0 && Date.now() - ts < REELS_CACHE_TTL) {
+          data.forEach((r) => seenReelIdsRef.current.add(r.id));
+          setForYouReels(data);
+          cacheLoaded = true;
+          setLoading(false);
+          if (__DEV__) console.log(`[Reels] cache hit rows=${data.length} age=${Math.round((Date.now() - ts) / 1000)}s`);
+        }
+      }
+    } catch { /* cache miss — continue to network */ }
+
     // ── Run For You + Following in parallel ──────────────────────────────────
     // Previously serial (await forYou, then await following). Now both fire
     // simultaneously; total wall time = max(forYou, following) not sum.
+    let forYouFetchSucceeded = false;
     const forYouTask = (async () => {
       try {
         const uidParam = uid ? `?userId=${encodeURIComponent(uid)}&limit=20` : `?limit=20`;
@@ -745,6 +768,9 @@ export default function ReelsScreen() {
           const reels = applyReelDiversity(fyData.map(rowToReel));
           reels.forEach((r) => seenReelIdsRef.current.add(r.id));
           setForYouReels(reels);
+          forYouFetchSucceeded = true;
+          // Persist lightweight metadata so the next cold start paints instantly.
+          AsyncStorage.setItem(REELS_CACHE_KEY, JSON.stringify({ data: reels, ts: Date.now() })).catch(() => {});
         }
       } catch (e: any) {
         if (__DEV__) console.log(`[Reels] foryou error: ${e?.message} t=${Date.now() - t0}ms`);
@@ -771,6 +797,12 @@ export default function ReelsScreen() {
 
     await Promise.all([forYouTask, followingTask]);
     if (__DEV__) console.log(`[Reels] both feeds settled t=${Date.now() - t0}ms`);
+    // Cold-start failure: network fetch failed AND no valid cache was available.
+    // Show an explicit error state rather than the misleading "No reels yet" CTA.
+    // Warm-cache + failed background refresh stays silent (cacheLoaded=true path).
+    if (!forYouFetchSucceeded && !cacheLoaded) {
+      setReelsError(true);
+    }
     setLoading(false);
   }, [session?.user?.id]);
 
@@ -795,6 +827,7 @@ export default function ReelsScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    setReelsError(false);
     await loadFeed();
     setRefreshing(false);
   }, [loadFeed]);
@@ -966,6 +999,19 @@ export default function ReelsScreen() {
             // Replaces the jarring "No reels yet" flash on cold start.
             <View style={[S.emptyState, { height: SCREEN_H, justifyContent: "center" }]}>
               <ActivityIndicator size="large" color="#7C3AED" />
+            </View>
+          ) : reelsError ? (
+            // Cold-start network failure — show an explicit error, not the empty CTA.
+            <View style={[S.emptyState, { height: SCREEN_H }]}>
+              <Text style={S.emptyEmoji}>😕</Text>
+              <Text style={S.emptyTitle}>Couldn't load reels</Text>
+              <Text style={S.emptySub}>Check your connection and try again.</Text>
+              <TouchableOpacity
+                onPress={() => { setReelsError(false); void loadFeed(); }}
+                style={S.emptyBtn}
+              >
+                <Text style={S.emptyBtnText}>Retry</Text>
+              </TouchableOpacity>
             </View>
           ) : feedTab === "following" ? (
             <View style={[S.emptyState, { height: SCREEN_H }]}>

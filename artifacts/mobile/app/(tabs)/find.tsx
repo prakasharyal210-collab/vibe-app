@@ -2406,8 +2406,13 @@ function FindVibeContent() {
     // Instant first paint: show cached deck immediately while the network fetch
     // runs in the background. Cache TTL is 5 min (vibeCache.ts) so stale data
     // is skipped automatically. The network result always wins and replaces this.
+    // Track whether cache successfully painted data before the network result
+    // arrives — used to decide if a fetch failure is a cold-start failure (show
+    // error UI) or a warm-cache background-refresh failure (stay silent).
+    let cacheLoaded = false;
     getCachedVibeDeck(uid).then((cached) => {
       if (cached && cached.length > 0) {
+        cacheLoaded = true;
         setNearbyCards(cached as VibeMatchProfile[]);
         setCardsLoading(false);
       }
@@ -2483,6 +2488,9 @@ function FindVibeContent() {
         })
         .catch(() => {});
     } catch {
+      // Cold-start failure: no cache was available to fall back on → show the
+      // existing error UI (screenError). If cache painted stale data, stay silent.
+      if (!cacheLoaded) setScreenError(true);
     } finally {
       setCardsLoading(false);
     }

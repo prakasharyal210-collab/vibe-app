@@ -1,0 +1,17 @@
+CONTEXT: Diagnostic complete. All four screens (Feed, Reels, Find Vibe, Confession Room) misread network failures as "genuinely empty" instead of "failed to load" — no error messaging, no retry option. Find Vibe already has a polished error UI at line 2563 that's simply never triggered (setScreenError is never called). Reels has no cache at all, making it the most exposed.
+
+TASK: Fix all four, reusing the Profile screen's retry pattern (3 attempts with backoff, then error state) as the reference implementation.
+
+1. FEED (feed.tsx): In the catch block (~line 772), distinguish "genuinely empty" from "fetch failed" — add an error state. On cold-start failure (no cache to fall back on), show a proper error card with Retry, not the "No posts yet" CTA. Keep the existing cache-masks-failure behavior for warm starts as-is (that's correct).
+
+2. REELS (index.tsx): This is the most exposed — no cache, no error handling. Add: (a) basic reel-list caching mirroring feedCache.ts's pattern (cache lightweight reel metadata, NOT video files, consistent with tonight's bandwidth-safety confirmation), (b) proper error state distinct from "No reels yet" when a cold-start fetch actually fails, with a Retry button.
+
+3. FIND VIBE (find.tsx): The error UI already exists and looks correct — just wire it up. Find every catch block that currently only sets cardsLoading(false) or is empty (init useEffect ~line 2395, loadCards ~line 2485) and add setScreenError(true) when the failure is a genuine cold-start failure (no cache available to fall back on). Do NOT trigger the error state when cache successfully painted stale data — that path should stay silent per the existing acceptable behavior.
+
+4. CONFESSION ROOM (couple/feed.tsx): Same pattern — in fetchPosts's catch (~line 464), when there's no existing/cached posts to fall back on (cold start), show a proper error state with Retry instead of the "No confessions yet" CTA. Keep the existing "keep existing posts on failure" behavior for warm cache hits as-is.
+
+For all four: the RULE is — cold start + fetch fails = show error+retry, never the misleading "empty" CTA. Warm cache + background refresh fails = stay silent, keep showing cached content (already working correctly, don't change this part).
+
+Typecheck each after implementing. Do one screen at a time, report after each.
+
+DO NOT push or deploy — report first, review each screen's fix before moving to the next.

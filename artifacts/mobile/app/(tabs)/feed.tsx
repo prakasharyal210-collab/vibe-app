@@ -172,6 +172,7 @@ interface TabState {
   loadingMore: boolean;
   offset: number;
   hasMore: boolean;
+  hasError: boolean;
 }
 
 const INIT_TAB: TabState = {
@@ -180,6 +181,7 @@ const INIT_TAB: TabState = {
   loadingMore: false,
   offset: 0,
   hasMore: true,
+  hasError: false,
 };
 
 const TABS: { id: FeedTabId; label: string }[] = [
@@ -700,7 +702,7 @@ export default function FeedScreen() {
     const previousPosts = reset ? [...tabStatesRef.current[tab].posts] : [];
 
     if (reset) {
-      if (!silent) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true });
+      if (!silent) updateTab(tab, { loading: true, posts: [], offset: 0, hasMore: true, hasError: false });
       // else: keep the cache-hydrated posts on screen, no spinner, no wipe.
     } else {
       updateTab(tab, { loadingMore: true });
@@ -771,13 +773,19 @@ export default function FeedScreen() {
       }
     } catch (e: any) {
       console.log('[loadTabData] CATCH tab:', tab, 'error:', e?.message, '| previousPosts:', previousPosts.length);
-      // Refresh failed — restore the pre-refresh snapshot so the feed never goes
-      // blank. Only applies to resets (pull-to-refresh / tab-tap refresh) where
-      // we had real posts before. A first-ever load failure correctly shows empty.
       if (reset && previousPosts.length > 0) {
+        // Pull-to-refresh / tab-tap failure — restore the pre-refresh snapshot so
+        // the feed never goes blank. User already had real posts; don't wipe them.
         console.log('[loadTabData] restoring', previousPosts.length, 'posts for tab:', tab);
         updateTab(tab, { posts: previousPosts, offset: previousPosts.length, hasMore: true });
+      } else if (previousPosts.length === 0) {
+        // Cold-start failure — no cache, no posts to fall back on. Show an explicit
+        // error state so the user sees "failed to load" rather than "genuinely empty".
+        updateTab(tab, { hasError: true });
       }
+      // Silent background-refresh failure (reset=false, previousPosts populated via
+      // cache): fall through to finally only — cached content stays on screen, no
+      // error indicator shown (acceptable per spec).
     } finally {
       // Always unblock the UI — guards every path including AbortError timeouts
       // and the early-return for no-userId, ensuring loadingMore never stays stuck.
@@ -987,6 +995,24 @@ export default function FeedScreen() {
     if (state.loading) {
       return <View>{[1, 2].map((i) => <SkeletonPost key={i} />)}</View>;
     }
+    // Cold-start network failure — show an explicit error card, not the "empty" CTA.
+    if (state.hasError) {
+      return (
+        <View style={emptyStyles.wrap}>
+          <Text style={emptyStyles.emoji}>😕</Text>
+          <Text style={[emptyStyles.title, { color: colors.foreground }]}>Couldn't load feed</Text>
+          <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>
+            Check your connection and tap Retry.
+          </Text>
+          <TouchableOpacity
+            style={emptyStyles.actionBtn}
+            onPress={() => loadTabWithCache(tabId)}
+          >
+            <Text style={emptyStyles.actionBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     if (tabId === "foryou") {
       if (isTrending) return null;
       if (isPolls) {
@@ -1032,7 +1058,7 @@ export default function FeedScreen() {
       );
     }
     return null;
-  }, [tabStates, colors, isTrending, isPolls, router]);
+  }, [tabStates, colors, isTrending, isPolls, router, loadTabWithCache]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]} {...mainTabSwipe.panHandlers}>

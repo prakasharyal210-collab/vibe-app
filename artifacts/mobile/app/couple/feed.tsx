@@ -392,6 +392,7 @@ export default function CoupleFeedScreen() {
   const [newPosts, setNewPosts] = useState<Post[]>([]);
   const [hotPosts, setHotPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confessionError, setConfessionError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [unreadCount, setUnreadCount] = useState(0);
@@ -447,6 +448,21 @@ export default function CoupleFeedScreen() {
 
     if (!silent) setLoading(true);
     const gen = ++genRef.current;
+
+    // Track whether cache painted data before the network result arrives.
+    // A cache hit means the user already sees content, so a subsequent network
+    // failure should stay silent. A cold-start failure with no cache should
+    // show an explicit error rather than the misleading "No confessions yet" CTA.
+    let cacheLoaded = false;
+    if (!silent && cId) {
+      try {
+        const cached = await getCachedCouplePosts(cId);
+        if (gen === genRef.current && cached && (cached.newPosts.length > 0 || cached.hotPosts.length > 0)) {
+          cacheLoaded = true;
+        }
+      } catch { /* ignore */ }
+    }
+
     try {
       const url = `${API_BASE}/api/couple-feed/posts?coupleId=${encodeURIComponent(cId)}`;
       const res = await fetch(url, {
@@ -456,6 +472,7 @@ export default function CoupleFeedScreen() {
       if (gen === genRef.current) {
         setNewPosts(data.newPosts ?? []);
         setHotPosts(data.hotPosts ?? []);
+        setConfessionError(false);
         // Persist fresh network result for next open
         if (cId && (data.newPosts?.length > 0 || data.hotPosts?.length > 0)) {
           void setCachedCouplePosts(cId, { newPosts: data.newPosts ?? [], hotPosts: data.hotPosts ?? [] });
@@ -463,8 +480,14 @@ export default function CoupleFeedScreen() {
       }
     } catch {
       if (gen === genRef.current) {
-        // Refresh failed — keep existing posts visible; never blank a working feed.
-        console.log('[fetchPosts] error — keeping existing posts, not wiping');
+        if (cacheLoaded) {
+          // Warm-cache background refresh failed — keep cached content visible, stay silent.
+          console.log('[fetchPosts] network error — cached content stays on screen');
+        } else {
+          // Cold-start failure — no cached content to fall back on.
+          console.log('[fetchPosts] cold-start error — showing error state');
+          setConfessionError(true);
+        }
       }
     } finally {
       if (gen === genRef.current) setLoading(false);
@@ -589,6 +612,19 @@ export default function CoupleFeedScreen() {
       {loading ? (
         <View style={s.center}>
           <ActivityIndicator color="#ffffff" size="large" />
+        </View>
+      ) : confessionError ? (
+        // Cold-start network failure — show explicit error, not "No confessions yet".
+        <View style={s.empty}>
+          <Text style={s.emptyEmoji}>😕</Text>
+          <Text style={[s.emptyTitle, { color: "#ffffff" }]}>Couldn't load confessions</Text>
+          <Text style={[s.emptySub, { color: "rgba(255,255,255,0.6)" }]}>Check your connection and tap Retry.</Text>
+          <TouchableOpacity
+            onPress={() => { setConfessionError(false); fetchPosts(); }}
+            style={s.emptyBtn}
+          >
+            <Text style={s.emptyBtnText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : listData.length === 0 ? (
         <View style={s.empty}>
