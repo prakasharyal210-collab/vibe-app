@@ -1,3 +1,4 @@
+- [cardUrl resize=contain rule](cardurl-resize-contain.md) — card preset must stay resize=contain; cover forces 800×800 square, breaking onLoad aspect ratio detection
 - [Vibe app mock-to-Supabase audit](vibe-supabase-audit.md) — all mock initial states removed; profile screen rewired to real DB lookups
 - [For You feed v2 prod state](for-you-feed-v2-prod-state.md) — v2's category-affinity term is a silent no-op in prod (categories[] never backfilled); posts.score mostly stale (cron never scheduled); use singular posts.category instead.
 - [Vibe ads system](ads-system.md) — feed ads every 4 posts, reel ads every 3 reels; house ads fallback; AdCard + ReelAdCard + advertise screen all wired in.

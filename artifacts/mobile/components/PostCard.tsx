@@ -830,7 +830,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                     cachePolicy="memory-disk"
                     transition={200}
                     recyclingKey={item}
-                    onLoad={index === 0 ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
+                    onLoad={index === 0 && !knownAspectRatio ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
                   />
                 </TouchableOpacity>
               )}
