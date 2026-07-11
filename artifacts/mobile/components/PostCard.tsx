@@ -189,6 +189,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   // Tracks image URLs whose cardUrl() transform failed — triggers fallback to original URL.
   // Keyed by the original (untransformed) URL. Reset per-PostCard instance.
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  // Tracks URLs where BOTH the transformed and original URLs failed to load.
+  // These receive the "image unavailable" placeholder instead of a dark box.
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const insets = useSafeAreaInsets();
   const qrViewRef = useRef<View>(null);
   // Initialise from module-level cache so already-seen posts render at the
@@ -820,12 +823,23 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               showsHorizontalScrollIndicator={false}
               onScroll={onScroll}
               scrollEventThrottle={16}
-              extraData={{ mediaAspectRatio, imageErrors }}
+              extraData={{ mediaAspectRatio, imageErrors, brokenImages }}
               style={{ height: imgH }}
               renderItem={({ item, index }) => {
                 const usingFallback = imageErrors.has(item);
-                // cardUrl() failed for this URL — use original. If original also
-                // fails the image stays black; at least we logged it.
+                const isConfirmedBroken = brokenImages.has(item);
+
+                // Confirmed broken — both transform and original URL failed.
+                // Show a neutral placeholder instead of a persistent dark box.
+                if (isConfirmedBroken) {
+                  return (
+                    <View style={[styles.imageBrokenContainer, { width: CARD_W, height: imgH }]}>
+                      <Ionicons name="image-outline" size={36} color="rgba(255,255,255,0.25)" />
+                      <Text style={styles.imageBrokenText}>Image unavailable</Text>
+                    </View>
+                  );
+                }
+
                 const sourceUri = usingFallback ? item : (cardUrl(item) ?? item);
                 return (
                 <TouchableOpacity
@@ -842,8 +856,14 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                     onLoad={index === 0 && !knownAspectRatio ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
                     onError={() => {
                       if (usingFallback) {
-                        // Already on the original URL — genuine failure (file missing or network error).
+                        // Both transform and original URL failed — confirmed broken.
+                        // Swap in the "unavailable" placeholder and log for triage.
                         console.warn(`[PostCard] image load failed even on fallback URL. post=${post.id} url=...${item?.slice(-50)}`);
+                        setBrokenImages((prev) => {
+                          const next = new Set(prev);
+                          next.add(item);
+                          return next;
+                        });
                         return;
                       }
                       // First failure — cardUrl() transform returned an error.
@@ -1309,10 +1329,22 @@ const styles = StyleSheet.create({
     width: CARD_W,
     position: "relative",
     overflow: "hidden",
-    // Neutral dark-gray background — visually distinct from the near-black card
-    // background so a total image-load failure reads as "broken image" rather
-    // than an invisible void blending into the card.
+    // Neutral dark-gray background — visible during loading / fallback retry.
+    // Confirmed-broken images never reach this state; they render the
+    // imageBrokenContainer placeholder instead.
     backgroundColor: "#1E1E1E",
+  },
+  imageBrokenContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A1A1A",
+    gap: 8,
+  },
+  imageBrokenText: {
+    fontSize: 12,
+    fontFamily: "Poppins_400Regular",
+    color: "rgba(255,255,255,0.3)",
+    letterSpacing: 0.3,
   },
   shimmer: {
     backgroundColor: "rgba(255,255,255,0.06)",
