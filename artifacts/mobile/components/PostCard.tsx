@@ -41,6 +41,7 @@ import { ShareSheet } from "@/components/ShareSheet";
 import { useColors } from "@/hooks/useColors";
 import { Post, timeAgo } from "@/lib/supabase";
 import { cardUrl } from "@/lib/imageUrl";
+import { captureMessage } from "@/lib/sentry";
 import { UserAvatar } from "./UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -185,6 +186,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   const [hideLikeCount, setHideLikeCount] = useState((post as any).hide_like_count ?? false);
   const [allowComments, setAllowComments] = useState((post as any).allow_comments !== false);
   const [isPinned, setIsPinned] = useState((post as any).is_pinned ?? false);
+  // Tracks image URLs whose cardUrl() transform failed — triggers fallback to original URL.
+  // Keyed by the original (untransformed) URL. Reset per-PostCard instance.
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const insets = useSafeAreaInsets();
   const qrViewRef = useRef<View>(null);
   // Initialise from module-level cache so already-seen posts render at the
@@ -816,24 +820,50 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               showsHorizontalScrollIndicator={false}
               onScroll={onScroll}
               scrollEventThrottle={16}
-              extraData={mediaAspectRatio}
+              extraData={{ mediaAspectRatio, imageErrors }}
               style={{ height: imgH }}
-              renderItem={({ item, index }) => (
+              renderItem={({ item, index }) => {
+                const usingFallback = imageErrors.has(item);
+                // cardUrl() failed for this URL — use original. If original also
+                // fails the image stays black; at least we logged it.
+                const sourceUri = usingFallback ? item : (cardUrl(item) ?? item);
+                return (
                 <TouchableOpacity
                   activeOpacity={0.9}
                   onPress={() => handleMediaTap(images.indexOf(item))}
                 >
                   <Image
-                    source={{ uri: cardUrl(item) }}
+                    source={{ uri: sourceUri ?? undefined }}
                     style={{ width: CARD_W, height: imgH }}
                     contentFit={imgResizeMode}
                     cachePolicy="memory-disk"
                     transition={200}
                     recyclingKey={item}
                     onLoad={index === 0 && !knownAspectRatio ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
+                    onError={() => {
+                      if (usingFallback) {
+                        // Already on the original URL — genuine failure (file missing or network error).
+                        console.warn(`[PostCard] image load failed even on fallback URL. post=${post.id} url=...${item?.slice(-50)}`);
+                        return;
+                      }
+                      // First failure — cardUrl() transform returned an error.
+                      // Fall back to the original untransformed URL and log for Sentry triage.
+                      console.warn(`[PostCard] image transform failed, retrying with original URL. post=${post.id} url=...${item?.slice(-50)}`);
+                      captureMessage("image_transform_fallback", {
+                        postId: post.id,
+                        urlSuffix: item?.slice(-80),
+                        preset: "card",
+                      });
+                      setImageErrors((prev) => {
+                        const next = new Set(prev);
+                        next.add(item);
+                        return next;
+                      });
+                    }}
                   />
                 </TouchableOpacity>
-              )}
+                );
+              }}
               scrollEnabled={images.length > 1}
             />
             {images.length > 1 && (
@@ -1279,6 +1309,10 @@ const styles = StyleSheet.create({
     width: CARD_W,
     position: "relative",
     overflow: "hidden",
+    // Neutral dark-gray background — visually distinct from the near-black card
+    // background so a total image-load failure reads as "broken image" rather
+    // than an invisible void blending into the card.
+    backgroundColor: "#1E1E1E",
   },
   shimmer: {
     backgroundColor: "rgba(255,255,255,0.06)",

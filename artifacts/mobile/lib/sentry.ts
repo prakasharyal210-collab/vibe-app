@@ -41,6 +41,19 @@ export function captureException(error: unknown): void {
   }
 }
 
+export function captureMessage(message: string, extras?: Record<string, unknown>): void {
+  try {
+    if (SentryModule) {
+      SentryModule.captureMessage(message, {
+        level: "warning",
+        extra: extras,
+      });
+    }
+  } catch {
+    // Never let error reporting itself crash the app.
+  }
+}
+
 /**
  * Wraps the root component with Sentry.wrap() (navigation/render crash
  * capture). Returns the component unchanged if Sentry never initialized
