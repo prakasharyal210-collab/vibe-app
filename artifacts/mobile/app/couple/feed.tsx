@@ -3,8 +3,6 @@ import {
   Alert,
   Animated,
   ActivityIndicator,
-  FlatList,
-  Image,
   Modal,
   RefreshControl,
   ScrollView,
@@ -14,6 +12,9 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
+import { FlashList } from "@shopify/flash-list";
+import { cardUrl, thumbUrl } from "@/lib/imageUrl";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -93,7 +94,7 @@ function AvatarPair({
     <View style={{ flexDirection: "row" }}>
       <TouchableOpacity onPress={onPressAuthor} activeOpacity={onPressAuthor ? 0.7 : 1} disabled={!onPressAuthor}>
         {author?.avatar ? (
-          <Image source={{ uri: author.avatar }} style={s.avatar} />
+          <ExpoImage source={thumbUrl(author.avatar)} style={s.avatar} contentFit="cover" cachePolicy="memory-disk" transition={150} />
         ) : (
           <View style={[s.avatar, s.avatarPlaceholder]}>
             <Ionicons name="person" size={14} color="#555555" />
@@ -108,7 +109,7 @@ function AvatarPair({
           style={{ marginLeft: -8 }}
         >
           {partner.avatar ? (
-            <Image source={{ uri: partner.avatar }} style={s.avatar} />
+            <ExpoImage source={thumbUrl(partner.avatar)} style={s.avatar} contentFit="cover" cachePolicy="memory-disk" transition={150} />
           ) : (
             <View style={[s.avatar, s.avatarPlaceholder]}>
               <Ionicons name="person" size={14} color="#555555" />
@@ -275,12 +276,15 @@ function PostCard({
         <ExpandableText text={post.content} />
 
         {post.photo_url?.startsWith("http") ? (
-          <Image
-            source={{ uri: post.photo_url }}
+          <ExpoImage
+            source={cardUrl(post.photo_url)}
             style={[s.postPhoto, { height: photoHeight }]}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={200}
+            recyclingKey={post.photo_url}
             onLoad={(e) => {
-              const { width: w, height: h } = e.nativeEvent.source;
+              const { width: w, height: h } = e.source;
               if (w && h) {
                 const cardWidth = screenWidth - 32;
                 setPhotoHeight(Math.min((cardWidth / w) * h, MAX_PHOTO_HEIGHT));
@@ -412,7 +416,7 @@ export default function CoupleFeedScreen() {
         const url: string | null = item.photo_url ?? item.author?.avatar ?? null;
         if (!url || seenConfessionImgsRef.current.has(url)) continue;
         seenConfessionImgsRef.current.add(url);
-        Image.prefetch(url).catch(() => { seenConfessionImgsRef.current.delete(url); });
+        ExpoImage.prefetch(url).catch(() => { seenConfessionImgsRef.current.delete(url); });
       }
     }
   ).current;
@@ -644,7 +648,7 @@ export default function CoupleFeedScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList<ListItem>
+        <FlashList<ListItem>
           data={listData}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {

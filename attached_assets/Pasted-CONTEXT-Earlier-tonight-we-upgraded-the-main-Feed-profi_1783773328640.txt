@@ -1,0 +1,25 @@
+CONTEXT: Earlier tonight we upgraded the main Feed, profile grid, and hashtag/location/sounds grids to expo-image (with caching, transitions, recyclingKey) and FlashList (for performance). We need to check if Find Vibe (find.tsx) and Confession Room (couple/feed.tsx) got left behind using the old React Native Image and FlatList, since we just touched both of them for error-state work but haven't audited their image/list performance.
+
+TASK: Diagnose first, then implement if needed.
+
+DIAGNOSE:
+1. In find.tsx (SwipeCardDeck and any related components) — what image component renders profile photos on the swipe cards? React Native's default Image, or already expo-image?
+2. In couple/feed.tsx — what image component renders confession photos and author avatars? Default Image or expo-image?
+3. What list component does Find Vibe use for the card deck (if it's a scrollable/swipeable list structure at all — SwipeCardDeck might be custom, not a FlatList, in which case FlashList conversion may not apply)?
+4. What list component does Confession Room use — FlatList or already FlashList?
+5. Report current findings before making changes.
+
+IMPLEMENT (only for what's actually still on the old stack):
+1. If Find Vibe uses default Image for profile photos: convert to expo-image with the same pattern used elsewhere tonight (contentFit, cachePolicy="memory-disk", transition={200}, recyclingKey where applicable). Also apply the Supabase image transformation (cardUrl() or thumbUrl() from imageUrl.ts, whichever fits the card size) if not already applied.
+2. If Confession Room uses default Image: same conversion, same transformation helper usage.
+3. If Confession Room uses FlatList (not FlashList) for the confession list: convert following the same pattern as tonight's other FlashList conversions (remove estimatedItemSize if not needed per FlashList v2, verify no breaking prop mismatches).
+4. If Find Vibe's card deck is a custom swipe component (not a standard list), do NOT force a FlashList conversion — report that it's out of scope and explain why, rather than breaking working swipe-gesture code for no benefit.
+
+Typecheck after each file changed.
+
+AFTER:
+- Report every file changed
+- Confirm OTA-safe
+- Report clearly if any surface was already using expo-image/FlashList and needed no changes — don't fix what isn't broken
+
+DO NOT push or deploy — report first.

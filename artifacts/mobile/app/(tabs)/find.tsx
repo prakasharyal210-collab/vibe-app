@@ -10,7 +10,6 @@ import {
   Alert,
   Dimensions,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   PanResponder,
@@ -23,6 +22,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { Image as ExpoImage } from "expo-image";
+import { cardUrl, thumbUrl } from "@/lib/imageUrl";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
@@ -398,12 +399,12 @@ function VibeGamesModal({ card, visible, onComplete, onSkip }: {
 
               <View style={gameStyles.photoRow}>
                 <View style={gameStyles.photoWrap}>
-                  <Image source={{ uri: card.image }} style={gameStyles.playerPhoto} />
+                  <ExpoImage source={thumbUrl(card.image)} style={gameStyles.playerPhoto} contentFit="cover" cachePolicy="memory-disk" transition={150} />
                   <Text style={gameStyles.photoLabel}>{card.name}</Text>
                 </View>
                 <Text style={gameStyles.vsText}>⚡</Text>
                 <View style={gameStyles.photoWrap}>
-                  <Image source={{ uri: "https://picsum.photos/seed/myprofile/100/100" }} style={gameStyles.playerPhoto} />
+                  <ExpoImage source="https://picsum.photos/seed/myprofile/100/100" style={gameStyles.playerPhoto} contentFit="cover" cachePolicy="memory-disk" />
                   <Text style={gameStyles.photoLabel}>You</Text>
                 </View>
               </View>
@@ -521,7 +522,7 @@ function DailyVibeSection({ onViewProfile, onConnect }: { onViewProfile: (card: 
 
       <Animated.View style={cardAnim}>
         <TouchableOpacity onPress={() => onViewProfile(activeCard)} activeOpacity={0.92} style={dailyStyles.card}>
-          <Image source={{ uri: activeCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <ExpoImage source={cardUrl(activeCard.image)} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={activeCard.id} />
           <LinearGradient colors={["rgba(234,179,8,0.3)", "transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
 
           <View style={dailyStyles.goldBorderOverlay} pointerEvents="none" />
@@ -637,7 +638,7 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
 
   React.useEffect(() => {
     const nextUrl = photos[photoIdx + 1];
-    if (nextUrl) Image.prefetch(nextUrl).catch(() => {});
+    if (nextUrl) ExpoImage.prefetch(nextUrl).catch(() => {});
   }, [photos, photoIdx]);
 
   const currentPhoto = photos[Math.min(photoIdx, photos.length - 1)] ?? card.image;
@@ -650,7 +651,7 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={profileStyles.overlay}>
         <View style={[profileStyles.sheet, { backgroundColor: colors.card }]}>
-          <Image source={{ uri: currentPhoto }} style={profileStyles.photo} resizeMode="cover" />
+          <ExpoImage source={cardUrl(currentPhoto)} style={profileStyles.photo} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={currentPhoto} />
           <LinearGradient colors={["transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
 
           {hasMultiple && (
@@ -902,7 +903,7 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
           <View style={matchStyles.photoWrap}>
             <LinearGradient colors={["#EA580C", "#7C3AED"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchStyles.photoRing}>
               <View style={matchStyles.photoCircle}>
-                <Image source={{ uri: "https://picsum.photos/seed/me/200/200" }} style={{ width: "100%", height: "100%" }} />
+                <ExpoImage source="https://picsum.photos/seed/me/200/200" style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
               </View>
             </LinearGradient>
             <Text style={matchStyles.photoName}>You</Text>
@@ -911,7 +912,7 @@ function MatchOverlay({ card, onClose }: { card: VibeCard; onClose: () => void }
           <View style={matchStyles.photoWrap}>
             <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchStyles.photoRing}>
               <View style={matchStyles.photoCircle}>
-                <Image source={{ uri: card.image }} style={{ width: "100%", height: "100%" }} />
+                <ExpoImage source={thumbUrl(card.image)} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" transition={150} recyclingKey={card.id} />
               </View>
             </LinearGradient>
             <Text style={matchStyles.photoName}>{card.name}</Text>
@@ -1234,12 +1235,12 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
     <View style={styles.deckArea}>
       {thirdCard && (
         <View style={[styles.card, { height: CARD_H, transform: [{ scale: 0.88 }, { translateY: 30 }], zIndex: 1 }]}>
-          <Image source={{ uri: thirdCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <ExpoImage source={cardUrl(thirdCard.image)} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={thirdCard.id} />
         </View>
       )}
       {nextCard && (
         <Animated.View style={[styles.card, { height: CARD_H, zIndex: 2 }, nextCardStyle]}>
-          <Image source={{ uri: nextCard.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <ExpoImage source={cardUrl(nextCard.image)} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={nextCard.id} />
           <LinearGradient colors={["transparent", "transparent", "rgba(0,0,0,0.6)", "rgba(0,0,0,0.95)"]} locations={[0, 0.4, 0.72, 1]} style={StyleSheet.absoluteFill} />
         </Animated.View>
       )}
@@ -1395,7 +1396,7 @@ function SuggestedAccountsSection({ userId }: { userId?: string }) {
                 <Ionicons name="close" size={13} color={colors.mutedForeground} />
               </TouchableOpacity>
               {item.avatar_url ? (
-                <Image source={{ uri: item.avatar_url }} style={saStyles.avatar} />
+                <ExpoImage source={thumbUrl(item.avatar_url)} style={saStyles.avatar} contentFit="cover" cachePolicy="memory-disk" transition={150} />
               ) : (
                 <View style={[saStyles.avatar, { backgroundColor: "rgba(124,58,237,0.25)", alignItems: "center", justifyContent: "center" }]}>
                   <Text style={{ fontSize: 22 }}>👤</Text>
@@ -1605,7 +1606,7 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
                   onPress={() => setProfileCard(user)}
                   activeOpacity={0.88}
                 >
-                  <Image source={{ uri: user.image }} style={gusStyles.photo} />
+                  <ExpoImage source={cardUrl(user.image)} style={gusStyles.photo} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={user.id} />
                   <View style={gusStyles.cardBody}>
                     <Text style={[gusStyles.name, { color: colors.foreground }]} numberOfLines={1}>
                       {user.name}, {user.age}
@@ -1841,7 +1842,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
             style={matchTabStyles.newMatchToastInner}
             activeOpacity={0.9}
           >
-            <Image source={{ uri: newMatchToast.image }} style={matchTabStyles.toastPhoto} />
+            <ExpoImage source={thumbUrl(newMatchToast.image)} style={matchTabStyles.toastPhoto} contentFit="cover" cachePolicy="memory-disk" transition={150} recyclingKey={newMatchToast.id} />
             <View style={{ flex: 1 }}>
               <Text style={matchTabStyles.toastTitle}>💜 New Match!</Text>
               <Text style={matchTabStyles.toastName}>{newMatchToast.name}</Text>
@@ -1916,7 +1917,7 @@ function MatchesTab({ userId, onSwitchToNear }: { userId: string; onSwitchToNear
                     {/* Gradient ring + photo */}
                     <TouchableOpacity onPress={() => router.push(`/profile/${m.username}` as any)} activeOpacity={0.85}>
                       <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={matchTabStyles.photoRing}>
-                        <Image source={{ uri: m.image }} style={matchTabStyles.photo} />
+                        <ExpoImage source={thumbUrl(m.image)} style={matchTabStyles.photo} contentFit="cover" cachePolicy="memory-disk" transition={150} recyclingKey={m.id} />
                       </LinearGradient>
                       {m.isOnline && <View style={matchTabStyles.onlineDot} />}
                     </TouchableOpacity>
@@ -2206,7 +2207,7 @@ function RequestsTab({ userId, onCountChange }: { userId: string; onCountChange?
               style={{ flexDirection: "row", alignItems: "center", padding: 16, gap: 14 }}
             >
               {req.sender.avatarUrl ? (
-                <Image source={{ uri: req.sender.avatarUrl }} style={{ width: 60, height: 60, borderRadius: 30 }} />
+                <ExpoImage source={thumbUrl(req.sender.avatarUrl)} style={{ width: 60, height: 60, borderRadius: 30 }} contentFit="cover" cachePolicy="memory-disk" transition={150} />
               ) : (
                 <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: "rgba(124,58,237,0.3)", alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ color: "#A78BFA", fontSize: 22, fontFamily: "Poppins_700Bold" }}>
@@ -2792,7 +2793,7 @@ function FindVibeContent() {
                 { name: "Sofia", date: "3 days ago", matched: true, image: "https://picsum.photos/seed/h3/100/100" },
               ].map((h, i) => (
                 <View key={i} style={[styles.historyItem, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  <Image source={{ uri: h.image }} style={styles.historyPhoto} />
+                  <ExpoImage source={thumbUrl(h.image)} style={styles.historyPhoto} contentFit="cover" cachePolicy="memory-disk" transition={150} />
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.historyName, { color: colors.foreground }]}>{h.name}</Text>
                     <Text style={[styles.historyDate, { color: colors.mutedForeground }]}>{h.date}</Text>
