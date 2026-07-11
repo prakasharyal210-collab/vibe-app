@@ -9,12 +9,12 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   DeviceEventEmitter,
   Dimensions,
   Easing,
+  FlatList,
   GestureResponderEvent,
   Image,
   Modal,
@@ -28,7 +28,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { FlashList, FlashListRef } from "@shopify/flash-list";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image as ExpoImage } from "expo-image";
 import { LoginPrompt } from "@/components/LoginPrompt";
@@ -663,7 +662,7 @@ export default function FeedScreen() {
   const mainTabSwipe = useMainTabSwipe("feed");
   const scrollX = useRef(new Animated.Value(0)).current;
   const pillsAnim = useRef(new Animated.Value(1)).current;
-  const flatListRefs = useRef<(FlashListRef<Post> | null)[]>([null, null]);
+  const flatListRefs = useRef<(FlatList | null)[]>([null, null]);
   // Per-tab drag-start index for ±1 clamping (same pattern as Reels feed)
   const dragStartIndexRefs = useRef<number[]>([0, 0]);
   const loadedTabs = useRef<Set<FeedTabId>>(new Set());
@@ -1200,7 +1199,7 @@ export default function FeedScreen() {
           }
           return (
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
-              <FlashList<Post>
+              <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
                 data={state.loading ? [] : (tab.id === "foryou" && isTrending ? [] : filteredPosts)}
                 keyExtractor={(item, index) => {
@@ -1210,6 +1209,7 @@ export default function FeedScreen() {
                 renderItem={tab.id === "foryou" ? renderForYouItem : renderFriendsItem}
                 onViewableItemsChanged={viewableHandlers[tabIndex]}
                 viewabilityConfig={viewabilityConfig}
+                decelerationRate="normal"
                 onMomentumScrollEnd={(e) => {
                   dragStartIndexRefs.current[tabIndex] = Math.max(0, Math.floor(e.nativeEvent.contentOffset.y / 400));
                 }}
@@ -1240,18 +1240,7 @@ export default function FeedScreen() {
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {
                   if (state.loadingMore) {
-                    return (
-                      <View style={flashListStyles.footerLoader}>
-                        <ActivityIndicator size="small" color="#7C3AED" />
-                      </View>
-                    );
-                  }
-                  if (!state.hasMore && state.posts.length > 0) {
-                    return (
-                      <View style={flashListStyles.footerEnd}>
-                        <Text style={flashListStyles.footerEndText}>You're all caught up ✓</Text>
-                      </View>
-                    );
+                    return <SkeletonPost />;
                   }
                   return null;
                 }}
@@ -1270,6 +1259,7 @@ export default function FeedScreen() {
                 onEndReachedThreshold={0.6}
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
               />
             </View>
           );
@@ -1375,22 +1365,6 @@ const sortMenuStyles = StyleSheet.create({
   optionTextActive: {
     color: "#8B5CF6",
     fontFamily: "Poppins_600SemiBold",
-  },
-});
-
-const flashListStyles = StyleSheet.create({
-  footerLoader: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  footerEnd: {
-    paddingVertical: 20,
-    alignItems: "center",
-  },
-  footerEndText: {
-    fontSize: 12,
-    fontFamily: "Poppins_400Regular",
-    color: "rgba(255,255,255,0.3)",
   },
 });
 
