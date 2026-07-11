@@ -50,6 +50,7 @@ import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { POST_CATEGORIES } from "@/lib/categories";
 import { cardUrl } from "@/lib/imageUrl";
+import { getNetworkConfig } from "@/lib/networkTier";
 import { getCachedFeed, setCachedFeed } from "@/lib/feedCache";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -607,30 +608,32 @@ export default function FeedScreen() {
     () => Promise.resolve(),
   );
 
-  // Rolling 10-item buffer: prefetch images for posts N+1..N+10 ahead of the
-  // current topmost visible post. Also triggers proactive data pagination when
-  // fewer than 10 posts remain in the buffer — so the next page is already
-  // loading before the user ever sees the bottom.
+  // Rolling buffer: prefetch images and proactively fetch data for posts ahead
+  // of the current topmost visible post. Buffer sizes are network-tier aware:
+  // full buffers on wifi, scaled back on cellular, skipped entirely offline.
   const prefetchAhead = useCallback((tab: FeedTabId, fromIndex: number) => {
+    const { dataBuf, imgBuf } = getNetworkConfig();
     const posts = tabStatesRef.current[tab].posts;
     const seen = prefetchedUrlsRef.current[tab];
-    for (let i = fromIndex + 1; i <= fromIndex + 10; i++) {
-      const post = posts[i] as any;
-      if (!post) continue;
-      const firstImage = post.images && post.images.length > 0 ? post.images[0] : post.image_url;
-      if (!firstImage) continue; // skip video-only posts — images-only for this pass
-      const url = cardUrl(firstImage);
-      if (!url || seen.has(url)) continue;
-      seen.add(url);
-      ExpoImage.prefetch(url).catch(() => {
-        // Non-fatal — a failed prefetch just means the normal on-render load path kicks in.
-        seen.delete(url);
-      });
+    if (imgBuf > 0) {
+      for (let i = fromIndex + 1; i <= fromIndex + imgBuf; i++) {
+        const post = posts[i] as any;
+        if (!post) continue;
+        const firstImage = post.images && post.images.length > 0 ? post.images[0] : post.image_url;
+        if (!firstImage) continue; // skip video-only posts — images-only for this pass
+        const url = cardUrl(firstImage);
+        if (!url || seen.has(url)) continue;
+        seen.add(url);
+        ExpoImage.prefetch(url).catch(() => {
+          // Non-fatal — a failed prefetch just means the normal on-render load path kicks in.
+          seen.delete(url);
+        });
+      }
     }
-    // Data lookahead: when the user is within 10 posts of the end, proactively
-    // fetch the next page so there is always a full rolling buffer ready.
+    // Data lookahead: when the user is within dataBuf posts of the end,
+    // proactively fetch the next page so there is always a full buffer ready.
     const state = tabStatesRef.current[tab];
-    if (fromIndex >= state.posts.length - 10 && state.hasMore && !state.loadingMore && !state.loading) {
+    if (dataBuf > 0 && fromIndex >= state.posts.length - dataBuf && state.hasMore && !state.loadingMore && !state.loading) {
       void loadTabDataRef.current(tab);
     }
   }, []);

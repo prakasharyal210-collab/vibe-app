@@ -15,6 +15,7 @@ import {
 import { Image as ExpoImage } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { cardUrl, thumbUrl } from "@/lib/imageUrl";
+import { getNetworkConfig } from "@/lib/networkTier";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -409,8 +410,10 @@ export default function CoupleFeedScreen() {
     ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
       const top = viewableItems.find((v) => v.index !== null);
       if (!top || top.index === null) return;
+      const { imgBuf } = getNetworkConfig();
+      if (imgBuf === 0) return; // offline — skip image prefetch, rely on cache
       const items = listDataRef.current;
-      for (let i = top.index + 1; i <= top.index + 10; i++) {
+      for (let i = top.index + 1; i <= top.index + imgBuf; i++) {
         const item = items[i] as any;
         if (!item || "_divider" in item) continue;
         const url: string | null = item.photo_url ?? item.author?.avatar ?? null;

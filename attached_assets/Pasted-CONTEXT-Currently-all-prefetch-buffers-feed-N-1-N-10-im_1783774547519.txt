@@ -1,0 +1,32 @@
+CONTEXT: Currently all prefetch buffers (feed N+1-N+10, image prefetch, vibe deck, confession room) use fixed sizes regardless of network quality. On weak/slow mobile connections, this could waste bandwidth on prefetching content the user may never reach, or worse, compete with bandwidth needed for what's actually on screen. We want basic network-awareness — not a full ML system, just a sensible tiered approach.
+
+Architecture reminder:
+- Mobile: artifacts/mobile (Expo SDK 54)
+- React Native has @react-native-community/netinfo (or Expo's expo-network) for checking connection type/quality — check what's already installed before adding anything new
+- Deploy: JS-only, OTA-safe if no new native dependency is required
+
+TASK: Add basic network-tier awareness to prefetch behavior.
+
+DIAGNOSE FIRST:
+1. Check package.json — is @react-native-community/netinfo or expo-network already installed? Report which, if either.
+2. If neither exists, report whether adding one requires a native rebuild (some netinfo versions need native linking, others don't in the Expo managed workflow — check specifically for the currently installed Expo SDK 54).
+
+IMPLEMENT (only proceed if a network-check library is available without requiring a new native build — otherwise report that this needs to wait for a native rebuild and stop here):
+1. Create a small utility (e.g. lib/networkTier.ts) that checks current connection type and returns a simple tier: "wifi" | "cellular-good" | "cellular-poor" | "offline"
+2. Define buffer sizes per tier, roughly:
+   - wifi: full buffers (current N+10 for data, N+7 for images, current settings unchanged)
+   - cellular-good (4g/5g): slightly reduced (e.g. N+7 for data, N+5 for images)
+   - cellular-poor (3g/2g/weak signal): minimal (e.g. N+3 for data, N+2 for images)
+   - offline: skip all prefetching entirely, rely on cache only
+3. Wire this into the existing prefetch logic in feed.tsx, index.tsx (reels), find.tsx, and couple/feed.tsx — replace the fixed buffer-size constants with a call to the network tier utility.
+4. Don't check network tier on every single scroll event — cache the tier check and refresh it periodically (e.g. every 30 seconds) or on network-change events if the library supports listening for those, to avoid adding overhead.
+5. Typecheck.
+
+DO NOT:
+- Do not add a new native dependency if it requires a rebuild — report and stop instead
+- Do not push or deploy — report first
+
+AFTER:
+- Report whether this was achievable OTA-safe or requires a native build
+- Report every file changed
+- Report the exact tier thresholds used and reasoning

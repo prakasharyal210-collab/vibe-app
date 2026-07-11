@@ -50,6 +50,7 @@ import { useAuth } from "@/context/AuthContext";
 import { checkReelLiked, likeReelOnly, toggleReelLike, toggleLike, logWatchEvent, reportContent, blockUser } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import { cardUrl } from "@/lib/imageUrl";
+import { getNetworkConfig } from "@/lib/networkTier";
 
 const { width: W, height: H } = Dimensions.get("window");
 const SCREEN_H = H;
@@ -908,7 +909,8 @@ export default function ReelsScreen() {
     const clamped = Math.max(0, Math.min(idx, displayReels.length - 1));
     dragStartIndexRef.current = clamped;
     setActiveIndex(clamped);
-    if (displayReels.length - clamped < 10) {
+    const { dataBuf } = getNetworkConfig();
+    if (dataBuf > 0 && displayReels.length - clamped < dataBuf) {
       void loadMoreReels(feedTabRef.current);
     }
   }, [displayReels.length, loadMoreReels]);

@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { cardUrl, thumbUrl } from "@/lib/imageUrl";
+import { getNetworkConfig } from "@/lib/networkTier";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   cancelAnimation,
@@ -638,7 +639,7 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
 
   React.useEffect(() => {
     const nextUrl = photos[photoIdx + 1];
-    if (nextUrl) ExpoImage.prefetch(nextUrl).catch(() => {});
+    if (nextUrl && getNetworkConfig().imgBuf > 0) ExpoImage.prefetch(nextUrl).catch(() => {});
   }, [photos, photoIdx]);
 
   const currentPhoto = photos[Math.min(photoIdx, photos.length - 1)] ?? card.image;
@@ -2761,9 +2762,10 @@ function FindVibeContent() {
               await loadCards(userId, vibePrefs);
             } : undefined}
             onCurrentIndexChange={(idx) => {
-              // Rolling 10-item buffer: when < 10 cards remain in the deck,
-              // fetch more profiles and append unique ones to the queue.
-              if (nearbyCards.length - idx < 10) void refillVibeDeck();
+              // Rolling buffer: when fewer than dataBuf cards remain, fetch
+              // more profiles. Buffer size scales with network quality.
+              const { dataBuf } = getNetworkConfig();
+              if (dataBuf > 0 && nearbyCards.length - idx < dataBuf) void refillVibeDeck();
             }}
           />
         }
