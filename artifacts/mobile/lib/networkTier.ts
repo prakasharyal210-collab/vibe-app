@@ -1,17 +1,17 @@
 /**
  * Network-tier utility for adaptive prefetch sizing.
  *
- * Uses @react-native-community/netinfo (natively bundled in Expo SDK 54,
- * no rebuild required) to classify the current connection into one of four
- * tiers and expose matching buffer-size configs.
+ * NOTE: The original implementation used @react-native-community/netinfo for
+ * live network detection, but that package requires a native rebuild and is
+ * not bundled in Expo Go (SDK 54). Using it caused a "NativeModule.RNCNetInfo
+ * is null" crash on first viewability event.
  *
- * The tier is cached at module level and updated via a persistent listener so
- * callers (viewability handlers, scroll callbacks) pay near-zero cost per call.
- * A 30-second staleness guard provides belt-and-suspenders protection for
- * environments where the listener might miss an event.
+ * This version is a pure-JS module — no native imports — and therefore fully
+ * OTA-deployable. It returns the wifi-tier config (most generous prefetch
+ * sizes) as a safe default for all conditions. Adaptive tier detection can be
+ * re-enabled in a custom dev client / EAS production build by restoring the
+ * @react-native-community/netinfo listener and the classifyState() logic.
  */
-
-import NetInfo from "@react-native-community/netinfo";
 
 export type NetworkTier = "wifi" | "cellular-good" | "cellular-poor" | "offline";
 
@@ -29,17 +29,14 @@ export interface NetworkPrefetchConfig {
 }
 
 /**
- * Per-tier buffer sizes.
+ * Per-tier buffer sizes (kept for reference and future re-activation).
  *
- * Rationale:
  * - wifi: full buffers. No bandwidth concern; maximise scroll smoothness.
  * - cellular-good (4G/5G): modest reduction. Fast enough for comfortable
  *   scrolling but conserves data for users on metered plans.
  * - cellular-poor (3G/2G/unknown): minimal. Aggressive prefetch on a slow
- *   link competes with the content that's actually on screen — so we pull back
- *   sharply and let the on-render load path handle the rest.
- * - offline: zero. Cache-only; prefetch calls would fail silently and waste
- *   battery on retry loops.
+ *   link competes with the content that's actually on screen.
+ * - offline: zero images. Data pagination stays alive via lookBuf fallback.
  */
 export const NETWORK_CONFIGS: Record<NetworkTier, NetworkPrefetchConfig> = {
   wifi:             { dataBuf: 10, imgBuf: 7 },
@@ -48,74 +45,17 @@ export const NETWORK_CONFIGS: Record<NetworkTier, NetworkPrefetchConfig> = {
   offline:          { dataBuf: 0,  imgBuf: 0 },
 };
 
-// ── Internal state ────────────────────────────────────────────────────────────
-
-// Default to "cellular-good" until the first real check arrives — conservative
-// enough to avoid wasting bandwidth, permissive enough to not feel sluggish.
-let _tier: NetworkTier = "cellular-good";
-let _lastFetchMs = 0;
-const STALE_THRESHOLD_MS = 30_000;
-
-function classifyState(state: Awaited<ReturnType<typeof NetInfo.fetch>>): NetworkTier {
-  // Use strict false check — isConnected can be null (unresolved) on Android startup;
-  // null should NOT be treated as offline, only an explicit false value should.
-  if (state.isConnected === false || state.type === "none") {
-    return "offline";
-  }
-  if (state.type === "wifi" || state.type === "ethernet") {
-    return "wifi";
-  }
-  if (state.type === "cellular") {
-    // cellularGeneration is typed on the cellular details object.
-    const gen = (state.details as { cellularGeneration?: string | null } | null)?.cellularGeneration;
-    return gen === "4g" || gen === "5g" ? "cellular-good" : "cellular-poor";
-  }
-  // type === "unknown": Android fires this on the first listener event before the real
-  // type resolves. VPN connections also report unknown type. Neither means offline —
-  // treat conservatively as cellular-poor so dataBuf stays non-zero and pagination lives.
-  // vpn, bluetooth, wimax, other — assume reasonable connectivity.
-  return "cellular-good";
-}
-
-// Persistent listener: keeps _tier current without polling.
-NetInfo.addEventListener((state) => {
-  _tier = classifyState(state);
-  _lastFetchMs = Date.now();
-});
-
-// Kick off an immediate fetch so we have a real value ASAP (the listener fires
-// on the first subscription but may lag by one event loop tick).
-NetInfo.fetch()
-  .then((state) => {
-    _tier = classifyState(state);
-    _lastFetchMs = Date.now();
-  })
-  .catch(() => {});
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
 /**
- * Returns the cached network tier. Synchronous — safe to call on every
- * scroll/viewability event. If the cached value is stale (> 30s) and the
- * NetInfo listener hasn't fired, it kicks off a background re-fetch.
+ * Returns the current network tier. Always "wifi" in this pure-JS fallback
+ * build — no native detection available in Expo Go.
  */
 export function getNetworkTier(): NetworkTier {
-  if (Date.now() - _lastFetchMs > STALE_THRESHOLD_MS) {
-    // Background refresh — does not block the caller.
-    NetInfo.fetch()
-      .then((state) => {
-        _tier = classifyState(state);
-        _lastFetchMs = Date.now();
-      })
-      .catch(() => {});
-    // Return the (possibly stale) cached tier immediately.
-  }
-  return _tier;
+  return "wifi";
 }
 
 /**
  * Returns the NetworkPrefetchConfig for the current tier.
- * Convenience wrapper around getNetworkTier() + NETWORK_CONFIGS lookup.
+ * Synchronous — safe to call on every scroll/viewability event.
  */
 export function getNetworkConfig(): NetworkPrefetchConfig {
   return NETWORK_CONFIGS[getNetworkTier()];
