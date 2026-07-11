@@ -1,0 +1,23 @@
+CONTEXT: Earlier tonight we confirmed likes and comments are already properly optimistic (instant UI update, background API call, rollback on failure). We need to audit whether the same pattern applies to other common actions: follow/unfollow, poll voting, and Couple Mode actions (Accept/Decline/Unlink/Nudge — these already got proper loading-state treatment for the Apple rejection fix, but that was about showing a SPINNER, not necessarily optimistic instant-update — worth double-checking the distinction).
+
+TASK: Diagnose first, then implement if needed.
+
+DIAGNOSE:
+1. Follow/unfollow button — wherever it's implemented (likely a shared component used across profile screens, suggested-follows, Find Vibe match lists). Does tapping Follow update the UI (button state, follower count) IMMEDIATELY before the API call resolves, or does it wait?
+2. Poll voting — in whatever component renders polls (feed posts, confessions). Does selecting an option show the vote/results immediately, or wait for the server response?
+3. Couple Mode actions (Accept/Decline/Unlink/Nudge in CoupleTab.tsx) — we added loading spinners for these tonight for the Apple rejection fix. Confirm: is this "optimistic with rollback" (UI changes instantly, spinner is just supplementary) or "wait then show spinner then update" (blocking pattern)? These are different — clarify which one is actually happening.
+4. Report current state for all three before changing anything.
+
+IMPLEMENT (only for whatever isn't already optimistic):
+1. Follow/unfollow: if not optimistic, make it so — button state and count update immediately on tap, API call fires in background, rollback + brief error toast if the call fails. Reuse the exact pattern already proven in the like-button implementation (PostCard.tsx handleLike) as the reference.
+2. Poll voting: if not optimistic, same treatment — selection/results show immediately, rollback on failure.
+3. Couple Mode actions: if these are currently "wait then update" rather than optimistic, evaluate whether optimistic makes sense here specifically — Accept/Decline/Unlink are more consequential/less reversible than a like, so a BLOCKING pattern (show spinner, wait for real confirmation, then update) might actually be the correct UX choice for these, not a bug. Report your judgment rather than blindly forcing optimism onto actions where waiting for real confirmation is arguably safer for the user. Nudge is lower-stakes and could reasonably be optimistic.
+
+Typecheck each after implementing.
+
+AFTER:
+- Report every file changed
+- Confirm OTA-safe
+- For Couple Mode actions specifically, clearly state your recommendation (optimistic vs blocking) and why, don't just default to "more optimistic is always better"
+
+DO NOT push or deploy — report first.

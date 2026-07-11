@@ -231,7 +231,6 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState(false);
-  const [nudging, setNudging] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     if (!userId) return;
@@ -338,18 +337,21 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
   };
 
   const sendNudge = async () => {
-    if (status?.status !== "coupled" || nudging) return;
+    // Guard on nudgeSent: prevents double-tapping during the 3-second "sent" window.
+    if (status?.status !== "coupled" || nudgeSent) return;
     const partnerId =
       status.couple.requester_id === userId ? status.couple.receiver_id : status.couple.requester_id;
-    setNudging(true);
+
+    // Optimistic: show "Nudge sent!" immediately, fire in background.
+    // Nudge is fire-and-forget — no data to reconcile, no screen transition.
+    // Silent rollback on failure (reset the label) — no alert needed.
+    setNudgeSent(true);
+    const timer = setTimeout(() => setNudgeSent(false), 3000);
     try {
       await coupleApi("/nudge", "POST", { senderId: userId, partnerId });
-      setNudgeSent(true);
-      setTimeout(() => setNudgeSent(false), 3000);
-    } catch (e: any) {
-      Alert.alert("Error", e?.message ?? "Failed to send nudge");
-    } finally {
-      setNudging(false);
+    } catch {
+      clearTimeout(timer);
+      setNudgeSent(false);
     }
   };
 
@@ -454,19 +456,15 @@ export function CoupleTab({ userId, session }: { userId: string; session: Sessio
           />
 
           {/* Thinking of You nudge */}
-          <AnimatedCard onPress={() => { if (!nudging) sendNudge(); }} delay={420}>
+          <AnimatedCard onPress={sendNudge} delay={420}>
             <View style={s.featureCard}>
               <View style={s.iconTile}>
-                {nudging ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={s.tileEmoji}>{nudgeSent ? "✅" : "💞"}</Text>
-                )}
+                <Text style={s.tileEmoji}>{nudgeSent ? "✅" : "💞"}</Text>
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
-                <Text style={s.cardTitle}>{nudging ? "Sending..." : nudgeSent ? "Nudge sent!" : "Thinking of You"}</Text>
+                <Text style={s.cardTitle}>{nudgeSent ? "Nudge sent!" : "Thinking of You"}</Text>
                 <Text style={s.cardSub}>
-                  {nudging ? "" : nudgeSent ? "They'll know you're thinking of them" : "Send a gentle nudge to your partner"}
+                  {nudgeSent ? "They'll know you're thinking of them" : "Send a gentle nudge to your partner"}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={P.chevron} />
