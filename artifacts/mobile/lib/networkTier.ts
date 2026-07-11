@@ -57,7 +57,9 @@ let _lastFetchMs = 0;
 const STALE_THRESHOLD_MS = 30_000;
 
 function classifyState(state: Awaited<ReturnType<typeof NetInfo.fetch>>): NetworkTier {
-  if (!state.isConnected || state.type === "none" || state.type === "unknown") {
+  // Use strict false check — isConnected can be null (unresolved) on Android startup;
+  // null should NOT be treated as offline, only an explicit false value should.
+  if (state.isConnected === false || state.type === "none") {
     return "offline";
   }
   if (state.type === "wifi" || state.type === "ethernet") {
@@ -68,7 +70,10 @@ function classifyState(state: Awaited<ReturnType<typeof NetInfo.fetch>>): Networ
     const gen = (state.details as { cellularGeneration?: string | null } | null)?.cellularGeneration;
     return gen === "4g" || gen === "5g" ? "cellular-good" : "cellular-poor";
   }
-  // vpn, bluetooth, wimax, other — assume reasonable connectivity
+  // type === "unknown": Android fires this on the first listener event before the real
+  // type resolves. VPN connections also report unknown type. Neither means offline —
+  // treat conservatively as cellular-poor so dataBuf stays non-zero and pagination lives.
+  // vpn, bluetooth, wimax, other — assume reasonable connectivity.
   return "cellular-good";
 }
 

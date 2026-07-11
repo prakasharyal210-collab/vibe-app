@@ -615,6 +615,8 @@ export default function FeedScreen() {
     const { dataBuf, imgBuf } = getNetworkConfig();
     const posts = tabStatesRef.current[tab].posts;
     const seen = prefetchedUrlsRef.current[tab];
+    // Image prefetch: skip entirely when offline (imgBuf === 0) — prefetch calls
+    // would fail and retry, wasting battery. The on-render load path handles it.
     if (imgBuf > 0) {
       for (let i = fromIndex + 1; i <= fromIndex + imgBuf; i++) {
         const post = posts[i] as any;
@@ -630,10 +632,17 @@ export default function FeedScreen() {
         });
       }
     }
-    // Data lookahead: when the user is within dataBuf posts of the end,
+    // Data lookahead: when the user is within lookBuf posts of the end,
     // proactively fetch the next page so there is always a full buffer ready.
+    //
+    // IMPORTANT: do NOT gate this on dataBuf > 0. dataBuf === 0 means "offline
+    // tier — skip image prefetch" but data pagination must ALWAYS remain live.
+    // A brief NetInfo blip (Android reports type:"unknown" on first listener event)
+    // could set dataBuf to 0 and permanently disable pagination for 30 s. Instead,
+    // use dataBuf when non-zero, or fall back to a safe minimum of 5 posts.
+    const lookBuf = dataBuf > 0 ? dataBuf : 5;
     const state = tabStatesRef.current[tab];
-    if (dataBuf > 0 && fromIndex >= state.posts.length - dataBuf && state.hasMore && !state.loadingMore && !state.loading) {
+    if (fromIndex >= state.posts.length - lookBuf && state.hasMore && !state.loadingMore && !state.loading) {
       void loadTabDataRef.current(tab);
     }
   }, []);
