@@ -259,10 +259,13 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     setMediaAspectRatio(r);
   }, []);
 
-  // Detect video posts — check is_video flag OR file extension on the URL
+  // Detect video posts — check is_video flag OR file extension on the URL.
+  // DB column is `media_url`; `image_url` is an alias trigger that may not
+  // have fired for older rows — always fall back to media_url at runtime.
+  const resolvedMediaUrl = post.image_url || post.media_url || undefined;
   const videoUrl = post.is_video
-    ? (post.video_url || post.image_url)
-    : (post.video_url || (post.image_url?.match(/\.(mp4|mov|webm|m4v)/i) ? post.image_url : null));
+    ? (post.video_url || resolvedMediaUrl)
+    : (post.video_url || (resolvedMediaUrl?.match(/\.(mp4|mov|webm|m4v)/i) ? resolvedMediaUrl : null));
   const isVideoPost = !!videoUrl;
 
   const { counts: rtCounts, bumped } = usePostRealtime(post.id, {
@@ -291,7 +294,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     }
   }, [bumped]);
 
-  const images = post.images && post.images.length > 0 ? post.images : [post.image_url];
+  const images = post.images && post.images.length > 0 ? post.images : [resolvedMediaUrl ?? post.image_url];
   const hasMedia = !!(images[0]);
   const isMoodPost = (post as any).post_type === "mood";
 
@@ -544,14 +547,24 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
             showsHorizontalScrollIndicator={false}
             onScroll={onScroll}
             scrollEventThrottle={16}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
-              >
-                <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={item} />
-              </TouchableOpacity>
-            )}
+            renderItem={({ item, index }) => {
+              if (!item) {
+                return (
+                  <View style={[styles.imageBrokenContainer, { width: SCREEN_WIDTH, height: fsImageH + 62 }]}>
+                    <Ionicons name="image-outline" size={36} color="rgba(255,255,255,0.25)" />
+                    <Text style={styles.imageBrokenText}>Image unavailable</Text>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
+                >
+                  <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={item} />
+                </TouchableOpacity>
+              );
+            }}
             scrollEnabled={images.length > 1}
           />
           {/* Very subtle fade at top — just enough contrast for the username, not a dark band */}
@@ -828,6 +841,17 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
               renderItem={({ item, index }) => {
                 const usingFallback = imageErrors.has(item);
                 const isConfirmedBroken = brokenImages.has(item);
+
+                // Null/empty URI — expo-image renders a black box and never fires
+                // onError for missing URIs, so we must catch this before rendering.
+                if (!item) {
+                  return (
+                    <View style={[styles.imageBrokenContainer, { width: CARD_W, height: imgH }]}>
+                      <Ionicons name="image-outline" size={36} color="rgba(255,255,255,0.25)" />
+                      <Text style={styles.imageBrokenText}>Image unavailable</Text>
+                    </View>
+                  );
+                }
 
                 // Confirmed broken — both transform and original URL failed.
                 // Show a neutral placeholder instead of a persistent dark box.

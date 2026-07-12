@@ -37,6 +37,7 @@ export interface Post {
   id: string;
   user_id: string;
   image_url: string;
+  media_url?: string | null;
   images?: string[];
   caption?: string;
   location?: string;
