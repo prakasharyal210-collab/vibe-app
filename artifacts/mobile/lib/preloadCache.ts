@@ -23,7 +23,7 @@ async function preloadForYouFeed(userId: string): Promise<void> {
     // app launch within 48h) — no need to hit the network redundantly.
     if (existing && existing.length > 0) return;
 
-    const posts = await getForYouFeed(userId, 20, 0);
+    const { posts } = await getForYouFeed(userId, 20, 0);
     if (posts.length > 0) await setCachedFeed("foryou", userId, posts);
   } catch {
     // Preload failures are non-fatal — feed fetches on its own on mount.

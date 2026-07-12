@@ -1,0 +1,11 @@
+CONTEXT: The feed should never end. Current behavior: ranked pool first, then chronological overflow (built earlier — 497 of 509 posts reachable), then a hard stop with "You're all caught up ✓". New requirement: when a user exhausts ALL available posts, the feed should LOOP back and continue serving posts from the beginning again (like TikTok's endless feed) — never a dead stop.
+
+TASK:
+1. In the /api/feed/foryou endpoint (and /friends if it has the same end-stop), when pagination reaches the true end of all available posts (both ranked pool AND chronological overflow exhausted), instead of returning an empty page: wrap around — start serving posts again from the top of the ranked pool, continuing seamlessly.
+2. Implementation detail: track the wraparound via the offset math (e.g., effectiveOffset = offset % totalAvailablePosts) so the client doesn't need any changes — it just keeps requesting the next offset and always gets content back.
+3. IMPORTANT dedup consideration: the client-side already dedupes posts by ID within its loaded list (from tonight's earlier work). Looping means the same post IDs WILL come back again on purpose — verify the client's dedup logic won't silently swallow the looped posts (if it dedupes by ID globally across the whole session, looped content would get filtered out and the feed would still appear to end). If client dedup blocks looping, report this clearly with the recommended fix (e.g., allow duplicates after wraparound, or reset the dedup set when a loop boundary is crossed).
+4. Keep "newest first" as the fundamental order — the ranked pool already prioritizes recency, and the chronological overflow is newest-first; the loop just restarts that same sequence.
+5. Keep the Mood-post exclusion and all existing filters intact through the loop.
+6. Typecheck. Test: paginate far past 509 posts worth of offsets and confirm content keeps coming with no empty pages.
+
+DO NOT push or deploy — report first, especially the client-side dedup finding since that determines whether this needs mobile changes too.

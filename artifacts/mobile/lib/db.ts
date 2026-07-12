@@ -1341,7 +1341,7 @@ export async function getForYouFeed(
   sortOrder: "newest" | "most_liked" | "most_viewed" = "newest",
   category?: string,
   feedType?: string,
-): Promise<Post[]> {
+): Promise<{ posts: Post[]; looped: boolean }> {
   const t0 = Date.now();
   console.log('[getForYouFeed] start userId:', userId?.slice(0, 8), 'offset:', offset, 'limit:', limit, 'contentType:', contentType, 'sort:', sortOrder);
   try {
@@ -1369,9 +1369,10 @@ export async function getForYouFeed(
       // misconfigured DB row (is_video null/wrong) can never leak through.
       if (contentType === "video") posts = posts.filter((p: any) => p.is_video === true);
       else if (contentType === "photo") posts = posts.filter((p: any) => p.is_video !== true);
-      console.log('[getForYouFeed] ok source:', body.source, 'rows after filter:', posts.length, 'ms:', Date.now() - t0);
+      const looped = body.looped === true;
+      console.log('[getForYouFeed] ok source:', body.source, 'looped:', looped, 'rows after filter:', posts.length, 'ms:', Date.now() - t0);
       if (posts.length > 0) {
-        return applyDiversity(posts);
+        return { posts: applyDiversity(posts), looped };
       }
     } else {
       console.log('[getForYouFeed] http error:', res.status, 'ms:', Date.now() - t0);
@@ -1380,7 +1381,7 @@ export async function getForYouFeed(
     console.log('[getForYouFeed] threw:', e?.message, 'ms:', Date.now() - t0);
   }
   console.log('[getForYouFeed] returning [] ms:', Date.now() - t0);
-  return [];
+  return { posts: [], looped: false };
 }
 
 export async function getFollowingFeed(userId: string, limit = 20, offset = 0): Promise<Post[]> {

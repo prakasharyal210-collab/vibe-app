@@ -565,6 +565,24 @@ router.get("/foryou", async (req, res) => {
 
       if (overflowErr) throw overflowErr;
 
+      // ── Loop: all posts exhausted → wrap back to ranked pool from the top ──
+      // When the overflow tail returns 0 rows the user has seen every available
+      // post.  Rather than returning an empty page (which the client reads as
+      // "end of feed" and permanently stops scrolling), restart the sequence
+      // from the beginning of the ranked pool.
+      //
+      // The ranked pool (filtered) is already fully enriched with polls and
+      // couple data from getRankedForYouPool(), so we can slice it directly.
+      //
+      // `looped: true` in the response tells the client to replace its
+      // accumulated post list rather than append — this clears the session-level
+      // dedup so the restarted posts are visible instead of being swallowed.
+      if (!overflowRaw || overflowRaw.length === 0) {
+        const loopPage = filtered.slice(0, limit);
+        res.json({ data: loopPage, source: "v1-js-ranked-loop", looped: true });
+        return;
+      }
+
       // Apply mood filter in memory (post_type column may not exist on all DB
       // versions — never push it to PostgREST to avoid 42703 errors).
       const overflowCleaned = excludeMoodPosts(overflowRaw ?? []);

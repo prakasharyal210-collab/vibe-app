@@ -722,12 +722,23 @@ export default function FeedScreen() {
 
     try {
       let data: Post[] = [];
+      // looped=true means the server wrapped around to the beginning of the
+      // ranked pool after all posts were exhausted.  The client must treat this
+      // as a soft reset — replace accumulated posts rather than appending — so
+      // the restarted posts aren't swallowed by the session-level dedup logic.
+      let isLooped = false;
       if (tab === "foryou") {
         const catParam = activeCategoryRef.current !== "explore" && activeCategoryRef.current !== "trending" && activeCategoryRef.current !== "polls"
           ? activeCategoryRef.current
           : undefined;
         const typeParam = activeCategoryRef.current === "polls" ? "polls" : undefined;
-        data = userId ? await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam, typeParam) : MOCK_FOR_YOU;
+        if (userId) {
+          const result = await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam, typeParam);
+          data = result.posts;
+          isLooped = result.looped;
+        } else {
+          data = MOCK_FOR_YOU;
+        }
         if (!userId) { console.log('[loadTabData] no userId, showing mock'); updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
@@ -749,7 +760,12 @@ export default function FeedScreen() {
       // keeps the fresh copy of any post that changed (e.g. updated like counts)
       // — old cache-only items that didn't come back in this page simply trail
       // behind until the next real pagination fetch.
-      const merged = reset
+      //
+      // isLooped: server wrapped around to the start of the ranked pool after all
+      // posts were exhausted. Treat exactly like a non-silent reset — replace the
+      // accumulated list rather than appending — so the restarted posts aren't
+      // silently deduped out (they share IDs with items already in the list).
+      const merged = (reset || isLooped)
         ? (silent ? [...data, ...previousPosts] : [...data])
         : [...tabStatesRef.current[tab].posts, ...data];
       const seenIds = new Set<string>();
