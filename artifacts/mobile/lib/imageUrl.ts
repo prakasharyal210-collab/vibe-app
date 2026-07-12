@@ -49,6 +49,16 @@ const OBJECT_PATH_MARKER = "/storage/v1/object/public/";
 const RENDER_PATH_MARKER = "/storage/v1/render/image/public/";
 
 /**
+ * Cache-bust version for expo-image disk cache.
+ * Appended as &v=N to every transformed URL so expo-image treats it as a
+ * new cache key, bypassing any stale or corrupted disk-cache entries.
+ * Bump the number whenever you need to force a full cache refresh.
+ * Remove the param entirely (and the line in getTransformedImageUrl) once
+ * the cache-poisoning hypothesis is confirmed or ruled out.
+ */
+const CACHE_BUST_V = "1";
+
+/**
  * Returns a resized/compressed variant of a Supabase public storage URL for
  * the given preset. Pass `preset: "full"` (or omit) to get the original URL
  * back untouched — use that for the fullscreen photo viewer and story viewer
@@ -65,7 +75,7 @@ export function getTransformedImageUrl(
   const { width, height, quality, resize } = PRESETS[preset];
   const rewritten = url.replace(OBJECT_PATH_MARKER, RENDER_PATH_MARKER);
   const separator = rewritten.includes("?") ? "&" : "?";
-  return `${rewritten}${separator}width=${width}&height=${height}&resize=${resize}&quality=${quality}`;
+  return `${rewritten}${separator}width=${width}&height=${height}&resize=${resize}&quality=${quality}&v=${CACHE_BUST_V}`;
 }
 
 /** Convenience wrappers for the two common call sites. */
