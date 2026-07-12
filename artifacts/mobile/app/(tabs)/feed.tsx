@@ -29,7 +29,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image as ExpoImage } from "expo-image";
 import { LoginPrompt } from "@/components/LoginPrompt";
 import { PostCard } from "@/components/PostCard";
 import { useRealtime } from "@/context/RealtimeContext";
@@ -50,7 +49,7 @@ import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { POST_CATEGORIES } from "@/lib/categories";
 import { cardUrl } from "@/lib/imageUrl";
-import { getNetworkConfig } from "@/lib/networkTier";
+
 import { getCachedFeed, setCachedFeed } from "@/lib/feedCache";
 
 const { width: W, height: H } = Dimensions.get("window");
@@ -595,57 +594,11 @@ export default function FeedScreen() {
   // Stable viewability config — item must be ≥60% visible to count as "active"
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
 
-  // Track which image URLs have already been prefetched (per tab) so we never
-  // issue a redundant Image.prefetch() call when the user scrolls back and forth.
-  const prefetchedUrlsRef = useRef<Record<FeedTabId, Set<string>>>({
-    foryou: new Set(),
-    friends: new Set(),
-  });
-
   // Stable ref to loadTabData — allows the stable viewable handlers (created once
   // with useRef) to trigger proactive pagination without stale closures.
   const loadTabDataRef = useRef<(tab: FeedTabId, reset?: boolean, silent?: boolean) => Promise<void>>(
     () => Promise.resolve(),
   );
-
-  // Rolling buffer: prefetch images and proactively fetch data for posts ahead
-  // of the current topmost visible post. Buffer sizes are network-tier aware:
-  // full buffers on wifi, scaled back on cellular, skipped entirely offline.
-  const prefetchAhead = useCallback((tab: FeedTabId, fromIndex: number) => {
-    const { dataBuf, imgBuf } = getNetworkConfig();
-    const posts = tabStatesRef.current[tab].posts;
-    const seen = prefetchedUrlsRef.current[tab];
-    // Image prefetch: skip entirely when offline (imgBuf === 0) — prefetch calls
-    // would fail and retry, wasting battery. The on-render load path handles it.
-    if (imgBuf > 0) {
-      for (let i = fromIndex + 1; i <= fromIndex + imgBuf; i++) {
-        const post = posts[i] as any;
-        if (!post) continue;
-        const firstImage = post.images && post.images.length > 0 ? post.images[0] : post.image_url;
-        if (!firstImage) continue; // skip video-only posts — images-only for this pass
-        const url = cardUrl(firstImage);
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        ExpoImage.prefetch(url).catch(() => {
-          // Non-fatal — a failed prefetch just means the normal on-render load path kicks in.
-          seen.delete(url);
-        });
-      }
-    }
-    // Data lookahead: when the user is within lookBuf posts of the end,
-    // proactively fetch the next page so there is always a full buffer ready.
-    //
-    // IMPORTANT: do NOT gate this on dataBuf > 0. dataBuf === 0 means "offline
-    // tier — skip image prefetch" but data pagination must ALWAYS remain live.
-    // A brief NetInfo blip (Android reports type:"unknown" on first listener event)
-    // could set dataBuf to 0 and permanently disable pagination for 30 s. Instead,
-    // use dataBuf when non-zero, or fall back to a safe minimum of 5 posts.
-    const lookBuf = dataBuf > 0 ? dataBuf : 5;
-    const state = tabStatesRef.current[tab];
-    if (fromIndex >= state.posts.length - lookBuf && state.hasMore && !state.loadingMore && !state.loading) {
-      void loadTabDataRef.current(tab);
-    }
-  }, []);
 
   // Per-tab stable onViewableItemsChanged handlers (must be stable refs for FlatList)
   const viewableHandlers = useRef(
@@ -653,7 +606,11 @@ export default function FeedScreen() {
       const top = viewableItems.find((v) => v.isViewable);
       setVisiblePostIds((prev) => ({ ...prev, [tab.id]: top?.item?.id ?? null }));
       if (top && typeof top.index === "number") {
-        prefetchAhead(tab.id, top.index);
+        // Trigger pagination when the user is within 5 posts of the end.
+        const state = tabStatesRef.current[tab.id];
+        if (top.index >= state.posts.length - 5 && state.hasMore && !state.loadingMore && !state.loading) {
+          void loadTabDataRef.current(tab.id);
+        }
       }
     })
   ).current;

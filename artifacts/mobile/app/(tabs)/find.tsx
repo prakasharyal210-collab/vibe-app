@@ -637,11 +637,6 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
     setPhotoIdx(0);
   }, [card.id]);
 
-  React.useEffect(() => {
-    const nextUrl = photos[photoIdx + 1];
-    if (nextUrl && getNetworkConfig().imgBuf > 0) ExpoImage.prefetch(nextUrl).catch(() => {});
-  }, [photos, photoIdx]);
-
   const currentPhoto = photos[Math.min(photoIdx, photos.length - 1)] ?? card.image;
   const hasMultiple = photos.length > 1;
 

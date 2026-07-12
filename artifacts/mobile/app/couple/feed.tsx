@@ -15,7 +15,7 @@ import {
 import { Image as ExpoImage } from "expo-image";
 import { FlashList } from "@shopify/flash-list";
 import { cardUrl, thumbUrl } from "@/lib/imageUrl";
-import { getNetworkConfig } from "@/lib/networkTier";
+
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -402,27 +402,7 @@ export default function CoupleFeedScreen() {
   const [activeCategory, setActiveCategory] = useState<Category>("All");
   const [unreadCount, setUnreadCount] = useState(0);
   const genRef = useRef(0);
-  // Rolling 10-item image prefetch for the confession list
-  const seenConfessionImgsRef = useRef<Set<string>>(new Set());
   const listDataRef = useRef<any[]>([]);
-  const confessionViewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
-  const onConfessionViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-      const top = viewableItems.find((v) => v.index !== null);
-      if (!top || top.index === null) return;
-      const { imgBuf } = getNetworkConfig();
-      if (imgBuf === 0) return; // offline — skip image prefetch, rely on cache
-      const items = listDataRef.current;
-      for (let i = top.index + 1; i <= top.index + imgBuf; i++) {
-        const item = items[i] as any;
-        if (!item || "_divider" in item) continue;
-        const url: string | null = item.photo_url ?? item.author?.avatar ?? null;
-        if (!url || seenConfessionImgsRef.current.has(url)) continue;
-        seenConfessionImgsRef.current.add(url);
-        ExpoImage.prefetch(url).catch(() => { seenConfessionImgsRef.current.delete(url); });
-      }
-    }
-  ).current;
 
   const fetchUnread = useCallback(async () => {
     if (!userId) return;
@@ -679,8 +659,6 @@ export default function CoupleFeedScreen() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#ffffff" />}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          viewabilityConfig={confessionViewabilityConfig}
-          onViewableItemsChanged={onConfessionViewableItemsChanged}
         />
       )}
     </View>
