@@ -232,6 +232,13 @@ const CANDIDATE_POOL_SIZE = 200;
 // posts across pages).
 const RANK_CACHE_TTL_MS = 60_000;
 
+// Posts created within this many hours appear in the "fresh" tier at the very
+// top of the For You feed — newest-first — before the engagement-ranked pool.
+// This guarantees every new post gets seen by the community immediately,
+// TikTok-style, rather than being buried under older high-engagement content.
+// Tune freely: lower = tighter "just now" window; raise = broader recency tier.
+const FRESH_WINDOW_HOURS = 24;
+
 // Mood posts are intentionally excluded from the algorithmic "For You" feed —
 // they're meant to feel personal/intimate and only surface to people the
 // poster actually follows (Friends tab). Never apply this to /friends.
@@ -345,18 +352,27 @@ async function getUserLikeSignals(
   return { topCategories: new Set(top3), likedPostIds };
 }
 
-// Per-user cache of the fully ranked + diversified candidate pool (unfiltered
-// by category/content-type — those are applied after reading from cache, since
-// they're cheap array filters and keeping them out of the cache key avoids a
-// combinatorial explosion of cached variants per user).
+// Per-user cache of the fully ranked + diversified candidate pool AND the fresh
+// tier (unfiltered by category/content-type — those are applied after reading
+// from cache, since they're cheap array filters and keeping them out of the
+// cache key avoids a combinatorial explosion of cached variants per user).
 // poolCutoffAt is the created_at of the oldest raw candidate — everything
 // strictly older than this timestamp is outside the pool and safe to serve
 // as the chronological overflow tail without any risk of duplicates.
-const rankedFeedCache = new Map<string, { expiresAt: number; ranked: any[]; poolCutoffAt: string | null }>();
+const rankedFeedCache = new Map<string, {
+  expiresAt: number;
+  ranked: any[];
+  poolCutoffAt: string | null;
+  freshPosts: any[];
+}>();
 
 interface RankedForYouPool {
   ranked: any[];
   poolCutoffAt: string | null;
+  // Posts created in the last FRESH_WINDOW_HOURS, newest-first, diversity-guarded.
+  // Always served BEFORE the ranked pool in the handler so new content surfaces
+  // immediately regardless of its engagement score.
+  freshPosts: any[];
 }
 
 async function getRankedForYouPool(
@@ -365,16 +381,39 @@ async function getRankedForYouPool(
 ): Promise<RankedForYouPool> {
   const cached = rankedFeedCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) {
-    return { ranked: cached.ranked, poolCutoffAt: cached.poolCutoffAt };
+    return { ranked: cached.ranked, poolCutoffAt: cached.poolCutoffAt, freshPosts: cached.freshPosts };
   }
 
-  const [followRows, { topCategories, likedPostIds }] = await Promise.all([
+  const freshCutoff = new Date(Date.now() - FRESH_WINDOW_HOURS * 3_600_000).toISOString();
+
+  const [followRows, { topCategories, likedPostIds }, freshResult] = await Promise.all([
     supabase.from("follows").select("following_id").eq("follower_id", userId),
     getUserLikeSignals(supabase, userId),
+    // Fresh tier: all public, non-archived posts from the last FRESH_WINDOW_HOURS,
+    // ordered newest-first.  We fetch without a hard LIMIT so no new post is
+    // silently dropped; the diversity guard below caps per-author runs.
+    supabase
+      .from("posts")
+      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+      .or("visibility.eq.public,visibility.is.null")
+      .or("is_archived.eq.false,is_archived.is.null")
+      .gte("created_at", freshCutoff)
+      .order("created_at", { ascending: false }),
   ]);
+
   const followedIds = new Set(
     (followRows.data ?? []).map((r: any) => r.following_id as string).filter(Boolean),
   );
+
+  // Enrich and diversity-guard the fresh tier.  Apply the same exclusions
+  // (mood posts, poll cap) as the ranked pool so the rules are consistent.
+  const freshRaw = excludeMoodPosts(freshResult.data ?? []);
+  const freshWithCouple = await enrichWithCoupleData(supabase, freshRaw);
+  const freshWithPolls = await enrichWithPolls(supabase, freshWithCouple, userId);
+  const freshPollCapped = limitPollsToTop5(freshWithPolls);
+  // diversifyFeed enforces max-2-consecutive-same-author, preventing one prolific
+  // account from flooding the top of the feed with back-to-back posts.
+  const freshPosts = diversifyFeed(freshPollCapped);
 
   const { data: candidates, error: candErr } = await supabase
     .from("posts")
@@ -413,8 +452,8 @@ async function getRankedForYouPool(
 
   const ranked = diversifyFeed(scored.map((s) => s.post));
 
-  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt });
-  return { ranked, poolCutoffAt };
+  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt, freshPosts });
+  return { ranked, poolCutoffAt, freshPosts };
 }
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
@@ -524,9 +563,28 @@ router.get("/foryou", async (req, res) => {
     // independent top-N that could disagree at page boundaries.
     // On any error it falls through to the v3/v2/v1 RPC chain below.
     try {
-      const { ranked, poolCutoffAt } = await getRankedForYouPool(supabase, userId);
-      const filtered = filterByCategory(filterByContentType(ranked));
-      const out = filtered.slice(offset, offset + limit);
+      const { ranked, poolCutoffAt, freshPosts } = await getRankedForYouPool(supabase, userId);
+
+      // ── Fresh tier ───────────────────────────────────────────────────────────
+      // Posts from the last FRESH_WINDOW_HOURS are served newest-first at the
+      // very front of the feed, before the engagement-ranked pool.  This ensures
+      // every new post surfaces immediately (TikTok-style) rather than being
+      // buried under older high-engagement content.
+      //
+      // Dedup: after building freshFiltered, exclude those same IDs from the
+      // ranked pool so no post appears twice when the user pages past the fresh
+      // section into the ranked section.
+      const freshFiltered = filterByCategory(filterByContentType(freshPosts));
+      const freshIds = new Set<string>(freshFiltered.map((p: any) => p.id as string));
+
+      // Ranked pool: same filters, plus exclude any post already in fresh tier.
+      const rankedFiltered = filterByCategory(filterByContentType(ranked))
+        .filter((p: any) => !freshIds.has(p.id as string));
+
+      // Combined ordered list: fresh first, ranked second.
+      const combined = [...freshFiltered, ...rankedFiltered];
+
+      const out = combined.slice(offset, offset + limit);
 
       if (out.length > 0) {
         res.json({ data: out, source: "v1-js-ranked" });
@@ -534,17 +592,18 @@ router.get("/foryou", async (req, res) => {
       }
 
       // ── Chronological overflow tail ─────────────────────────────────────────
-      // offset has gone past the ranked pool.  Serve ALL posts older than the
-      // pool's oldest candidate in plain created_at DESC order so the user can
-      // keep scrolling indefinitely.  poolCutoffAt is the created_at of the
-      // oldest raw candidate row (captured before mood/archive filtering), so
-      // every post with created_at < poolCutoffAt is by construction absent
-      // from the pool — zero duplicates, no NOT IN needed.
+      // offset has gone past the combined pool (fresh + ranked).  Serve ALL
+      // posts older than the pool's oldest candidate in plain created_at DESC
+      // order so the user can keep scrolling indefinitely.  poolCutoffAt is the
+      // created_at of the oldest raw candidate row (captured before
+      // mood/archive filtering), so every post with created_at < poolCutoffAt
+      // is by construction absent from the pool — zero duplicates, no NOT IN needed.
       //
       // chronoOffset maps the global offset into overflow-space:
-      //   filtered.length positions were consumed by the ranked section, so the
-      //   first overflow page starts at overflow-row 0 when offset = filtered.length.
-      const chronoOffset = Math.max(0, offset - filtered.length);
+      //   combined.length positions were consumed by the fresh+ranked section,
+      //   so the first overflow page starts at overflow-row 0 when
+      //   offset = combined.length.
+      const chronoOffset = Math.max(0, offset - combined.length);
 
       let overflowQ = supabase
         .from("posts")
@@ -565,20 +624,17 @@ router.get("/foryou", async (req, res) => {
 
       if (overflowErr) throw overflowErr;
 
-      // ── Loop: all posts exhausted → wrap back to ranked pool from the top ──
+      // ── Loop: all posts exhausted → wrap back to combined pool from the top ─
       // When the overflow tail returns 0 rows the user has seen every available
       // post.  Rather than returning an empty page (which the client reads as
       // "end of feed" and permanently stops scrolling), restart the sequence
-      // from the beginning of the ranked pool.
-      //
-      // The ranked pool (filtered) is already fully enriched with polls and
-      // couple data from getRankedForYouPool(), so we can slice it directly.
+      // from the beginning of the combined (fresh + ranked) pool.
       //
       // `looped: true` in the response tells the client to replace its
       // accumulated post list rather than append — this clears the session-level
       // dedup so the restarted posts are visible instead of being swallowed.
       if (!overflowRaw || overflowRaw.length === 0) {
-        const loopPage = filtered.slice(0, limit);
+        const loopPage = combined.slice(0, limit);
         res.json({ data: loopPage, source: "v1-js-ranked-loop", looped: true });
         return;
       }
