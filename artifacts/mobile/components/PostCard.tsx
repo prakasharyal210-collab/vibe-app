@@ -252,10 +252,12 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
     const r = w / h;
     if (_ratioCache.get(url) === r) return;
     _ratioCache.set(url, r);
-    // Older posts (no stored width/height) still learn their ratio from the
-    // load event and resize after paint — animate that resize instead of an
-    // instant snap so it reads as a smooth adjustment, not a flicker/black frame.
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    // Instant snap — no LayoutAnimation. Animating the resize inside a FlatList
+    // triggers removeClippedSubviews to temporarily drop the item from the native
+    // layer during the animation, producing the persistent black-box glitch on
+    // posts whose real ratio differs significantly from the 4:3 default guess.
+    // The snap is only visible on first-sight; scroll-back renders at correct
+    // height from frame 1 via _ratioCache.
     setMediaAspectRatio(r);
   }, []);
 

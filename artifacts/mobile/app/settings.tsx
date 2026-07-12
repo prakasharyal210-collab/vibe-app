@@ -1,5 +1,6 @@
 import { BASE_URL } from "@/lib/share";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image as ExpoImage } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -940,7 +941,18 @@ export default function SettingsScreen() {
   const clearCache = () => {
     Alert.alert("Clear Cache?", "This will clear all locally cached images and data.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Clear Cache", style: "destructive", onPress: () => { setCacheCleared(true); showToast("✅ Cache cleared — 48 MB freed"); } },
+      {
+        text: "Clear Cache",
+        style: "destructive",
+        onPress: async () => {
+          await Promise.all([
+            ExpoImage.clearDiskCache(),
+            ExpoImage.clearMemoryCache(),
+          ]);
+          setCacheCleared(true);
+          showToast("Cache cleared");
+        },
+      },
     ]);
   };
 
