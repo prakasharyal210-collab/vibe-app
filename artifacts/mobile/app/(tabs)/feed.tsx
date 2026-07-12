@@ -1174,6 +1174,7 @@ export default function FeedScreen() {
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
+                removeClippedSubviews={false}
                 data={state.loading ? [] : (tab.id === "foryou" && isTrending ? [] : filteredPosts)}
                 keyExtractor={(item, index) => {
                   const postId = item.id;
