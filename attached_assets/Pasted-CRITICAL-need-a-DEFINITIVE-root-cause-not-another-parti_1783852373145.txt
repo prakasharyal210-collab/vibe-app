@@ -1,0 +1,13 @@
+CRITICAL — need a DEFINITIVE root cause, not another partial fix. ALL images in the feed are showing black now (not just specific posts or positions — everything). This has recurred multiple times tonight despite several fixes (aspect-ratio guard, resize=contain, onError fallback). Something systemic is wrong.
+
+MANDATORY DIAGNOSTIC SEQUENCE — do ALL of these and report evidence for each, no skipping:
+
+1. Take ONE specific post currently showing black. Get its exact image_url from the DB. curl BOTH the raw URL and the cardUrl()-transformed version FROM THE SHELL — report HTTP status, content-type, and byte size for both. If both return valid 200 JPEGs, the server side is definitively clean.
+
+2. Check if the Supabase image transformation quota/limit has been hit — we're on Pro plan with a transformation quota (100 free origin images, then paid). Tonight generated MANY new transformed URLs (cover→contain change created entirely new cache entries for every image — a whole second set of transformations). Check Supabase dashboard usage or test: does a BRAND NEW transformation URL (an image never transformed before with current params) return 200 or an error/quota response? A quota exhaustion would make ALL new transforms fail at once = all images black simultaneously = exactly this symptom.
+
+3. Check the Sentry gundruk-mobile project for image_transform_fallback events from tonight — how many, and did they spike recently? If the fallback is firing en masse, the onError chain IS working and the problem is upstream (URLs failing). If ZERO events despite all-black images, the problem is in the rendering layer, not URL loading.
+
+4. Confirm what environment this is being observed in — the user is testing via Expo Go dev session. Check: does the dev session have any issue loading remote images generally (test with a plain hardcoded public image URL rendered in a test component)? Expo Go sessions can have their own network/rendering quirks that don't affect production builds.
+
+5. Based on ALL FOUR results, state the definitive root cause with evidence chain. Do not propose a fix until the cause is proven.
