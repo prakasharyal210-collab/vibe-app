@@ -297,6 +297,14 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
   }, [bumped]);
 
   const images = post.images && post.images.length > 0 ? post.images : [resolvedMediaUrl ?? post.image_url];
+  // True when this image was loaded earlier in this session. _ratioCache is
+  // module-level and survives mount/unmount, so a hit means expo-image's memory
+  // cache is warm. We skip the fade-in transition in this case to avoid the
+  // 200 ms black-box flash caused by Android's removeClippedSubviews detaching
+  // and re-adding the native view — expo-image restarts its pipeline on reattach
+  // and would replay the opacity 0→1 animation even though the image is instant.
+  const primaryUrl = images[0] ?? null;
+  const imageAlreadyCached = primaryUrl ? _ratioCache.has(primaryUrl) : false;
   const hasMedia = !!(images[0]);
   const isMoodPost = (post as any).post_type === "mood";
 
@@ -877,7 +885,7 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                     style={{ width: CARD_W, height: imgH }}
                     contentFit={imgResizeMode}
                     cachePolicy="memory-disk"
-                    transition={200}
+                    transition={imageAlreadyCached ? 0 : 200}
                     recyclingKey={item}
                     onLoad={index === 0 && !knownAspectRatio ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
                     onError={() => {
