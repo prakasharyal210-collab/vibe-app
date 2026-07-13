@@ -601,6 +601,11 @@ export default function FeedScreen() {
     () => Promise.resolve(),
   );
 
+  // Per-tab ref guard: prevents multiple simultaneous pagination requests for the
+  // same tab when rapid scroll events fire before the loadingMore state update
+  // propagates through React's async batching.
+  const paginationInFlight = useRef<Set<FeedTabId>>(new Set());
+
   // Per-tab stable onViewableItemsChanged handlers (must be stable refs for FlatList)
   const viewableHandlers = useRef(
     TABS.map((tab) => ({ viewableItems }: { viewableItems: Array<{ isViewable: boolean; item: Post; index: number | null }> }) => {
@@ -609,8 +614,19 @@ export default function FeedScreen() {
       if (top && typeof top.index === "number") {
         const state = tabStatesRef.current[tab.id];
         // Trigger pagination when the user is within 5 posts of the end.
-        if (top.index >= state.posts.length - 5 && state.hasMore && !state.loadingMore && !state.loading) {
-          void loadTabDataRef.current(tab.id);
+        // paginationInFlight guards against multiple simultaneous requests that
+        // can slip through before loadingMore flips to true (async state update race).
+        if (
+          top.index >= state.posts.length - 5 &&
+          state.hasMore &&
+          !state.loadingMore &&
+          !state.loading &&
+          !paginationInFlight.current.has(tab.id as FeedTabId)
+        ) {
+          paginationInFlight.current.add(tab.id as FeedTabId);
+          void loadTabDataRef.current(tab.id).finally(() => {
+            paginationInFlight.current.delete(tab.id as FeedTabId);
+          });
         }
         // Prefetch cardUrl() for the next 4 posts so their images are in
         // the disk cache before the user scrolls to them.

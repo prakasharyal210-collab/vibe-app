@@ -364,6 +364,7 @@ const rankedFeedCache = new Map<string, {
   ranked: any[];
   poolCutoffAt: string | null;
   freshPosts: any[];
+  poolIsExhaustive: boolean;
 }>();
 
 interface RankedForYouPool {
@@ -373,6 +374,10 @@ interface RankedForYouPool {
   // Always served BEFORE the ranked pool in the handler so new content surfaces
   // immediately regardless of its engagement score.
   freshPosts: any[];
+  // True when candidates.length < CANDIDATE_POOL_SIZE — meaning all posts in the
+  // DB were fetched into the pool. The overflow tail query can be skipped entirely
+  // since there is nothing older than poolCutoffAt to serve.
+  poolIsExhaustive: boolean;
 }
 
 async function getRankedForYouPool(
@@ -381,7 +386,7 @@ async function getRankedForYouPool(
 ): Promise<RankedForYouPool> {
   const cached = rankedFeedCache.get(userId);
   if (cached && cached.expiresAt > Date.now()) {
-    return { ranked: cached.ranked, poolCutoffAt: cached.poolCutoffAt, freshPosts: cached.freshPosts };
+    return { ranked: cached.ranked, poolCutoffAt: cached.poolCutoffAt, freshPosts: cached.freshPosts, poolIsExhaustive: cached.poolIsExhaustive };
   }
 
   const freshCutoff = new Date(Date.now() - FRESH_WINDOW_HOURS * 3_600_000).toISOString();
@@ -452,8 +457,13 @@ async function getRankedForYouPool(
 
   const ranked = diversifyFeed(scored.map((s) => s.post));
 
-  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt, freshPosts });
-  return { ranked, poolCutoffAt, freshPosts };
+  // True when the DB returned fewer rows than our cap — meaning every post in
+  // the database is already inside the ranked pool. The overflow tail query can
+  // be skipped; there is nothing older than poolCutoffAt to fetch.
+  const poolIsExhaustive = !candErr && (candidates ?? []).length < CANDIDATE_POOL_SIZE;
+
+  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt, freshPosts, poolIsExhaustive });
+  return { ranked, poolCutoffAt, freshPosts, poolIsExhaustive };
 }
 
 // ─── GET /api/feed/foryou ─────────────────────────────────────────────────────
@@ -563,7 +573,7 @@ router.get("/foryou", async (req, res) => {
     // independent top-N that could disagree at page boundaries.
     // On any error it falls through to the v3/v2/v1 RPC chain below.
     try {
-      const { ranked, poolCutoffAt, freshPosts } = await getRankedForYouPool(supabase, userId);
+      const { ranked, poolCutoffAt, freshPosts, poolIsExhaustive } = await getRankedForYouPool(supabase, userId);
 
       // ── Fresh tier ───────────────────────────────────────────────────────────
       // Posts from the last FRESH_WINDOW_HOURS are served newest-first at the
@@ -603,6 +613,22 @@ router.get("/foryou", async (req, res) => {
       //   combined.length positions were consumed by the fresh+ranked section,
       //   so the first overflow page starts at overflow-row 0 when
       //   offset = combined.length.
+      req.log.info(
+        { combinedLen: combined.length, offset, poolIsExhaustive, poolCutoffAt },
+        "foryou: overflow path entered",
+      );
+
+      // Short-circuit: when the DB returned fewer candidates than CANDIDATE_POOL_SIZE
+      // every post in the database is already inside the ranked pool — there is
+      // nothing older than poolCutoffAt to fetch. Avoid the live Supabase query
+      // entirely and loop back to the top of the ranked pool immediately.
+      if (poolIsExhaustive) {
+        req.log.info({ combinedLen: combined.length, offset }, "foryou: pool exhaustive, looping without DB call");
+        const loopPage = combined.slice(0, limit);
+        res.json({ data: loopPage, source: "v1-js-ranked-loop", looped: true });
+        return;
+      }
+
       const chronoOffset = Math.max(0, offset - combined.length);
 
       let overflowQ = supabase
@@ -619,20 +645,26 @@ router.get("/foryou", async (req, res) => {
         overflowQ = overflowQ.eq("category", category) as typeof overflowQ;
       }
 
-      const { data: overflowRaw, error: overflowErr } = await overflowQ
-        .range(chronoOffset, chronoOffset + limit - 1);
+      // Safety net: if the overflow Supabase query hangs (e.g. connection pool
+      // exhaustion on Supabase free tier), resolve after 3 s with an empty result
+      // so the client receives a looped page rather than a 25 s AbortController timeout.
+      type OverflowResult = { data: any[] | null; error: any };
+      const overflowResult = await Promise.race<OverflowResult>([
+        overflowQ.range(chronoOffset, chronoOffset + limit - 1) as unknown as Promise<OverflowResult>,
+        new Promise<OverflowResult>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: new Error("overflow_query_timeout") }), 3_000),
+        ),
+      ]);
+      const { data: overflowRaw, error: overflowErr } = overflowResult;
 
-      if (overflowErr) throw overflowErr;
+      if (overflowErr) {
+        req.log.warn({ err: overflowErr.message }, "foryou: overflow query failed/timed out — looping");
+        const loopPage = combined.slice(0, limit);
+        res.json({ data: loopPage, source: "v1-js-ranked-loop", looped: true });
+        return;
+      }
 
       // ── Loop: all posts exhausted → wrap back to combined pool from the top ─
-      // When the overflow tail returns 0 rows the user has seen every available
-      // post.  Rather than returning an empty page (which the client reads as
-      // "end of feed" and permanently stops scrolling), restart the sequence
-      // from the beginning of the combined (fresh + ranked) pool.
-      //
-      // `looped: true` in the response tells the client to replace its
-      // accumulated post list rather than append — this clears the session-level
-      // dedup so the restarted posts are visible instead of being swallowed.
       if (!overflowRaw || overflowRaw.length === 0) {
         const loopPage = combined.slice(0, limit);
         res.json({ data: loopPage, source: "v1-js-ranked-loop", looped: true });
