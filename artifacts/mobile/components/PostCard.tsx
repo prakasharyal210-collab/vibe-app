@@ -196,9 +196,15 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
   // Keyed by the original (untransformed) URL. Reset per-PostCard instance.
   // Seed from the module-level set so already-failed transform URLs skip the
   // transform immediately on remount instead of retrying and failing again.
-  const [imageErrors, setImageErrors] = useState<Set<string>>(
-    () => new Set(images.filter((u): u is string => !!u && _transformFailedUrls.has(u)))
-  );
+  // `images` is computed later in the component, so we derive URLs directly
+  // from `post` here to avoid a "used before defined" crash.
+  const [imageErrors, setImageErrors] = useState<Set<string>>(() => {
+    const urls: (string | null | undefined)[] =
+      post.images && post.images.length > 0
+        ? post.images
+        : [post.image_url || post.media_url];
+    return new Set(urls.filter((u): u is string => !!u && _transformFailedUrls.has(u)));
+  });
   // Tracks URLs where BOTH the transformed and original URLs failed to load.
   // These receive the "image unavailable" placeholder instead of a dark box.
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
