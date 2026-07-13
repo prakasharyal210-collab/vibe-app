@@ -1100,13 +1100,10 @@ export default function FeedScreen() {
             <View style={[feedControlStyles.headerControls, { display: activeTabIndex === 0 ? "flex" : "none" }]}>
               <TouchableOpacity
                 onPress={() => setShowContentMenu((v) => !v)}
-                style={[feedControlStyles.contentTypeBtn, contentType !== "all" && feedControlStyles.contentTypeBtnActive]}
+                style={[feedControlStyles.sortBtn, contentType !== "all" && feedControlStyles.sortBtnActive]}
                 activeOpacity={0.7}
               >
-                <Text style={[feedControlStyles.contentTypeBtnLabel, contentType !== "all" && feedControlStyles.contentTypeBtnLabelActive]}>
-                  {contentType === "all" ? "All" : contentType === "photo" ? "Photo" : "Video"}
-                </Text>
-                <Text style={{ fontSize: 8, lineHeight: 13, marginLeft: 3, color: contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.35)" }}>▼</Text>
+                <Text style={{ fontSize: 13, color: contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)", lineHeight: 18 }}>▼</Text>
               </TouchableOpacity>
             </View>
           </View>
