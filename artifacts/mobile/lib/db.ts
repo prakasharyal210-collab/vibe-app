@@ -17,6 +17,21 @@ import {
   supabase,
 } from "./supabase";
 
+// Module-level post cache shared between the feed and the post detail screen.
+// The feed populates it as posts load; post/[id].tsx reads from it for instant
+// initial render — no spinner, no blank screen while the background API fetch runs.
+// Capped at 500 entries (FIFO) to avoid unbounded memory growth.
+const MAX_POST_CACHE = 500;
+export const feedPostCache = new Map<string, Post>();
+export function putFeedPost(post: Post) {
+  if (!post?.id) return;
+  if (feedPostCache.size >= MAX_POST_CACHE) {
+    const firstKey = feedPostCache.keys().next().value;
+    if (firstKey) feedPostCache.delete(firstKey);
+  }
+  feedPostCache.set(post.id, post);
+}
+
 // Read a local file URI as base64 string reliably on Android & iOS.
 // fetch(uri) can hang indefinitely on Android content:// URIs.
 async function localUriToBase64(uri: string): Promise<string> {

@@ -42,6 +42,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 import { Post, formatCount, timeAgo, supabase } from "@/lib/supabase";
+import { feedPostCache } from "@/lib/db";
 import { shareContent, buildVibeUrl } from "@/lib/share";
 
 const { width: W } = Dimensions.get("window");
@@ -398,12 +399,14 @@ export default function PostDetailScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
 
-  const [post, setPost] = useState<Post | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed from the shared feed cache so the image renders immediately on
+  // navigation — no spinner needed if the user tapped from the feed.
+  const [post, setPost] = useState<Post | null>(() => feedPostCache.get(id ?? '') ?? null);
+  const [loading, setLoading] = useState(() => !feedPostCache.has(id ?? ''));
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [following, setFollowing] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(() => feedPostCache.get(id ?? '')?.likes_count ?? 0);
   const [showComments, setShowComments] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewerInitialIndex, setViewerInitialIndex] = useState(0);
@@ -473,9 +476,12 @@ export default function PostDetailScreen() {
   }, [id]);
 
   // ── Fetch post ──────────────────────────────────────────────────────────────
+  // If the post is already in the feed cache we skip the loading spinner and
+  // fetch fresh data silently in the background (updated counts etc).
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    const cached = feedPostCache.has(id);
+    if (!cached) setLoading(true);
     (async () => {
       try {
         const uid = session?.user?.id;

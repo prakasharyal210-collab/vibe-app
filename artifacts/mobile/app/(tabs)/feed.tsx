@@ -46,6 +46,7 @@ import {
   markPostSeen,
 } from "@/lib/db";
 import type { StoryEntry } from "@/lib/db";
+import { putFeedPost } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { POST_CATEGORIES } from "@/lib/categories";
 import { cardUrl } from "@/lib/imageUrl";
@@ -761,6 +762,10 @@ export default function FeedScreen() {
         return true;
       });
       console.log('[loadTabData] tab:', tab, 'deduped:', deduped.length, 'posts');
+
+      // Populate the shared post cache so post/[id].tsx can render instantly
+      // without waiting for its own API fetch when navigating from the feed.
+      for (const p of deduped) putFeedPost(p);
 
       // When we reach the end of content (partial page returned), stop requesting
       // more — hasMore: false prevents further onEndReached triggers.
