@@ -26,7 +26,7 @@ async function enrichWithProfiles(
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, username, avatar_url, is_verified, full_name")
+    .select("id, username, avatar_url, is_verified, full_name, created_at")
     .in("id", userIds);
 
   const profileMap = new Map<string, any>();
@@ -274,6 +274,24 @@ function velocityBoost(engagement: number, hoursAge: number): number {
   return 1.0 + Math.min(Math.log1p(engPerHour * 0.1), 1.5);
 }
 
+// TikTok growth hack: when a platform is new (or when any creator is new),
+// give their posts extra reach so they taste success and keep posting.
+// More creators posting = more content = more users sticking around.
+//
+// Tiers (days since account creation → multiplier):
+//   0 – 7  days  → 4.0×  (just joined — show them it's worth posting)
+//   7 – 14 days  → 2.5×  (still new — reinforce the habit)
+//  14 – 30 days  → 1.8×  (past the new-user phase but still growing)
+//  30+    days   → 1.0×  (established creator, compete on merit)
+function newCreatorBoost(profileCreatedAt: string | null | undefined): number {
+  if (!profileCreatedAt) return 1.0;
+  const daysOld = (Date.now() - new Date(profileCreatedAt).getTime()) / 86_400_000;
+  if (daysOld < 7)  return 4.0;
+  if (daysOld < 14) return 2.5;
+  if (daysOld < 30) return 1.8;
+  return 1.0;
+}
+
 function computeForYouScore(
   post: any,
   followedIds: Set<string>,
@@ -289,10 +307,11 @@ function computeForYouScore(
   const base = engagement / Math.pow(hoursAge + 2, 1.5);
   const rateFactor = engagementRateFactor(likes, views);
   const velocity = velocityBoost(engagement, hoursAge);
+  const newCreator = newCreatorBoost(post.profiles?.created_at as string | null | undefined);
   const followBoost = followedIds.has(post.user_id as string) ? FOLLOW_BOOST : 1.0;
   const categoryBoost = post.category && topCategories.has(post.category as string) ? CATEGORY_BOOST : 1.0;
   const ownLikePenalty = likedPostIds.has(post.id as string) ? OWN_LIKE_PENALTY : 1.0;
-  return base * rateFactor * velocity * followBoost * categoryBoost * ownLikePenalty;
+  return base * rateFactor * velocity * newCreator * followBoost * categoryBoost * ownLikePenalty;
 }
 
 // ─── TikTok-style reels ranking helpers ────────────────────────────────────────
@@ -491,7 +510,7 @@ async function getRankedForYouPool(
     // silently dropped; the diversity guard below caps per-author runs.
     supabase
       .from("posts")
-      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name, created_at)")
       .or("visibility.eq.public,visibility.is.null")
       .or("is_archived.eq.false,is_archived.is.null")
       .gte("created_at", freshCutoff)
@@ -514,7 +533,7 @@ async function getRankedForYouPool(
 
   const { data: candidates, error: candErr } = await supabase
     .from("posts")
-    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name)")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name, created_at)")
     .or("visibility.eq.public,visibility.is.null")
     .or("is_archived.eq.false,is_archived.is.null")
     .order("created_at", { ascending: false })
