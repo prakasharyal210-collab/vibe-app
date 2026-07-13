@@ -1379,8 +1379,12 @@ export async function getForYouFeed(
     }
   } catch (e: any) {
     console.log('[getForYouFeed] threw:', e?.message, 'ms:', Date.now() - t0);
+    // Re-throw so loadTabData's catch block handles it — it leaves hasMore=true
+    // so the user can scroll to retry instead of silently ending pagination.
+    throw e;
   }
-  console.log('[getForYouFeed] returning [] ms:', Date.now() - t0);
+  // Reached only when the server returned an OK response with 0 posts
+  // (legitimate end of feed) or a non-OK status. hasMore=false is correct here.
   return { posts: [], looped: false };
 }
 
