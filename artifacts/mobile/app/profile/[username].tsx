@@ -803,13 +803,17 @@ export default function UserProfileScreen() {
     videoUrl: p.video_url,                                // passed to VideoGridCell for rescue
     likes: p.likes,
     caption: p.caption,
+    // isVideo drives the VideoGridCell display (video posts AND reels both need it).
+    // isReel is the source-of-truth for tab placement: only rows from the reels
+    // table belong in the Reels tab; video posts stay in the Posts tab.
     isVideo: p.isReel || p.is_video,
+    isReel: p.isReel,
     isPinned: p.is_pinned,
     username: u,
   }));
 
-  const gridPosts = gridData.filter(item => !item.isVideo);
-  const gridReels = gridData.filter(item => !!item.isVideo);
+  const gridPosts = gridData.filter(item => !item.isReel);
+  const gridReels = gridData.filter(item => !!item.isReel);
 
   const ROW_H = GRID_SIZE + 1.5;
   const uPageH = (n: number) => Math.max(320, Math.ceil(n / 3) * ROW_H);
