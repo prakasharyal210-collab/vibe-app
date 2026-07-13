@@ -1100,10 +1100,13 @@ export default function FeedScreen() {
             <View style={[feedControlStyles.headerControls, { display: activeTabIndex === 0 ? "flex" : "none" }]}>
               <TouchableOpacity
                 onPress={() => setShowContentMenu((v) => !v)}
-                style={[feedControlStyles.sortBtn, contentType !== "all" && feedControlStyles.sortBtnActive]}
+                style={[feedControlStyles.contentTypeBtn, contentType !== "all" && feedControlStyles.contentTypeBtnActive]}
                 activeOpacity={0.7}
               >
-                <Text style={{ fontSize: 13, color: contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.45)", lineHeight: 18 }}>▼</Text>
+                <Text style={[feedControlStyles.contentTypeBtnLabel, contentType !== "all" && feedControlStyles.contentTypeBtnLabelActive]}>
+                  {contentType === "all" ? "All" : contentType === "photo" ? "Photo" : "Video"}
+                </Text>
+                <Text style={{ fontSize: 8, lineHeight: 13, marginLeft: 3, color: contentType !== "all" ? "#8B5CF6" : "rgba(255,255,255,0.35)" }}>▼</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1335,6 +1338,32 @@ const feedControlStyles = StyleSheet.create({
     gap: 6,
     marginLeft: 6,
   },
+  // Labeled pill that shows the current content-type selection ("All ▼ / Photo ▼ / Video ▼").
+  // Replaces the old invisible ▼ square so the filter hierarchy is obvious at a glance.
+  contentTypeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+  },
+  contentTypeBtnActive: {
+    backgroundColor: "rgba(139,92,246,0.15)",
+    borderColor: "rgba(139,92,246,0.45)",
+  },
+  contentTypeBtnLabel: {
+    fontSize: 12,
+    fontFamily: "Poppins_500Medium",
+    color: "rgba(255,255,255,0.5)",
+    lineHeight: 18,
+  },
+  contentTypeBtnLabelActive: {
+    color: "#8B5CF6",
+  },
+  // Legacy — kept so no other code breaks if it references these
   sortBtn: {
     width: 24,
     height: 24,
