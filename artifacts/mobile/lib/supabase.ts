@@ -57,6 +57,7 @@ export interface Post {
   post_type?: "photo" | "video" | "poll" | "mood";
   image_width?: number;
   image_height?: number;
+  blurhash?: string;
 }
 
 export interface Reel {

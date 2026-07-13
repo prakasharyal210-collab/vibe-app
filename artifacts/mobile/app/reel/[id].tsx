@@ -131,7 +131,7 @@ export default function ReelDetailScreen() {
           onError={() => setVideoError(true)}
         />
       ) : (
-        <Image source={{ uri: thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <Image source={{ uri: thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" recyclingKey={thumbnail} />
       )}
 
       <LinearGradient

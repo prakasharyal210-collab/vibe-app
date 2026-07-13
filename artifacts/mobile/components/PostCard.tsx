@@ -885,8 +885,9 @@ export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen 
                     style={{ width: CARD_W, height: imgH }}
                     contentFit={imgResizeMode}
                     cachePolicy="memory-disk"
+                    placeholder={post.blurhash ? { thumbhash: post.blurhash } : undefined}
                     transition={imageAlreadyCached ? 0 : 200}
-                    recyclingKey={item}
+                    recyclingKey={cardUrl(item) ?? item}
                     onLoad={index === 0 && !knownAspectRatio ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
                     onError={() => {
                       if (usingFallback) {

@@ -49,6 +49,7 @@ import type { StoryEntry } from "@/lib/db";
 import { Post, supabase } from "@/lib/supabase";
 import { POST_CATEGORIES } from "@/lib/categories";
 import { cardUrl } from "@/lib/imageUrl";
+import { Image as ExpoImage } from "expo-image";
 
 import { getCachedFeed, setCachedFeed } from "@/lib/feedCache";
 
@@ -606,10 +607,21 @@ export default function FeedScreen() {
       const top = viewableItems.find((v) => v.isViewable);
       setVisiblePostIds((prev) => ({ ...prev, [tab.id]: top?.item?.id ?? null }));
       if (top && typeof top.index === "number") {
-        // Trigger pagination when the user is within 5 posts of the end.
         const state = tabStatesRef.current[tab.id];
+        // Trigger pagination when the user is within 5 posts of the end.
         if (top.index >= state.posts.length - 5 && state.hasMore && !state.loadingMore && !state.loading) {
           void loadTabDataRef.current(tab.id);
+        }
+        // Prefetch cardUrl() for the next 4 posts so their images are in
+        // the disk cache before the user scrolls to them.
+        const upcoming = state.posts.slice(top.index + 1, top.index + 5);
+        for (const p of upcoming) {
+          const rawUrl = (p as Post).image_url ?? (p as Post).media_url;
+          if (!rawUrl) continue;
+          const lower = rawUrl.toLowerCase();
+          if (lower.endsWith(".mp4") || lower.endsWith(".mov") || lower.endsWith(".webm")) continue;
+          const transformed = cardUrl(rawUrl);
+          if (transformed) void ExpoImage.prefetch(transformed, "disk");
         }
       }
     })

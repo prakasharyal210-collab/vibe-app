@@ -20,9 +20,11 @@
     "cors": "^2.8.6",
     "drizzle-orm": "catalog:",
     "express": "^5.2.1",
+    "jpeg-js": "^0.4.4",
     "pg": "^8.20.0",
     "pino": "^9.14.0",
     "pino-http": "^10.5.0",
+    "thumbhash": "^0.1.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {

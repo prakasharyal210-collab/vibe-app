@@ -4,8 +4,56 @@ import { sendPushToUser } from "../../lib/sendPush";
 import { checkImageContent, checkVideoContent, checkCaptionText, logRejection } from "../../utils/contentModeration";
 import { logger } from "../../lib/logger";
 import { enrichWithPolls } from "../polls";
+import jpegJs from "jpeg-js";
+import { rgbaToThumbHash } from "thumbhash";
 
 const router = Router();
+
+// ---------------------------------------------------------------------------
+// Thumbhash generation (for image post placeholders)
+// ---------------------------------------------------------------------------
+
+function resizeRgba(
+  src: Uint8Array,
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number,
+): Uint8Array {
+  const dst = new Uint8Array(dstW * dstH * 4);
+  for (let y = 0; y < dstH; y++) {
+    for (let x = 0; x < dstW; x++) {
+      const sx = Math.floor((x * srcW) / dstW);
+      const sy = Math.floor((y * srcH) / dstH);
+      const si = (sy * srcW + sx) * 4;
+      const di = (y * dstW + x) * 4;
+      dst[di]     = src[si]!;
+      dst[di + 1] = src[si + 1]!;
+      dst[di + 2] = src[si + 2]!;
+      dst[di + 3] = src[si + 3] ?? 255;
+    }
+  }
+  return dst;
+}
+
+function generateThumbhash(buffer: Buffer): string | null {
+  try {
+    const { width, height, data } = jpegJs.decode(buffer, { useTArray: true, maxResolutionInMP: 200 });
+    const maxDim = 100;
+    let w = width;
+    let h = height;
+    if (w > maxDim || h > maxDim) {
+      const scale = maxDim / Math.max(w, h);
+      w = Math.max(1, Math.round(w * scale));
+      h = Math.max(1, Math.round(h * scale));
+    }
+    const rgba = resizeRgba(data as unknown as Uint8Array, width, height, w, h);
+    const hash = rgbaToThumbHash(w, h, rgba);
+    return Buffer.from(hash).toString("base64");
+  } catch {
+    return null;
+  }
+}
 
 // Remembered per-process once the RPC availability is confirmed/denied.
 // Avoids adding a failed round-trip before the 3-hop fallback on every request.
@@ -488,6 +536,7 @@ router.post("/create", async (req, res) => {
 
   let mediaUrl: string | null = null;
   let uploadedFilename: string | null = null;
+  let postThumbhash: string | null = null;
 
   // Upload image/video to storage if base64 provided
   if (imageBase64) {
@@ -495,6 +544,11 @@ router.post("/create", async (req, res) => {
       const filename = `${userId}/${Date.now()}.${ext}`;
       uploadedFilename = filename;
       const buffer = Buffer.from(imageBase64, "base64");
+      // Generate thumbhash for image posts (non-video) — used as a
+      // blurred placeholder in the feed card while the real image loads.
+      if (!mimeType.startsWith("video/") && mimeType !== "image/gif") {
+        postThumbhash = generateThumbhash(buffer);
+      }
       const { error: upErr } = await sb.storage
         .from("posts")
         .upload(filename, buffer, { contentType: mimeType, upsert: true });
@@ -633,6 +687,7 @@ router.post("/create", async (req, res) => {
     ...(isMoodPost ? { post_type: "mood" } : {}),
     ...(typeof width === "number" && width > 0 ? { image_width: width } : {}),
     ...(typeof height === "number" && height > 0 ? { image_height: height } : {}),
+    ...(postThumbhash ? { blurhash: postThumbhash } : {}),
   };
 
   const r1 = await sb.from("posts").insert(payload).select("id").single();
@@ -711,6 +766,14 @@ router.post("/create", async (req, res) => {
     const r8 = await sb.from("posts").insert(payloadNoDims).select("id").single();
     insertData = r8.data as { id: string } | null;
     insertErr = r8.error;
+  }
+  if (insertErr?.message?.includes("blurhash")) {
+    // blurhash column not yet added via migration — strip and retry silently.
+    const payloadNoBlurhash = { ...payload };
+    delete payloadNoBlurhash.blurhash;
+    const r9 = await sb.from("posts").insert(payloadNoBlurhash).select("id").single();
+    insertData = r9.data as { id: string } | null;
+    insertErr = r9.error;
   }
   if (insertErr) {
     req.log.error({ err: insertErr.message }, "Post insert failed");
