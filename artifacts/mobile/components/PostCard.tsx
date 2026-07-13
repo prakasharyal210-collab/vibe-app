@@ -112,6 +112,12 @@ const API_BASE = (process.env.EXPO_PUBLIC_API_URL ?? "") + "/api";
 // Image.getSize is synchronous for images already in RN's decode cache, so
 // returning the stored ratio on re-render eliminates the "flash-then-resize".
 const _ratioCache = new Map<string, number>();
+// Survives PostCard mount/unmount cycles (FlatList recycles cells as you scroll).
+// Without this, every time a post scrolls back into view PostCard would retry the
+// already-known-failing Supabase transform URL → wait for it to 4xx → then fall
+// back to the original URL.  That double round-trip is why "large/small" images
+// appear slow or blank on revisit.  One failure per URL is enough to skip forever.
+const _transformFailedUrls = new Set<string>();
 
 // ── FollowPillButton ────────────────────────────────────────────────────────
 // Module-scope so Ionicons class instances are stable across re-renders
@@ -188,7 +194,11 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
   const [isPinned, setIsPinned] = useState((post as any).is_pinned ?? false);
   // Tracks image URLs whose cardUrl() transform failed — triggers fallback to original URL.
   // Keyed by the original (untransformed) URL. Reset per-PostCard instance.
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  // Seed from the module-level set so already-failed transform URLs skip the
+  // transform immediately on remount instead of retrying and failing again.
+  const [imageErrors, setImageErrors] = useState<Set<string>>(
+    () => new Set(images.filter((u): u is string => !!u && _transformFailedUrls.has(u)))
+  );
   // Tracks URLs where BOTH the transformed and original URLs failed to load.
   // These receive the "image unavailable" placeholder instead of a dark box.
   const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
@@ -887,7 +897,7 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
                     cachePolicy="memory-disk"
                     placeholder={post.blurhash ? { thumbhash: post.blurhash } : undefined}
                     transition={imageAlreadyCached ? 0 : 200}
-                    recyclingKey={cardUrl(item) ?? item}
+                    recyclingKey={sourceUri ?? item}
                     onLoad={index === 0 && !knownAspectRatio ? (e) => handleMediaLoad(item, e.source?.width, e.source?.height) : undefined}
                     onError={() => {
                       if (usingFallback) {
@@ -902,6 +912,9 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
                         return;
                       }
                       // First failure — cardUrl() transform returned an error.
+                      // Persist to the module-level set so remounts skip the
+                      // transform immediately instead of retrying and failing again.
+                      _transformFailedUrls.add(item);
                       // Fall back to the original untransformed URL and log for Sentry triage.
                       console.warn(`[PostCard] image transform failed, retrying with original URL. post=${post.id} url=...${item?.slice(-50)}`);
                       captureMessage("image_transform_fallback", {
