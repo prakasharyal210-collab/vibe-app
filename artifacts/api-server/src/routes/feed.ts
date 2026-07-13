@@ -196,16 +196,23 @@ function limitPollsToTop5(posts: any[]): any[] {
   }
 }
 
-// ─── v1 JS-computed "For You" ranking ──────────────────────────────────────────
+// ─── v1.2 JS-computed "For You" ranking (TikTok-style) ──────────────────────────
 // Computed entirely in this process (not a DB RPC) so the exact formula below
 // is guaranteed to run regardless of whether speculative Supabase objects
 // (get_for_you_feed_v3, posts.score, the refresh_recent_scores() cron) are
 // actually deployed/scheduled in this project's Supabase instance.
 //
-// score = (likes_count + comments_count × 2) / (hoursSincePosted + 2)^1.5
-//         × (3.0 if author is followed, else 1.0)
-//         × (1.5 if post.category is one of the user's top-3 most-liked
-//            categories, else 1.0)
+// score = base × engagementRate × velocityBoost × followBoost × categoryBoost × ownLikePenalty
+//
+// base           = (likes + comments×2) / (hoursAge + 2)^1.5
+// engagementRate = sqrt(likes / max(views, 20)) mapped to [0.5, 1.0]
+//                  (TikTok's #1 signal: a post 50 people liked out of 100 views
+//                   beats a post 200 people liked out of 100,000 views)
+// velocityBoost  = 1 + log(1 + engagement_per_hour × 0.1)  if hoursAge < 6, else 1
+//                  (rising fast in the first 6h = "trending now")
+// followBoost    = 3.0 if author followed, else 1.0
+// categoryBoost  = 1.2 if category in user's top-3 liked categories, else 1.0
+// ownLikePenalty = 0.4 if user already liked this post, else 1.0
 //
 // Ties broken by created_at desc.
 const FOLLOW_BOOST = 3.0;
@@ -246,6 +253,27 @@ function excludeMoodPosts(rows: any[]): any[] {
   return rows.filter((r) => r.post_type !== "mood");
 }
 
+// TikTok signal #1: engagement RATE (likes ÷ views) matters more than raw
+// like count. A post watched by 100 people and liked by 50 is better content
+// than a post shown to 100,000 with 200 likes. Floor views at 20 so brand-new
+// zero-view posts don't get artificially suppressed — they compete on base score.
+// Output range: [0.5, 1.0] via sqrt compression.
+function engagementRateFactor(likes: number, viewsCount: number): number {
+  const views = Math.max(viewsCount, 20);
+  const rate = Math.min(likes / views, 1);
+  return 0.5 + Math.sqrt(rate) * 0.5;
+}
+
+// TikTok signal #2: velocity — content gaining traction FAST in its first 6 hours
+// is trending. A post with 40 likes in 2 hours should outrank a post with 40 likes
+// in 48 hours even if their time-decayed base scores are similar.
+// Output range: [1.0, 2.5] (log-capped so a viral post doesn't drown everything).
+function velocityBoost(engagement: number, hoursAge: number): number {
+  if (hoursAge > 6) return 1.0;
+  const engPerHour = engagement / Math.max(hoursAge, 0.1);
+  return 1.0 + Math.min(Math.log1p(engPerHour * 0.1), 1.5);
+}
+
 function computeForYouScore(
   post: any,
   followedIds: Set<string>,
@@ -254,14 +282,78 @@ function computeForYouScore(
 ): number {
   const likes = (post.likes_count as number | undefined) ?? 0;
   const comments = (post.comments_count as number | undefined) ?? 0;
+  const views = (post.views_count as number | undefined) ?? 0;
   const engagement = likes + comments * 2;
   const createdMs = parseUTCMs(post.created_at as string | undefined);
-  const hoursSincePosted = Math.max(0, (Date.now() - createdMs) / 3_600_000);
-  const base = engagement / Math.pow(hoursSincePosted + 2, 1.5);
+  const hoursAge = Math.max(0, (Date.now() - createdMs) / 3_600_000);
+  const base = engagement / Math.pow(hoursAge + 2, 1.5);
+  const rateFactor = engagementRateFactor(likes, views);
+  const velocity = velocityBoost(engagement, hoursAge);
   const followBoost = followedIds.has(post.user_id as string) ? FOLLOW_BOOST : 1.0;
   const categoryBoost = post.category && topCategories.has(post.category as string) ? CATEGORY_BOOST : 1.0;
   const ownLikePenalty = likedPostIds.has(post.id as string) ? OWN_LIKE_PENALTY : 1.0;
-  return base * followBoost * categoryBoost * ownLikePenalty;
+  return base * rateFactor * velocity * followBoost * categoryBoost * ownLikePenalty;
+}
+
+// ─── TikTok-style reels ranking helpers ────────────────────────────────────────
+
+// Apply creator-affinity weights stored in `user_interests` (populated by
+// /api/reels/watch whenever the user watches >80% of a reel) as a re-ranking
+// multiplier on top of the existing `score` column. Creators the user
+// genuinely enjoys bubble up; creators they never watch stay ranked by global
+// popularity. Affinity weight is in [-5, 10]; mapped to multiplier [0.5, 3.0].
+async function applyCreatorAffinity(
+  supabase: SupabaseClient,
+  userId: string,
+  reels: any[],
+): Promise<any[]> {
+  const creatorIds = [...new Set(reels.map((r) => r.user_id as string).filter(Boolean))];
+  if (!creatorIds.length) return reels;
+
+  const keys = creatorIds.map((id) => `creator:${id}`);
+  const { data: interests } = await supabase
+    .from("user_interests")
+    .select("interest_key, weight")
+    .eq("user_id", userId)
+    .in("interest_key", keys);
+
+  const affinityMap = new Map<string, number>();
+  for (const row of interests ?? []) {
+    const creatorId = (row.interest_key as string).replace("creator:", "");
+    affinityMap.set(creatorId, (row.weight as number) ?? 0);
+  }
+
+  return [...reels]
+    .map((reel) => {
+      const affinity = affinityMap.get(reel.user_id as string) ?? 0;
+      const multiplier = 1.0 + Math.max(-0.5, Math.min(affinity * 0.2, 2.0));
+      const base = (reel.score as number | undefined) ?? 0;
+      return { ...reel, _ranked_score: base * multiplier };
+    })
+    .sort((a, b) => (b._ranked_score as number) - (a._ranked_score as number));
+}
+
+// Diversity guard for the reels feed: max 3 consecutive reels from the same
+// creator before forcing a different creator into the slot. Mirrors the For You
+// feed's author-diversity logic so one prolific creator doesn't monopolise the
+// reel stream even if they have the highest affinity scores.
+function diversifyReels(reels: any[]): any[] {
+  const remaining = [...reels];
+  const out: any[] = [];
+  let lastCreator: string | null = null;
+  let streak = 0;
+  while (remaining.length > 0) {
+    let pickIdx = 0;
+    if (lastCreator && streak >= 3) {
+      const altIdx = remaining.findIndex((r) => r.user_id !== lastCreator);
+      if (altIdx !== -1) pickIdx = altIdx;
+    }
+    const [picked] = remaining.splice(pickIdx, 1);
+    out.push(picked);
+    streak = picked.user_id === lastCreator ? streak + 1 : 1;
+    lastCreator = (picked.user_id as string | undefined) ?? null;
+  }
+  return out;
 }
 
 // Diversity guard applied to the FULL ranked pool (before pagination windowing,
@@ -926,7 +1018,9 @@ router.get("/reels", async (req, res) => {
       );
       const rpcCall = supabase.rpc("get_for_you_reels_v2", {
         p_user_id: userId,
-        p_limit: limit,
+        // Fetch extra candidates so creator-affinity re-ranking has room to
+        // reorder without shrinking the final list below `limit`.
+        p_limit: Math.min(limit * 3, 60),
       });
       const { data: v2Data, error: v2Err } = await Promise.race([rpcCall, rpcTimeout]);
       req.log.info(
@@ -936,8 +1030,12 @@ router.get("/reels", async (req, res) => {
       if (!v2Err && Array.isArray(v2Data) && v2Data.length > 0) {
         const enriched = await enrichWithProfiles(supabase, v2Data);
         const enrichedCouple = await enrichWithCoupleData(supabase, enriched);
-        req.log.info({ ms: Date.now() - t0, rows: enrichedCouple.length }, "reels: v2 response sent");
-        res.json({ data: enrichedCouple, source: "v2" });
+        // TikTok-style: re-rank by creator affinity (watch history) then
+        // apply diversity guard so no one creator floods the reel stream.
+        const reranked = await applyCreatorAffinity(supabase, userId, enrichedCouple);
+        const diversified = diversifyReels(reranked).slice(0, limit);
+        req.log.info({ ms: Date.now() - t0, rows: diversified.length }, "reels: v2 response sent");
+        res.json({ data: diversified, source: "v2" });
         return;
       }
     } catch (err: any) {
@@ -949,6 +1047,8 @@ router.get("/reels", async (req, res) => {
   }
 
   // Fallback (also used for guests): direct reels query ordered by score.
+  // Fetch extra candidates so affinity re-ranking and diversity guard have
+  // room to reorder before trimming to the requested limit.
   req.log.info({ ms: Date.now() - t0 }, "reels: running fallback query");
   const { data: freshReels } = await supabase
     .from("reels")
@@ -956,10 +1056,18 @@ router.get("/reels", async (req, res) => {
     .or("is_archived.eq.false,is_archived.is.null")
     .order("score", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(userId ? limit * 3 : limit);
 
-  req.log.info({ ms: Date.now() - t0, rows: freshReels?.length ?? 0 }, "reels: fallback response sent");
-  res.json({ data: freshReels ?? [], source: "fresh" });
+  const rawReels = freshReels ?? [];
+  // Apply creator affinity + diversity even in the score-ordered fallback so
+  // personalisation kicks in for every user regardless of whether the RPC fired.
+  const reranked = userId
+    ? await applyCreatorAffinity(supabase, userId, rawReels)
+    : rawReels;
+  const diversified = diversifyReels(reranked).slice(0, limit);
+
+  req.log.info({ ms: Date.now() - t0, rows: diversified.length }, "reels: fallback response sent");
+  res.json({ data: diversified, source: "fresh" });
 });
 
 // ─── GET /api/feed/following-reels ────────────────────────────────────────────
