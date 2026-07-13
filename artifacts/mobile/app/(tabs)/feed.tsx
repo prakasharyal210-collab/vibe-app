@@ -510,6 +510,10 @@ export default function FeedScreen() {
   const { session } = useAuth();
   const isLoggedIn = !!session;
   const userId = session?.user?.id ?? "";
+  // Stable ref so viewableHandlers (created once) can read the latest userId
+  // without being recreated when session changes.
+  const userIdRef = useRef(userId);
+  useEffect(() => { userIdRef.current = userId; }, [userId]);
 
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState("explore");
@@ -611,6 +615,11 @@ export default function FeedScreen() {
   const viewableHandlers = useRef(
     TABS.map((tab) => ({ viewableItems }: { viewableItems: Array<{ isViewable: boolean; item: Post; index: number | null }> }) => {
       const top = viewableItems.find((v) => v.isViewable);
+      // Mark the newly-visible post as seen here (single call per post becoming
+      // visible) instead of inside renderItem (which fires on every re-render).
+      if (top?.item?.id && userIdRef.current) {
+        markPostSeen(userIdRef.current, top.item.id).catch(() => {});
+      }
       setVisiblePostIds((prev) => ({ ...prev, [tab.id]: top?.item?.id ?? null }));
       if (top && typeof top.index === "number") {
         const state = tabStatesRef.current[tab.id];
@@ -983,7 +992,6 @@ export default function FeedScreen() {
   // called inside render produced a new function on every render, forcing all items
   // to re-render on every scroll event.
   const renderForYouItem = useCallback(({ item }: { item: Post }) => {
-    if (userId) markPostSeen(userId, item.id).catch(() => {});
     return (
       <PostCard
         post={item}
@@ -993,10 +1001,9 @@ export default function FeedScreen() {
         onPress={() => router.push(`/post/${item.id}` as any)}
       />
     );
-  }, [isLoggedIn, userId, screenFocused, activeTab, visiblePostIds]);
+  }, [isLoggedIn, screenFocused, activeTab, visiblePostIds]);
 
   const renderFriendsItem = useCallback(({ item }: { item: Post }) => {
-    if (userId) markPostSeen(userId, item.id).catch(() => {});
     return (
       <PostCard
         post={item}
@@ -1006,7 +1013,7 @@ export default function FeedScreen() {
         onPress={() => router.push(`/post/${item.id}` as any)}
       />
     );
-  }, [isLoggedIn, userId, screenFocused, activeTab, visiblePostIds]);
+  }, [isLoggedIn, screenFocused, activeTab, visiblePostIds]);
 
   const renderEmpty = useCallback((tabId: FeedTabId) => {
     const state = tabStates[tabId];
@@ -1207,7 +1214,11 @@ export default function FeedScreen() {
             <View key={tab.id} style={{ width: W, flex: 1 }} {...(tab.id === "friends" ? friendsSwipePan.panHandlers : {})}>
               <FlatList
                 ref={(ref) => { flatListRefs.current[tabIndex] = ref; }}
-                removeClippedSubviews={false}
+                removeClippedSubviews={true}
+                windowSize={5}
+                maxToRenderPerBatch={3}
+                updateCellsBatchingPeriod={50}
+                initialNumToRender={3}
                 data={state.loading ? [] : (tab.id === "foryou" && isTrending ? [] : filteredPosts)}
                 keyExtractor={(item, index) => {
                   const postId = item.id;

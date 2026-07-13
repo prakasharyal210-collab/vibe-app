@@ -157,7 +157,7 @@ interface PostCardProps {
   isActive?: boolean;
 }
 
-export function PostCard({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight, onPress, isActive = false }: PostCardProps) {
+function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = false, itemHeight, onPress, isActive = false }: PostCardProps) {
   const colors = useColors();
   const { session } = useAuth();
   const userId = session?.user?.id;
@@ -1467,3 +1467,13 @@ const styles = StyleSheet.create({
   moodTitleHashtag: { color: "#EC4899" },
   postTimestamp: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 1 },
 });
+
+// Memoised export — only re-renders when the post ID changes, the active state
+// flips, or login state changes.  Function prop changes (onPress, onRequireLogin)
+// are intentionally skipped: they always have the same semantics for a given post.
+export const PostCard = React.memo(PostCardBase, (prev, next) =>
+  prev.post.id === next.post.id &&
+  prev.isActive === next.isActive &&
+  prev.isLoggedIn === next.isLoggedIn &&
+  prev.fullScreen === next.fullScreen
+);
