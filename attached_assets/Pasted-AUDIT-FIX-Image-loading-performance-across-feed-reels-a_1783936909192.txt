@@ -1,0 +1,18 @@
+AUDIT & FIX: Image loading performance across feed, reels, and post uploads
+Our feed images are loading slowly. I need a full audit and fix of the image pipeline — from upload, to storage, to how the feed requests and displays images.
+STEP 1 — Audit current state:
+
+Show me the schema/columns for the posts table (or wherever post media is stored) — specifically the media URL column(s).
+Run a query showing the last 10 posts' media URLs so I can see exactly what's being stored (full Supabase storage URLs? Pexels URLs? raw uploads?).
+Find every place in artifacts/mobile where post images are rendered in the feed (feed cards, reels, profile grid) and show me the exact <Image> / expo-image component usage — what URL is passed, and whether any resize/transform params are applied.
+Find the upload flow (where a user posts a photo) and show me whether images are compressed/resized before or after upload to Supabase storage.
+
+STEP 2 — Fix the pipeline:
+
+Right-sized delivery: Ensure every feed/thumbnail image request uses Supabase's image transform params (resize + compress) rather than the raw full-size file. Feed cards should request ~1080px max width; thumbnails ~300px.
+Placeholder while loading: Add a blurhash or average-color placeholder so cards never render blank while the image loads. Generate blurhash at upload time and store it alongside the post.
+Prefetching: Confirm the feed prefetches images for the next 3-5 posts below the current scroll position, using the resized URL (not original), so images are cached before the user scrolls to them.
+Caching: Confirm expo-image is using a stable, unchanging URL per image so repeat views (scrolling back up) load instantly from disk cache instead of re-fetching.
+If any posts currently have raw Pexels original URLs or unresized upload URLs stored, write a migration/patch to append the correct resize/compress params at render time (don't require re-uploading existing posts).
+
+Report back what you found in Step 1 before making changes, so I can confirm before you touch the feed rendering code.
