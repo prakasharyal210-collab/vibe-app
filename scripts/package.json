@@ -15,12 +15,14 @@
     "run-couple-feed-migration": "tsx ./src/run-couple-feed-migration.mts",
     "generate-seed-content": "tsx ./src/generate-seed-content.ts",
     "seed-content": "tsx ./src/seed-content.ts",
+    "seed-sofia-vibe": "tsx ./src/seed-sofia-vibe.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
     "@types/node": "catalog:"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "@types/pg": "^8.20.0",
     "pg": "^8.20.0",
     "tsx": "catalog:"
