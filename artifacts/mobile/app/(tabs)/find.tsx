@@ -1050,7 +1050,7 @@ const ibStyles = StyleSheet.create({
   skipText: { fontFamily: "Poppins_500Medium", fontSize: 14 },
 });
 
-function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, onReset, onCurrentIndexChange }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[]; onReset?: () => Promise<void>; onCurrentIndexChange?: (index: number) => void }) {
+function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, onReset, onCurrentIndexChange, onSwiped }: { cards: VibeCard[]; onRequireLogin: () => void; userId?: string; isAnonymous?: boolean; myGoals?: string[]; onReset?: () => Promise<void>; onCurrentIndexChange?: (index: number) => void; onSwiped?: (cardId: string) => void }) {
   const colors = useColors();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [profileCard, setProfileCard] = useState<VibeCard | null>(null);
@@ -1141,6 +1141,9 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       setConsecutiveLefts(0);
     }
 
+    // ── Track swipe in parent session ref so refill never re-introduces this profile ──
+    if (card) onSwiped?.(card.id);
+
     // ── Record swipe via API server (persistence + match detection in one call) ──
     if (userId && card) {
       vibeSwipe(userId, card.id, isSuper ? "super" : direction)
@@ -1166,7 +1169,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
         setTimeout(() => setMatchCard(card), 500);
       }
     }
-  }, [cards, currentIndex, userId, translateX, translateY, dailySwipeCount, consecutiveLefts, cooldownUntil]);
+  }, [cards, currentIndex, userId, translateX, translateY, dailySwipeCount, consecutiveLefts, cooldownUntil, onSwiped]);
 
   const panGesture = useMemo(() => {
     // On web, RNGH tries to serialize worklet callbacks for a native UI thread
@@ -2362,6 +2365,9 @@ function FindVibeContent() {
   const nearbyCardsRef = useRef<VibeCard[]>([]);
   useEffect(() => { nearbyCardsRef.current = nearbyCards; }, [nearbyCards]);
   const refillInProgressRef = useRef(false);
+  // Session-level swiped ID tracking: accumulated as the user swipes this session.
+  // Used in refillVibeDeck so refills never re-introduce profiles swiped mid-session.
+  const sessionSwipedIdsRef = useRef<Set<string>>(new Set());
   const [activeFilters, setActiveFilters] = useState<FilterState>({
     showGender: ["everyone"],
     goal: "all",
@@ -2407,11 +2413,21 @@ function FindVibeContent() {
     // arrives — used to decide if a fetch failure is a cold-start failure (show
     // error UI) or a warm-cache background-refresh failure (stay silent).
     let cacheLoaded = false;
-    getCachedVibeDeck(uid).then((cached) => {
+    // Load cache and swiped IDs in parallel so the instant-paint doesn't show
+    // profiles the user has already swiped in a previous session.
+    Promise.all([
+      getCachedVibeDeck(uid).catch(() => null),
+      getSwipedIds(uid).catch(() => new Set<string>()),
+    ]).then(([cached, cachedSwipedIds]) => {
       if (cached && cached.length > 0) {
-        cacheLoaded = true;
-        setNearbyCards(cached as VibeMatchProfile[]);
-        setCardsLoading(false);
+        const filtered = (cached as VibeMatchProfile[]).filter(
+          (c) => c.id !== uid && !cachedSwipedIds.has(c.id)
+        );
+        if (filtered.length > 0) {
+          cacheLoaded = true;
+          setNearbyCards(filtered);
+          setCardsLoading(false);
+        }
       }
     }).catch(() => {});
 
@@ -2506,7 +2522,9 @@ function FindVibeContent() {
       const res = await fetch(`${apiBase}/vibe/deck?userId=${encodeURIComponent(userId)}`);
       if (!res.ok) return;
       const json = (await res.json()) as { profiles?: any[] };
+      // Exclude: already in deck OR swiped this session (session ref accumulates on each swipe)
       const existingIds = new Set(nearbyCardsRef.current.map((c) => c.id));
+      const sessionSwiped = sessionSwipedIdsRef.current;
       const newCards: VibeMatchProfile[] = (json.profiles ?? [])
         .map((row: any) => ({
           id: row.id ?? row.user_id,
@@ -2529,7 +2547,7 @@ function FindVibeContent() {
           vibeScore: row.vibe_score ?? row.compatibility_score,
           matchInterests: row.shared_interests ?? [],
         }))
-        .filter((c: VibeMatchProfile) => !existingIds.has(c.id));
+        .filter((c: VibeMatchProfile) => !existingIds.has(c.id) && !sessionSwiped.has(c.id));
       if (newCards.length > 0) setNearbyCards((prev) => [...prev, ...newCards]);
     } catch {
       // non-fatal — deck stays intact
@@ -2752,7 +2770,9 @@ function FindVibeContent() {
             userId={session?.user?.id}
             isAnonymous={isAnonymous}
             myGoals={myGoals}
+            onSwiped={(cardId) => { sessionSwipedIdsRef.current.add(cardId); }}
             onReset={userId ? async () => {
+              sessionSwipedIdsRef.current.clear();
               await resetVibeDeck(userId);
               await loadCards(userId, vibePrefs);
             } : undefined}

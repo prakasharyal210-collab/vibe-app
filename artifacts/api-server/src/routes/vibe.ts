@@ -386,6 +386,22 @@ router.get("/deck", async (req, res) => {
 
     req.log.info({ afterRpc: profiles.length }, "vibe-deck: candidates after RPC");
 
+    // Bulletproof swipe exclusion: the RPC has an `excluded` CTE but it can fail
+    // silently (schema cache miss, RPC version drift). Always re-check vibe_swipes
+    // directly so swiped profiles can NEVER reappear in the deck.
+    if (profiles.length > 0) {
+      const { data: swipedRows } = await sb
+        .from("vibe_swipes")
+        .select("target_id")
+        .eq("user_id", userId);
+      if (swipedRows && swipedRows.length > 0) {
+        const swipedSet = new Set<string>(swipedRows.map((r: any) => r.target_id as string));
+        const beforeSwipe = profiles.length;
+        profiles = profiles.filter((p: any) => !swipedSet.has(p.id as string));
+        req.log.info({ beforeSwipe, afterSwipe: profiles.length, swipedCount: swipedSet.size }, "vibe-deck: after explicit swipe exclusion");
+      }
+    }
+
     // CRITICAL: coupled users must never appear in matching.
     // Bulletproof layer: even if show_in_matching was not set correctly, explicitly
     // exclude any candidate who has an accepted couple_link. Defense-in-depth.
@@ -492,6 +508,20 @@ router.get("/deck", async (req, res) => {
         }
         req.log.info({ before6, after6: profiles.length, vibeFilterRequireBio, vibeFilterMinPhotos }, "vibe-deck: after quality filters");
       }
+    }
+
+    // 7. Face-photo gate: only show profiles that have at least one vibe-specific
+    //    photo. Profiles where vibe_profile_photo_url and vibe_photos are both
+    //    absent fall back to avatar_url which can be a dog, mountain, landscape —
+    //    totally wrong for a matching deck. Require explicit vibe photo setup.
+    const beforePhoto = profiles.length;
+    profiles = profiles.filter((p: any) => {
+      const hasVibePhoto = typeof p.vibe_profile_photo_url === "string" && p.vibe_profile_photo_url.trim().length > 0;
+      const hasVibePhotos = Array.isArray(p.vibe_photos) && (p.vibe_photos as any[]).length > 0;
+      return hasVibePhoto || hasVibePhotos;
+    });
+    if (beforePhoto !== profiles.length) {
+      req.log.info({ beforePhoto, afterPhoto: profiles.length }, "vibe-deck: after face-photo gate (removed profiles with no vibe photo setup)");
     }
 
     req.log.info({ finalCount: profiles.length }, "vibe-deck: returning profiles");
