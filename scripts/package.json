@@ -16,6 +16,7 @@
     "generate-seed-content": "tsx ./src/generate-seed-content.ts",
     "seed-content": "tsx ./src/seed-content.ts",
     "seed-sofia-vibe": "tsx ./src/seed-sofia-vibe.mts",
+    "seed-mia-vibe": "tsx ./src/seed-mia-vibe.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
