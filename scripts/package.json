@@ -17,6 +17,7 @@
     "seed-content": "tsx ./src/seed-content.ts",
     "seed-sofia-vibe": "tsx ./src/seed-sofia-vibe.mts",
     "seed-mia-vibe": "tsx ./src/seed-mia-vibe.mts",
+    "seed-luna-vibe": "tsx ./src/seed-luna-vibe.mts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
