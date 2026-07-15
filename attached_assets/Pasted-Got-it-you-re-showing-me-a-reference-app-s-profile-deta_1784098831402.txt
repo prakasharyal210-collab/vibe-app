@@ -1,0 +1,27 @@
+Got it — you're showing me a reference app's profile detail view (the "Megan" screens) where tapping into a profile opens a rich, full-screen expandable layout: name/age header, prompt cards ("Sundays are for...", "Right now I'm a huge fan of..."), hobby tag chips, "About Me" section, all interspersed between photos, with swipe/scroll to go deeper. That's a much richer profile experience than Gundruk's current single swipe card (Image 1).
+This is a legitimate, well-scoped feature request — this is essentially Hinge's profile format (prompt-based, photo-interspersed, tap to expand). Here's the breakdown and prompt:
+What's required to build this:
+
+Data model — you need fields to support: prompt-based bios (question + answer pairs, not just one free-text bio), hobby/interest tags (you may partially have this already, from the "travel/photography/coffee/beach" tags in image 1), and multiple photos with the ability to interleave text cards between them.
+Full-screen detail view — a new screen/modal that opens on tap, distinct from the swipe card, with scrollable sections.
+Profile edit flow updates — users need a way to fill in these prompts and hobbies when setting up their Find Vibe profile, not just upload photos.
+
+
+Prompt for Replit AI:
+
+FEATURE: Full-screen expandable profile view for Find Vibe (tap-to-expand, Hinge-style)
+Right now tapping a Find Vibe swipe card doesn't open anything richer — I want tapping a profile to open a full-screen scrollable detail view, similar to Hinge's profile format: photos interspersed with prompt-answer cards and an About Me section, swipe actions (lightning/pass/like/star) persist at the bottom of every section.
+STEP 1 — Audit current state (report back before changing anything):
+
+Show me the current Find Vibe profile data model — what fields exist on vibe_profiles (or wherever this lives): photos, bio, interests/tags, prompts?
+Show me the current swipe card component and whether tapping it does anything currently.
+Confirm whether "prompt" style Q&A fields (like "Sundays are for...", "Right now I'm a huge fan of...") already exist anywhere in the schema, or if this needs to be added from scratch.
+
+STEP 2 — Build the feature (only after Step 1 confirmation):
+
+Add a vibe_prompts structure if it doesn't exist — a way to store 2-3 prompt+answer pairs per profile, from a fixed list of prompt options (e.g., "Sundays are for...", "Right now I'm a huge fan of...", "My ideal weekend...").
+Build a full-screen detail screen that opens when a profile card is tapped, structured as: Photo 1 → Name/age/location header → Prompt card 1 → Photo 2 → Hobbies/interest tags → Prompt card 2 → Photo 3 → About Me section → any remaining photos.
+The swipe action buttons (pass/like/superlike) should remain accessible at the bottom throughout, so users can act without leaving the detail view.
+Add these prompt fields to the Find Vibe profile setup/edit flow so users can actually fill them in.
+
+Report back after Step 1 with what's already there before building Step 2.
