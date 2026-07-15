@@ -16,6 +16,7 @@ import {
   Platform,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -67,6 +68,8 @@ import {
   saveGundrukProfile,
   saveUserGoals,
   vibeSwipe,
+  blockUser,
+  reportContent,
   SuggestedAccount,
   updateVibeScore,
   VibeMatchProfile,
@@ -657,7 +660,7 @@ function lifestyleLabel(field: string, value: string | null | undefined): string
   return LIFESTYLE_DISPLAY[value] ?? value.replace(/_/g, " ");
 }
 
-function PromptCard({ question, answer }: { question: string; answer: string }) {
+function PromptCard({ question, answer, onReply }: { question: string; answer: string; onReply?: () => void }) {
   return (
     <View style={pmStyles.promptCard}>
       <View style={pmStyles.promptQuote}>
@@ -665,6 +668,12 @@ function PromptCard({ question, answer }: { question: string; answer: string }) 
         <Text style={pmStyles.promptQ}>{question}</Text>
       </View>
       <Text style={pmStyles.promptA}>{answer}</Text>
+      {onReply && (
+        <TouchableOpacity onPress={onReply} style={pmStyles.promptReplyBtn} activeOpacity={0.75}>
+          <Ionicons name="arrow-forward-circle-outline" size={15} color="#A78BFA" />
+          <Text style={pmStyles.promptReplyText}>Reply to this</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -694,8 +703,17 @@ const LANG_LABELS: Record<string, string> = {
   it: "Italian", ru: "Russian", tr: "Turkish", nl: "Dutch", sv: "Swedish",
 };
 
-function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClose: () => void; onVibe: () => void; onSkip: () => void }) {
+const DETAILS_COLLAPSE_THRESHOLD = 4;
+
+function ProfileModal({ card, myId, onClose, onVibe, onSkip }: {
+  card: VibeCard;
+  myId: string;
+  onClose: () => void;
+  onVibe: () => void;
+  onSkip: () => void;
+}) {
   const match = calcMatch(card);
+  const [detailsCollapsed, setDetailsCollapsed] = React.useState(true);
 
   const photos = React.useMemo(() => {
     const primary = card.image;
@@ -734,6 +752,67 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
   }, [card.vibe_education, card.vibe_family_plans, card.vibe_zodiac, card.vibe_communication,
       card.vibe_love_style, card.vibe_pets, card.vibe_drinking, card.vibe_smoking,
       card.vibe_cannabis, card.vibe_workout, card.vibe_open_to, card.vibe_languages]);
+
+  const visibleRows = detailsCollapsed
+    ? lifestyleRows.slice(0, DETAILS_COLLAPSE_THRESHOLD)
+    : lifestyleRows;
+  const hasMoreRows = lifestyleRows.length > DETAILS_COLLAPSE_THRESHOLD;
+
+  const openChat = (prefill?: string) => {
+    onClose();
+    setTimeout(() => {
+      router.push({
+        pathname: "/chat/[userId]",
+        params: { userId: card.id, username: card.name, isVibeMatch: "true", ...(prefill ? { prefill } : {}) },
+      });
+    }, 300);
+  };
+
+  const handleShare = () => {
+    Share.share({
+      message: `Check out ${card.name} on Gundruk! gundruk://profile/${card.id}`,
+      title: `${card.name} on Gundruk`,
+    }).catch(() => {});
+  };
+
+  const handleBlock = () => {
+    if (!myId) return;
+    Alert.alert(
+      `Block ${card.name}?`,
+      "They won't be able to see your profile or contact you. You won't see them in Find Vibe.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Block",
+          style: "destructive",
+          onPress: async () => {
+            try { await blockUser(myId, card.id); } catch {}
+            onClose();
+          },
+        },
+      ],
+    );
+  };
+
+  const handleReport = () => {
+    Alert.alert(
+      `Report ${card.name}`,
+      "Why are you reporting this profile?",
+      [
+        { text: "Spam or fake", onPress: () => doReport("spam") },
+        { text: "Inappropriate content", onPress: () => doReport("inappropriate") },
+        { text: "Harassment", onPress: () => doReport("harassment") },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  };
+
+  const doReport = async (reason: string) => {
+    if (!myId) return;
+    try { await reportContent(myId, card.id, "user", reason); } catch {}
+    Alert.alert("Reported", "Thanks for letting us know. We'll review this profile.");
+    onClose();
+  };
 
   const HERO_H = H * 0.68;
   const PHOTO_H = H * 0.52;
@@ -785,15 +864,21 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
           </View>
 
           {/* ── Prompt 1 ── */}
-          {prompts[0] && <PromptCard question={prompts[0].question} answer={prompts[0].answer} />}
+          {prompts[0] && (
+            <PromptCard
+              question={prompts[0].question}
+              answer={prompts[0].answer}
+              onReply={() => openChat(`Replying to your prompt "${prompts[0]!.question}" — "${prompts[0]!.answer}"`)}
+            />
+          )}
 
           {/* ── Photo 2 ── */}
           {photos[1] && <PhotoBlock uri={photos[1]} height={PHOTO_H} />}
 
-          {/* ── Interests / vibes ── */}
+          {/* ── Interests ── */}
           {card.interests.length > 0 && (
             <View style={pmStyles.section}>
-              <Text style={pmStyles.sectionTitle}>Vibes</Text>
+              <Text style={pmStyles.sectionTitle}>Interests</Text>
               <View style={pmStyles.tagsWrap}>
                 {card.interests.map((t) => (
                   <View
@@ -808,7 +893,13 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
           )}
 
           {/* ── Prompt 2 ── */}
-          {prompts[1] && <PromptCard question={prompts[1].question} answer={prompts[1].answer} />}
+          {prompts[1] && (
+            <PromptCard
+              question={prompts[1].question}
+              answer={prompts[1].answer}
+              onReply={() => openChat(`Replying to your prompt "${prompts[1]!.question}" — "${prompts[1]!.answer}"`)}
+            />
+          )}
 
           {/* ── Photo 3 ── */}
           {photos[2] && <PhotoBlock uri={photos[2]} height={PHOTO_H} />}
@@ -822,18 +913,24 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
           )}
 
           {/* ── Prompt 3 ── */}
-          {prompts[2] && <PromptCard question={prompts[2].question} answer={prompts[2].answer} />}
+          {prompts[2] && (
+            <PromptCard
+              question={prompts[2].question}
+              answer={prompts[2].answer}
+              onReply={() => openChat(`Replying to your prompt "${prompts[2]!.question}" — "${prompts[2]!.answer}"`)}
+            />
+          )}
 
           {/* ── Remaining photos (index 3+) ── */}
           {photos.slice(3).map((uri, i) => (
             <PhotoBlock key={`extra-${i}`} uri={uri} height={PHOTO_H} />
           ))}
 
-          {/* ── Lifestyle rows ── */}
+          {/* ── The Details (collapsible lifestyle rows) ── */}
           {lifestyleRows.length > 0 && (
             <View style={pmStyles.section}>
               <Text style={pmStyles.sectionTitle}>The Details</Text>
-              {lifestyleRows.map((row, i) => (
+              {visibleRows.map((row, i) => (
                 <View key={i} style={pmStyles.lifestyleRow}>
                   <View style={[pmStyles.lifestyleIcon, { backgroundColor: row.color + "30" }]}>
                     <Ionicons name={row.icon as any} size={16} color={row.color} />
@@ -841,11 +938,47 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
                   <Text style={pmStyles.lifestyleLabel}>{row.label}</Text>
                 </View>
               ))}
+              {hasMoreRows && (
+                <TouchableOpacity
+                  onPress={() => setDetailsCollapsed((c) => !c)}
+                  style={pmStyles.collapseToggle}
+                  activeOpacity={0.7}
+                >
+                  <Text style={pmStyles.collapseToggleText}>
+                    {detailsCollapsed
+                      ? `View more (${lifestyleRows.length - DETAILS_COLLAPSE_THRESHOLD} more)`
+                      : "View less"}
+                  </Text>
+                  <Ionicons
+                    name={detailsCollapsed ? "chevron-down" : "chevron-up"}
+                    size={14}
+                    color="rgba(167,139,250,0.8)"
+                  />
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
+          {/* ── Share / Block / Report ── */}
+          <View style={pmStyles.safetySection}>
+            <TouchableOpacity onPress={handleShare} style={pmStyles.safetyBtn} activeOpacity={0.75}>
+              <Ionicons name="share-outline" size={18} color="rgba(255,255,255,0.7)" />
+              <Text style={pmStyles.safetyBtnText}>Share profile</Text>
+            </TouchableOpacity>
+            <View style={pmStyles.safetyDivider} />
+            <TouchableOpacity onPress={handleBlock} style={pmStyles.safetyBtn} activeOpacity={0.75}>
+              <Ionicons name="ban-outline" size={18} color="#EF4444" />
+              <Text style={[pmStyles.safetyBtnText, { color: "#EF4444" }]}>Block {card.name}</Text>
+            </TouchableOpacity>
+            <View style={pmStyles.safetyDivider} />
+            <TouchableOpacity onPress={handleReport} style={pmStyles.safetyBtn} activeOpacity={0.75}>
+              <Ionicons name="flag-outline" size={18} color="rgba(255,255,255,0.45)" />
+              <Text style={[pmStyles.safetyBtnText, { color: "rgba(255,255,255,0.45)" }]}>Report</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* spacer for bottom action bar */}
-          <View style={{ height: 110 }} />
+          <View style={{ height: 120 }} />
         </ScrollView>
 
         {/* ── Fixed bottom action bar ── */}
@@ -859,7 +992,7 @@ function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClo
             </LinearGradient>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => { onClose(); }}
+            onPress={() => openChat()}
             style={pmStyles.superBtn}
           >
             <LinearGradient colors={["#F59E0B", "#EF4444"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={pmStyles.superBtnGrad}>
@@ -1478,6 +1611,7 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
       {profileCard && (
         <ProfileModal
           card={profileCard}
+          myId={userId ?? ""}
           onClose={() => setProfileCard(null)}
           onVibe={() => { setProfileCard(null); setTimeout(() => handleSwipe("right"), 200); }}
           onSkip={() => { setProfileCard(null); setTimeout(() => handleSwipe("left"), 200); }}
@@ -1797,6 +1931,7 @@ function GoalUsersSheet({ visible, goalValue, userId, onClose }: {
       {profileCard && (
         <ProfileModal
           card={profileCard}
+          myId={userId ?? ""}
           onClose={() => setProfileCard(null)}
           onVibe={() => { handleVibe(profileCard.id, profileCard.name); setProfileCard(null); }}
           onSkip={() => setProfileCard(null)}
@@ -2997,6 +3132,7 @@ function FindVibeContent() {
       {dailyProfileCard && (
         <ProfileModal
           card={dailyProfileCard}
+          myId={userId ?? ""}
           onClose={() => setDailyProfileCard(null)}
           onVibe={() => { setDailyProfileCard(null); Alert.alert("🌟 Daily Match!", `You vibed with ${dailyProfileCard.name}! 🎉`); }}
           onSkip={() => setDailyProfileCard(null)}
@@ -3063,6 +3199,17 @@ const pmStyles = StyleSheet.create({
   likeBtnGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
   superBtn: { width: 64, height: 64, borderRadius: 32, overflow: "hidden" },
   superBtnGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  // Prompt reply button
+  promptReplyBtn: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12, alignSelf: "flex-end", paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: "rgba(167,139,250,0.12)", borderWidth: 0.5, borderColor: "rgba(167,139,250,0.4)" },
+  promptReplyText: { color: "#A78BFA", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  // Collapse toggle
+  collapseToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginTop: 10, paddingVertical: 8 },
+  collapseToggleText: { color: "rgba(167,139,250,0.8)", fontSize: 13, fontFamily: "Poppins_600SemiBold" },
+  // Share / Block / Report section
+  safetySection: { marginHorizontal: 16, marginVertical: 10, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.04)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.08)", overflow: "hidden" },
+  safetyBtn: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 18, paddingVertical: 14 },
+  safetyBtnText: { color: "rgba(255,255,255,0.7)", fontSize: 15, fontFamily: "Poppins_500Medium", flex: 1 },
+  safetyDivider: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.07)", marginLeft: 48 },
 });
 
 const filterStyles = StyleSheet.create({

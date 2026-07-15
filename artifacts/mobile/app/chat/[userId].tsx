@@ -531,11 +531,13 @@ export default function ChatScreen() {
     username,
     avatar_url,
     isVibeMatch,
+    prefill,
   } = useLocalSearchParams<{
     userId: string;
     username: string;
     avatar_url?: string;
     isVibeMatch?: string;
+    prefill?: string;
   }>();
   const { session } = useAuth();
   const myId = session?.user?.id ?? "";
@@ -569,6 +571,12 @@ export default function ChatScreen() {
   const isMatch = isVibeMatch === "true";
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+
+  // Pre-fill composer from prompt reply
+  useEffect(() => {
+    if (prefill) setText(prefill);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Load messages + activity status ────────────────────────────────────────
   useEffect(() => {
