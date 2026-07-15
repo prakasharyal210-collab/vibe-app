@@ -949,8 +949,18 @@ export async function sendMessageToUser(
       const json = await res.json();
       return json.message as import("./supabase").Message;
     }
-  } catch {}
-  return null;
+    // Surface the server's error message so callers can show it to the user.
+    let serverMsg = "Failed to send message";
+    try {
+      const errJson = await res.json();
+      if (errJson?.error) serverMsg = errJson.error;
+    } catch {}
+    throw new Error(serverMsg);
+  } catch (err) {
+    // Re-throw errors we deliberately threw above; swallow only network-level failures.
+    if (err instanceof Error && err.message !== "Failed to fetch") throw err;
+    throw err;
+  }
 }
 
 export async function reactToMessage(

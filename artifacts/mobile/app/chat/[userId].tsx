@@ -563,6 +563,7 @@ export default function ChatScreen() {
   } | null>(null);
   const [uploadingIds, setUploadingIds] = useState<Set<string>>(new Set());
   const [viewerPhoto, setViewerPhoto] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const flatRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
@@ -746,20 +747,31 @@ export default function ChatScreen() {
 
     setText("");
     setReplyTo(null);
+    setSendError(null);
     setMessages((prev) => [...prev, optimistic]);
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 50);
 
-    const saved = await sendMessageToUser(
-      myId,
-      otherId,
-      content,
-      undefined,
-      replySnapshot?.messageId,
-    );
-    if (saved) {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? saved : m)),
+    try {
+      const saved = await sendMessageToUser(
+        myId,
+        otherId,
+        content,
+        undefined,
+        replySnapshot?.messageId,
       );
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? (saved ?? m) : m)),
+      );
+    } catch (err) {
+      // Remove the optimistic bubble — the message never reached the server.
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      // Restore the draft so the user doesn't lose what they typed.
+      setText(content);
+      // Show a brief inline error toast.
+      const msg = err instanceof Error ? err.message : "Failed to send message";
+      setSendError(msg);
+      const timer = setTimeout(() => setSendError(null), 4000);
+      return () => clearTimeout(timer);
     }
   }, [text, myId, otherId, replyTo]);
 
@@ -819,7 +831,7 @@ export default function ChatScreen() {
     setSnapSending(false);
     if (saved) {
       setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? saved : m)),
+        prev.map((m) => (m.id === tempId ? (saved ?? m) : m)),
       );
     }
   }, [snapPreviewUri, myId, otherId]);
@@ -1193,6 +1205,17 @@ export default function ChatScreen() {
           </View>
         )}
 
+        {/* Send-error toast */}
+        {sendError && (
+          <View style={chatStyles.sendErrorBar}>
+            <Ionicons name="alert-circle-outline" size={15} color="#FCA5A5" />
+            <Text style={chatStyles.sendErrorText} numberOfLines={2}>{sendError}</Text>
+            <TouchableOpacity onPress={() => setSendError(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={15} color="rgba(252,165,165,0.7)" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Reply-to bar */}
         {replyTo && (
           <View
@@ -1437,6 +1460,23 @@ const chatStyles = StyleSheet.create({
     fontSize: 12,
     flex: 1,
     lineHeight: 17,
+  },
+  sendErrorBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "rgba(127,29,29,0.85)",
+    borderTopWidth: 0.5,
+    borderTopColor: "rgba(252,165,165,0.3)",
+  },
+  sendErrorText: {
+    flex: 1,
+    color: "#FCA5A5",
+    fontSize: 13,
+    fontFamily: "Poppins_500Medium",
+    lineHeight: 18,
   },
   replyBar: {
     flexDirection: "row",
