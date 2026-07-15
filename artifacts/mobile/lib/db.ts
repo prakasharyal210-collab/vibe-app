@@ -590,6 +590,7 @@ export interface GundrukProfile {
   vibe_profile_photo_url: string | null;      // dedicated primary Find Vibe card photo (replaces gallery[0] as hero)
   vibe_filter_min_photos: number;             // deck filter: only show candidates with ≥ N photos
   vibe_filter_requires_bio: boolean;          // deck filter: exclude candidates with no bio
+  vibe_prompts: Array<{ question: string; answer: string }> | null;
   vibe_zodiac: string | null;
   vibe_education: string | null;
   vibe_family_plans: string | null;
@@ -609,7 +610,7 @@ export interface GundrukProfile {
 const GUNDRUK_PROFILE_DEFAULTS: GundrukProfile = {
   show_in_matching: false, find_gundruk_mode: "dating", vibe_request_privacy: "everyone",
   vibe_goal_filter: null, vibe_bio: null, vibe_photos: null, vibe_profile_photo_url: null,
-  vibe_filter_min_photos: 0, vibe_filter_requires_bio: false,
+  vibe_filter_min_photos: 0, vibe_filter_requires_bio: false, vibe_prompts: null,
   vibe_zodiac: null, vibe_education: null, vibe_family_plans: null,
   vibe_communication: null, vibe_love_style: null, vibe_pets: null,
   vibe_drinking: null, vibe_smoking: null, vibe_cannabis: null,
@@ -636,6 +637,7 @@ export async function getGundrukProfile(userId: string): Promise<GundrukProfile>
       vibe_profile_photo_url:    r.vibe_profile_photo_url    ?? null,
       vibe_filter_min_photos:    r.vibe_filter_min_photos    ?? 0,
       vibe_filter_requires_bio:  r.vibe_filter_requires_bio  ?? false,
+      vibe_prompts:              Array.isArray(r.vibe_prompts) && r.vibe_prompts.length > 0 ? r.vibe_prompts : null,
       vibe_zodiac:               r.vibe_zodiac               ?? null,
       vibe_education:            r.vibe_education            ?? null,
       vibe_family_plans:         r.vibe_family_plans         ?? null,
@@ -2153,6 +2155,7 @@ export interface VibeMatchProfile {
   bio: string;         // main profile bio (never shown on match card directly)
   vibe_bio?: string;   // Find Vibe-only bio shown on the match card; separate from main bio
   vibe_photos?: string[] | null; // Find Vibe card photos (URL refs from storage)
+  vibe_prompts?: Array<{ question: string; answer: string }> | null;
   interests: string[];
   distance?: string;
   vibe?: string;
@@ -2168,6 +2171,19 @@ export interface VibeMatchProfile {
   sameGoal?: boolean;
   unreadCount?: number;
   lastMessage?: string;
+  // Lifestyle fields surfaced on the detail view
+  vibe_zodiac?: string | null;
+  vibe_education?: string | null;
+  vibe_family_plans?: string | null;
+  vibe_communication?: string | null;
+  vibe_love_style?: string | null;
+  vibe_pets?: string | null;
+  vibe_drinking?: string | null;
+  vibe_smoking?: string | null;
+  vibe_cannabis?: string | null;
+  vibe_workout?: string | null;
+  vibe_open_to?: string[] | null;
+  vibe_languages?: string[] | null;
 }
 
 const MOCK_MATCH_PROFILES: VibeMatchProfile[] = [
@@ -2731,6 +2747,7 @@ export async function getNearbyUsers(
           bio: row.bio ?? "",
           vibe_bio: row.vibe_bio ?? null,
           vibe_photos: vibePhotos,
+          vibe_prompts: Array.isArray(row.vibe_prompts) ? row.vibe_prompts : null,
           interests: row.interests ?? [],
           distance: row.distance_km ? `${Math.round(row.distance_km as number)} km away` : undefined,
           isOnline: row.is_online ?? false,
@@ -2739,6 +2756,18 @@ export async function getNearbyUsers(
           goal: row.looking_for,
           vibeScore: row.vibe_score ?? row.compatibility_score,
           matchInterests: row.shared_interests ?? [],
+          vibe_zodiac: row.vibe_zodiac ?? null,
+          vibe_education: row.vibe_education ?? null,
+          vibe_family_plans: row.vibe_family_plans ?? null,
+          vibe_communication: row.vibe_communication ?? null,
+          vibe_love_style: row.vibe_love_style ?? null,
+          vibe_pets: row.vibe_pets ?? null,
+          vibe_drinking: row.vibe_drinking ?? null,
+          vibe_smoking: row.vibe_smoking ?? null,
+          vibe_cannabis: row.vibe_cannabis ?? null,
+          vibe_workout: row.vibe_workout ?? null,
+          vibe_open_to: Array.isArray(row.vibe_open_to) ? row.vibe_open_to : null,
+          vibe_languages: Array.isArray(row.vibe_languages) ? row.vibe_languages : null,
         };
       });
     }

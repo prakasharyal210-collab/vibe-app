@@ -451,7 +451,7 @@ router.get("/deck", async (req, res) => {
       const ids = profiles.map((p: any) => p.id as string);
       const [distRes, richRes] = await Promise.all([
         sb.from("user_settings").select("user_id, vibe_show_distance").in("user_id", ids),
-        sb.from("profiles").select("id, vibe_bio, vibe_photos, vibe_profile_photo_url, relationship_goals").in("id", ids),
+        sb.from("profiles").select("id, vibe_bio, vibe_photos, vibe_profile_photo_url, relationship_goals, vibe_prompts, vibe_zodiac, vibe_education, vibe_family_plans, vibe_communication, vibe_love_style, vibe_pets, vibe_drinking, vibe_smoking, vibe_cannabis, vibe_workout, vibe_open_to, vibe_languages").in("id", ids),
       ]);
 
       const hideSet = new Set<string>(
@@ -466,7 +466,26 @@ router.get("/deck", async (req, res) => {
       profiles = profiles.map((p: any) => {
         const rich = richMap.get(p.id as string);
         const enriched = rich
-          ? { ...p, vibe_bio: rich.vibe_bio ?? null, vibe_photos: rich.vibe_photos ?? null, vibe_profile_photo_url: rich.vibe_profile_photo_url ?? null, relationship_goals: rich.relationship_goals ?? null }
+          ? {
+              ...p,
+              vibe_bio: rich.vibe_bio ?? null,
+              vibe_photos: rich.vibe_photos ?? null,
+              vibe_profile_photo_url: rich.vibe_profile_photo_url ?? null,
+              relationship_goals: rich.relationship_goals ?? null,
+              vibe_prompts: rich.vibe_prompts ?? null,
+              vibe_zodiac: rich.vibe_zodiac ?? null,
+              vibe_education: rich.vibe_education ?? null,
+              vibe_family_plans: rich.vibe_family_plans ?? null,
+              vibe_communication: rich.vibe_communication ?? null,
+              vibe_love_style: rich.vibe_love_style ?? null,
+              vibe_pets: rich.vibe_pets ?? null,
+              vibe_drinking: rich.vibe_drinking ?? null,
+              vibe_smoking: rich.vibe_smoking ?? null,
+              vibe_cannabis: rich.vibe_cannabis ?? null,
+              vibe_workout: rich.vibe_workout ?? null,
+              vibe_open_to: rich.vibe_open_to ?? null,
+              vibe_languages: rich.vibe_languages ?? null,
+            }
           : p;
         if (hideSet.has((enriched as any).id as string)) {
           const { distance_km: _dropped, ...rest } = enriched as any;

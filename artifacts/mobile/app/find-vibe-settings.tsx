@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { VIBE_PROMPT_QUESTIONS, type VibePrompt, MAX_VIBE_PROMPTS } from "@/lib/vibePrompts";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -778,6 +779,7 @@ export default function FindVibeSettings() {
   const [vibeBio,          setVibeBio]          = useState("");
   const [vibePhotos,       setVibePhotos]       = useState<string[] | null>(null);
   const [vibeProfilePhoto, setVibeProfilePhoto] = useState<string | null>(null);
+  const [vibePrompts,      setVibePrompts]      = useState<VibePrompt[]>([]);
 
   // About Me
   const [vibeZodiac,        setVibeZodiac]        = useState<string | null>(null);
@@ -803,6 +805,11 @@ export default function FindVibeSettings() {
     interests: string[];
     avatar_url: string | null;
   } | null>(null);
+
+  // Prompt editing state
+  const [editingPromptIdx,     setEditingPromptIdx]     = useState<number | null>(null);
+  const [promptPickingIdx,     setPromptPickingIdx]     = useState<number | null>(null);
+  const [promptAnswerText,     setPromptAnswerText]     = useState("");
 
   // Modal visibility
   const [showModePicker,       setShowModePicker]       = useState(false);
@@ -842,6 +849,7 @@ export default function FindVibeSettings() {
           vibe_profile_photo_url:   vibeProfilePhoto,
           vibe_filter_min_photos:   filterMinPhotos,
           vibe_filter_requires_bio: filterRequiresBio,
+          vibe_prompts:             vibePrompts.length > 0 ? vibePrompts : null,
           vibe_zodiac:              vibeZodiac,
           vibe_education:           vibeEducation,
           vibe_family_plans:        vibeFamilyPlans,
@@ -873,10 +881,10 @@ export default function FindVibeSettings() {
     }
   }, [
     userId, saving, showInMatching, findGundrukMode, vibeRequestPrivacy, vibeGoalFilter,
-    vibeBio, vibePhotos, vibeProfilePhoto, filterMinPhotos, filterRequiresBio, vibeZodiac, vibeEducation,
-    vibeFamilyPlans, vibeCommunication, vibeLoveStyle, vibePets, vibeDrinking, vibeSmoking,
-    vibeCannabis, vibeWorkout, vibeSocialMedia, vibeOpenTo, vibeLanguages, vibeMyGoals,
-    vibeAgeMin, vibeAgeMax, vibeMaxDistanceKm, vibeShowDistance, vibeExcludeConns,
+    vibeBio, vibePhotos, vibeProfilePhoto, filterMinPhotos, filterRequiresBio, vibePrompts,
+    vibeZodiac, vibeEducation, vibeFamilyPlans, vibeCommunication, vibeLoveStyle, vibePets,
+    vibeDrinking, vibeSmoking, vibeCannabis, vibeWorkout, vibeSocialMedia, vibeOpenTo,
+    vibeLanguages, vibeMyGoals, vibeAgeMin, vibeAgeMax, vibeMaxDistanceKm, vibeShowDistance, vibeExcludeConns,
   ]);
 
   // Load settings
@@ -917,6 +925,7 @@ export default function FindVibeSettings() {
       setVibeBio(p.vibe_bio ?? "");
       setVibePhotos(p.vibe_photos);
       setVibeProfilePhoto(p.vibe_profile_photo_url ?? null);
+      setVibePrompts(Array.isArray(p.vibe_prompts) ? p.vibe_prompts : []);
       setVibeZodiac(p.vibe_zodiac);
       setVibeEducation(p.vibe_education);
       setVibeFamilyPlans(p.vibe_family_plans);
@@ -1036,6 +1045,51 @@ export default function FindVibeSettings() {
               onPress={() => { setBioText(vibeBio); setEditingBio(true); }}
               isLast
             />
+          </Card>
+        </View>
+
+        {/* ══════════════════════════════════════
+            PROMPTS
+        ══════════════════════════════════════ */}
+        <View style={fvsStyles.section}>
+          <SecLabel label="Prompts" />
+          <Text style={[fvsStyles.sectionHint, { color: colors.mutedForeground }]}>
+            Pick up to {MAX_VIBE_PROMPTS} prompts — shown on your detail profile between your photos.
+          </Text>
+          <Card>
+            {Array.from({ length: MAX_VIBE_PROMPTS }).map((_, i) => {
+              const p = vibePrompts[i];
+              const isLast = i === MAX_VIBE_PROMPTS - 1;
+              return (
+                <Row
+                  key={i}
+                  icon={p ? "chatbubble-ellipses-outline" : "add-circle-outline"}
+                  iconBg={p ? "#7C3AED" : "#374151"}
+                  label={p ? p.question : `Add prompt ${i + 1}`}
+                  sub={p ? (p.answer.length > 55 ? p.answer.slice(0, 55) + "…" : p.answer) : "Choose a question and write your answer"}
+                  isLast={isLast}
+                  onPress={() => {
+                    if (p) {
+                      setPromptAnswerText(p.answer);
+                      setEditingPromptIdx(i);
+                    } else {
+                      setPromptPickingIdx(i);
+                    }
+                  }}
+                  rightEl={p ? (
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => {
+                        const next = [...vibePrompts];
+                        next.splice(i, 1);
+                        setVibePrompts(next);
+                      }}>
+                      <Ionicons name="close-circle" size={20} color="rgba(255,255,255,0.3)" />
+                    </TouchableOpacity>
+                  ) : undefined}
+                />
+              );
+            })}
           </Card>
         </View>
 
@@ -1275,6 +1329,110 @@ export default function FindVibeSettings() {
           onSave={(photos) => { setVibePhotos(photos); }}
           onClose={() => setShowPhotoPicker(false)} />
       ) : null}
+
+      {/* ── Prompt: question picker ── */}
+      <Modal
+        visible={promptPickingIdx !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPromptPickingIdx(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#0F0F1A", borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "85%", paddingBottom: 32 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 20, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.1)" }}>
+              <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 17 }}>Pick a prompt</Text>
+              <TouchableOpacity onPress={() => setPromptPickingIdx(null)}>
+                <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {VIBE_PROMPT_QUESTIONS.map((q, qi) => {
+                const alreadyUsed = vibePrompts.some((p) => p.question === q);
+                return (
+                  <TouchableOpacity
+                    key={qi}
+                    disabled={alreadyUsed}
+                    style={{ paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)", opacity: alreadyUsed ? 0.35 : 1 }}
+                    onPress={() => {
+                      const idx = promptPickingIdx!;
+                      setPromptPickingIdx(null);
+                      setPromptAnswerText("");
+                      // wait a tick so the modal closes before opening next
+                      setTimeout(() => setEditingPromptIdx(idx), 350);
+                      // store question text so editing modal can use it
+                      const next: VibePrompt[] = [...vibePrompts];
+                      while (next.length <= idx) next.push({ question: "", answer: "" });
+                      next[idx] = { question: q, answer: "" };
+                      setVibePrompts(next);
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontFamily: "Poppins_500Medium", fontSize: 15, lineHeight: 22 }}>{q}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Prompt: answer editor ── */}
+      <Modal
+        visible={editingPromptIdx !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditingPromptIdx(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: "#0F0F1A", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 }}>
+            <Text style={{ color: "rgba(167,139,250,0.9)", fontFamily: "Poppins_600SemiBold", fontSize: 13, marginBottom: 6 }}>
+              {editingPromptIdx !== null ? (vibePrompts[editingPromptIdx]?.question ?? "") : ""}
+            </Text>
+            <TextInput
+              style={{ backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 16, color: "#fff", fontFamily: "Poppins_400Regular", fontSize: 16, lineHeight: 24, minHeight: 110, textAlignVertical: "top", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(167,139,250,0.4)" }}
+              placeholder="Write your answer…"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              multiline
+              autoFocus
+              value={promptAnswerText}
+              onChangeText={setPromptAnswerText}
+              maxLength={200}
+            />
+            <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, textAlign: "right", marginTop: 4, fontFamily: "Poppins_400Regular" }}>
+              {promptAnswerText.length}/200
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.08)", alignItems: "center" }}
+                onPress={() => {
+                  // Swap question — go back to picker
+                  const idx = editingPromptIdx!;
+                  setEditingPromptIdx(null);
+                  setTimeout(() => setPromptPickingIdx(idx), 350);
+                  // remove temp question entry
+                  const next = [...vibePrompts];
+                  next.splice(idx, 1);
+                  setVibePrompts(next);
+                }}
+              >
+                <Text style={{ color: "rgba(255,255,255,0.6)", fontFamily: "Poppins_600SemiBold", fontSize: 14 }}>Change question</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: promptAnswerText.trim().length > 0 ? "#7C3AED" : "rgba(255,255,255,0.1)", alignItems: "center" }}
+                disabled={promptAnswerText.trim().length === 0}
+                onPress={() => {
+                  const idx = editingPromptIdx!;
+                  const next: VibePrompt[] = [...vibePrompts];
+                  next[idx] = { ...next[idx]!, answer: promptAnswerText.trim() };
+                  setVibePrompts(next);
+                  setEditingPromptIdx(null);
+                }}
+              >
+                <Text style={{ color: "#fff", fontFamily: "Poppins_700Bold", fontSize: 14 }}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Preview My Card Modal */}
       <Modal

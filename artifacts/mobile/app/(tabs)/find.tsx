@@ -622,98 +622,250 @@ const dailyStyles = StyleSheet.create({
   sharedText: { color: "rgba(234,179,8,0.9)", fontFamily: "Poppins_500Medium", fontSize: 12, lineHeight: 16 },
 });
 
+// Lookup raw DB values → display strings for lifestyle fields in the detail view.
+const LIFESTYLE_DISPLAY: Record<string, string> = {
+  // education
+  high_school: "High school", some_college: "Some college", bachelors: "Bachelor's",
+  postgrad: "Master's / PhD", trade: "Trade / Vocational", prefer_not: "Prefer not to say",
+  // family plans
+  want_someday: "Want kids someday", want_soon: "Want kids soon", open: "Open to kids",
+  dont_want: "Don't want kids", have_kids: "Already have kids",
+  // communication
+  text_all_day: "Text all day", text_calls: "Texts + occasional calls",
+  calls: "Calls > texts", voice_notes: "Voice notes", in_person: "In person > all",
+  // love style
+  words: "Words of affirmation", quality_time: "Quality time", acts: "Acts of service",
+  touch: "Physical touch", gifts: "Receiving gifts",
+  // pets
+  dog: "Dog lover 🐶", cat: "Cat lover 🐱", fish: "Has fish 🐠", bird: "Has a bird 🐦",
+  reptile: "Has reptile 🦎", no_pets: "No pets", all_pets: "All the pets 🐾", allergic: "Allergic to pets",
+  // drinking
+  never: "Doesn't drink", sober_curious: "Sober curious", special: "Drinks on special occasions",
+  socially: "Social drinker", regularly: "Regular drinker",
+  // smoking
+  never_smoke: "Non-smoker", quitting: "Trying to quit", socially_smoke: "Social smoker", yes_smoke: "Smoker",
+  // cannabis
+  sometimes: "Uses cannabis sometimes", yes_cannabis: "Uses cannabis",
+  // workout
+  everyday: "Works out daily 💪", often: "Works out often 🏃", sometimes_workout: "Works out sometimes",
+  rarely: "Rarely works out", never_workout: "Doesn't work out",
+  // open_to / languages — shown as-is from the label arrays
+};
+
+function lifestyleLabel(field: string, value: string | null | undefined): string | null {
+  if (!value) return null;
+  return LIFESTYLE_DISPLAY[value] ?? value.replace(/_/g, " ");
+}
+
+function PromptCard({ question, answer }: { question: string; answer: string }) {
+  return (
+    <View style={pmStyles.promptCard}>
+      <View style={pmStyles.promptQuote}>
+        <Ionicons name="chatbubble-ellipses-outline" size={16} color="rgba(167,139,250,0.8)" />
+        <Text style={pmStyles.promptQ}>{question}</Text>
+      </View>
+      <Text style={pmStyles.promptA}>{answer}</Text>
+    </View>
+  );
+}
+
+function PhotoBlock({ uri, height }: { uri: string; height: number }) {
+  return (
+    <View style={[pmStyles.photoBlock, { height }]}>
+      <ExpoImage
+        source={cardUrl(uri)}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        cachePolicy="memory-disk"
+        transition={200}
+        recyclingKey={uri}
+      />
+    </View>
+  );
+}
+
+const OPEN_TO_LABELS: Record<string, string> = {
+  long_term: "Long-term", short_term: "Short-term", casual: "Casual",
+  friends: "New friends", unsure: "Still figuring it out",
+};
+const LANG_LABELS: Record<string, string> = {
+  en: "English", es: "Spanish", fr: "French", de: "German", ja: "Japanese",
+  ko: "Korean", pt: "Portuguese", zh: "Chinese", ar: "Arabic", hi: "Hindi",
+  it: "Italian", ru: "Russian", tr: "Turkish", nl: "Dutch", sv: "Swedish",
+};
+
 function ProfileModal({ card, onClose, onVibe, onSkip }: { card: VibeCard; onClose: () => void; onVibe: () => void; onSkip: () => void }) {
-  const colors = useColors();
   const match = calcMatch(card);
 
   const photos = React.useMemo(() => {
-    const extras = (card.vibe_photos ?? []).filter((url) => Boolean(url) && url !== card.image);
-    return [card.image, ...extras];
+    const primary = card.image;
+    const extras = (card.vibe_photos ?? []).filter((u) => Boolean(u) && u !== primary);
+    return [primary, ...extras];
   }, [card.id, card.image, card.vibe_photos]);
 
-  const [photoIdx, setPhotoIdx] = React.useState(0);
+  const prompts = (card.vibe_prompts ?? []).filter((p) => p.question && p.answer && p.answer.trim());
 
-  React.useEffect(() => {
-    setPhotoIdx(0);
-  }, [card.id]);
+  // Build lifestyle rows — only include filled values
+  const lifestyleRows: { icon: string; label: string; color: string }[] = React.useMemo(() => {
+    const rows: { icon: string; label: string; color: string }[] = [];
+    const add = (icon: string, color: string, val: string | null | undefined) => {
+      const label = lifestyleLabel("", val);
+      if (label) rows.push({ icon, color, label });
+    };
+    add("school-outline", "#0284C7", card.vibe_education);
+    add("heart-outline", "#EC4899", card.vibe_family_plans);
+    add("planet-outline", "#6366F1", card.vibe_zodiac);
+    add("chatbubbles-outline", "#0891B2", card.vibe_communication);
+    add("ribbon-outline", "#D97706", card.vibe_love_style);
+    add("paw-outline", "#059669", card.vibe_pets);
+    add("wine-outline", "#7F1D1D", card.vibe_drinking);
+    add("flame-outline", "#6B7280", card.vibe_smoking);
+    add("leaf-outline", "#166534", card.vibe_cannabis);
+    add("barbell-outline", "#EA580C", card.vibe_workout);
+    if (card.vibe_open_to && card.vibe_open_to.length > 0) {
+      const labels = card.vibe_open_to.map((v) => OPEN_TO_LABELS[v] ?? v).join(", ");
+      rows.push({ icon: "people-outline", color: "#7C3AED", label: `Open to: ${labels}` });
+    }
+    if (card.vibe_languages && card.vibe_languages.length > 0) {
+      const labels = card.vibe_languages.map((v) => LANG_LABELS[v] ?? v).join(", ");
+      rows.push({ icon: "language-outline", color: "#059669", label: `Speaks: ${labels}` });
+    }
+    return rows;
+  }, [card.vibe_education, card.vibe_family_plans, card.vibe_zodiac, card.vibe_communication,
+      card.vibe_love_style, card.vibe_pets, card.vibe_drinking, card.vibe_smoking,
+      card.vibe_cannabis, card.vibe_workout, card.vibe_open_to, card.vibe_languages]);
 
-  const currentPhoto = photos[Math.min(photoIdx, photos.length - 1)] ?? card.image;
-  const hasMultiple = photos.length > 1;
-
-  const goNext = () => setPhotoIdx((i) => Math.min(i + 1, photos.length - 1));
-  const goPrev = () => setPhotoIdx((i) => Math.max(i - 1, 0));
+  const HERO_H = H * 0.68;
+  const PHOTO_H = H * 0.52;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={profileStyles.overlay}>
-        <View style={[profileStyles.sheet, { backgroundColor: colors.card }]}>
-          <ExpoImage source={cardUrl(currentPhoto)} style={profileStyles.photo} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={currentPhoto} />
-          <LinearGradient colors={["transparent", "rgba(0,0,0,0.9)"]} style={StyleSheet.absoluteFill} />
-
-          {hasMultiple && (
-            <>
-              <TouchableOpacity style={profileStyles.tapZoneLeft} onPress={goPrev} activeOpacity={1} />
-              <TouchableOpacity style={profileStyles.tapZoneRight} onPress={goNext} activeOpacity={1} />
-              <View style={profileStyles.photoBars} pointerEvents="none">
-                {photos.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      profileStyles.photoBar,
-                      i < photoIdx && profileStyles.photoBarSeen,
-                      i === photoIdx && profileStyles.photoBarActive,
-                    ]}
-                  />
-                ))}
-              </View>
-            </>
-          )}
-
-          <TouchableOpacity onPress={onClose} style={profileStyles.closeBtn}>
-            <Ionicons name="chevron-down" size={28} color="#fff" />
-          </TouchableOpacity>
-
-          <View style={profileStyles.matchBadge}>
-            <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={profileStyles.matchGrad}>
-              <Text style={profileStyles.matchText}>{match}% Match</Text>
-            </LinearGradient>
+    <Modal visible animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <View style={pmStyles.root}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={pmStyles.scroll}
+          bounces={false}
+        >
+          {/* ── Hero photo ── */}
+          <View style={[pmStyles.heroWrap, { height: HERO_H }]}>
+            <ExpoImage
+              source={cardUrl(photos[0]!)}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={200}
+              recyclingKey={photos[0]}
+            />
+            <LinearGradient
+              colors={["rgba(0,0,0,0.0)", "rgba(0,0,0,0.6)"]}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* close */}
+            <TouchableOpacity onPress={onClose} style={pmStyles.closeBtn} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="chevron-down" size={26} color="#fff" />
+            </TouchableOpacity>
+            {/* match badge */}
+            <View style={pmStyles.matchBadge}>
+              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={pmStyles.matchGrad}>
+                <Text style={pmStyles.matchText}>{match}% Match</Text>
+              </LinearGradient>
+            </View>
           </View>
 
-          <View style={profileStyles.info}>
-            <Text style={profileStyles.name}>{card.name}, {card.age}</Text>
-            {card.distance && (
-              <View style={profileStyles.locationRow}>
-                <Ionicons name="location" size={13} color="rgba(255,255,255,0.8)" />
-                <Text style={profileStyles.locationText}>{card.distance}</Text>
+          {/* ── Name / age / location / goal card ── */}
+          <View style={pmStyles.infoCard}>
+            <Text style={pmStyles.nameText}>{card.name}, {card.age}</Text>
+            {!!card.distance && (
+              <View style={pmStyles.locationRow}>
+                <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.65)" />
+                <Text style={pmStyles.locationText}>{card.distance}</Text>
               </View>
             )}
-            {card.goal && (
-              <View style={{ marginBottom: 6 }}>
-                <GoalPill goal={card.goal} size="md" />
-              </View>
-            )}
-            <Text style={profileStyles.bio}>{card.vibe_bio ?? card.bio}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                {card.interests.map((int) => (
-                  <View key={int} style={[profileStyles.tag, (card.matchInterests ?? []).includes(int) && profileStyles.tagMatch]}>
-                    <Text style={profileStyles.tagText}>{int}</Text>
+            {!!card.goal && <GoalPill goal={card.goal} size="md" />}
+          </View>
+
+          {/* ── Prompt 1 ── */}
+          {prompts[0] && <PromptCard question={prompts[0].question} answer={prompts[0].answer} />}
+
+          {/* ── Photo 2 ── */}
+          {photos[1] && <PhotoBlock uri={photos[1]} height={PHOTO_H} />}
+
+          {/* ── Interests / vibes ── */}
+          {card.interests.length > 0 && (
+            <View style={pmStyles.section}>
+              <Text style={pmStyles.sectionTitle}>Vibes</Text>
+              <View style={pmStyles.tagsWrap}>
+                {card.interests.map((t) => (
+                  <View
+                    key={t}
+                    style={[pmStyles.tag, (card.matchInterests ?? []).includes(t) && pmStyles.tagMatch]}
+                  >
+                    <Text style={pmStyles.tagText}>{t}</Text>
                   </View>
                 ))}
               </View>
-            </ScrollView>
-          </View>
+            </View>
+          )}
 
-          <View style={profileStyles.actions}>
-            <TouchableOpacity onPress={onSkip} style={[profileStyles.skipBtn, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-              <Ionicons name="close" size={28} color="#EF4444" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onVibe} style={profileStyles.vibeBtn}>
-              <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={profileStyles.vibeGrad}>
-                <Ionicons name="heart" size={30} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+          {/* ── Prompt 2 ── */}
+          {prompts[1] && <PromptCard question={prompts[1].question} answer={prompts[1].answer} />}
+
+          {/* ── Photo 3 ── */}
+          {photos[2] && <PhotoBlock uri={photos[2]} height={PHOTO_H} />}
+
+          {/* ── About Me ── */}
+          {!!(card.vibe_bio ?? card.bio) && (
+            <View style={pmStyles.section}>
+              <Text style={pmStyles.sectionTitle}>About Me</Text>
+              <Text style={pmStyles.aboutText}>{card.vibe_bio ?? card.bio}</Text>
+            </View>
+          )}
+
+          {/* ── Prompt 3 ── */}
+          {prompts[2] && <PromptCard question={prompts[2].question} answer={prompts[2].answer} />}
+
+          {/* ── Remaining photos (index 3+) ── */}
+          {photos.slice(3).map((uri, i) => (
+            <PhotoBlock key={`extra-${i}`} uri={uri} height={PHOTO_H} />
+          ))}
+
+          {/* ── Lifestyle rows ── */}
+          {lifestyleRows.length > 0 && (
+            <View style={pmStyles.section}>
+              <Text style={pmStyles.sectionTitle}>The Details</Text>
+              {lifestyleRows.map((row, i) => (
+                <View key={i} style={pmStyles.lifestyleRow}>
+                  <View style={[pmStyles.lifestyleIcon, { backgroundColor: row.color + "30" }]}>
+                    <Ionicons name={row.icon as any} size={16} color={row.color} />
+                  </View>
+                  <Text style={pmStyles.lifestyleLabel}>{row.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* spacer for bottom action bar */}
+          <View style={{ height: 110 }} />
+        </ScrollView>
+
+        {/* ── Fixed bottom action bar ── */}
+        <View style={pmStyles.actionBar}>
+          <TouchableOpacity onPress={onSkip} style={pmStyles.passBtn}>
+            <Ionicons name="close" size={30} color="#EF4444" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onVibe} style={pmStyles.likeBtn}>
+            <LinearGradient colors={["#7C3AED", "#EC4899"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={pmStyles.likeBtnGrad}>
+              <Ionicons name="heart" size={30} color="#fff" />
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => { onClose(); }}
+            style={pmStyles.superBtn}
+          >
+            <LinearGradient colors={["#F59E0B", "#EF4444"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={pmStyles.superBtnGrad}>
+              <Ionicons name="star" size={26} color="#fff" />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -2538,6 +2690,7 @@ function FindVibeContent() {
           bio: row.bio ?? "",
           vibe_bio: row.vibe_bio,
           vibe_photos: row.vibe_photos,
+          vibe_prompts: Array.isArray(row.vibe_prompts) ? row.vibe_prompts : null,
           interests: row.interests ?? [],
           distance: row.distance_km ? `${Math.round(row.distance_km as number)} km away` : undefined,
           isOnline: row.is_online ?? false,
@@ -2546,6 +2699,18 @@ function FindVibeContent() {
           goal: row.looking_for,
           vibeScore: row.vibe_score ?? row.compatibility_score,
           matchInterests: row.shared_interests ?? [],
+          vibe_zodiac: row.vibe_zodiac ?? null,
+          vibe_education: row.vibe_education ?? null,
+          vibe_family_plans: row.vibe_family_plans ?? null,
+          vibe_communication: row.vibe_communication ?? null,
+          vibe_love_style: row.vibe_love_style ?? null,
+          vibe_pets: row.vibe_pets ?? null,
+          vibe_drinking: row.vibe_drinking ?? null,
+          vibe_smoking: row.vibe_smoking ?? null,
+          vibe_cannabis: row.vibe_cannabis ?? null,
+          vibe_workout: row.vibe_workout ?? null,
+          vibe_open_to: Array.isArray(row.vibe_open_to) ? row.vibe_open_to : null,
+          vibe_languages: Array.isArray(row.vibe_languages) ? row.vibe_languages : null,
         }))
         .filter((c: VibeMatchProfile) => !existingIds.has(c.id) && !sessionSwiped.has(c.id));
       if (newCards.length > 0) setNearbyCards((prev) => [...prev, ...newCards]);
@@ -2856,32 +3021,48 @@ function FindVibeContent() {
   );
 }
 
-const profileStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
-  sheet: { height: H * 0.88, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden", position: "relative" },
-  photo: { width: "100%", height: "70%" },
-  tapZoneLeft: { position: "absolute", top: 0, left: 0, width: "40%", height: "70%" },
-  tapZoneRight: { position: "absolute", top: 0, right: 0, width: "40%", height: "70%" },
-  photoBars: { position: "absolute", top: 10, left: 10, right: 10, flexDirection: "row", gap: 4 },
-  photoBar: { flex: 1, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.35)" },
-  photoBarSeen: { backgroundColor: "rgba(255,255,255,0.9)" },
-  photoBarActive: { backgroundColor: "#ffffff" },
-  closeBtn: { position: "absolute", top: 16, left: 16, backgroundColor: "rgba(0,0,0,0.4)", borderRadius: 20, padding: 4 },
-  matchBadge: { position: "absolute", top: 16, right: 16 },
+const pmStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#080810" },
+  scroll: { flexGrow: 1 },
+  heroWrap: { width: "100%", position: "relative" },
+  closeBtn: {
+    position: "absolute", top: 52, left: 16,
+    backgroundColor: "rgba(0,0,0,0.5)", borderRadius: 22, padding: 8,
+  },
+  matchBadge: { position: "absolute", top: 52, right: 16 },
   matchGrad: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   matchText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_700Bold" },
-  info: { position: "absolute", bottom: 100, left: 0, right: 0, padding: 20 },
-  name: { color: "#fff", fontSize: 24, fontFamily: "Poppins_700Bold", marginBottom: 4 },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 8 },
-  locationText: { color: "rgba(255,255,255,0.8)", fontSize: 13 },
-  bio: { color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 20, fontFamily: "Poppins_400Regular" },
-  tag: { backgroundColor: "rgba(255,255,255,0.2)", paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
-  tagMatch: { backgroundColor: "rgba(124,58,237,0.7)" },
-  tagText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_500Medium" },
-  actions: { position: "absolute", bottom: 24, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 24 },
-  skipBtn: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  vibeBtn: { width: 72, height: 72, borderRadius: 36, overflow: "hidden" },
-  vibeGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  infoCard: { paddingHorizontal: 20, paddingVertical: 18, gap: 6 },
+  nameText: { color: "#fff", fontSize: 28, fontFamily: "Poppins_700Bold" },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 5, marginBottom: 2 },
+  locationText: { color: "rgba(255,255,255,0.6)", fontSize: 14, fontFamily: "Poppins_400Regular" },
+  section: { paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.08)" },
+  sectionTitle: { color: "rgba(255,255,255,0.45)", fontSize: 12, fontFamily: "Poppins_700Bold", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 12 },
+  tagsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tag: { backgroundColor: "rgba(255,255,255,0.12)", paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(255,255,255,0.2)" },
+  tagMatch: { backgroundColor: "rgba(124,58,237,0.55)", borderColor: "#A78BFA" },
+  tagText: { color: "#fff", fontSize: 13, fontFamily: "Poppins_500Medium" },
+  aboutText: { color: "rgba(255,255,255,0.82)", fontSize: 15, fontFamily: "Poppins_400Regular", lineHeight: 24 },
+  promptCard: { marginHorizontal: 16, marginVertical: 10, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.05)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(167,139,250,0.3)", padding: 20 },
+  promptQuote: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
+  promptQ: { color: "rgba(167,139,250,0.9)", fontSize: 12, fontFamily: "Poppins_600SemiBold", flex: 1, lineHeight: 17 },
+  promptA: { color: "#fff", fontSize: 17, fontFamily: "Poppins_600SemiBold", lineHeight: 25 },
+  photoBlock: { width: "100%", backgroundColor: "#111" },
+  lifestyleRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.06)" },
+  lifestyleIcon: { width: 34, height: 34, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  lifestyleLabel: { color: "rgba(255,255,255,0.78)", fontSize: 14, fontFamily: "Poppins_400Regular", flex: 1 },
+  actionBar: {
+    position: "absolute", bottom: 0, left: 0, right: 0,
+    flexDirection: "row", justifyContent: "center", alignItems: "center",
+    gap: 20, paddingVertical: 18, paddingBottom: 34,
+    backgroundColor: "rgba(8,8,16,0.92)",
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  passBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(239,68,68,0.12)", borderWidth: 1, borderColor: "rgba(239,68,68,0.4)", alignItems: "center", justifyContent: "center" },
+  likeBtn: { width: 72, height: 72, borderRadius: 36, overflow: "hidden" },
+  likeBtnGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  superBtn: { width: 64, height: 64, borderRadius: 32, overflow: "hidden" },
+  superBtnGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
 
 const filterStyles = StyleSheet.create({
