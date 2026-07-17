@@ -476,15 +476,28 @@ export default function WatchScreen() {
   const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
   const seekedRef = useRef(false);
   const controlsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Double-tap seek detection — one set of refs per half (mirrors PostCard pattern).
+  const lastTapLeft = useRef(0);
+  const lastTapRight = useRef(0);
+  const singleTapLeft = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const singleTapRight = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Animations ───────────────────────────────────────────────────────────────
   const likeScale = useSharedValue(1);
   const controlsOpacity = useSharedValue(1);
+  const leftRippleOpacity = useSharedValue(0);
+  const rightRippleOpacity = useSharedValue(0);
   const likeAnimStyle = useAnimatedStyle(() => ({
     transform: [{ scale: likeScale.value }],
   }));
   const videoControlsStyle = useAnimatedStyle(() => ({
     opacity: controlsOpacity.value,
+  }));
+  const leftRippleStyle = useAnimatedStyle(() => ({
+    opacity: leftRippleOpacity.value,
+  }));
+  const rightRippleStyle = useAnimatedStyle(() => ({
+    opacity: rightRippleOpacity.value,
   }));
 
   // ── Fetch post if not cached ─────────────────────────────────────────────────
@@ -653,6 +666,51 @@ export default function WatchScreen() {
     [],
   );
 
+  // ── Double-tap seek handlers (PostCard 300ms / 280ms pattern) ────────────────
+  const handleTapLeft = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapLeft.current < 300) {
+      // Double-tap detected — cancel pending single-tap, seek back 10s
+      if (singleTapLeft.current) {
+        clearTimeout(singleTapLeft.current);
+        singleTapLeft.current = null;
+      }
+      handleSkip(-10_000);
+      leftRippleOpacity.value = withSequence(
+        withTiming(1, { duration: 80 }),
+        withTiming(0, { duration: 600 }),
+      );
+    } else {
+      // First tap — wait 280ms to confirm it's not a double-tap
+      singleTapLeft.current = setTimeout(() => {
+        singleTapLeft.current = null;
+        showControlsTemporarily();
+      }, 280);
+    }
+    lastTapLeft.current = now;
+  }, [handleSkip, showControlsTemporarily, leftRippleOpacity]);
+
+  const handleTapRight = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRight.current < 300) {
+      if (singleTapRight.current) {
+        clearTimeout(singleTapRight.current);
+        singleTapRight.current = null;
+      }
+      handleSkip(10_000);
+      rightRippleOpacity.value = withSequence(
+        withTiming(1, { duration: 80 }),
+        withTiming(0, { duration: 600 }),
+      );
+    } else {
+      singleTapRight.current = setTimeout(() => {
+        singleTapRight.current = null;
+        showControlsTemporarily();
+      }, 280);
+    }
+    lastTapRight.current = now;
+  }, [handleSkip, showControlsTemporarily, rightRippleOpacity]);
+
   // ── Action handlers ──────────────────────────────────────────────────────────
   const handleLike = async () => {
     if (!session?.user?.id || !post) return;
@@ -752,12 +810,34 @@ export default function WatchScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Full-area tap-catcher — shows/hides controls without toggling play */}
-        <TouchableOpacity
-          activeOpacity={1}
-          style={StyleSheet.absoluteFill}
-          onPress={showControlsTemporarily}
-        />
+        {/* Split tap zones: single tap → show controls; double-tap → seek ±10s */}
+        <View
+          style={[StyleSheet.absoluteFill, { flexDirection: "row" }]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ flex: 1 }}
+            onPress={handleTapLeft}
+          />
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ flex: 1 }}
+            onPress={handleTapRight}
+          />
+        </View>
+
+        {/* Left ripple — "-10s" flash on double-tap */}
+        <Animated.View style={[S.rippleLeft, leftRippleStyle]} pointerEvents="none">
+          <Ionicons name="play-back" size={20} color="#fff" />
+          <Text style={S.rippleTxt}>-10s</Text>
+        </Animated.View>
+
+        {/* Right ripple — "+10s" flash on double-tap */}
+        <Animated.View style={[S.rippleRight, rightRippleStyle]} pointerEvents="none">
+          <Ionicons name="play-forward" size={20} color="#fff" />
+          <Text style={S.rippleTxt}>+10s</Text>
+        </Animated.View>
 
         {/* ── Controls overlay — fades after 3 s ──────────────────────── */}
         <Animated.View
@@ -1249,6 +1329,35 @@ const S = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     backgroundColor: "#7C3AED",
+  },
+  // ── Seek ripples ──
+  rippleLeft: {
+    position: "absolute",
+    left: "8%",
+    top: "30%",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    gap: 2,
+  },
+  rippleRight: {
+    position: "absolute",
+    right: "8%",
+    top: "30%",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    borderRadius: 40,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    gap: 2,
+  },
+  rippleTxt: {
+    color: "#fff",
+    fontSize: 12,
+    fontFamily: "Poppins_600SemiBold",
+    letterSpacing: 0.3,
   },
   // ── Scrollable content ──
   scroll: { paddingBottom: 40 },
