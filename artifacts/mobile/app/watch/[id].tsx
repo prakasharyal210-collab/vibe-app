@@ -863,17 +863,8 @@ export default function WatchScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Center: skip-back-10 | play/pause | skip-forward-10 */}
+          {/* Center: play/pause only — skip is handled by double-tap zones */}
           <View style={V.centerRow} pointerEvents="box-none">
-            <TouchableOpacity
-              style={V.skipBtn}
-              onPress={() => handleSkip(-10_000)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="play-back" size={26} color="#fff" />
-              <Text style={V.skipLabel}>10</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
               style={V.playPauseCircle}
               onPress={() => {
@@ -887,15 +878,6 @@ export default function WatchScreen() {
                 color="#fff"
                 style={videoPlaying ? {} : { marginLeft: 4 }}
               />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={V.skipBtn}
-              onPress={() => handleSkip(10_000)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="play-forward" size={26} color="#fff" />
-              <Text style={V.skipLabel}>10</Text>
             </TouchableOpacity>
           </View>
 
