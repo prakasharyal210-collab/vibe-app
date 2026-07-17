@@ -162,11 +162,24 @@ const tabIconStyles = StyleSheet.create({
 });
 
 // ── ProfileTabIcon ────────────────────────────────────────────────────────────
+// Layout goal (Option A):
+//
+//        👤          ← icon, stretches to full row width so it appears
+//   Profile  [4]     ← centered OVER the whole "Profile pill" unit, not
+//       •             just above the left half of the text.
+//
+// alignSelf:"stretch" + textAlign:"center" on the icon Text is the key:
+// it makes the Text element expand to match the labelRow width, so the
+// emoji character sits at dead-centre above "Profile [pill]".
 function ProfileTabIcon({ focused, color, count }: { focused: boolean; color: string; count: number }) {
   const icon = TAB_EMOJI[focused ? "person" : "person-outline"] ?? "○";
   return (
     <View style={tabIconStyles.wrap}>
-      <Text style={[tabIconStyles.icon, { color }]}>{icon}</Text>
+      {/* alignSelf:"stretch" makes the icon Text fill the wrap's width,
+          which equals the labelRow width, centering the glyph over it. */}
+      <Text style={[tabIconStyles.icon, { color, alignSelf: "stretch", textAlign: "center" }]}>
+        {icon}
+      </Text>
       <View style={pillStyles.labelRow}>
         <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>Profile</Text>
         {count > 0 && (
@@ -181,9 +194,11 @@ function ProfileTabIcon({ focused, color, count }: { focused: boolean; color: st
 }
 
 const pillStyles = StyleSheet.create({
+  // Centered row: "Profile" + pill sit symmetrically under the icon.
   labelRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 3,
   },
   pill: {
