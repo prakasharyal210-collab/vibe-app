@@ -176,6 +176,7 @@ function ProfileTabIcon({ focused, color, count }: { focused: boolean; color: st
         <View style={pillStyles.pill}>
           <Text style={pillStyles.pillText}>{formatFollowers(count)}</Text>
         </View>
+        <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>Profile</Text>
         {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
       </View>
     );
