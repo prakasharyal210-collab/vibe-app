@@ -28,6 +28,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { CommentsSheet } from "@/components/CommentsSheet";
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
@@ -589,6 +590,7 @@ export default function WatchScreen() {
     () => feedPostCache.get(id ?? "")?.likes_count ?? 0,
   );
   const [showComments, setShowComments] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [previewComments, setPreviewComments] = useState<any[]>([]);
   const [allowComments, setAllowComments] = useState(true);
@@ -999,7 +1001,8 @@ export default function WatchScreen() {
 
   // ── Action handlers ──────────────────────────────────────────────────────────
   const handleLike = async () => {
-    if (!session?.user?.id || !post) return;
+    if (!session?.user?.id) { setShowLoginPrompt(true); return; }
+    if (!post) return;
     const nowLiked = !liked;
     setLiked(nowLiked);
     setLikesCount((n) => (nowLiked ? n + 1 : Math.max(0, n - 1)));
@@ -1022,7 +1025,8 @@ export default function WatchScreen() {
   };
 
   const handleSave = async () => {
-    if (!session?.user?.id || !post) return;
+    if (!session?.user?.id) { setShowLoginPrompt(true); return; }
+    if (!post) return;
     const nowSaved = !saved;
     setSaved(nowSaved);
     try {
@@ -1263,6 +1267,7 @@ export default function WatchScreen() {
 
           <TouchableOpacity
             onPress={() => {
+              if (!session?.user?.id) { setShowLoginPrompt(true); return; }
               if (!allowComments && !isOwnPost) {
                 Alert.alert(
                   "Comments turned off",
@@ -1366,7 +1371,8 @@ export default function WatchScreen() {
             {!isOwnPost && (
               <TouchableOpacity
                 onPress={async () => {
-                  if (!session?.user?.id || !post?.user_id) return;
+                  if (!session?.user?.id) { setShowLoginPrompt(true); return; }
+                  if (!post?.user_id) return;
                   const next = !following;
                   setFollowing(next);
                   try {
@@ -1450,7 +1456,7 @@ export default function WatchScreen() {
                 </Text>
               </View>
             ))}
-            <TouchableOpacity onPress={() => setShowComments(true)}>
+            <TouchableOpacity onPress={() => { if (!session?.user?.id) { setShowLoginPrompt(true); return; } setShowComments(true); }}>
               <Text style={S.viewAll}>View all comments</Text>
             </TouchableOpacity>
           </View>
@@ -1485,6 +1491,8 @@ export default function WatchScreen() {
         onRequireLogin={() => setShowComments(false)}
         contentType="post"
       />
+
+      <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
 
       {videoSrc && showVideoFullscreen && (
         <FullscreenVideoViewer

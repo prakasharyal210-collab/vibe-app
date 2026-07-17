@@ -1361,7 +1361,7 @@ function applyDiversity(posts: Post[], maxPerCreator = 2): Post[] {
 }
 
 export async function getForYouFeed(
-  userId: string,
+  userId: string | undefined,
   limit = 20,
   offset = 0,
   contentType: "all" | "photo" | "video" = "all",
@@ -1373,10 +1373,10 @@ export async function getForYouFeed(
   console.log('[getForYouFeed] start userId:', userId?.slice(0, 8), 'offset:', offset, 'limit:', limit, 'contentType:', contentType, 'sort:', sortOrder);
   try {
     const params = new URLSearchParams({
-      userId,
       limit: String(limit),
       offset: String(offset),
     });
+    if (userId) params.set("userId", userId);
     if (contentType !== "all") params.set("content_type", contentType);
     if (sortOrder !== "newest") params.set("sort", sortOrder);
     if (category) params.set("category", category);

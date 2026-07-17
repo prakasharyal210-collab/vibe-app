@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
 import { createLiveStream, endLiveStream } from "@/lib/db";
@@ -152,6 +153,14 @@ export default function LiveScreen() {
       },
     ]);
   };
+
+  if (!session?.user?.id) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center", backgroundColor: "#0a0010" }]}>
+        <LoginPrompt visible={true} onClose={() => router.back()} />
+      </View>
+    );
+  }
 
   if (needsPermission) {
     return (

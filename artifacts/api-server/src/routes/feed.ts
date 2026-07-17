@@ -493,39 +493,55 @@ interface RankedForYouPool {
 
 async function getRankedForYouPool(
   supabase: SupabaseClient,
-  userId: string,
+  userId: string | null,
 ): Promise<RankedForYouPool> {
-  const cached = rankedFeedCache.get(userId);
+  const cacheKey = userId ?? "__anon__";
+  const cached = rankedFeedCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { ranked: cached.ranked, poolCutoffAt: cached.poolCutoffAt, freshPosts: cached.freshPosts, poolIsExhaustive: cached.poolIsExhaustive };
   }
 
   const freshCutoff = new Date(Date.now() - FRESH_WINDOW_HOURS * 3_600_000).toISOString();
 
-  const [followRows, { topCategories, likedPostIds }, freshResult] = await Promise.all([
-    supabase.from("follows").select("following_id").eq("follower_id", userId),
-    getUserLikeSignals(supabase, userId),
-    // Fresh tier: all public, non-archived posts from the last FRESH_WINDOW_HOURS,
-    // ordered newest-first.  We fetch without a hard LIMIT so no new post is
-    // silently dropped; the diversity guard below caps per-author runs.
-    supabase
-      .from("posts")
-      .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name, created_at)")
-      .or("visibility.eq.public,visibility.is.null")
-      .or("is_archived.eq.false,is_archived.is.null")
-      .gte("created_at", freshCutoff)
-      .order("created_at", { ascending: false }),
-  ]);
+  // User-specific signals — skipped for anonymous users so followBoost /
+  // categoryBoost / ownLikePenalty all evaluate to their neutral value (1.0).
+  let followedIds = new Set<string>();
+  let topCategories = new Set<string>();
+  let likedPostIds = new Set<string>();
 
-  const followedIds = new Set(
-    (followRows.data ?? []).map((r: any) => r.following_id as string).filter(Boolean),
-  );
+  const freshTierQuery = supabase
+    .from("posts")
+    .select("*, profiles!user_id(id, username, avatar_url, is_verified, full_name, created_at)")
+    .or("visibility.eq.public,visibility.is.null")
+    .or("is_archived.eq.false,is_archived.is.null")
+    .gte("created_at", freshCutoff)
+    .order("created_at", { ascending: false });
+
+  // Fresh tier: all public, non-archived posts from the last FRESH_WINDOW_HOURS,
+  // ordered newest-first.  We fetch without a hard LIMIT so no new post is
+  // silently dropped; the diversity guard below caps per-author runs.
+  let freshResult: any;
+  if (userId) {
+    const [followRows, likeSignals, fr] = await Promise.all([
+      supabase.from("follows").select("following_id").eq("follower_id", userId),
+      getUserLikeSignals(supabase, userId),
+      freshTierQuery,
+    ]);
+    followedIds = new Set(
+      (followRows.data ?? []).map((r: any) => r.following_id as string).filter(Boolean),
+    );
+    topCategories = likeSignals.topCategories;
+    likedPostIds = likeSignals.likedPostIds;
+    freshResult = fr;
+  } else {
+    freshResult = await freshTierQuery;
+  }
 
   // Enrich and diversity-guard the fresh tier.  Apply the same exclusions
   // (mood posts, poll cap) as the ranked pool so the rules are consistent.
   const freshRaw = excludeMoodPosts(freshResult.data ?? []);
   const freshWithCouple = await enrichWithCoupleData(supabase, freshRaw);
-  const freshWithPolls = await enrichWithPolls(supabase, freshWithCouple, userId);
+  const freshWithPolls = await enrichWithPolls(supabase, freshWithCouple, userId ?? undefined);
   const freshPollCapped = limitPollsToTop5(freshWithPolls);
   // diversifyFeed enforces max-2-consecutive-same-author, preventing one prolific
   // account from flooding the top of the feed with back-to-back posts.
@@ -553,7 +569,7 @@ async function getRankedForYouPool(
   const withCoupleAndPolls = await enrichWithPolls(
     supabase,
     await enrichWithCoupleData(supabase, excludeMoodPosts(candidates ?? [])),
-    userId,
+    userId ?? undefined,
   );
 
   // Cap poll posts to the top 5 across the WHOLE pool before pagination —
@@ -573,7 +589,7 @@ async function getRankedForYouPool(
   // be skipped; there is nothing older than poolCutoffAt to fetch.
   const poolIsExhaustive = !candErr && (candidates ?? []).length < CANDIDATE_POOL_SIZE;
 
-  rankedFeedCache.set(userId, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt, freshPosts, poolIsExhaustive });
+  rankedFeedCache.set(cacheKey, { expiresAt: Date.now() + RANK_CACHE_TTL_MS, ranked, poolCutoffAt, freshPosts, poolIsExhaustive });
   return { ranked, poolCutoffAt, freshPosts, poolIsExhaustive };
 }
 
@@ -612,11 +628,6 @@ router.get("/foryou", async (req, res) => {
     if (sort === "most_liked") return [...rows].sort((a, b) => ((b.likes_count ?? 0) - (a.likes_count ?? 0)));
     if (sort === "most_viewed") return [...rows].sort((a, b) => ((b.views_count ?? 0) - (a.views_count ?? 0)));
     return rows; // "newest" — personalised RPC order is already recency-weighted
-  }
-
-  if (!userId) {
-    res.status(400).json({ error: "userId required" });
-    return;
   }
 
   const supabase = makeSupabase();
@@ -684,7 +695,7 @@ router.get("/foryou", async (req, res) => {
     // independent top-N that could disagree at page boundaries.
     // On any error it falls through to the v3/v2/v1 RPC chain below.
     try {
-      const { ranked, poolCutoffAt, freshPosts, poolIsExhaustive } = await getRankedForYouPool(supabase, userId);
+      const { ranked, poolCutoffAt, freshPosts, poolIsExhaustive } = await getRankedForYouPool(supabase, userId ?? null);
 
       // ── Fresh tier ───────────────────────────────────────────────────────────
       // Posts from the last FRESH_WINDOW_HOURS are served newest-first at the

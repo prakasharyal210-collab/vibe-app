@@ -28,6 +28,7 @@ import RAnimated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { FullScreenMediaViewer, MediaItem } from "@/components/FullScreenMediaViewer";
 import { RelationshipStatusBadge } from "@/components/RelationshipStatusBadge";
 import { ZodiacSignBadge } from "@/components/ZodiacSignBadge";
@@ -611,6 +612,7 @@ export default function UserProfileScreen() {
 
   const [following, setFollowing] = useState(false);
   const [followSaving, setFollowSaving] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
   const [amBlocked, setAmBlocked] = useState(false);
@@ -708,7 +710,8 @@ export default function UserProfileScreen() {
   };
 
   const handleFollow = async () => {
-    if (!myId || !profile?.id || followSaving) return;
+    if (!myId) { setShowLoginPrompt(true); return; }
+    if (!profile?.id || followSaving) return;
     const wasFollowing = following;
     setFollowing(!wasFollowing);
     setFollowersCount((n) => (!wasFollowing ? n + 1 : Math.max(0, n - 1)));
@@ -1163,6 +1166,8 @@ export default function UserProfileScreen() {
         visible={mediaViewer.visible}
         onClose={() => setMediaViewer((s) => ({ ...s, visible: false }))}
       />
+
+      <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </View>
   );
 }

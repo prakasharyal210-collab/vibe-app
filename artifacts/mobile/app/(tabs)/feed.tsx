@@ -217,35 +217,6 @@ const WHY_REASONS = [
 ];
 
 
-const MOCK_FOR_YOU: Post[] = [
-  {
-    id: "fy1", user_id: "u6",
-    image_url: "https://picsum.photos/seed/fy1/400/400",
-    images: ["https://picsum.photos/seed/fy1/400/400", "https://picsum.photos/seed/fy1b/400/400"],
-    caption: "The best sunsets are the ones you didn't plan 🌅 #spontaneous #travel",
-    location: "Amalfi Coast, Italy", likes_count: 4821, comments_count: 203,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    profiles: { id: "u6", username: "alex.w", is_verified: true },
-  },
-  {
-    id: "fy2", user_id: "u7",
-    image_url: "https://picsum.photos/seed/fy2/400/400",
-    images: ["https://picsum.photos/seed/fy2/400/400"],
-    caption: "Studio session 🎵 new music coming very soon... #music #vibes",
-    likes_count: 1933, comments_count: 88,
-    created_at: new Date(Date.now() - 21600000).toISOString(),
-    profiles: { id: "u7", username: "maya_art" },
-  },
-  {
-    id: "fy3", user_id: "u8",
-    image_url: "https://picsum.photos/seed/fy3/400/400",
-    images: ["https://picsum.photos/seed/fy3/400/400"],
-    caption: "Morning run ☀️ 10km done 💪 #fitness #motivation",
-    likes_count: 892, comments_count: 41,
-    created_at: new Date(Date.now() - 43200000).toISOString(),
-    profiles: { id: "u8", username: "kai_fit" },
-  },
-];
 
 
 function WhyThisButton({ index }: { index: number }) {
@@ -727,14 +698,9 @@ export default function FeedScreen() {
           ? activeCategoryRef.current
           : undefined;
         const typeParam = activeCategoryRef.current === "polls" ? "polls" : undefined;
-        if (userId) {
-          const result = await getForYouFeed(userId, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam, typeParam);
-          data = result.posts;
-          isLooped = result.looped;
-        } else {
-          data = MOCK_FOR_YOU;
-        }
-        if (!userId) { console.log('[loadTabData] no userId, showing mock'); updateTab("foryou", { posts: MOCK_FOR_YOU, loading: false, loadingMore: false, hasMore: false }); return; }
+        const result = await getForYouFeed(userId || undefined, PAGE_SIZE, offset, contentTypeRef.current, sortOrderRef.current, catParam, typeParam);
+        data = result.posts;
+        isLooped = result.looped;
       } else if (tab === "friends") {
         data = userId ? await getFriendsFeed(userId, PAGE_SIZE, offset) : [];
       }
@@ -1071,6 +1037,20 @@ export default function FeedScreen() {
       );
     }
     if (tabId === "friends") {
+      if (!isLoggedIn) {
+        return (
+          <View style={emptyStyles.wrap}>
+            <Text style={emptyStyles.emoji}>👥</Text>
+            <Text style={[emptyStyles.title, { color: colors.foreground }]}>See what friends are up to</Text>
+            <Text style={[emptyStyles.sub, { color: colors.mutedForeground }]}>
+              Sign up to follow people and see their posts here.
+            </Text>
+            <TouchableOpacity style={emptyStyles.actionBtn} onPress={() => setShowLoginPrompt(true)}>
+              <Text style={emptyStyles.actionBtnText}>Sign up free</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
       return (
         <View>
           <View style={emptyStyles.wrap}>
@@ -1253,7 +1233,7 @@ export default function FeedScreen() {
                   // CuratedFeedList's internal state and eliminating the skeleton loop.
                   tab.id === "foryou"
                     ? <ForYouListHeader isTrending={isTrending} trendingPosts={trendingPosts} colors={colors} userId={userId} />
-                    : <FriendsListHeader colors={colors} stories={friendStories} userId={userId} onStoryCreated={refreshStories} />
+                    : (isLoggedIn ? <FriendsListHeader colors={colors} stories={friendStories} userId={userId} onStoryCreated={refreshStories} /> : null)
                 }
                 ListEmptyComponent={() => renderEmpty(tab.id)}
                 ListFooterComponent={() => {

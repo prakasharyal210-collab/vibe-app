@@ -35,6 +35,7 @@ import { Image } from "expo-image";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CommentsSheet } from "@/components/CommentsSheet";
+import { LoginPrompt } from "@/components/LoginPrompt";
 import { CoupleHeaderRow } from "@/components/PostCard";
 import PollCard from "@/components/PollCard";
 import { FullscreenImageViewer } from "@/components/FullscreenImageViewer";
@@ -465,6 +466,7 @@ export default function PostDetailScreen() {
   const [following, setFollowing] = useState(false);
   const [likesCount, setLikesCount] = useState(() => feedPostCache.get(id ?? '')?.likes_count ?? 0);
   const [showComments, setShowComments] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [viewerInitialIndex, setViewerInitialIndex] = useState(0);
   const [captionExpanded, setCaptionExpanded] = useState(false);
@@ -646,7 +648,8 @@ export default function PostDetailScreen() {
 
   // ── Like handler ────────────────────────────────────────────────────────────
   const handleLike = async () => {
-    if (!session?.user?.id || !post) return;
+    if (!session?.user?.id) { setShowLoginPrompt(true); return; }
+    if (!post) return;
     const nowLiked = !liked;
     setLiked(nowLiked);
     setLikesCount((n) => (nowLiked ? n + 1 : Math.max(0, n - 1)));
@@ -702,7 +705,8 @@ export default function PostDetailScreen() {
 
   // ── Save / bookmark ─────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!session?.user?.id || !post) return;
+    if (!session?.user?.id) { setShowLoginPrompt(true); return; }
+    if (!post) return;
     const nowSaved = !saved;
     setSaved(nowSaved);
     try {
@@ -1334,6 +1338,7 @@ export default function PostDetailScreen() {
 
           <TouchableOpacity
             onPress={() => {
+              if (!session?.user?.id) { setShowLoginPrompt(true); return; }
               if (!allowComments && !isOwnPost) {
                 Alert.alert("Comments turned off", "The author has turned off commenting for this post.");
                 return;
@@ -1407,7 +1412,7 @@ export default function PostDetailScreen() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => setFollowing((f) => !f)} activeOpacity={0.8}>
+              <TouchableOpacity onPress={() => { if (!session?.user?.id) { setShowLoginPrompt(true); return; } setFollowing((f) => !f); }} activeOpacity={0.8}>
                 {following ? (
                   <View
                     style={[S.followingBtn, { borderColor: "rgba(255,255,255,0.22)" }]}
@@ -1910,6 +1915,7 @@ export default function PostDetailScreen() {
         onRequireLogin={() => setShowComments(false)}
         contentType="post"
       />
+      <LoginPrompt visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
       <FullscreenImageViewer
         images={images}
         initialIndex={viewerInitialIndex}
