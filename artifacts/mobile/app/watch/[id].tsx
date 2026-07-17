@@ -863,7 +863,10 @@ export default function WatchScreen() {
     if (!status.isLoaded) return;
     setVideoPosition(status.positionMillis ?? 0);
     setVideoDuration(status.durationMillis ?? 0);
-    setVideoPlaying(status.isPlaying ?? false);
+    // Do NOT mirror status.isPlaying back into videoPlaying — expo-av transiently
+    // reports isPlaying:false during seeks, which would lock shouldPlay={false}
+    // and leave the video paused. videoPlaying is the *desired* state and is only
+    // changed by explicit user actions (play/pause tap, focus-loss, background).
     if (status.didJustFinish) {
       setVideoEnded(true);
     }
