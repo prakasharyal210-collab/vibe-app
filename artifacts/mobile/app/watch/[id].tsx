@@ -6,7 +6,10 @@ import {
   Alert,
   AppState,
   Dimensions,
+  GestureResponderEvent,
+  Modal,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,12 +19,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { Image } from "expo-image";
 import Animated, {
+  runOnJS,
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withSequence,
   withTiming,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { CommentsSheet } from "@/components/CommentsSheet";
 import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/context/AuthContext";
@@ -36,7 +41,14 @@ const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
 // Max pinned-player height — cap at 4:3 so portrait videos don't dominate the screen.
 const MAX_VIDEO_H = Math.round(W * 0.75);
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Module-scope helpers ─────────────────────────────────────────────────────
+
+/** ms → "0:03" or "1:23" — matches the format used on post/[id].tsx */
+function formatTime(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}
 
 function detectVideoUrl(post: Post): string | null {
   const resolved = post.image_url || post.media_url || undefined;
@@ -50,9 +62,7 @@ function isVideoPost(post: Post): boolean {
   return !!detectVideoUrl(post);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** "1:23" or "0:45" from a duration in seconds (as stored on some posts). */
+/** Seconds → "1:23" for the duration pill on Up next cards. */
 function fmtDuration(seconds: number | undefined): string | null {
   if (!seconds || seconds <= 0) return null;
   const m = Math.floor(seconds / 60);
@@ -60,9 +70,303 @@ function fmtDuration(seconds: number | undefined): string | null {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+// ─── Module-scope sub-components ─────────────────────────────────────────────
+// Defined at module scope to avoid the Ionicons empty-glyph remount bug
+// (sub-components created inside a parent render fn get a new type reference on
+// every render, which causes React to remount them and re-init Ionicons).
+
+function GradientRingAvatar({
+  username,
+  url,
+  size = 44,
+}: {
+  username: string;
+  url?: string | null;
+  size?: number;
+}) {
+  return (
+    <LinearGradient
+      colors={["#EA580C", "#9333EA"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{
+        width: size + 4,
+        height: size + 4,
+        borderRadius: (size + 4) / 2,
+        padding: 2,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <UserAvatar username={username} url={url} size={size} />
+    </LinearGradient>
+  );
+}
+
+// ─── FullscreenVideoViewer ────────────────────────────────────────────────────
+// Replicates the swipe-down-to-dismiss + position handoff pattern from post/[id].tsx.
+// Two separate Video instances — expo-av cannot share a native player across trees.
+
+function FullscreenVideoViewer({
+  src,
+  initialPosition,
+  initialPlaying,
+  isMuted,
+  onMuteToggle,
+  onClose,
+}: {
+  src: string;
+  initialPosition: number;
+  initialPlaying: boolean;
+  isMuted: boolean;
+  onMuteToggle: () => void;
+  onClose: (position: number, playing: boolean) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const { width: FW, height: FH } = Dimensions.get("window");
+  const fsRef = useRef<Video>(null);
+  const [fsPlaying, setFsPlaying] = useState(initialPlaying);
+  const [fsDuration, setFsDuration] = useState(0);
+  const [fsPosition, setFsPosition] = useState(initialPosition);
+  const [fsProgressW, setFsProgressW] = useState(0);
+  const fsDurationRef = useRef(0);
+
+  const positionSV = useSharedValue(initialPosition);
+  const playingSV = useSharedValue(initialPlaying ? 1 : 0);
+
+  const ty = useSharedValue(0);
+  const bgOpacity = useSharedValue(1);
+  const ctrlOpacity = useSharedValue(1);
+  const ctrlHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") {
+        fsRef.current?.pauseAsync().catch(() => {});
+        setFsPlaying(false);
+      }
+    });
+    return () => {
+      sub.remove();
+      if (ctrlHideTimer.current) clearTimeout(ctrlHideTimer.current);
+    };
+  }, []);
+
+  const doClose = useCallback(() => {
+    if (ctrlHideTimer.current) clearTimeout(ctrlHideTimer.current);
+    onClose(positionSV.value, playingSV.value === 1);
+  }, [onClose, positionSV, playingSV]);
+
+  const showCtrlsTemporarily = useCallback(() => {
+    ctrlOpacity.value = withTiming(1, { duration: 180 });
+    if (ctrlHideTimer.current) clearTimeout(ctrlHideTimer.current);
+    ctrlHideTimer.current = setTimeout(() => {
+      ctrlHideTimer.current = null;
+      ctrlOpacity.value = withTiming(0, { duration: 600 });
+    }, 3000);
+  }, [ctrlOpacity]);
+
+  const pan = Gesture.Pan()
+    .onUpdate((e) => {
+      ty.value = Math.max(0, e.translationY);
+      bgOpacity.value = Math.max(0.15, 1 - e.translationY / 260);
+    })
+    .onEnd((e) => {
+      if (e.translationY > 90 || e.velocityY > 700) {
+        runOnJS(doClose)();
+      } else {
+        ty.value = withSpring(0, { damping: 20 });
+        bgOpacity.value = withSpring(1);
+      }
+    });
+
+  const handleFsStatus = useCallback(
+    (status: AVPlaybackStatus) => {
+      if (!status.isLoaded) return;
+      const pos = status.positionMillis ?? 0;
+      positionSV.value = pos;
+      setFsPosition(pos);
+      fsDurationRef.current = status.durationMillis ?? 0;
+      setFsDuration(status.durationMillis ?? 0);
+    },
+    [positionSV],
+  );
+
+  const handleFsTap = useCallback(() => {
+    setFsPlaying((p) => {
+      const next = !p;
+      playingSV.value = next ? 1 : 0;
+      return next;
+    });
+    showCtrlsTemporarily();
+  }, [showCtrlsTemporarily, playingSV]);
+
+  const fsSeekToRatio = useCallback(
+    (ratio: number) => {
+      const ms = Math.max(0, Math.min(1, ratio)) * fsDurationRef.current;
+      fsRef.current?.setPositionAsync(ms).catch(() => {});
+      setFsPosition(ms);
+      positionSV.value = ms;
+    },
+    [positionSV],
+  );
+
+  const handleFsSeek = useCallback(
+    (e: GestureResponderEvent) => {
+      if (!fsProgressW) return;
+      fsSeekToRatio(e.nativeEvent.locationX / fsProgressW);
+    },
+    [fsProgressW, fsSeekToRatio],
+  );
+
+  const containerStyle = useAnimatedStyle(() => ({
+    opacity: bgOpacity.value,
+    transform: [{ translateY: ty.value }],
+  }));
+  const ctrlsStyle = useAnimatedStyle(() => ({ opacity: ctrlOpacity.value }));
+  const fsProgressRatio = fsDuration > 0 ? fsPosition / fsDuration : 0;
+
+  return (
+    <Modal
+      visible
+      transparent
+      animationType="fade"
+      onRequestClose={doClose}
+      statusBarTranslucent
+    >
+      <StatusBar hidden />
+      <View style={{ flex: 1, backgroundColor: "#000" }}>
+        <GestureDetector gesture={pan}>
+          <Animated.View style={[{ flex: 1 }, containerStyle]}>
+            <Video
+              ref={fsRef}
+              source={{ uri: src }}
+              style={{ flex: 1 }}
+              resizeMode={ResizeMode.CONTAIN}
+              isLooping
+              shouldPlay={fsPlaying}
+              isMuted={isMuted}
+              positionMillis={initialPosition}
+              onPlaybackStatusUpdate={handleFsStatus}
+            />
+
+            <TouchableOpacity
+              activeOpacity={1}
+              style={StyleSheet.absoluteFill}
+              onPress={handleFsTap}
+            />
+
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFill,
+                { justifyContent: "space-between", zIndex: 10 },
+                ctrlsStyle,
+              ]}
+              pointerEvents="box-none"
+            >
+              {/* Top: mute (left) + collapse (right) */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  padding: 12,
+                  paddingTop: insets.top + 12,
+                }}
+                pointerEvents="box-none"
+              >
+                <TouchableOpacity
+                  style={V.muteBtn}
+                  onPress={() => {
+                    onMuteToggle();
+                    showCtrlsTemporarily();
+                  }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Ionicons
+                    name={isMuted ? "volume-mute" : "volume-high"}
+                    size={18}
+                    color="#fff"
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={V.muteBtn}
+                  onPress={doClose}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <Ionicons name="contract" size={18} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Center: play/pause indicator */}
+              <View style={V.centerRow} pointerEvents="none">
+                <View style={V.playPauseCircle}>
+                  <Ionicons
+                    name={fsPlaying ? "pause" : "play"}
+                    size={34}
+                    color="#fff"
+                    style={fsPlaying ? {} : { marginLeft: 4 }}
+                  />
+                </View>
+              </View>
+
+              {/* Bottom: time + seek bar */}
+              <View
+                style={{
+                  paddingHorizontal: 14,
+                  paddingBottom: Math.max(insets.bottom, 16) + 8,
+                  gap: 8,
+                }}
+                pointerEvents="box-none"
+              >
+                <Text style={V.timeText}>
+                  {formatTime(fsPosition)} / {formatTime(fsDuration)}
+                </Text>
+                <View
+                  style={V.progressTrack}
+                  onLayout={(e) =>
+                    setFsProgressW(e.nativeEvent.layout.width)
+                  }
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={(e) => {
+                    showCtrlsTemporarily();
+                    handleFsSeek(e);
+                  }}
+                  onResponderMove={handleFsSeek}
+                >
+                  <LinearGradient
+                    colors={["#EA580C", "#7C3AED"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[
+                      V.progressFill,
+                      { width: fsProgressW * fsProgressRatio },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      V.progressThumb,
+                      {
+                        left: Math.max(
+                          0,
+                          fsProgressW * fsProgressRatio - 7,
+                        ),
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            </Animated.View>
+          </Animated.View>
+        </GestureDetector>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Large YouTube-style card for "Up next" feed continuation ─────────────────
 
-const THUMB_H = Math.round((W - 32) * 9 / 16); // 16:9, full-width with 16px side padding
+const THUMB_H = Math.round((W - 32) * 9 / 16);
 
 function FeedContinuationCard({
   post,
@@ -84,7 +388,6 @@ function FeedContinuationCard({
       onPress={onPress}
       activeOpacity={0.85}
     >
-      {/* Thumbnail — 16:9, full card width */}
       <View style={S.contThumbWrap}>
         {thumbUri ? (
           <Image
@@ -96,19 +399,19 @@ function FeedContinuationCard({
           />
         ) : (
           <View style={[S.contThumb, S.contThumbEmpty]}>
-            <Ionicons name="play-circle-outline" size={40} color="rgba(255,255,255,0.2)" />
+            <Ionicons
+              name="play-circle-outline"
+              size={40}
+              color="rgba(255,255,255,0.2)"
+            />
           </View>
         )}
-
-        {/* Duration pill — bottom-right, YouTube-style */}
         {duration && (
           <View style={S.durationPill}>
             <Text style={S.durationTxt}>{duration}</Text>
           </View>
         )}
       </View>
-
-      {/* Text meta below thumbnail */}
       <View style={S.contMeta}>
         <Text
           style={[S.contCaption, { color: colors.foreground }]}
@@ -139,6 +442,7 @@ export default function WatchScreen() {
   );
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [following, setFollowing] = useState(false);
   const [likesCount, setLikesCount] = useState(
     () => feedPostCache.get(id ?? "")?.likes_count ?? 0,
   );
@@ -147,6 +451,11 @@ export default function WatchScreen() {
   const [previewComments, setPreviewComments] = useState<any[]>([]);
   const [allowComments, setAllowComments] = useState(true);
   const [hideLikeCount, setHideLikeCount] = useState(false);
+  const [authorStats, setAuthorStats] = useState<{
+    followers_count: number;
+    posts_count: number;
+  } | null>(null);
+  const [showVideoFullscreen, setShowVideoFullscreen] = useState(false);
 
   // Feed continuation — video posts only, current post excluded,
   // reversed so newest-seen (most relevant) appear first.
@@ -198,6 +507,20 @@ export default function WatchScreen() {
       .catch(() => {});
   }, [id, session?.user?.id]);
 
+  // ── Fetch author stats once post loads ────────────────────────────────────────
+  useEffect(() => {
+    if (!post?.user_id) return;
+    fetch(`${API_BASE}/users/stats?userId=${post.user_id}`)
+      .then((r) => r.json())
+      .then((body) =>
+        setAuthorStats({
+          followers_count: body.followers_count ?? 0,
+          posts_count: body.posts_count ?? 0,
+        }),
+      )
+      .catch(() => {});
+  }, [post?.user_id]);
+
   // ── Like / save status ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !session?.user?.id) return;
@@ -245,7 +568,7 @@ export default function WatchScreen() {
     }, []),
   );
 
-  // ── Pause on app background — no audio after leaving ────────────────────────
+  // ── Pause on app background ──────────────────────────────────────────────────
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") {
@@ -279,7 +602,6 @@ export default function WatchScreen() {
       if (size?.width && size?.height) {
         setVideoAspectRatio(size.width / size.height);
       }
-      // Seek to the feed position once — only on the first ready event.
       if (initialPos > 0 && !seekedRef.current) {
         seekedRef.current = true;
         videoRef.current?.setPositionAsync(initialPos).catch(() => {});
@@ -299,10 +621,36 @@ export default function WatchScreen() {
   );
 
   const handleSeekGesture = useCallback(
-    (e: any) => {
+    (e: GestureResponderEvent) => {
       seekToRatio(e.nativeEvent.locationX / progressTrackW);
     },
     [progressTrackW, seekToRatio],
+  );
+
+  const handleSkip = useCallback(
+    (deltaMs: number) => {
+      if (!videoDuration) return;
+      const next = Math.max(0, Math.min(videoDuration, videoPosition + deltaMs));
+      videoRef.current?.setPositionAsync(next).catch(() => {});
+      showControlsTemporarily();
+    },
+    [videoDuration, videoPosition, showControlsTemporarily],
+  );
+
+  const handleOpenFullscreen = useCallback(() => {
+    videoRef.current?.pauseAsync().catch(() => {});
+    setVideoPlaying(false);
+    setShowVideoFullscreen(true);
+  }, []);
+
+  const handleCloseFullscreen = useCallback(
+    (position: number, playing: boolean) => {
+      setShowVideoFullscreen(false);
+      videoRef.current?.setPositionAsync(position).catch(() => {});
+      setVideoPosition(position);
+      setVideoPlaying(playing);
+    },
+    [],
   );
 
   // ── Action handlers ──────────────────────────────────────────────────────────
@@ -390,7 +738,7 @@ export default function WatchScreen() {
           <View style={[S.videoWrap, { height: pinnedH, backgroundColor: "#111" }]} />
         )}
 
-        {/* Back button — semi-transparent pill overlaid top-left */}
+        {/* Back button — overlaid top-left */}
         <View
           style={[S.backOverlay, { top: insets.top + 8 }]}
           pointerEvents="box-none"
@@ -404,17 +752,14 @@ export default function WatchScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Full-area tap-catcher — single tap toggles play/pause */}
+        {/* Full-area tap-catcher — shows/hides controls without toggling play */}
         <TouchableOpacity
           activeOpacity={1}
           style={StyleSheet.absoluteFill}
-          onPress={() => {
-            setVideoPlaying((p) => !p);
-            showControlsTemporarily();
-          }}
+          onPress={showControlsTemporarily}
         />
 
-        {/* Controls overlay — fades after 3 s of inactivity */}
+        {/* ── Controls overlay — fades after 3 s ──────────────────────── */}
         <Animated.View
           style={[StyleSheet.absoluteFill, S.controlsOverlay, videoControlsStyle]}
           pointerEvents="box-none"
@@ -438,8 +783,64 @@ export default function WatchScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Bottom: gradient seek bar */}
+          {/* Center: skip-back-10 | play/pause | skip-forward-10 */}
+          <View style={V.centerRow} pointerEvents="box-none">
+            <TouchableOpacity
+              style={V.skipBtn}
+              onPress={() => handleSkip(-10_000)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="play-back" size={26} color="#fff" />
+              <Text style={V.skipLabel}>10</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={V.playPauseCircle}
+              onPress={() => {
+                setVideoPlaying((p) => !p);
+                showControlsTemporarily();
+              }}
+            >
+              <Ionicons
+                name={videoPlaying ? "pause" : "play"}
+                size={34}
+                color="#fff"
+                style={videoPlaying ? {} : { marginLeft: 4 }}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={V.skipBtn}
+              onPress={() => handleSkip(10_000)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="play-forward" size={26} color="#fff" />
+              <Text style={V.skipLabel}>10</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Bottom: time (left) · seek bar · fullscreen (right) */}
           <View style={S.ctrlBottom} pointerEvents="box-none">
+            {/* Time row */}
+            <View style={V.timeRow} pointerEvents="box-none">
+              <Text style={V.timeText}>
+                {formatTime(videoPosition)} / {formatTime(videoDuration)}
+              </Text>
+              <View style={{ flex: 1 }} />
+              {videoSrc && (
+                <TouchableOpacity
+                  style={S.muteBtn}
+                  onPress={() => {
+                    showControlsTemporarily();
+                    handleOpenFullscreen();
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="expand" size={17} color="#fff" />
+                </TouchableOpacity>
+              )}
+            </View>
+            {/* Seek bar */}
             <View
               style={S.progressTrack}
               onLayout={(e) =>
@@ -466,10 +867,7 @@ export default function WatchScreen() {
                 style={[
                   S.progressThumb,
                   {
-                    left: Math.max(
-                      0,
-                      progressTrackW * progressRatio - 7,
-                    ),
+                    left: Math.max(0, progressTrackW * progressRatio - 7),
                   },
                 ]}
               />
@@ -569,7 +967,7 @@ export default function WatchScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Author row + caption */}
+        {/* ── Author row — matches post/[id].tsx parity ──────────────── */}
         <View
           style={[
             S.metaSection,
@@ -579,25 +977,65 @@ export default function WatchScreen() {
             },
           ]}
         >
-          <TouchableOpacity
-            style={S.authorRow}
-            onPress={() =>
-              username && router.push(`/profile/${username}` as any)
-            }
-            activeOpacity={0.75}
-          >
-            <UserAvatar url={avatarUrl} size={40} />
-            <View style={S.authorMeta}>
-              <Text style={[S.authorName, { color: colors.foreground }]}>
-                {username}
-              </Text>
-              <Text
-                style={[S.authorTime, { color: colors.mutedForeground }]}
+          <View style={S.authorRow}>
+            {/* Avatar + name + stats — tappable → profile */}
+            <TouchableOpacity
+              style={S.authorLeft}
+              onPress={() =>
+                username && router.push(`/profile/${username}` as any)
+              }
+              activeOpacity={0.75}
+            >
+              <GradientRingAvatar username={username} url={avatarUrl} size={44} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={[S.authorName, { color: colors.foreground }]}>
+                  {username}
+                </Text>
+                {authorStats ? (
+                  <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
+                    {formatCount(authorStats.followers_count)} Followers ·{" "}
+                    {formatCount(authorStats.posts_count)} Posts
+                  </Text>
+                ) : (
+                  <Text style={[S.authorSub, { color: colors.mutedForeground }]}>
+                    {post ? timeAgo(post.created_at) : ""}
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+
+            {/* Follow / Following button — hidden for own posts */}
+            {!isOwnPost && (
+              <TouchableOpacity
+                onPress={() => setFollowing((f) => !f)}
+                activeOpacity={0.8}
               >
-                {post ? timeAgo(post.created_at) : ""}
-              </Text>
-            </View>
-          </TouchableOpacity>
+                {following ? (
+                  <View
+                    style={[
+                      S.followingBtn,
+                      { borderColor: "rgba(255,255,255,0.22)" },
+                    ]}
+                  >
+                    <Text style={[S.followBtnTxt, { color: colors.foreground }]}>
+                      Following
+                    </Text>
+                  </View>
+                ) : (
+                  <LinearGradient
+                    colors={["#EA580C", "#7C3AED"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={S.followGrad}
+                  >
+                    <Text style={[S.followBtnTxt, { color: "#fff" }]}>
+                      Follow
+                    </Text>
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
 
           {caption.length > 0 && (
             <View style={S.captionWrap}>
@@ -662,11 +1100,7 @@ export default function WatchScreen() {
                 key={p.id}
                 post={p}
                 onPress={() => {
-                  if (isVideoPost(p)) {
-                    router.push(`/watch/${p.id}` as any);
-                  } else {
-                    router.push(`/post/${p.id}` as any);
-                  }
+                  router.push(`/watch/${p.id}` as any);
                 }}
               />
             ))}
@@ -682,11 +1116,93 @@ export default function WatchScreen() {
         onRequireLogin={() => setShowComments(false)}
         contentType="post"
       />
+
+      {videoSrc && showVideoFullscreen && (
+        <FullscreenVideoViewer
+          src={videoSrc}
+          initialPosition={videoPosition}
+          initialPlaying={videoPlaying}
+          isMuted={isMuted}
+          onMuteToggle={() => setIsMuted((m) => !m)}
+          onClose={handleCloseFullscreen}
+        />
+      )}
     </View>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Video control styles (shared by inline player + FullscreenVideoViewer) ───
+
+const V = StyleSheet.create({
+  centerRow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 32,
+  },
+  skipBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 48,
+    height: 48,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderRadius: 24,
+  },
+  skipLabel: {
+    color: "#fff",
+    fontSize: 9,
+    fontFamily: "Poppins_600SemiBold",
+    marginTop: -2,
+  },
+  playPauseCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  timeText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 12,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  muteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    overflow: "visible",
+  },
+  progressFill: { height: 4, borderRadius: 2 },
+  progressThumb: {
+    position: "absolute",
+    top: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#7C3AED",
+  },
+});
+
+// ─── Screen styles ────────────────────────────────────────────────────────────
 
 const S = StyleSheet.create({
   screen: { flex: 1 },
@@ -710,7 +1226,6 @@ const S = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  ctrlBottom: { position: "absolute", bottom: 10, left: 12, right: 12 },
   muteBtn: {
     width: 32,
     height: 32,
@@ -719,6 +1234,7 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  ctrlBottom: { position: "absolute", bottom: 10, left: 12, right: 12 },
   progressTrack: {
     height: 4,
     borderRadius: 2,
@@ -749,16 +1265,34 @@ const S = StyleSheet.create({
     gap: 5,
   },
   actionCount: { fontSize: 14, fontFamily: "Poppins_500Medium" },
+  // ── Author row ──
   metaSection: {
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  authorRow: { flexDirection: "row", alignItems: "center", paddingTop: 12 },
-  authorMeta: { flex: 1, marginLeft: 10 },
+  authorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 12,
+    gap: 8,
+  },
+  authorLeft: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   authorName: { fontSize: 14, fontFamily: "Poppins_600SemiBold" },
-  authorTime: { fontSize: 11, fontFamily: "Poppins_400Regular", marginTop: 2 },
+  authorSub: { fontSize: 12, fontFamily: "Poppins_400Regular", marginTop: 2 },
+  followGrad: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7 },
+  followingBtn: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  followBtnTxt: { fontSize: 13, fontFamily: "Poppins_600SemiBold" },
   captionWrap: { marginTop: 10 },
   caption: { fontSize: 14, fontFamily: "Poppins_400Regular", lineHeight: 20 },
   captionMore: {
