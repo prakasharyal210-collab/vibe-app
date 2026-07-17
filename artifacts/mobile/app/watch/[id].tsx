@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
@@ -440,6 +441,20 @@ function FeedContinuationCard({
     (!isVidUrl(post.image_url) ? post.image_url : null) ||
     undefined;
   const thumbUri = rawThumb ? (cardUrl(rawThumb) ?? rawThumb) : undefined;
+
+  // For video posts without a static thumbnail, generate one from the first frame.
+  const [generatedThumb, setGeneratedThumb] = useState<string | undefined>(undefined);
+  const videoUrl = !rawThumb ? detectVideoUrl(post) : null;
+  useEffect(() => {
+    if (!videoUrl) return;
+    let cancelled = false;
+    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 1000 })
+      .then(({ uri }) => { if (!cancelled) setGeneratedThumb(uri); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [videoUrl]);
+
+  const finalThumbUri = thumbUri ?? generatedThumb;
   const username = post.profiles?.username ?? "user";
   const duration = fmtDuration((post as any).duration);
 
@@ -450,20 +465,20 @@ function FeedContinuationCard({
       activeOpacity={0.85}
     >
       <View style={S.contThumbWrap}>
-        {thumbUri ? (
+        {finalThumbUri ? (
           <Image
-            source={{ uri: thumbUri }}
+            source={{ uri: finalThumbUri }}
             style={S.contThumb}
             contentFit="cover"
             cachePolicy="memory-disk"
-            recyclingKey={rawThumb}
+            recyclingKey={finalThumbUri}
           />
         ) : (
           <View style={[S.contThumb, S.contThumbEmpty]}>
             <Ionicons
               name="play-circle-outline"
               size={40}
-              color="rgba(255,255,255,0.2)"
+              color="rgba(255,255,255,0.4)"
             />
           </View>
         )}
@@ -503,7 +518,6 @@ function AutoplayOverlay({
   onCancel: () => void;
   onReplay: () => void;
 }) {
-  if (!ended) return null;
   const isVidUrl = (u?: string | null) => !!u?.match(/\.(mp4|mov|webm|m4v)(\?|$)/i);
   const rawThumb = nextPost
     ? nextPost.thumbnail_url ||
@@ -511,6 +525,21 @@ function AutoplayOverlay({
       undefined
     : undefined;
   const thumbUri = rawThumb ? (cardUrl(rawThumb) ?? rawThumb) : undefined;
+
+  const [generatedThumb, setGeneratedThumb] = useState<string | undefined>(undefined);
+  const videoUrl = nextPost && !rawThumb ? detectVideoUrl(nextPost) : null;
+  useEffect(() => {
+    if (!videoUrl) return;
+    let cancelled = false;
+    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 1000 })
+      .then(({ uri }) => { if (!cancelled) setGeneratedThumb(uri); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [videoUrl]);
+
+  const finalThumbUri = thumbUri ?? generatedThumb;
+
+  if (!ended) return null;
 
   if (countdown !== null && nextPost) {
     return (
@@ -521,9 +550,9 @@ function AutoplayOverlay({
         <View style={S.apCard} pointerEvents="auto">
           <Text style={S.apLabel}>UP NEXT IN {countdown}…</Text>
           <View style={S.apRow}>
-            {thumbUri ? (
+            {finalThumbUri ? (
               <Image
-                source={{ uri: thumbUri }}
+                source={{ uri: finalThumbUri }}
                 style={S.apThumb}
                 contentFit="cover"
               />
