@@ -137,7 +137,13 @@ function FullscreenVideoViewer({
   const ty = useSharedValue(0);
   const bgOpacity = useSharedValue(1);
   const ctrlOpacity = useSharedValue(1);
+  const fsLeftRippleOpacity = useSharedValue(0);
+  const fsRightRippleOpacity = useSharedValue(0);
   const ctrlHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fsLastTapLeft = useRef(0);
+  const fsLastTapRight = useRef(0);
+  const fsSingleTapLeft = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fsSingleTapRight = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
@@ -201,6 +207,42 @@ function FullscreenVideoViewer({
     showCtrlsTemporarily();
   }, [showCtrlsTemporarily, playingSV]);
 
+  const handleFsTapLeft = useCallback(() => {
+    const now = Date.now();
+    if (now - fsLastTapLeft.current < 300) {
+      if (fsSingleTapLeft.current) { clearTimeout(fsSingleTapLeft.current); fsSingleTapLeft.current = null; }
+      const ms = Math.max(0, Math.min(fsDurationRef.current, positionSV.value - 10_000));
+      fsRef.current?.setPositionAsync(ms).catch(() => {});
+      setFsPosition(ms);
+      positionSV.value = ms;
+      fsLeftRippleOpacity.value = withSequence(
+        withTiming(1, { duration: 80 }),
+        withTiming(0, { duration: 600 }),
+      );
+    } else {
+      fsSingleTapLeft.current = setTimeout(() => { fsSingleTapLeft.current = null; handleFsTap(); }, 280);
+    }
+    fsLastTapLeft.current = now;
+  }, [handleFsTap, positionSV, fsLeftRippleOpacity]);
+
+  const handleFsTapRight = useCallback(() => {
+    const now = Date.now();
+    if (now - fsLastTapRight.current < 300) {
+      if (fsSingleTapRight.current) { clearTimeout(fsSingleTapRight.current); fsSingleTapRight.current = null; }
+      const ms = Math.max(0, Math.min(fsDurationRef.current, positionSV.value + 10_000));
+      fsRef.current?.setPositionAsync(ms).catch(() => {});
+      setFsPosition(ms);
+      positionSV.value = ms;
+      fsRightRippleOpacity.value = withSequence(
+        withTiming(1, { duration: 80 }),
+        withTiming(0, { duration: 600 }),
+      );
+    } else {
+      fsSingleTapRight.current = setTimeout(() => { fsSingleTapRight.current = null; handleFsTap(); }, 280);
+    }
+    fsLastTapRight.current = now;
+  }, [handleFsTap, positionSV, fsRightRippleOpacity]);
+
   const fsSeekToRatio = useCallback(
     (ratio: number) => {
       const ms = Math.max(0, Math.min(1, ratio)) * fsDurationRef.current;
@@ -224,6 +266,8 @@ function FullscreenVideoViewer({
     transform: [{ translateY: ty.value }],
   }));
   const ctrlsStyle = useAnimatedStyle(() => ({ opacity: ctrlOpacity.value }));
+  const fsLeftRippleStyle = useAnimatedStyle(() => ({ opacity: fsLeftRippleOpacity.value }));
+  const fsRightRippleStyle = useAnimatedStyle(() => ({ opacity: fsRightRippleOpacity.value }));
   const fsProgressRatio = fsDuration > 0 ? fsPosition / fsDuration : 0;
 
   return (
@@ -250,11 +294,21 @@ function FullscreenVideoViewer({
               onPlaybackStatusUpdate={handleFsStatus}
             />
 
-            <TouchableOpacity
-              activeOpacity={1}
-              style={StyleSheet.absoluteFill}
-              onPress={handleFsTap}
-            />
+            {/* Split tap zones: single tap → toggle play; double-tap → seek ±10s */}
+            <View style={[StyleSheet.absoluteFill, { flexDirection: "row" }]} pointerEvents="box-none">
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={handleFsTapLeft} />
+              <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={handleFsTapRight} />
+            </View>
+
+            {/* Seek ripples */}
+            <Animated.View style={[S.rippleLeft, fsLeftRippleStyle]} pointerEvents="none">
+              <Ionicons name="play-back" size={20} color="#fff" />
+              <Text style={S.rippleTxt}>-10s</Text>
+            </Animated.View>
+            <Animated.View style={[S.rippleRight, fsRightRippleStyle]} pointerEvents="none">
+              <Ionicons name="play-forward" size={20} color="#fff" />
+              <Text style={S.rippleTxt}>+10s</Text>
+            </Animated.View>
 
             <Animated.View
               style={[
