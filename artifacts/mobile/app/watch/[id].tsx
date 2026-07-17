@@ -36,10 +36,12 @@ import { feedPostCache } from "@/lib/db";
 import { shareContent } from "@/lib/share";
 import { cardUrl } from "@/lib/imageUrl";
 
-const { width: W } = Dimensions.get("window");
+const { width: W, height: SCREEN_H } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
-// Max pinned-player height — cap at 4:3 so portrait videos don't dominate the screen.
-const MAX_VIDEO_H = Math.round(W * 0.75);
+// Natural 16:9 floor — player is never shorter than this even for ultrawide videos.
+const VIDEO_H_FLOOR = Math.round(W * 9 / 16);
+// 55 % of screen height caps extreme portrait videos.
+const MAX_VIDEO_H = Math.round(SCREEN_H * 0.55);
 
 // ─── Module-scope helpers ─────────────────────────────────────────────────────
 
@@ -430,9 +432,13 @@ function FeedContinuationCard({
   onPress: () => void;
 }) {
   const colors = useColors();
+  // Only use image URLs as thumbnails — video URLs (.mp4 etc.) would render blank.
+  const isVidUrl = (u?: string | null) => !!u?.match(/\.(mp4|mov|webm|m4v)(\?|$)/i);
   const rawThumb =
-    post.thumbnail_url || post.image_url || post.media_url || undefined;
-  const thumbUri = cardUrl(rawThumb) ?? rawThumb;
+    post.thumbnail_url ||
+    (!isVidUrl(post.image_url) ? post.image_url : null) ||
+    undefined;
+  const thumbUri = rawThumb ? (cardUrl(rawThumb) ?? rawThumb) : undefined;
   const username = post.profiles?.username ?? "user";
   const duration = fmtDuration((post as any).duration);
 
@@ -511,9 +517,8 @@ export default function WatchScreen() {
   } | null>(null);
   const [showVideoFullscreen, setShowVideoFullscreen] = useState(false);
 
-  // Feed continuation — video posts only, current post excluded,
-  // reversed so newest-seen (most relevant) appear first.
-  const [feedSlice] = useState<Post[]>(() =>
+  // Feed continuation — video posts only, current post excluded.
+  const [feedSlice, setFeedSlice] = useState<Post[]>(() =>
     [...feedPostCache.values()]
       .reverse()
       .filter((p) => p.id !== id && isVideoPost(p))
@@ -588,6 +593,17 @@ export default function WatchScreen() {
       .catch(() => {});
   }, [post?.user_id]);
 
+  // ── Fetch actual follow status from server ────────────────────────────────────
+  useEffect(() => {
+    const uid = session?.user?.id;
+    const authorId = post?.user_id;
+    if (!uid || !authorId || uid === authorId) return;
+    fetch(`${API_BASE}/users/social/follow-status?followerId=${uid}&followingId=${authorId}`)
+      .then((r) => r.json())
+      .then((body) => { if (typeof body.following === "boolean") setFollowing(body.following); })
+      .catch(() => {});
+  }, [session?.user?.id, post?.user_id]);
+
   // ── Like / save status ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!id || !session?.user?.id) return;
@@ -620,6 +636,25 @@ export default function WatchScreen() {
       method: "POST",
     }).catch(() => {});
   }, [id]);
+
+  // ── Fetch more "Up next" videos when feed cache is thin ───────────────────────
+  useEffect(() => {
+    if (feedSlice.length >= 5) return; // enough from cache
+    const uid = session?.user?.id ?? "";
+    fetch(`${API_BASE}/feed/foryou?limit=30${uid ? `&userId=${uid}` : ""}`)
+      .then((r) => r.json())
+      .then((body) => {
+        const raw = (body.posts ?? body.data ?? []) as Post[];
+        const videos = raw.filter((p) => p.id !== id && isVideoPost(p)).slice(0, 20);
+        if (videos.length === 0) return;
+        setFeedSlice((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...videos.filter((p) => !seen.has(p.id))];
+        });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Pause on blur / back navigation ─────────────────────────────────────────
   useFocusEffect(
@@ -813,7 +848,8 @@ export default function WatchScreen() {
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const videoSrc = post ? detectVideoUrl(post) : null;
-  const pinnedH = Math.min(Math.round(W / videoAspectRatio), MAX_VIDEO_H);
+  // Natural height clamped between the 16:9 floor and the portrait cap.
+  const pinnedH = Math.max(VIDEO_H_FLOOR, Math.min(Math.round(W / videoAspectRatio), MAX_VIDEO_H));
   const progressRatio = videoDuration > 0 ? videoPosition / videoDuration : 0;
   const username = post?.profiles?.username ?? "";
   const avatarUrl = post?.profiles?.avatar_url ?? null;
@@ -1123,7 +1159,18 @@ export default function WatchScreen() {
             {/* Follow / Following button — hidden for own posts */}
             {!isOwnPost && (
               <TouchableOpacity
-                onPress={() => setFollowing((f) => !f)}
+                onPress={async () => {
+                  if (!session?.user?.id || !post?.user_id) return;
+                  const next = !following;
+                  setFollowing(next);
+                  try {
+                    await fetch(`${API_BASE}/users/social/toggle-follow`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ followerId: session.user.id, followingId: post.user_id }),
+                    });
+                  } catch {}
+                }}
                 activeOpacity={0.8}
               >
                 {following ? (
