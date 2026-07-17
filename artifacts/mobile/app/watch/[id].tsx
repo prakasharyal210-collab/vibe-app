@@ -29,6 +29,7 @@ import { useColors } from "@/hooks/useColors";
 import { Post, formatCount, timeAgo } from "@/lib/supabase";
 import { feedPostCache } from "@/lib/db";
 import { shareContent } from "@/lib/share";
+import { cardUrl } from "@/lib/imageUrl";
 
 const { width: W } = Dimensions.get("window");
 const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
@@ -49,7 +50,19 @@ function isVideoPost(post: Post): boolean {
   return !!detectVideoUrl(post);
 }
 
-// ─── Compact card for "Up next" feed continuation ────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** "1:23" or "0:45" from a duration in seconds (as stored on some posts). */
+function fmtDuration(seconds: number | undefined): string | null {
+  if (!seconds || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// ─── Large YouTube-style card for "Up next" feed continuation ─────────────────
+
+const THUMB_H = Math.round((W - 32) * 9 / 16); // 16:9, full-width with 16px side padding
 
 function FeedContinuationCard({
   post,
@@ -59,34 +72,43 @@ function FeedContinuationCard({
   onPress: () => void;
 }) {
   const colors = useColors();
-  const thumb = post.thumbnail_url || post.image_url || post.media_url || "";
-  const isVid = isVideoPost(post);
+  const rawThumb =
+    post.thumbnail_url || post.image_url || post.media_url || undefined;
+  const thumbUri = cardUrl(rawThumb) ?? rawThumb;
   const username = post.profiles?.username ?? "user";
+  const duration = fmtDuration((post as any).duration);
 
   return (
     <TouchableOpacity
       style={S.contCard}
       onPress={onPress}
-      activeOpacity={0.8}
+      activeOpacity={0.85}
     >
+      {/* Thumbnail — 16:9, full card width */}
       <View style={S.contThumbWrap}>
-        {thumb ? (
-          <Image source={{ uri: thumb }} style={S.contThumb} contentFit="cover" />
+        {thumbUri ? (
+          <Image
+            source={{ uri: thumbUri }}
+            style={S.contThumb}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={rawThumb}
+          />
         ) : (
           <View style={[S.contThumb, S.contThumbEmpty]}>
-            <Ionicons
-              name="image-outline"
-              size={24}
-              color="rgba(255,255,255,0.25)"
-            />
+            <Ionicons name="play-circle-outline" size={40} color="rgba(255,255,255,0.2)" />
           </View>
         )}
-        {isVid && (
-          <View style={S.contVidBadge}>
-            <Ionicons name="play" size={9} color="#fff" />
+
+        {/* Duration pill — bottom-right, YouTube-style */}
+        {duration && (
+          <View style={S.durationPill}>
+            <Text style={S.durationTxt}>{duration}</Text>
           </View>
         )}
       </View>
+
+      {/* Text meta below thumbnail */}
       <View style={S.contMeta}>
         <Text
           style={[S.contCaption, { color: colors.foreground }]}
@@ -94,11 +116,8 @@ function FeedContinuationCard({
         >
           {post.caption || "(no caption)"}
         </Text>
-        <Text style={[S.contUser, { color: colors.mutedForeground }]}>
-          {username} · {timeAgo(post.created_at)}
-        </Text>
-        <Text style={[S.contCounts, { color: colors.mutedForeground }]}>
-          {formatCount(post.likes_count)} likes · {formatCount(post.comments_count)} comments
+        <Text style={[S.contSub, { color: colors.mutedForeground }]}>
+          {username} · {timeAgo(post.created_at)} · {formatCount(post.likes_count)} likes
         </Text>
       </View>
     </TouchableOpacity>
@@ -129,10 +148,13 @@ export default function WatchScreen() {
   const [allowComments, setAllowComments] = useState(true);
   const [hideLikeCount, setHideLikeCount] = useState(false);
 
-  // Feed continuation — cached posts minus the one currently playing,
+  // Feed continuation — video posts only, current post excluded,
   // reversed so newest-seen (most relevant) appear first.
   const [feedSlice] = useState<Post[]>(() =>
-    [...feedPostCache.values()].reverse().filter((p) => p.id !== id).slice(0, 24),
+    [...feedPostCache.values()]
+      .reverse()
+      .filter((p) => p.id !== id && isVideoPost(p))
+      .slice(0, 24),
   );
 
   // ── Video ────────────────────────────────────────────────────────────────────
@@ -765,37 +787,42 @@ const S = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Poppins_600SemiBold",
     paddingHorizontal: 16,
-    marginBottom: 4,
+    marginBottom: 8,
     textTransform: "uppercase",
     letterSpacing: 0.6,
   },
-  // ── Feed continuation cards ──
+  // ── YouTube-style large cards ──
   contCard: {
-    flexDirection: "row",
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 12,
+    paddingBottom: 20,
   },
-  contThumbWrap: { position: "relative" },
-  contThumb: { width: 120, height: 72, borderRadius: 8 },
+  contThumbWrap: { position: "relative", borderRadius: 10, overflow: "hidden" },
+  contThumb: {
+    width: W - 32,
+    height: THUMB_H,
+    borderRadius: 10,
+  },
   contThumbEmpty: {
     backgroundColor: "rgba(255,255,255,0.05)",
     alignItems: "center",
     justifyContent: "center",
   },
-  contVidBadge: {
+  durationPill: {
     position: "absolute",
-    bottom: 5,
-    left: 5,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    alignItems: "center",
-    justifyContent: "center",
+    bottom: 7,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.78)",
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
   },
-  contMeta: { flex: 1, justifyContent: "center", gap: 3 },
-  contCaption: { fontSize: 13, fontFamily: "Poppins_500Medium", lineHeight: 18 },
-  contUser: { fontSize: 11, fontFamily: "Poppins_400Regular" },
-  contCounts: { fontSize: 10, fontFamily: "Poppins_400Regular" },
+  durationTxt: {
+    color: "#fff",
+    fontSize: 11,
+    fontFamily: "Poppins_600SemiBold",
+    letterSpacing: 0.3,
+  },
+  contMeta: { paddingTop: 8, gap: 3 },
+  contCaption: { fontSize: 14, fontFamily: "Poppins_500Medium", lineHeight: 20 },
+  contSub: { fontSize: 12, fontFamily: "Poppins_400Regular" },
 });
