@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  DeviceEventEmitter,
   Dimensions,
   FlatList,
   Modal,
@@ -48,6 +49,7 @@ import { buildVibeUrl } from "@/lib/share";
 
 import { useProfileRealtime } from "@/context/RealtimeContext";
 import { useCoupleStatus } from "@/context/CoupleContext";
+import { FOLLOWER_COUNT_EVENT } from "@/app/(tabs)/_layout";
 import { useColors } from "@/hooks/useColors";
 import { Profile, supabase } from "@/lib/supabase";
 import { HighlightViewer, Highlight } from "@/components/HighlightViewer";
@@ -957,6 +959,16 @@ export default function ProfileScreen() {
     following_count: profile.following_count,
     posts_count: profile.posts_count,
   });
+
+  // Push live follower count to the tab bar pill whenever the realtime
+  // subscription fires — no polling, no extra fetch.
+  useEffect(() => {
+    const count = rtProfile.followers_count ?? profile.followers_count ?? 0;
+    if (count > 0) {
+      DeviceEventEmitter.emit(FOLLOWER_COUNT_EVENT, { count });
+    }
+  }, [rtProfile.followers_count, profile.followers_count]);
+
   const [liveEngagement, setLiveEngagement] = useState({ total_likes: 0, total_views: 0 });
   const [activeTab, setActiveTab] = useState<ProfileTab>("posts");
   const pagerRef = useRef<ScrollView>(null);

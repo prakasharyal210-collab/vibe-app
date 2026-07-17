@@ -25,13 +25,23 @@ import { LoginPrompt } from "@/components/LoginPrompt";
 import { OnboardingInterestPicker } from "@/components/OnboardingInterestPicker";
 import { useAuth } from "@/context/AuthContext";
 import { useCoupleStatus } from "@/context/CoupleContext";
-import { getGundrukProfile, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
+import { getGundrukProfile, getProfileStats, needsOnboarding, saveOnboardingInterests } from "@/lib/db";
 import { useTheme } from "@/context/ThemeContext";
 
 const INACTIVE = "#6B7280";
 
 // Fired by settings.tsx when "Show me in Find Vibe" toggle changes.
 export const FIND_VIBE_LOCK_EVENT = "findVibeLockChanged";
+
+// Fired by profile.tsx whenever rtProfile.followers_count updates live.
+export const FOLLOWER_COUNT_EVENT = "followerCountUpdated";
+
+function formatFollowers(n: number): string {
+  if (n < 1_000) return String(n);
+  if (n < 10_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  if (n < 1_000_000) return `${Math.floor(n / 1_000)}K`;
+  return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
 
 // ── FindVibeLockedSheet ───────────────────────────────────────────────────────
 function FindVibeLockedSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -151,6 +161,48 @@ const tabIconStyles = StyleSheet.create({
   dot: { width: 4, height: 4, borderRadius: 2, marginTop: 2 },
 });
 
+// ── ProfileTabIcon ────────────────────────────────────────────────────────────
+function ProfileTabIcon({ focused, color, count }: { focused: boolean; color: string; count: number }) {
+  const icon = TAB_EMOJI[focused ? "person" : "person-outline"] ?? "○";
+  return (
+    <View style={tabIconStyles.wrap}>
+      <Text style={[tabIconStyles.icon, { color }]}>{icon}</Text>
+      <View style={pillStyles.labelRow}>
+        <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>Profile</Text>
+        {count > 0 && (
+          <View style={pillStyles.pill}>
+            <Text style={pillStyles.pillText}>{formatFollowers(count)}</Text>
+          </View>
+        )}
+      </View>
+      {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
+    </View>
+  );
+}
+
+const pillStyles = StyleSheet.create({
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  pill: {
+    backgroundColor: "rgba(124,58,237,0.22)",
+    borderWidth: 0.5,
+    borderColor: "rgba(167,139,250,0.5)",
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
+  pillText: {
+    color: "#A78BFA",
+    fontSize: 9,
+    fontFamily: "Poppins_600SemiBold",
+    lineHeight: 13,
+    includeFontPadding: false,
+  },
+});
+
 // ── CreateIcon ────────────────────────────────────────────────────────────────
 function CreateIcon() {
   const { theme } = useTheme();
@@ -174,11 +226,13 @@ function ClassicTabLayout({
   onLockedTabPress,
   isLoggedIn,
   onGuestTabPress,
+  followerCount,
 }: {
   findVibeLocked: boolean;
   onLockedTabPress: () => void;
   isLoggedIn: boolean;
   onGuestTabPress: () => void;
+  followerCount: number;
 }) {
   const isIOS = Platform.OS === "ios";
   const { theme } = useTheme();
@@ -334,7 +388,7 @@ function ClassicTabLayout({
         })}
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon iconName={focused ? "person" : "person-outline"} label="Profile" focused={focused} color={color} />
+            <ProfileTabIcon focused={focused} color={color} count={followerCount} />
           ),
         }}
       />
@@ -379,6 +433,8 @@ export default function TabLayout() {
   const [showLockedSheet, setShowLockedSheet] = useState(false);
   const [showGuestSheet, setShowGuestSheet] = useState(false);
   const onboardingRef = useRef(false);
+  // Follower count for the Profile tab pill
+  const [followerCount, setFollowerCount] = useState(0);
 
   // Load lock state: AsyncStorage first (instant, written by settings on toggle),
   // then Supabase as authoritative override.
@@ -407,6 +463,37 @@ export default function TabLayout() {
         console.log('[FindVibe Tab] DeviceEventEmitter received → locked =', locked);
         setFindVibeLocked(locked);
       },
+    );
+    return () => sub.remove();
+  }, []);
+
+  // ── Follower count for Profile tab pill ──────────────────────────────────
+  // Initial load when userId is available.
+  useEffect(() => {
+    if (!userId) { setFollowerCount(0); return; }
+    getProfileStats(userId)
+      .then(s => setFollowerCount(s.followers_count))
+      .catch(() => {});
+  }, [userId]);
+
+  // Refresh on foreground (covers "someone followed me while app was backgrounded").
+  useEffect(() => {
+    if (!userId) return;
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        getProfileStats(userId)
+          .then(s => setFollowerCount(s.followers_count))
+          .catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, [userId]);
+
+  // Live update: profile.tsx emits this when its realtime subscription fires.
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(
+      FOLLOWER_COUNT_EVENT,
+      ({ count }: { count: number }) => setFollowerCount(count),
     );
     return () => sub.remove();
   }, []);
@@ -443,6 +530,7 @@ export default function TabLayout() {
         onLockedTabPress={() => setShowLockedSheet(true)}
         isLoggedIn={isLoggedIn}
         onGuestTabPress={() => setShowGuestSheet(true)}
+        followerCount={followerCount}
       />
       <OnboardingInterestPicker visible={showOnboarding} onComplete={handleOnboardingComplete} />
       <FindVibeLockedSheet
