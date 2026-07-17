@@ -487,6 +487,85 @@ function FeedContinuationCard({
   );
 }
 
+// ─── Autoplay / replay overlay (module-scope → stable identity, no remounts) ──
+
+function AutoplayOverlay({
+  ended,
+  countdown,
+  nextPost,
+  onCancel,
+  onReplay,
+}: {
+  ended: boolean;
+  countdown: number | null;
+  nextPost: Post | null;
+  onCancel: () => void;
+  onReplay: () => void;
+}) {
+  if (!ended) return null;
+  const isVidUrl = (u?: string | null) => !!u?.match(/\.(mp4|mov|webm|m4v)(\?|$)/i);
+  const rawThumb = nextPost
+    ? nextPost.thumbnail_url ||
+      (!isVidUrl(nextPost.image_url) ? nextPost.image_url : null) ||
+      undefined
+    : undefined;
+  const thumbUri = rawThumb ? (cardUrl(rawThumb) ?? rawThumb) : undefined;
+
+  if (countdown !== null && nextPost) {
+    return (
+      <View
+        style={[StyleSheet.absoluteFill, S.apOverlay]}
+        pointerEvents="box-none"
+      >
+        <View style={S.apCard} pointerEvents="auto">
+          <Text style={S.apLabel}>UP NEXT IN {countdown}…</Text>
+          <View style={S.apRow}>
+            {thumbUri ? (
+              <Image
+                source={{ uri: thumbUri }}
+                style={S.apThumb}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[S.apThumb, S.apThumbEmpty]}>
+                <Ionicons
+                  name="play-circle-outline"
+                  size={20}
+                  color="rgba(255,255,255,0.4)"
+                />
+              </View>
+            )}
+            <Text style={S.apTitle} numberOfLines={2}>
+              {nextPost.caption || "#video"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={S.apCancelBtn}
+            onPress={onCancel}
+            activeOpacity={0.75}
+          >
+            <Text style={S.apCancelTxt}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Countdown done / cancelled / no next video → replay button
+  return (
+    <View style={[StyleSheet.absoluteFill, S.apOverlay]} pointerEvents="auto">
+      <TouchableOpacity
+        style={S.apReplayBtn}
+        onPress={onReplay}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="refresh-circle" size={72} color="rgba(255,255,255,0.9)" />
+        <Text style={S.apReplayTxt}>Replay</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function WatchScreen() {
@@ -519,6 +598,15 @@ export default function WatchScreen() {
     posts_count: number;
   } | null>(null);
   const [showVideoFullscreen, setShowVideoFullscreen] = useState(false);
+
+  // ── Autoplay state ────────────────────────────────────────────────────────────
+  const [videoEnded, setVideoEnded] = useState(false);
+  const [autoplayCountdown, setAutoplayCountdown] = useState<number | null>(null);
+  const [showReplayBtn, setShowReplayBtn] = useState(false);
+  const autoplayCancelledRef = useRef(false);
+  const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Always-current snapshot of feedSlice so effects don't need it as a dep.
+  const feedSliceRef = useRef<Post[]>([]);
 
   // Feed continuation — video posts only, current post excluded.
   const [feedSlice, setFeedSlice] = useState<Post[]>(() =>
@@ -669,6 +757,60 @@ export default function WatchScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── Keep feedSliceRef current so autoplay effect doesn't need it as a dep ───
+  useEffect(() => { feedSliceRef.current = feedSlice; }, [feedSlice]);
+
+  // ── Reset autoplay state when the watched video changes (id switch) ──────────
+  useEffect(() => {
+    setVideoEnded(false);
+    setShowReplayBtn(false);
+    setAutoplayCountdown(null);
+    autoplayCancelledRef.current = false;
+    if (autoplayTimerRef.current) {
+      clearTimeout(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+  }, [id]);
+
+  // ── Autoplay countdown — fires once when videoEnded becomes true ─────────────
+  useEffect(() => {
+    if (!videoEnded) return;
+    const next = feedSliceRef.current[0] ?? null;
+    if (!next) {
+      setShowReplayBtn(true);
+      return;
+    }
+    autoplayCancelledRef.current = false;
+    let remaining = 3;
+    setAutoplayCountdown(remaining);
+
+    const tick = () => {
+      if (autoplayCancelledRef.current) return;
+      remaining -= 1;
+      if (remaining <= 0) {
+        setAutoplayCountdown(null);
+        const ar =
+          next.image_width && next.image_height
+            ? (next.image_width / next.image_height).toFixed(4)
+            : (16 / 9).toFixed(4);
+        router.replace(`/watch/${next.id}?ar=${ar}` as any);
+        return;
+      }
+      setAutoplayCountdown(remaining);
+      autoplayTimerRef.current = setTimeout(tick, 1000);
+    };
+    autoplayTimerRef.current = setTimeout(tick, 1000);
+
+    return () => {
+      if (autoplayTimerRef.current) {
+        clearTimeout(autoplayTimerRef.current);
+        autoplayTimerRef.current = null;
+      }
+    };
+  // videoEnded is the only trigger; feedSliceRef is a stable ref, not a dep.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoEnded]);
+
   // ── Pause on blur / back navigation ─────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
@@ -678,6 +820,12 @@ export default function WatchScreen() {
         if (controlsHideTimer.current) {
           clearTimeout(controlsHideTimer.current);
           controlsHideTimer.current = null;
+        }
+        // Cancel autoplay countdown when the user navigates away
+        autoplayCancelledRef.current = true;
+        if (autoplayTimerRef.current) {
+          clearTimeout(autoplayTimerRef.current);
+          autoplayTimerRef.current = null;
         }
       };
     }, []),
@@ -689,6 +837,13 @@ export default function WatchScreen() {
       if (state !== "active") {
         setVideoPlaying(false);
         videoRef.current?.pauseAsync().catch(() => {});
+        // Cancel autoplay when app is backgrounded
+        autoplayCancelledRef.current = true;
+        if (autoplayTimerRef.current) {
+          clearTimeout(autoplayTimerRef.current);
+          autoplayTimerRef.current = null;
+        }
+        setAutoplayCountdown(null);
       }
     });
     return () => sub.remove();
@@ -709,6 +864,9 @@ export default function WatchScreen() {
     setVideoPosition(status.positionMillis ?? 0);
     setVideoDuration(status.durationMillis ?? 0);
     setVideoPlaying(status.isPlaying ?? false);
+    if (status.didJustFinish) {
+      setVideoEnded(true);
+    }
   }, []);
 
   const handleReadyForDisplay = useCallback(
@@ -813,6 +971,29 @@ export default function WatchScreen() {
     lastTapRight.current = now;
   }, [handleSkip, showControlsTemporarily, rightRippleOpacity]);
 
+  // ── Autoplay action handlers ──────────────────────────────────────────────────
+  const cancelAutoplay = useCallback(() => {
+    autoplayCancelledRef.current = true;
+    if (autoplayTimerRef.current) {
+      clearTimeout(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+    setAutoplayCountdown(null);
+    setShowReplayBtn(true);
+  }, []);
+
+  const handleReplay = useCallback(() => {
+    setVideoEnded(false);
+    setShowReplayBtn(false);
+    setAutoplayCountdown(null);
+    autoplayCancelledRef.current = false;
+    videoRef.current
+      ?.setPositionAsync(0)
+      .then(() => videoRef.current?.playAsync())
+      .catch(() => {});
+    setVideoPlaying(true);
+  }, []);
+
   // ── Action handlers ──────────────────────────────────────────────────────────
   const handleLike = async () => {
     if (!session?.user?.id || !post) return;
@@ -889,7 +1070,7 @@ export default function WatchScreen() {
             source={{ uri: videoSrc }}
             style={{ width: W, height: pinnedH }}
             resizeMode={ResizeMode.CONTAIN}
-            isLooping
+            isLooping={false}
             shouldPlay={videoPlaying}
             isMuted={isMuted}
             onPlaybackStatusUpdate={handlePlaybackStatus}
@@ -929,6 +1110,15 @@ export default function WatchScreen() {
             onPress={handleTapRight}
           />
         </View>
+
+        {/* Autoplay countdown / replay overlay — sits above video, below tap zones */}
+        <AutoplayOverlay
+          ended={videoEnded}
+          countdown={autoplayCountdown}
+          nextPost={showReplayBtn ? null : feedSlice[0] ?? null}
+          onCancel={cancelAutoplay}
+          onReplay={handleReplay}
+        />
 
         {/* Left ripple — "-10s" flash on double-tap */}
         <Animated.View style={[S.rippleLeft, leftRippleStyle]} pointerEvents="none">
@@ -1520,6 +1710,63 @@ const S = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Poppins_600SemiBold",
     marginTop: 6,
+  },
+  // ── Autoplay / replay overlay ──
+  apOverlay: {
+    backgroundColor: "rgba(0,0,0,0.72)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  apCard: {
+    backgroundColor: "rgba(18,18,18,0.94)",
+    borderRadius: 14,
+    padding: 16,
+    marginHorizontal: 24,
+    gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.12)",
+    width: W - 48,
+  },
+  apLabel: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 10,
+    fontFamily: "Poppins_600SemiBold",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  apRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+  apThumb: {
+    width: 90,
+    height: 60,
+    borderRadius: 6,
+    overflow: "hidden",
+    backgroundColor: "#111",
+  },
+  apThumbEmpty: { alignItems: "center", justifyContent: "center" },
+  apTitle: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Poppins_500Medium",
+    lineHeight: 18,
+  },
+  apCancelBtn: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  apCancelTxt: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Poppins_600SemiBold",
+  },
+  apReplayBtn: { alignItems: "center", gap: 8 },
+  apReplayTxt: {
+    color: "#fff",
+    fontSize: 15,
+    fontFamily: "Poppins_600SemiBold",
   },
   feedSection: { paddingTop: 12 },
   feedHeader: {
