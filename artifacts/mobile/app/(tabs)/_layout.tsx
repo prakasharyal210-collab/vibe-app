@@ -162,25 +162,30 @@ const tabIconStyles = StyleSheet.create({
 });
 
 // ── ProfileTabIcon ────────────────────────────────────────────────────────────
-// When count > 0: icon on top, bold count pill centred below (MetaTrader-style).
-// When count === 0: icon on top, fallback "Profile" label (no pill, keeps symmetry
-//   with other tabs and avoids a lone icon for brand-new users).
+// When count > 0: bold count pill ONLY, no icon — centred vertically in the tab item.
+// When count === 0: normal icon + "Profile" label (identical to other tabs).
 function ProfileTabIcon({ focused, color, count }: { focused: boolean; color: string; count: number }) {
   const icon = TAB_EMOJI[focused ? "person" : "person-outline"] ?? "○";
   const hasPill = count > 0;
-  return (
-    <View style={tabIconStyles.wrap}>
-      {/* Stretch so the glyph centers over the pill / label below */}
-      <Text style={[tabIconStyles.icon, { color, alignSelf: "stretch", textAlign: "center" }]}>
-        {icon}
-      </Text>
-      {hasPill ? (
+
+  // When count > 0: pill ONLY — no icon above it — centred in the tab item
+  // (wrap already has justifyContent:"center" so the single child centres itself).
+  if (hasPill) {
+    return (
+      <View style={tabIconStyles.wrap}>
         <View style={pillStyles.pill}>
           <Text style={pillStyles.pillText}>{formatFollowers(count)}</Text>
         </View>
-      ) : (
-        <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>Profile</Text>
-      )}
+        {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
+      </View>
+    );
+  }
+
+  // Fallback (count === 0): normal icon + "Profile" label, identical to other tabs.
+  return (
+    <View style={tabIconStyles.wrap}>
+      <Text style={[tabIconStyles.icon, { color }]}>{icon}</Text>
+      <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>Profile</Text>
       {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
   );
