@@ -439,23 +439,27 @@ function FeedContinuationCard({
   const rawThumb =
     post.thumbnail_url ||
     (!isVidUrl(post.image_url) ? post.image_url : null) ||
+    (!isVidUrl(post.media_url) ? post.media_url : null) ||
     undefined;
   const thumbUri = rawThumb ? (cardUrl(rawThumb) ?? rawThumb) : undefined;
 
   // For video posts without a static thumbnail, generate one from the first frame.
   const [generatedThumb, setGeneratedThumb] = useState<string | undefined>(undefined);
+  const [thumbLoading, setThumbLoading] = useState(false);
   const videoUrl = !rawThumb ? detectVideoUrl(post) : null;
   useEffect(() => {
     if (!videoUrl) return;
     let cancelled = false;
-    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 1000 })
-      .then(({ uri }) => { if (!cancelled) setGeneratedThumb(uri); })
-      .catch(() => {});
+    setThumbLoading(true);
+    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 500 })
+      .then(({ uri }) => { if (!cancelled) { setGeneratedThumb(uri); setThumbLoading(false); } })
+      .catch(() => { if (!cancelled) setThumbLoading(false); });
     return () => { cancelled = true; };
   }, [videoUrl]);
 
   const finalThumbUri = thumbUri ?? generatedThumb;
   const username = post.profiles?.username ?? "user";
+  const caption = post.caption || "";
   const duration = fmtDuration((post as any).duration);
 
   return (
@@ -477,9 +481,12 @@ function FeedContinuationCard({
           <View style={[S.contThumb, S.contThumbEmpty]}>
             <Ionicons
               name="play-circle-outline"
-              size={40}
-              color="rgba(255,255,255,0.4)"
+              size={48}
+              color="rgba(255,255,255,0.65)"
             />
+            {thumbLoading && (
+              <Text style={S.contThumbLoadingTxt}>Loading preview…</Text>
+            )}
           </View>
         )}
         {duration && (
@@ -493,7 +500,7 @@ function FeedContinuationCard({
           style={[S.contCaption, { color: colors.foreground }]}
           numberOfLines={2}
         >
-          {post.caption || "(no caption)"}
+          {caption || "#video"}
         </Text>
         <Text style={[S.contSub, { color: colors.mutedForeground }]}>
           {username} · {timeAgo(post.created_at)} · {formatCount(post.likes_count)} likes
@@ -1821,6 +1828,7 @@ const S = StyleSheet.create({
   contCard: {
     paddingHorizontal: 16,
     paddingBottom: 20,
+    backgroundColor: "#0a0a0a",
   },
   contThumbWrap: { position: "relative", borderRadius: 10, overflow: "hidden" },
   contThumb: {
@@ -1829,9 +1837,15 @@ const S = StyleSheet.create({
     borderRadius: 10,
   },
   contThumbEmpty: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: "#1c1c1e",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+  },
+  contThumbLoadingTxt: {
+    color: "rgba(255,255,255,0.4)",
+    fontSize: 11,
+    fontFamily: "Poppins_400Regular",
   },
   durationPill: {
     position: "absolute",
