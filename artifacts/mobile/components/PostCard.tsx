@@ -230,6 +230,9 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
     return (url ? _ratioCache.get(url) : undefined) ?? DEFAULT_ASPECT_RATIO;
   });
   const videoRef = useRef<Video>(null);
+  // Tracks current playback position so it can be passed to /watch/[id]
+  // for a seamless resume when the user taps the video.
+  const videoPositionRef = useRef(0);
   const heartScale = useSharedValue(1);
   const heartBurstOpacity = useSharedValue(0);
   const heartBurstScale = useSharedValue(0);
@@ -411,10 +414,16 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
       }
       handleDoubleTap();
     } else {
-      // Single-tap: wait 280ms to confirm no second tap, then open post detail
+      // Single-tap: wait 280ms to confirm no second tap, then open post detail.
+      // Video posts route to /watch/[id] with current playback position so the
+      // watch screen can resume seamlessly; image posts go to /post/[id].
       singleTapTimerRef.current = setTimeout(() => {
         singleTapTimerRef.current = null;
-        router.push(`/post/${post.id}` as any);
+        if (isVideoPost) {
+          router.push(`/watch/${post.id}?pos=${Math.round(videoPositionRef.current)}` as any);
+        } else {
+          router.push(`/post/${post.id}` as any);
+        }
       }, 280);
     }
     lastTapRef.current = now;
@@ -822,7 +831,10 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
               shouldPlay={isActive}
               isMuted={!isActive}
               onPlaybackStatusUpdate={(s) => {
-                if (s.isLoaded) setVideoPlaying(s.isPlaying);
+                if (s.isLoaded) {
+                  setVideoPlaying(s.isPlaying);
+                  videoPositionRef.current = s.positionMillis ?? 0;
+                }
               }}
               onReadyForDisplay={(e) => {
                 const size = (e as any)?.naturalSize;
