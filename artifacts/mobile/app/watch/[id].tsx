@@ -490,8 +490,11 @@ function FeedContinuationCard({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function WatchScreen() {
-  const { id, pos } = useLocalSearchParams<{ id: string; pos?: string }>();
+  const { id, pos, ar } = useLocalSearchParams<{ id: string; pos?: string; ar?: string }>();
   const initialPos = parseInt(pos ?? "0", 10) || 0;
+  // ar is the aspect ratio (width/height) forwarded by PostCard so the initial
+  // player height is correct on the very first frame — no resize jump.
+  const initialArParam = parseFloat(ar ?? "0");
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
@@ -532,7 +535,17 @@ export default function WatchScreen() {
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoPosition, setVideoPosition] = useState(0);
   const [progressTrackW, setProgressTrackW] = useState(0);
-  const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
+  // Priority: stored DB dimensions → ar route param → 16:9 default.
+  // Using the feed-cache post's image_width/image_height (set at upload time)
+  // means the player height is correct from the very first frame with no jump.
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(() => {
+    const cached = feedPostCache.get(id ?? "");
+    if (cached?.image_width && cached?.image_height && cached.image_width > 0 && cached.image_height > 0) {
+      return cached.image_width / cached.image_height;
+    }
+    if (initialArParam > 0 && isFinite(initialArParam)) return initialArParam;
+    return 16 / 9;
+  });
   const seekedRef = useRef(false);
   const controlsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Double-tap seek detection — one set of refs per half (mirrors PostCard pattern).

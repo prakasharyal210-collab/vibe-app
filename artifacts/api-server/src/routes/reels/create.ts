@@ -188,6 +188,10 @@ router.post("/create", async (req, res) => {
     ...(originalSoundPostId ? { original_sound_post_id: originalSoundPostId } : {}),
     ...(originalSoundUsername ? { original_sound_username: originalSoundUsername } : {}),
     ...(validatedCoupleId ? { couple_id: validatedCoupleId, is_couple_post: true } : {}),
+    // Store encoded pixel dimensions so the watch screen and PostCard can size
+    // the player correctly before playback starts, avoiding a layout-jump.
+    ...(videoWidth && videoWidth > 0 ? { image_width: videoWidth } : {}),
+    ...(videoHeight && videoHeight > 0 ? { image_height: videoHeight } : {}),
   };
 
   const rr1 = await sb.from("reels").insert(reelPayload).select("id").single();

@@ -420,7 +420,9 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
       singleTapTimerRef.current = setTimeout(() => {
         singleTapTimerRef.current = null;
         if (isVideoPost) {
-          router.push(`/watch/${post.id}?pos=${Math.round(videoPositionRef.current)}` as any);
+          router.push(
+            `/watch/${post.id}?pos=${Math.round(videoPositionRef.current)}&ar=${mediaAspectRatio.toFixed(4)}` as any,
+          );
         } else {
           router.push(`/post/${post.id}` as any);
         }
