@@ -162,59 +162,47 @@ const tabIconStyles = StyleSheet.create({
 });
 
 // ── ProfileTabIcon ────────────────────────────────────────────────────────────
-// Layout goal (Option A):
-//
-//        👤          ← icon, stretches to full row width so it appears
-//   Profile  [4]     ← centered OVER the whole "Profile pill" unit, not
-//       •             just above the left half of the text.
-//
-// alignSelf:"stretch" + textAlign:"center" on the icon Text is the key:
-// it makes the Text element expand to match the labelRow width, so the
-// emoji character sits at dead-centre above "Profile [pill]".
+// When count > 0: icon on top, bold count pill centred below (MetaTrader-style).
+// When count === 0: icon on top, fallback "Profile" label (no pill, keeps symmetry
+//   with other tabs and avoids a lone icon for brand-new users).
 function ProfileTabIcon({ focused, color, count }: { focused: boolean; color: string; count: number }) {
   const icon = TAB_EMOJI[focused ? "person" : "person-outline"] ?? "○";
+  const hasPill = count > 0;
   return (
     <View style={tabIconStyles.wrap}>
-      {/* alignSelf:"stretch" makes the icon Text fill the wrap's width,
-          which equals the labelRow width, centering the glyph over it. */}
+      {/* Stretch so the glyph centers over the pill / label below */}
       <Text style={[tabIconStyles.icon, { color, alignSelf: "stretch", textAlign: "center" }]}>
         {icon}
       </Text>
-      <View style={pillStyles.labelRow}>
+      {hasPill ? (
+        <View style={pillStyles.pill}>
+          <Text style={pillStyles.pillText}>{formatFollowers(count)}</Text>
+        </View>
+      ) : (
         <Text style={[tabIconStyles.label, { color }]} numberOfLines={1}>Profile</Text>
-        {count > 0 && (
-          <View style={pillStyles.pill}>
-            <Text style={pillStyles.pillText}>{formatFollowers(count)}</Text>
-          </View>
-        )}
-      </View>
+      )}
       {focused && <View style={[tabIconStyles.dot, { backgroundColor: color }]} />}
     </View>
   );
 }
 
 const pillStyles = StyleSheet.create({
-  // Centered row: "Profile" + pill sit symmetrically under the icon.
-  labelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 3,
-  },
   pill: {
-    backgroundColor: "rgba(124,58,237,0.22)",
-    borderWidth: 0.5,
-    borderColor: "rgba(167,139,250,0.5)",
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 0,
+    backgroundColor: "rgba(109,40,217,0.35)",
+    borderWidth: 0.75,
+    borderColor: "rgba(196,181,253,0.6)",
+    borderRadius: 9,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
   },
   pillText: {
-    color: "#A78BFA",
-    fontSize: 9,
+    color: "#C4B5FD",
+    fontSize: 11,
     fontFamily: "Poppins_600SemiBold",
-    lineHeight: 13,
+    fontWeight: "700",
+    lineHeight: 14,
     includeFontPadding: false,
+    textAlign: "center",
   },
 });
 
