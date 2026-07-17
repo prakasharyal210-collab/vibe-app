@@ -1,0 +1,46 @@
+Hello,
+
+Thank you for your resubmission. Upon further review, we identified additional issues that need your attention. See below for more information.
+
+If you have any questions, we are here to help. Reply to this message in App Store Connect and let us know.
+
+Bug Fix Submissions
+
+The issues we've identified below are eligible to be resolved on your next update. If this submission includes bug fixes and you'd like to have it approved at this time, reply to this message and let us know. You do not need to resubmit your app for us to proceed.
+
+Alternatively, if you'd like to resolve these issues now, please review the details, make the appropriate changes, and resubmit.
+
+Review Environment
+Submission ID: 32ae812c-9f82-42fa-9f96-a5abb9768417
+Review date: July 17, 2026
+Review Device: iPad Air 11-inch (M3)
+Version reviewed: 1.0.2 (21)
+
+Guideline 5.1.1(iv) - Legal - Privacy - Data Collection and Storage
+
+Issue Description
+
+The app encourages or directs users to allow the app to access the camera and microphone. Specifically, the app directs the user to grant permission in the following way(s): 
+
+- A custom message appears before the permission request, and to proceed users press a "Allow" button. Use words like "Continue" or "Next" on the button instead.
+
+Permission requests give users control of their personal information. It is important to respect their decision about how their data is used.
+
+Next Steps
+
+To resolve this issue, please revise the permission request process in the app to not display messages before the permission request with inappropriate words on buttons.
+
+If necessary, you may provide more information about why you are requesting permission before the request appears. If the user is trying to use a feature in the app that won't function without access to the camera and microphone, you may include a notification to inform the user and provide a link to the Settings app. 
+
+Resources 
+
+- Learn more about data collection and storage requirements in guideline 5.1.1. 
+- Learn more about designing appropriate permission requests.
+Support
+- Reply to this message in your preferred language if you need assistance. If you need additional support, use the Contact Us module.
+- Consult with fellow developers and Apple engineers on the Apple Developer Forums.
+- Request an App Review Appointment at Meet with Apple to discuss your app's review. Appointments subject to availability during your local business hours on Tuesdays and Thursdays.
+- Provide feedback on this message and your review experience by completing a short survey.
+
+Test on the latest betas
+Betas of iOS 27, iPadOS 27, macOS 27, tvOS 27 and visionOS 27 are now available. Download the latest betas to prepare your app for upcoming software releases. Learn more about installing and using Apple beta software.

@@ -159,14 +159,14 @@ export default function LiveScreen() {
         <LinearGradient colors={["#7C3AED22", "#EA580C11"]} style={styles.permIconBg}>
           <Ionicons name="videocam-outline" size={52} color="#7C3AED" />
         </LinearGradient>
-        <Text style={styles.permTitle}>Camera Permission</Text>
-        <Text style={styles.permSub}>Allow camera and microphone access to go live</Text>
+        <Text style={styles.permTitle}>Camera & Microphone</Text>
+        <Text style={styles.permSub}>Camera and microphone access is needed to go live</Text>
         <TouchableOpacity
           onPress={async () => { await requestCamPermission(); await requestMicPermission(); }}
           style={styles.permBtn}>
           <LinearGradient colors={["#7C3AED", "#EA580C"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.permBtnGrad}>
             <Ionicons name="camera-outline" size={18} color="#fff" />
-            <Text style={styles.permBtnText}>Allow Camera & Mic</Text>
+            <Text style={styles.permBtnText}>Continue</Text>
           </LinearGradient>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => router.back()} style={styles.permBack}>

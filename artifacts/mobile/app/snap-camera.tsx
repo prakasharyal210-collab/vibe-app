@@ -995,13 +995,13 @@ export default function SnapCameraScreen() {
         <View style={s.permOverlay}>
           <Ionicons name="camera-outline" size={52} color="#7C3AED" />
           <Text style={s.permTitle}>Camera & Mic Needed</Text>
-          <Text style={s.permSub}>Allow access to send Snaps to your friends</Text>
+          <Text style={s.permSub}>Camera and microphone access is needed to send Snaps to your friends</Text>
           <TouchableOpacity
             onPress={() => requestCamPerm().then(() => requestMicPerm())}
             style={s.permBtn}
             activeOpacity={0.85}
           >
-            <Text style={s.permBtnText}>Allow Access</Text>
+            <Text style={s.permBtnText}>Continue</Text>
           </TouchableOpacity>
         </View>
       )}

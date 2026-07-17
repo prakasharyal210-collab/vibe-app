@@ -854,8 +854,8 @@ function CreateScreenInner({ tabBarHeight = 0, onSetPagerEnabled }: { tabBarHeig
           <CI name="camera-outline" size={52} color="#7C3AED" />
         </LinearGradient>
         <Text style={s.permTitle}>Camera Access</Text>
-        <Text style={s.permSub}>Allow camera and microphone to record videos and take photos</Text>
-        <GradientButton onPress={async () => { await requestCamPermission(); await requestMicPermission(); }} title="Allow Camera & Mic" style={{ width: 240, marginTop: 8 }} />
+        <Text style={s.permSub}>Camera and microphone access is needed to record videos and take photos</Text>
+        <GradientButton onPress={async () => { await requestCamPermission(); await requestMicPermission(); }} title="Continue" style={{ width: 240, marginTop: 8 }} />
       </View>
     );
   }
