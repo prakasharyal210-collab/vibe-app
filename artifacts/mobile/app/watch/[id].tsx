@@ -645,6 +645,10 @@ export default function WatchScreen() {
   const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Always-current snapshot of feedSlice so effects don't need it as a dep.
   const feedSliceRef = useRef<Post[]>([]);
+  // Stable ref so the autoplay timer can call swapToPost without stale closure.
+  const swapToPostRef = useRef<((nextId: string) => void) | null>(null);
+  // Ref for the scrollable area so swapToPost can scroll-to-top.
+  const scrollRef = useRef<ScrollView>(null);
 
   // Feed continuation — video posts only, current post excluded.
   const [feedSlice, setFeedSlice] = useState<Post[]>(() =>
@@ -777,8 +781,9 @@ export default function WatchScreen() {
   }, [id]);
 
   // ── Fetch more "Up next" videos when feed cache is thin ───────────────────────
+  // Runs on mount AND after each in-place swap (id changes) so the list refills.
   useEffect(() => {
-    if (feedSlice.length >= 5) return; // enough from cache
+    if (feedSliceRef.current.length >= 5) return; // enough already
     const uid = session?.user?.id ?? "";
     fetch(`${API_BASE}/feed/foryou?limit=30${uid ? `&userId=${uid}` : ""}`)
       .then((r) => r.json())
@@ -786,6 +791,10 @@ export default function WatchScreen() {
         const raw = (body.posts ?? body.data ?? []) as Post[];
         const videos = raw.filter((p) => p.id !== id && isVideoPost(p)).slice(0, 20);
         if (videos.length === 0) return;
+        // Seed feedPostCache so swapToPost can load instantly from cache.
+        for (const v of videos) {
+          if (!feedPostCache.has(v.id)) feedPostCache.set(v.id, v);
+        }
         setFeedSlice((prev) => {
           const seen = new Set(prev.map((p) => p.id));
           return [...prev, ...videos.filter((p) => !seen.has(p.id))];
@@ -793,7 +802,7 @@ export default function WatchScreen() {
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [id]);
 
   // ── Keep feedSliceRef current so autoplay effect doesn't need it as a dep ───
   useEffect(() => { feedSliceRef.current = feedSlice; }, [feedSlice]);
@@ -827,11 +836,7 @@ export default function WatchScreen() {
       remaining -= 1;
       if (remaining <= 0) {
         setAutoplayCountdown(null);
-        const ar =
-          next.image_width && next.image_height
-            ? (next.image_width / next.image_height).toFixed(4)
-            : (16 / 9).toFixed(4);
-        router.replace(`/watch/${next.id}?ar=${ar}` as any);
+        swapToPostRef.current?.(next.id);
         return;
       }
       setAutoplayCountdown(remaining);
@@ -1022,6 +1027,70 @@ export default function WatchScreen() {
     setAutoplayCountdown(null);
     setShowReplayBtn(true);
   }, []);
+
+  // ── In-place video swap ───────────────────────────────────────────────────────
+  // Swaps the pinned player to a new post without unmounting the screen.
+  // Back navigation and deep-linking still work because we update route params.
+  const swapToPost = useCallback((nextId: string) => {
+    // 1. Stop current video before loading the next one (no audio overlap).
+    videoRef.current?.pauseAsync().catch(() => {});
+    seekedRef.current = false;
+
+    // 2. Cancel any pending autoplay timer.
+    autoplayCancelledRef.current = true;
+    if (autoplayTimerRef.current) {
+      clearTimeout(autoplayTimerRef.current);
+      autoplayTimerRef.current = null;
+    }
+
+    // 3. Seed new post immediately from cache so the player has a source right away.
+    const cached = feedPostCache.get(nextId) ?? null;
+    if (cached && !cached.image_url && (cached as any).media_url) {
+      (cached as any).image_url = (cached as any).media_url;
+    }
+    setPost(cached);
+    setLikesCount(cached?.likes_count ?? 0);
+    setAllowComments((cached as any)?.allow_comments ?? true);
+    setHideLikeCount((cached as any)?.hide_like_count ?? false);
+
+    // 4. Reset per-post interaction state.
+    setLiked(false);
+    setSaved(false);
+    setFollowing(false);
+    setAuthorStats(null);
+    setPreviewComments([]);
+    setCaptionExpanded(false);
+    setShowVideoFullscreen(false);
+    setShowComments(false);
+
+    // 5. Reset video playback state.
+    setVideoPlaying(true);
+    setVideoPosition(0);
+    setVideoDuration(0);
+    setVideoEnded(false);
+    setShowReplayBtn(false);
+    setAutoplayCountdown(null);
+    autoplayCancelledRef.current = false;
+
+    // 6. Reset aspect ratio — use cached dimensions or default to 16:9.
+    const newAr =
+      cached && (cached as any).image_width && (cached as any).image_height
+        ? (cached as any).image_width / (cached as any).image_height
+        : 16 / 9;
+    setVideoAspectRatio(newAr);
+
+    // 7. Remove nextId from feedSlice — it's now the active post.
+    setFeedSlice((prev) => prev.filter((p) => p.id !== nextId));
+
+    // 8. Scroll to top so the player is immediately in view.
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+
+    // 9. Update route params: URL reflects new post; pos cleared; ar updated.
+    router.setParams({ id: nextId, pos: "", ar: newAr.toFixed(4) });
+  }, []); // stable — all dependencies are refs or setters
+
+  // Keep swapToPostRef current so the autoplay timer closure can call it.
+  swapToPostRef.current = swapToPost;
 
   const handleReplay = useCallback(() => {
     setVideoEnded(false);
@@ -1276,6 +1345,7 @@ export default function WatchScreen() {
 
       {/* ── Scrollable content below pinned player ─────────────────────── */}
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.scroll}
       >
@@ -1510,9 +1580,7 @@ export default function WatchScreen() {
               <FeedContinuationCard
                 key={p.id}
                 post={p}
-                onPress={() => {
-                  router.push(`/watch/${p.id}` as any);
-                }}
+                onPress={() => swapToPost(p.id)}
               />
             ))}
           </View>
