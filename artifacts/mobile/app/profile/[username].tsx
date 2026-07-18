@@ -982,7 +982,7 @@ export default function UserProfileScreen() {
                 post={pinnedPost}
                 onPress={() => {
                   if (pinnedPost.isVideo) {
-                    router.push(`/post/${pinnedPost.id}` as any);
+                    router.push(`/watch/${pinnedPost.id}` as any);
                   } else {
                     setMediaViewer({ visible: true, startIndex: pinnedIndex });
                   }
@@ -1030,11 +1030,8 @@ export default function UserProfileScreen() {
                           key={item.id}
                           item={item}
                           onPress={() => {
-                            // Video posts open the full PostCard (has the real video player).
-                            // FullScreenMediaViewer is image-only — it shows a black screen
-                            // for video posts because item.image is "" when no thumbnail.
                             if (item.isVideo) {
-                              router.push(`/post/${item.id}` as any);
+                              router.push(`/watch/${item.id}` as any);
                             } else {
                               setMediaViewer({ visible: true, startIndex: gridData.findIndex(d => d.id === item.id) });
                             }

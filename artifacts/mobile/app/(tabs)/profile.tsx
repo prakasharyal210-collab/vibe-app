@@ -1606,7 +1606,13 @@ export default function ProfileScreen() {
                   <GridPageCell
                     key={item.id}
                     item={item}
-                    onPress={() => openPhoto(postsOnly, i)}
+                    onPress={() => {
+                      if (item.is_video) {
+                        router.push(`/watch/${item.id}` as any);
+                      } else {
+                        openPhoto(postsOnly, i);
+                      }
+                    }}
                     onLongPress={() => handleGridLongPress(item)}
                   />
                 ))}

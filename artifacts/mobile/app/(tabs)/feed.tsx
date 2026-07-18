@@ -273,7 +273,7 @@ function TrendingFeed({ posts, colors }: { posts: TrendingPost[]; colors: any })
         <TouchableOpacity
           key={p.id}
           activeOpacity={0.85}
-          onPress={() => router.push(`/post/${p.id}` as any)}
+          onPress={() => router.push(`${p.is_video ? "/watch" : "/post"}/${p.id}` as any)}
           style={{ marginHorizontal: 14, marginBottom: 14, borderRadius: 18, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.04)" }}
         >
           <View style={{ position: "relative" }}>

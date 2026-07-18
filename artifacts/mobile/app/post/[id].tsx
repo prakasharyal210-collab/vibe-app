@@ -1567,7 +1567,7 @@ export default function PostDetailScreen() {
                       key={p.id}
                       style={S.moreThumb}
                       activeOpacity={0.82}
-                      onPress={() => router.replace(`/post/${p.id}` as any)}
+                      onPress={() => router.replace(`${isVideo ? "/watch" : "/post"}/${p.id}` as any)}
                     >
                       <Image
                         source={{ uri: thumb }}
