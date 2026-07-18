@@ -429,9 +429,15 @@ const THUMB_H = Math.round((W - 32) * 9 / 16);
 function FeedContinuationCard({
   post,
   onPress,
+  onLongPress,
+  onPressOut,
+  isPreviewActive,
 }: {
   post: Post;
   onPress: () => void;
+  onLongPress: () => void;
+  onPressOut: () => void;
+  isPreviewActive: boolean;
 }) {
   const colors = useColors();
   // Only use image URLs as thumbnails — video URLs (.mp4 etc.) would render blank.
@@ -446,26 +452,46 @@ function FeedContinuationCard({
   // For video posts without a static thumbnail, generate one from the first frame.
   const [generatedThumb, setGeneratedThumb] = useState<string | undefined>(undefined);
   const [thumbLoading, setThumbLoading] = useState(false);
-  const videoUrl = !rawThumb ? detectVideoUrl(post) : null;
+  const thumbGenUrl = !rawThumb ? detectVideoUrl(post) : null;
   useEffect(() => {
-    if (!videoUrl) return;
+    if (!thumbGenUrl) return;
     let cancelled = false;
     setThumbLoading(true);
-    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 500 })
+    VideoThumbnails.getThumbnailAsync(thumbGenUrl, { time: 500 })
       .then(({ uri }) => { if (!cancelled) { setGeneratedThumb(uri); setThumbLoading(false); } })
       .catch(() => { if (!cancelled) setThumbLoading(false); });
     return () => { cancelled = true; };
-  }, [videoUrl]);
+  }, [thumbGenUrl]);
 
   const finalThumbUri = thumbUri ?? generatedThumb;
   const username = post.profiles?.username ?? "user";
   const caption = post.caption || "";
   const duration = fmtDuration((post as any).duration);
 
+  // The actual video URL — always resolved so the long-press preview can use it.
+  const previewVideoUrl = detectVideoUrl(post);
+
+  // Ref that suppresses onPress if the user triggered a long-press (RN fires
+  // onPress on release even after onLongPress in some versions).
+  const longPressActiveRef = useRef(false);
+
   return (
     <TouchableOpacity
       style={S.contCard}
-      onPress={onPress}
+      onPress={() => {
+        if (longPressActiveRef.current) return;
+        onPress();
+      }}
+      onLongPress={() => {
+        longPressActiveRef.current = true;
+        onLongPress();
+      }}
+      onPressOut={() => {
+        // Reset after a microtask so the onPress check above fires first.
+        setTimeout(() => { longPressActiveRef.current = false; }, 0);
+        onPressOut();
+      }}
+      delayLongPress={400}
       activeOpacity={0.85}
     >
       <View style={S.contThumbWrap}>
@@ -489,6 +515,21 @@ function FeedContinuationCard({
             )}
           </View>
         )}
+
+        {/* ── Long-press silent preview ────────────────────────────────── */}
+        {/* Mounted only while the user holds the card; unmounting stops playback. */}
+        {isPreviewActive && previewVideoUrl && (
+          <Video
+            source={{ uri: previewVideoUrl }}
+            style={S.previewVideo}
+            resizeMode={ResizeMode.COVER}
+            isMuted
+            shouldPlay
+            isLooping
+            useNativeControls={false}
+          />
+        )}
+
         {duration && (
           <View style={S.durationPill}>
             <Text style={S.durationTxt}>{duration}</Text>
@@ -645,6 +686,8 @@ export default function WatchScreen() {
   const autoplayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Always-current snapshot of feedSlice so effects don't need it as a dep.
   const feedSliceRef = useRef<Post[]>([]);
+  // Which Up Next card is showing a long-press silent preview (null = none).
+  const [previewingPostId, setPreviewingPostId] = useState<string | null>(null);
   // Stable ref so the autoplay timer can call swapToPost without stale closure.
   const swapToPostRef = useRef<((nextId: string) => void) | null>(null);
   // Ref for the scrollable area so swapToPost can scroll-to-top.
@@ -1581,6 +1624,9 @@ export default function WatchScreen() {
                 key={p.id}
                 post={p}
                 onPress={() => swapToPost(p.id)}
+                onLongPress={() => setPreviewingPostId(p.id)}
+                onPressOut={() => setPreviewingPostId(null)}
+                isPreviewActive={previewingPostId === p.id}
               />
             ))}
           </View>
@@ -1909,6 +1955,15 @@ const S = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+  },
+  // Muted preview video — absolutely fills the thumbnail area during long-press.
+  previewVideo: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: W - 32,
+    height: THUMB_H,
+    borderRadius: 10,
   },
   contThumbLoadingTxt: {
     color: "rgba(255,255,255,0.4)",
