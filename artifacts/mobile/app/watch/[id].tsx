@@ -790,6 +790,11 @@ export default function WatchScreen() {
   // ── Video ────────────────────────────────────────────────────────────────────
   const videoRef = useRef<Video>(null);
   const [videoPlaying, setVideoPlaying] = useState(true);
+  // Set by swapToPost so handleReadyForDisplay calls playAsync() once the new
+  // source is ready. Under New Architecture a source change + shouldPlay={true}
+  // does NOT auto-start playback — an explicit playAsync() is required, the
+  // same pattern already used for the scroll-autoplay preview card.
+  const playOnReadyRef = useRef(false);
   const [isMuted, setIsMuted] = useState(false);
   const [videoDuration, setVideoDuration] = useState(0);
   const [videoPosition, setVideoPosition] = useState(0);
@@ -991,6 +996,9 @@ export default function WatchScreen() {
       isScreenActiveRef.current = true;
       return () => {
         isScreenActiveRef.current = false;
+        // Discard any pending play-on-ready signal so a stale swap doesn't
+        // start playback after the screen re-focuses.
+        playOnReadyRef.current = false;
         setScrollAutoplayId(null);
         setVideoPlaying(false);
         videoRef.current?.pauseAsync().catch(() => {});
@@ -1062,6 +1070,13 @@ export default function WatchScreen() {
       if (initialPos > 0 && !seekedRef.current) {
         seekedRef.current = true;
         videoRef.current?.setPositionAsync(initialPos).catch(() => {});
+      }
+      // After a swapToPost the new source won't auto-start despite
+      // shouldPlay={true} under New Architecture — call playAsync() explicitly.
+      // Guard with isScreenActiveRef so we never start playback after blur/background.
+      if (playOnReadyRef.current && isScreenActiveRef.current) {
+        playOnReadyRef.current = false;
+        videoRef.current?.playAsync().catch(() => {});
       }
       showControlsTemporarily();
     },
@@ -1205,6 +1220,10 @@ export default function WatchScreen() {
 
     // 5. Reset video playback state.
     setVideoPlaying(true);
+    // Signal handleReadyForDisplay to call playAsync() once the new source is
+    // loaded. shouldPlay={true} alone is not reliable after a source change
+    // under New Architecture — same problem as the preview card's onLoad fix.
+    playOnReadyRef.current = true;
     setVideoPosition(0);
     setVideoDuration(0);
     setVideoEnded(false);
