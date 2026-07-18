@@ -116,6 +116,7 @@ function VideoGridCell({ videoUri, thumbUrl, style }: { videoUri: string; thumbU
   const [thumbUri, setThumbUri] = useState<string | null>(null);
   useEffect(() => {
     if (thumbUrl) return;
+    if (!videoUri) return; // no URL — show placeholder immediately, skip extraction
     let cancelled = false;
     // Try to get a thumbnail from the local/remote URI.
     // This works reliably for local files; remote URLs may fail on some devices.
@@ -178,9 +179,12 @@ function GridPageCell({
             {item.caption ?? ""}
           </Text>
         </LinearGradient>
-      ) : item.is_video && (item.media_url ?? item.image_url) ? (
+      ) : item.is_video ? (
+        // Always use VideoGridCell for video posts — it shows a purple gradient
+        // placeholder while extracting a thumbnail, never a solid black box.
+        // Pass empty string when the URL is missing; VideoGridCell handles it.
         <VideoGridCell
-          videoUri={(item.media_url ?? item.image_url)!}
+          videoUri={item.media_url ?? item.image_url ?? ""}
           thumbUrl={thumbUrl(item.thumbnail_url)}
           style={styles.gridImage}
         />

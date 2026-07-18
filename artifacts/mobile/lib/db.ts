@@ -1570,7 +1570,10 @@ export async function fetchProfilePosts(userId: string, viewerId?: string): Prom
       };
       const posts: ProfileGridItem[] = rawPosts.map((p: any) => {
         const mediaUrl = p.media_url ?? p.image_url ?? '';
-        const isVid = isVideoMediaUrl(mediaUrl);
+        // Trust the DB is_video flag first; fall back to URL extension detection
+        // so posts whose media_url lacks a recognised extension still get treated
+        // as videos (no broken <Image> rendering a raw .mp4 URL as black).
+        const isVid = !!(p.is_video || isVideoMediaUrl(mediaUrl));
         // For video posts, prefer the stored thumbnail (a static JPEG) over the
         // raw video URL — Image components can't render video URLs.
         const thumbUrl: string | undefined = p.thumbnail_url ?? undefined;

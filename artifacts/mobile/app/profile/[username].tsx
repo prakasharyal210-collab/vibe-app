@@ -89,6 +89,7 @@ function VideoGridCell({ videoUrl, style }: { videoUrl: string; style: object })
   const [thumb, setThumb] = useState<string | null>(initialThumb);
 
   useEffect(() => {
+    if (!videoUrl) return; // no URL — show placeholder, skip extraction
     if (_videoThumbCache.has(videoUrl)) return; // already cached (hit or miss)
     let cancelled = false;
     VideoThumbnails.getThumbnailAsync(videoUrl, { time: 0 })
@@ -414,13 +415,16 @@ type GridThumbData = {
 
 function ProfileGridThumb({ item, onPress }: { item: GridThumbData; onPress: () => void }) {
   // Use VideoGridCell when the post is a video AND the stored thumbnail is
-  // missing (image is empty or is still a raw .mp4/.mov URL — the latter can
-  // happen for posts uploaded before the thumbnail-rescue fix landed).
+  // missing/is itself a video URL.  ALWAYS render VideoGridCell (not a plain
+  // <Image>) in this branch — VideoGridCell shows a purple gradient placeholder
+  // while extracting the frame, which is far better than a solid black box.
   const needsVideoCell = !!item.isVideo && (!item.image || isVideoUrl(item.image));
   return (
     <TouchableOpacity style={styles.gridItem} activeOpacity={0.88} onPress={onPress}>
-      {needsVideoCell && item.videoUrl ? (
-        <VideoGridCell videoUrl={item.videoUrl} style={styles.gridImage} />
+      {needsVideoCell ? (
+        // Pass empty string when videoUrl is missing — VideoGridCell handles it
+        // gracefully (skips extraction, shows purple placeholder, never black).
+        <VideoGridCell videoUrl={item.videoUrl ?? ""} style={styles.gridImage} />
       ) : (
         <Image source={{ uri: item.image }} style={styles.gridImage} contentFit="cover" cachePolicy="memory-disk" transition={200} recyclingKey={item.image} />
       )}
