@@ -501,6 +501,11 @@ function FeedContinuationCard({
   // onPress on release even after onLongPress in some versions).
   const longPressActiveRef = useRef(false);
 
+  // Ref for the preview Video — used to call playAsync() explicitly on load,
+  // matching the main pinned player's pattern instead of relying on shouldPlay
+  // at mount (unreliable under the New Architecture / Fabric bridge).
+  const previewVideoRef = useRef<Video>(null);
+
   return (
     <TouchableOpacity
       style={S.contCard}
@@ -554,17 +559,28 @@ function FeedContinuationCard({
           <>
             <PreviewVideoMountLogger postId={post.id} url={previewVideoUrl} />
             <Video
+              ref={previewVideoRef}
               source={{ uri: previewVideoUrl }}
               style={S.previewVideo}
               resizeMode={ResizeMode.COVER}
               isMuted
-              shouldPlay
               isLooping
               useNativeControls={false}
-              onLoad={() => console.log(`[PreviewDiag] onLoad fired id=${post.id.slice(0,8)}`)}
+              onLoad={() => {
+                // Explicit playAsync() — shouldPlay at mount is unreliable under
+                // the New Architecture (Fabric) bridge. This mirrors how the main
+                // pinned player triggers playback reactively via handleReadyForDisplay.
+                console.log(`[PreviewDiag] onLoad fired id=${post.id.slice(0,8)} — calling playAsync()`);
+                previewVideoRef.current?.playAsync().catch((err) =>
+                  console.log(`[PreviewDiag] playAsync() rejected id=${post.id.slice(0,8)}`, String(err))
+                );
+              }}
               onError={(e) => console.log(`[PreviewDiag] onError id=${post.id.slice(0,8)}`, JSON.stringify(e))}
               onPlaybackStatusUpdate={(s) => {
-                if (!s.isLoaded) return;
+                if (!s.isLoaded) {
+                  if ((s as any).error) console.log(`[PreviewDiag] status error id=${post.id.slice(0,8)}`, (s as any).error);
+                  return;
+                }
                 if (s.isPlaying) console.log(`[PreviewDiag] isPlaying=true id=${post.id.slice(0,8)}`);
               }}
             />
