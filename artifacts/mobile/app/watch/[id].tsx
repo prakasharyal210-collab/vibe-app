@@ -66,6 +66,16 @@ function isVideoPost(post: Post): boolean {
   return !!detectVideoUrl(post);
 }
 
+// ─── Diag: tracks preview Video mount/unmount lifecycle ───────────────────────
+function PreviewVideoMountLogger({ postId, url }: { postId: string; url: string }) {
+  useEffect(() => {
+    console.log(`[PreviewDiag] <Video> MOUNTED  id=${postId} url=${url}`);
+    return () => { console.log(`[PreviewDiag] <Video> UNMOUNTED id=${postId}`); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return null;
+}
+
 /** Seconds → "1:23" for the duration pill on Up next cards. */
 function fmtDuration(seconds: number | undefined): string | null {
   if (!seconds || seconds <= 0) return null;
@@ -471,6 +481,22 @@ function FeedContinuationCard({
   // The actual video URL — always resolved so the long-press preview can use it.
   const previewVideoUrl = detectVideoUrl(post);
 
+  // DIAG: log URL + isPreviewActive every render so we can see both values.
+  console.log(
+    `[CardDiag] render id=${post.id.slice(0,8)} ` +
+    `isPreviewActive=${isPreviewActive} ` +
+    `previewVideoUrl=${previewVideoUrl ?? "NULL"} ` +
+    `image_url=${(post as any).image_url ?? "null"} ` +
+    `media_url=${(post as any).media_url ?? "null"} ` +
+    `is_video=${(post as any).is_video}`
+  );
+
+  // DIAG: log whenever isPreviewActive flips.
+  useEffect(() => {
+    console.log(`[CardDiag] isPreviewActive → ${isPreviewActive} for id=${post.id.slice(0,8)} url=${previewVideoUrl ?? "NULL"}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreviewActive]);
+
   // Ref that suppresses onPress if the user triggered a long-press (RN fires
   // onPress on release even after onLongPress in some versions).
   const longPressActiveRef = useRef(false);
@@ -479,6 +505,7 @@ function FeedContinuationCard({
     <TouchableOpacity
       style={S.contCard}
       onPressIn={() => {
+        console.log(`[CardDiag] onPressIn fired for id=${post.id.slice(0,8)}`);
         longPressActiveRef.current = false;
         onPressIn(); // mount preview video immediately on touch-down
       }}
@@ -524,15 +551,28 @@ function FeedContinuationCard({
         {/* ── Long-press silent preview ────────────────────────────────── */}
         {/* Mounted only while the user holds the card; unmounting stops playback. */}
         {isPreviewActive && previewVideoUrl && (
-          <Video
-            source={{ uri: previewVideoUrl }}
-            style={S.previewVideo}
-            resizeMode={ResizeMode.COVER}
-            isMuted
-            shouldPlay
-            isLooping
-            useNativeControls={false}
-          />
+          <>
+            <PreviewVideoMountLogger postId={post.id} url={previewVideoUrl} />
+            <Video
+              source={{ uri: previewVideoUrl }}
+              style={S.previewVideo}
+              resizeMode={ResizeMode.COVER}
+              isMuted
+              shouldPlay
+              isLooping
+              useNativeControls={false}
+              onLoad={() => console.log(`[PreviewDiag] onLoad fired id=${post.id.slice(0,8)}`)}
+              onError={(e) => console.log(`[PreviewDiag] onError id=${post.id.slice(0,8)}`, JSON.stringify(e))}
+              onPlaybackStatusUpdate={(s) => {
+                if (!s.isLoaded) return;
+                if (s.isPlaying) console.log(`[PreviewDiag] isPlaying=true id=${post.id.slice(0,8)}`);
+              }}
+            />
+          </>
+        )}
+        {/* DIAG: log when isPreviewActive=true but previewVideoUrl is null */}
+        {isPreviewActive && !previewVideoUrl && (
+          (() => { console.log(`[PreviewDiag] BLOCKED — isPreviewActive=true but previewVideoUrl=NULL id=${post.id.slice(0,8)}`); return null; })()
         )}
 
         {duration && (
@@ -693,6 +733,10 @@ export default function WatchScreen() {
   const feedSliceRef = useRef<Post[]>([]);
   // Which Up Next card is showing a long-press silent preview (null = none).
   const [previewingPostId, setPreviewingPostId] = useState<string | null>(null);
+  // DIAG: log whenever previewingPostId changes.
+  useEffect(() => {
+    console.log(`[WatchDiag] previewingPostId → ${previewingPostId ?? "null"}`);
+  }, [previewingPostId]);
   // Stable ref so the autoplay timer can call swapToPost without stale closure.
   const swapToPostRef = useRef<((nextId: string) => void) | null>(null);
   // Ref for the scrollable area so swapToPost can scroll-to-top.
@@ -1396,6 +1440,7 @@ export default function WatchScreen() {
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.scroll}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Action bar — like · comment · save · share */}
         {/* TODO: extract shared PostActions component */}
