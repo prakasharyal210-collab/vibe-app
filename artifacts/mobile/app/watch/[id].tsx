@@ -429,13 +429,13 @@ const THUMB_H = Math.round((W - 32) * 9 / 16);
 function FeedContinuationCard({
   post,
   onPress,
-  onLongPress,
+  onPressIn,
   onPressOut,
   isPreviewActive,
 }: {
   post: Post;
   onPress: () => void;
-  onLongPress: () => void;
+  onPressIn: () => void;
   onPressOut: () => void;
   isPreviewActive: boolean;
 }) {
@@ -478,18 +478,23 @@ function FeedContinuationCard({
   return (
     <TouchableOpacity
       style={S.contCard}
+      onPressIn={() => {
+        longPressActiveRef.current = false;
+        onPressIn(); // mount preview video immediately on touch-down
+      }}
       onPress={() => {
-        if (longPressActiveRef.current) return;
+        if (longPressActiveRef.current) return; // held long → don't swap
         onPress();
       }}
       onLongPress={() => {
+        // Fires after 400 ms of holding — mark so release doesn't swap.
+        // Preview is already running (started in onPressIn above).
         longPressActiveRef.current = true;
-        onLongPress();
       }}
       onPressOut={() => {
-        // Reset after a microtask so the onPress check above fires first.
+        // Reset after a microtask so the onPress suppression check fires first.
         setTimeout(() => { longPressActiveRef.current = false; }, 0);
-        onPressOut();
+        onPressOut(); // unmount preview video
       }}
       delayLongPress={400}
       activeOpacity={0.85}
@@ -1624,7 +1629,7 @@ export default function WatchScreen() {
                 key={p.id}
                 post={p}
                 onPress={() => swapToPost(p.id)}
-                onLongPress={() => setPreviewingPostId(p.id)}
+                onPressIn={() => setPreviewingPostId(p.id)}
                 onPressOut={() => setPreviewingPostId(null)}
                 isPreviewActive={previewingPostId === p.id}
               />
