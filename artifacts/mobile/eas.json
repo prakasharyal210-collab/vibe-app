@@ -28,7 +28,8 @@
         "autoIncrement": true
       },
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": true
       },
       "env": {
         "NODE_ENV": "production",
