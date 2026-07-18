@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Video, ResizeMode } from "expo-av";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import { Image } from "expo-image";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -181,6 +182,8 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
   const [showComments, setShowComments] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  // URI of a generated first-frame thumbnail for video posts that lack thumbnail_url.
+  const [videoGenThumb, setVideoGenThumb] = useState<string | null>(null);
   const [showOptionsSheet, setShowOptionsSheet] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [reportingReason, setReportingReason] = useState<string | null>(null);
@@ -288,6 +291,12 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
     ? (post.video_url || resolvedMediaUrl)
     : (post.video_url || (resolvedMediaUrl?.match(/\.(mp4|mov|webm|m4v)/i) ? resolvedMediaUrl : null));
   const isVideoPost = !!videoUrl;
+  // Static poster shown over the <Video> until playback starts, preventing the
+  // black-box flash.  Prefers the stored thumbnail_url (via cardUrl transform);
+  // falls back to the in-process generated frame from VideoThumbnails (see effect).
+  const videoPosterSrc: string | null = isVideoPost
+    ? (post.thumbnail_url ? (cardUrl(post.thumbnail_url) ?? post.thumbnail_url) : videoGenThumb)
+    : null;
 
   const { counts: rtCounts, bumped } = usePostRealtime(post.id, {
     likes_count: post.likes_count,
@@ -309,6 +318,21 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
 
   useEffect(() => { setLikesCount(rtCounts.likes_count); }, [rtCounts.likes_count]);
   useEffect(() => { setCommentsDisplay(rtCounts.comments_count); }, [rtCounts.comments_count]);
+
+  // Generate a poster frame from the video itself for posts that have no thumbnail_url.
+  // Runs once per (videoUrl, thumbnail_url) pair; result cached in component state.
+  // Gated on the absence of thumbnail_url so it never duplicates already-stored work.
+  useEffect(() => {
+    // Always reset so we don't show a stale thumbnail when the card recycles to a new post.
+    setVideoGenThumb(null);
+    if (!isVideoPost || !videoUrl || post.thumbnail_url) return;
+    let cancelled = false;
+    VideoThumbnails.getThumbnailAsync(videoUrl, { time: 500 })
+      .then((r) => { if (!cancelled) setVideoGenThumb(r.uri); })
+      .catch(() => {}); // swallow — black box is no worse than without the fallback
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoUrl, post.thumbnail_url]);
   useEffect(() => {
     if (bumped === "likes_count") {
       heartScale.value = withSequence(withSpring(1.3, { damping: 7 }), withSpring(1));
@@ -843,6 +867,18 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
                 if (size?.width && size?.height) handleMediaLoad(videoUrl!, size.width, size.height);
               }}
             />
+            {/* Poster image — covers the Video's black loading state until the first frame plays.
+                Unmounts automatically when videoPlaying becomes true. */}
+            {!videoPlaying && !!videoPosterSrc && (
+              <Image
+                source={{ uri: videoPosterSrc }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={0}
+                cachePolicy="memory-disk"
+                pointerEvents="none"
+              />
+            )}
             {/* Play/pause indicator — visual only, no touch handling */}
             {!videoPlaying && (
               <View style={styles.videoPlayOverlay} pointerEvents="none">
