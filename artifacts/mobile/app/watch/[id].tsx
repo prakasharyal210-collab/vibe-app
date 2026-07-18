@@ -442,15 +442,12 @@ function FeedContinuationCard({
   onPressIn,
   onPressOut,
   isPreviewActive,
-  isScrollAutoplay,
 }: {
   post: Post;
   onPress: () => void;
   onPressIn: () => void;
   onPressOut: () => void;
   isPreviewActive: boolean;
-  /** True when the card has scrolled ≥60% into view and should play silently. */
-  isScrollAutoplay: boolean;
 }) {
   const colors = useColors();
   // Only use image URLs as thumbnails — video URLs (.mp4 etc.) would render blank.
@@ -487,7 +484,7 @@ function FeedContinuationCard({
   // DIAG: log URL + isPreviewActive every render so we can see both values.
   console.log(
     `[CardDiag] render id=${post.id.slice(0,8)} ` +
-    `isPreviewActive=${isPreviewActive} isScrollAutoplay=${isScrollAutoplay} ` +
+    `isPreviewActive=${isPreviewActive} ` +
     `previewVideoUrl=${previewVideoUrl ?? "NULL"} ` +
     `image_url=${(post as any).image_url ?? "null"} ` +
     `media_url=${(post as any).media_url ?? "null"} ` +
@@ -559,7 +556,7 @@ function FeedContinuationCard({
 
         {/* ── Long-press silent preview ────────────────────────────────── */}
         {/* Mounted only while the user holds the card; unmounting stops playback. */}
-        {(isPreviewActive || isScrollAutoplay) && previewVideoUrl && (
+        {isPreviewActive && previewVideoUrl && (
           <>
             <PreviewVideoMountLogger postId={post.id} url={previewVideoUrl} />
             <Video
@@ -759,17 +756,6 @@ export default function WatchScreen() {
     console.log(`[WatchDiag] previewingPostId → ${previewingPostId ?? "null"}`);
   }, [previewingPostId]);
 
-  // ── Scroll-triggered autoplay ─────────────────────────────────────────────────
-  // Which Up Next card is silently auto-playing because it scrolled into view.
-  const [scrollAutoplayId, setScrollAutoplayId] = useState<string | null>(null);
-  // Current scroll Y offset of the ScrollView (updated by onScroll, never triggers re-render).
-  const scrollYRef = useRef(0);
-  // Visible height of the ScrollView (measured via onLayout).
-  const scrollViewHRef = useRef(0);
-  // Y offset of the feedSection View relative to the ScrollView content origin.
-  const feedSectionYRef = useRef(0);
-  // Per-card layout cache: y in ScrollView-content coords + height.
-  const cardLayoutsRef = useRef<Map<string, { y: number; h: number }>>(new Map());
   // True while the screen is focused AND the app is in the foreground.
   // Guards against starting/continuing autoplay when the user can't see it.
   const isScreenActiveRef = useRef(true);
@@ -946,8 +932,6 @@ export default function WatchScreen() {
     setVideoEnded(false);
     setShowReplayBtn(false);
     setAutoplayCountdown(null);
-    setScrollAutoplayId(null);
-    cardLayoutsRef.current.clear();
     autoplayCancelledRef.current = false;
     if (autoplayTimerRef.current) {
       clearTimeout(autoplayTimerRef.current);
@@ -999,7 +983,6 @@ export default function WatchScreen() {
         // Discard any pending play-on-ready signal so a stale swap doesn't
         // start playback after the screen re-focuses.
         playOnReadyRef.current = false;
-        setScrollAutoplayId(null);
         setVideoPlaying(false);
         videoRef.current?.pauseAsync().catch(() => {});
         if (controlsHideTimer.current) {
@@ -1021,7 +1004,6 @@ export default function WatchScreen() {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") {
         isScreenActiveRef.current = false;
-        setScrollAutoplayId(null);
         setVideoPlaying(false);
         videoRef.current?.pauseAsync().catch(() => {});
         // Cancel autoplay when app is backgrounded
@@ -1188,8 +1170,6 @@ export default function WatchScreen() {
     // 1. Stop current video before loading the next one (no audio overlap).
     videoRef.current?.pauseAsync().catch(() => {});
     seekedRef.current = false;
-    // Clear scroll-autoplay so the card's Video unmounts before the swap.
-    setScrollAutoplayId(null);
 
     // 2. Cancel any pending autoplay timer.
     autoplayCancelledRef.current = true;
@@ -1261,40 +1241,6 @@ export default function WatchScreen() {
       .then(() => videoRef.current?.playAsync())
       .catch(() => {});
     setVideoPlaying(true);
-  }, []);
-
-  // ── Scroll viewability → autoplay ────────────────────────────────────────────
-  // Called from the ScrollView's onScroll (throttled 150 ms) and from each
-  // card's onLayout (fires once per card after the first paint).
-  // Finds the Up Next card that is ≥60% visible in the ScrollView viewport and
-  // sets scrollAutoplayId to that card's post ID (null if none qualifies).
-  // Uses refs throughout so it doesn't need to be listed as a useEffect dep.
-  const recomputeAutoplay = useCallback(() => {
-    if (!isScreenActiveRef.current) {
-      setScrollAutoplayId(null);
-      return;
-    }
-    const sy = scrollYRef.current;
-    const vph = scrollViewHRef.current;
-    if (vph === 0) return;
-    let bestId: string | null = null;
-    let bestPct = 0;
-    for (const [cid, layout] of cardLayoutsRef.current) {
-      // Position of the card's top/bottom edges inside the visible viewport.
-      const cardTop = layout.y - sy;
-      const cardBottom = cardTop + layout.h;
-      // Portion of the card that overlaps the viewport.
-      const visTop = Math.max(0, cardTop);
-      const visBottom = Math.min(vph, cardBottom);
-      if (visBottom <= visTop) continue;
-      const pct = (visBottom - visTop) / layout.h;
-      if (pct >= 0.6 && pct > bestPct) {
-        bestPct = pct;
-        bestId = cid;
-      }
-    }
-    // Avoid spurious re-renders if the winner hasn't changed.
-    setScrollAutoplayId((prev) => (prev === bestId ? prev : bestId));
   }, []);
 
   // ── Action handlers ──────────────────────────────────────────────────────────
@@ -1542,12 +1488,6 @@ export default function WatchScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={S.scroll}
         keyboardShouldPersistTaps="handled"
-        onLayout={(e) => { scrollViewHRef.current = e.nativeEvent.layout.height; }}
-        onScroll={(e) => {
-          scrollYRef.current = e.nativeEvent.contentOffset.y;
-          recomputeAutoplay();
-        }}
-        scrollEventThrottle={150}
       >
         {/* Action bar — like · comment · save · share */}
         {/* TODO: extract shared PostActions component */}
@@ -1770,39 +1710,21 @@ export default function WatchScreen() {
 
         {/* Feed continuation — "Up next" */}
         {feedSlice.length > 0 && (
-          <View
-            style={S.feedSection}
-            onLayout={(e) => { feedSectionYRef.current = e.nativeEvent.layout.y; }}
-          >
+          <View style={S.feedSection}>
             <Text
               style={[S.feedHeader, { color: colors.mutedForeground }]}
             >
               Up next
             </Text>
             {feedSlice.map((p) => (
-              <View
+              <FeedContinuationCard
                 key={p.id}
-                onLayout={(e) => {
-                  const { y, height } = e.nativeEvent.layout;
-                  // Store position relative to ScrollView content origin.
-                  cardLayoutsRef.current.set(p.id, {
-                    y: feedSectionYRef.current + y,
-                    h: height,
-                  });
-                  // Re-evaluate after layout settles (e.g., first card
-                  // visible without any scroll needed).
-                  recomputeAutoplay();
-                }}
-              >
-                <FeedContinuationCard
-                  post={p}
-                  onPress={() => swapToPost(p.id)}
-                  onPressIn={() => setPreviewingPostId(p.id)}
-                  onPressOut={() => setPreviewingPostId(null)}
-                  isPreviewActive={previewingPostId === p.id}
-                  isScrollAutoplay={scrollAutoplayId === p.id}
-                />
-              </View>
+                post={p}
+                onPress={() => swapToPost(p.id)}
+                onPressIn={() => setPreviewingPostId(p.id)}
+                onPressOut={() => setPreviewingPostId(null)}
+                isPreviewActive={previewingPostId === p.id}
+              />
             ))}
           </View>
         )}
