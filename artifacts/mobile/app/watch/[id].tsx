@@ -539,6 +539,7 @@ function FeedContinuationCard({
             contentFit="cover"
             cachePolicy="memory-disk"
             recyclingKey={finalThumbUri}
+            onError={(e) => console.warn(`[UpNext] thumbnail load failed id=${post.id.slice(0,8)} url=...${finalThumbUri.slice(-60)}`, (e as any)?.error ?? e)}
           />
         ) : (
           <View style={[S.contThumb, S.contThumbEmpty]}>
@@ -664,6 +665,7 @@ function AutoplayOverlay({
                 source={{ uri: finalThumbUri }}
                 style={S.apThumb}
                 contentFit="cover"
+                onError={(e) => console.warn(`[AutoplayOverlay] thumbnail load failed url=...${finalThumbUri.slice(-60)}`, (e as any)?.error ?? e)}
               />
             ) : (
               <View style={[S.apThumb, S.apThumbEmpty]}>

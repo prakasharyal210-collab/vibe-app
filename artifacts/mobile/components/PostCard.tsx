@@ -598,7 +598,7 @@ function PostCardBase({ post, isLoggedIn = false, onRequireLogin, fullScreen = f
                   activeOpacity={0.9}
                   onPress={() => { setViewerStartIndex(index); setShowViewer(true); }}
                 >
-                  <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={item} />
+                  <Image source={{ uri: item }} style={{ width: SCREEN_WIDTH, height: fsImageH + 62 }} contentFit="contain" cachePolicy="memory-disk" transition={200} recyclingKey={item} onError={(e) => console.warn(`[PostCard] fullscreen image failed post=${post.id} url=...${item?.slice(-60)}`, (e as any)?.error ?? e)} />
                 </TouchableOpacity>
               );
             }}

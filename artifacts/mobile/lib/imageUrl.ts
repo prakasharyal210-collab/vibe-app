@@ -56,7 +56,7 @@ const RENDER_PATH_MARKER = "/storage/v1/render/image/public/";
  * Remove the param entirely (and the line in getTransformedImageUrl) once
  * the cache-poisoning hypothesis is confirmed or ruled out.
  */
-const CACHE_BUST_V = "1";
+const CACHE_BUST_V = "2";
 
 /**
  * Returns a resized/compressed variant of a Supabase public storage URL for

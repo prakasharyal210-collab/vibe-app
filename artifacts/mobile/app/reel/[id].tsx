@@ -131,7 +131,7 @@ export default function ReelDetailScreen() {
           onError={() => setVideoError(true)}
         />
       ) : (
-        <Image source={{ uri: thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" recyclingKey={thumbnail} />
+        <Image source={{ uri: thumbnail }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" recyclingKey={thumbnail} onError={(e) => console.warn(`[ReelCard] thumbnail load failed url=...${thumbnail?.slice(-60)}`, (e as any)?.error ?? e)} />
       )}
 
       <LinearGradient
