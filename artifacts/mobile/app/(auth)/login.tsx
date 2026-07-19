@@ -25,6 +25,8 @@ import { OAuthButtons } from "@/components/OAuthButtons";
 import { useColors } from "@/hooks/useColors";
 import { supabase } from "@/lib/supabase";
 
+const API_BASE = process.env["EXPO_PUBLIC_API_URL"] ?? "";
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function isValidEmail(v: string) { return EMAIL_RE.test(v.trim()); }
 
@@ -158,6 +160,31 @@ function LoginScreen() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) {
+        // If Supabase says the email isn't confirmed, try the review-account bypass.
+        // The server checks an exact match against APPLE_REVIEW_EMAIL; all other
+        // accounts receive a 403 and fall through to the normal error message below.
+        if (error.message?.toLowerCase().includes("email not confirmed")) {
+          try {
+            const resp = await fetch(`${API_BASE}/api/auth/review-login`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: email.trim(), password }),
+            });
+            if (resp.ok) {
+              const body = await resp.json() as { session?: { access_token: string; refresh_token: string } };
+              if (body.session?.access_token && body.session?.refresh_token) {
+                // Establish the session — fires SIGNED_IN → RootLayoutNav redirects.
+                await supabase.auth.setSession({
+                  access_token: body.session.access_token,
+                  refresh_token: body.session.refresh_token,
+                });
+                return; // navigation handled by RootLayoutNav
+              }
+            }
+          } catch {
+            // Network error on the bypass call — fall through to the friendly error.
+          }
+        }
         setFormError(friendlyLoginError(error.message ?? ""));
       }
       // On success: navigation is handled by RootLayoutNav in _layout.tsx
