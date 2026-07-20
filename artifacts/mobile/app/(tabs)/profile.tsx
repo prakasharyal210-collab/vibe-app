@@ -1610,7 +1610,7 @@ export default function ProfileScreen() {
                       if (item.is_video) {
                         router.push(`/watch/${item.id}` as any);
                       } else {
-                        openPhoto(postsOnly, i);
+                        router.push(`/post/${item.id}` as any);
                       }
                     }}
                     onLongPress={() => handleGridLongPress(item)}
@@ -1630,7 +1630,7 @@ export default function ProfileScreen() {
                   <GridPageCell
                     key={item.id}
                     item={item}
-                    onPress={() => openPhoto(reelsOnly, i)}
+                    onPress={() => router.push(`/watch/${item.id.replace(/^reel_/, "")}` as any)}
                     onLongPress={() => handleGridLongPress(item)}
                   />
                 ))}
@@ -1675,7 +1675,7 @@ export default function ProfileScreen() {
                   <GridPageCell
                     key={item.id}
                     item={item}
-                    onPress={() => openPhoto(savedPosts, i)}
+                    onPress={() => router.push(`/post/${item.id}` as any)}
                     onLongPress={() => {}}
                   />
                 ))}

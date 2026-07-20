@@ -984,7 +984,7 @@ export default function UserProfileScreen() {
                   if (pinnedPost.isVideo) {
                     router.push(`/watch/${pinnedPost.id}` as any);
                   } else {
-                    setMediaViewer({ visible: true, startIndex: pinnedIndex });
+                    router.push(`/post/${pinnedPost.id}` as any);
                   }
                 }}
               />
@@ -1033,7 +1033,7 @@ export default function UserProfileScreen() {
                             if (item.isVideo) {
                               router.push(`/watch/${item.id}` as any);
                             } else {
-                              setMediaViewer({ visible: true, startIndex: gridData.findIndex(d => d.id === item.id) });
+                              router.push(`/post/${item.id}` as any);
                             }
                           }}
                         />
@@ -1054,7 +1054,7 @@ export default function UserProfileScreen() {
                         <ProfileGridThumb
                           key={item.id}
                           item={item}
-                          onPress={() => setMediaViewer({ visible: true, startIndex: gridData.findIndex(d => d.id === item.id) })}
+                          onPress={() => router.push(`/watch/${item.id}` as any)}
                         />
                       ))}
                     </View>
