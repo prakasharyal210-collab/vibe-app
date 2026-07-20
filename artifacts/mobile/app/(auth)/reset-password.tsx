@@ -73,6 +73,22 @@ export default function ResetPasswordScreen() {
     }
   };
 
+  // Race a Supabase promise against a 12-second timeout.
+  // Supabase JS doesn't accept AbortController signals directly, so Promise.race
+  // is the equivalent mechanism — the timeout rejection propagates to the catch
+  // block and always stops the spinner via finally.
+  function withTimeout<T>(p: Promise<T>): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Request timed out — check your connection and try again.")),
+          12_000,
+        ),
+      ),
+    ]);
+  }
+
   const handleSubmit = async () => {
     setFormError(null);
     setCodeError(null);
@@ -96,13 +112,14 @@ export default function ResetPasswordScreen() {
 
     setLoading(true);
     try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: email!,
-        token: code,
-        type: "recovery",
-      });
+      console.log("[ResetPassword] verifyOtp start");
+      const { error: verifyError } = await withTimeout(
+        supabase.auth.verifyOtp({ email: email!, token: code, type: "recovery" }),
+      );
+      console.log("[ResetPassword] verifyOtp done", verifyError ?? "ok");
 
       if (verifyError) {
+        console.error("[ResetPassword] verifyOtp error:", verifyError.message);
         const m = verifyError.message.toLowerCase();
         if (m.includes("expired") || m.includes("invalid") || m.includes("otp")) {
           setCodeError("Code is invalid or has expired — request a new one below.");
@@ -112,11 +129,14 @@ export default function ResetPasswordScreen() {
         return;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      console.log("[ResetPassword] updateUser start");
+      const { error: updateError } = await withTimeout(
+        supabase.auth.updateUser({ password: newPassword }),
+      );
+      console.log("[ResetPassword] updateUser done", updateError ?? "ok");
 
       if (updateError) {
+        console.error("[ResetPassword] updateUser error:", updateError.message);
         const m = updateError.message.toLowerCase();
         if (m.includes("weak") || m.includes("password") || m.includes("characters")) {
           setPasswordError(updateError.message);
@@ -128,7 +148,15 @@ export default function ResetPasswordScreen() {
 
       setDone(true);
     } catch (e: any) {
-      setFormError(e?.message ?? "Something went wrong. Please try again.");
+      console.error("[ResetPassword] handleSubmit caught:", e?.message ?? e);
+      const msg: string = e?.message ?? "";
+      if (msg.toLowerCase().includes("timed out")) {
+        setFormError("Request timed out — check your connection and try again.");
+      } else if (msg) {
+        setFormError(msg);
+      } else {
+        setFormError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
