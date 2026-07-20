@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Platform,
   StyleSheet,
   Text,
@@ -18,19 +19,41 @@ import { supabase } from "@/lib/supabase";
 
 const RESEND_COOLDOWN = 60;
 
+// Race a Supabase promise against a 12-second timeout.
+// Supabase JS doesn't accept AbortController signals directly, so Promise.race
+// is the equivalent mechanism.
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              "Request timed out — check your connection and try again.",
+            ),
+          ),
+        12_000,
+      ),
+    ),
+  ]);
+}
+
 export default function ResetPasswordScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { email } = useLocalSearchParams<{ email: string }>();
-  const { clearNeedsPasswordReset } = useAuth();
+  const { email: emailParam } = useLocalSearchParams<{ email: string }>();
+  const { session, needsPasswordReset, clearNeedsPasswordReset } = useAuth();
 
-  const [code, setCode] = useState("");
+  // Email comes from the route param (set by forgot-password) or from the
+  // recovery session itself (when the user tapped the link in a cold-launch).
+  const email = emailParam ?? session?.user?.email ?? "";
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  const [codeError, setCodeError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -48,7 +71,7 @@ export default function ResetPasswordScreen() {
   const startCooldown = () => {
     setResendCooldown(RESEND_COOLDOWN);
     timerRef.current = setInterval(() => {
-      setResendCooldown(prev => {
+      setResendCooldown((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
           return 0;
@@ -73,33 +96,12 @@ export default function ResetPasswordScreen() {
     }
   };
 
-  // Race a Supabase promise against a 12-second timeout.
-  // Supabase JS doesn't accept AbortController signals directly, so Promise.race
-  // is the equivalent mechanism — the timeout rejection propagates to the catch
-  // block and always stops the spinner via finally.
-  function withTimeout<T>(p: Promise<T>): Promise<T> {
-    return Promise.race([
-      p,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Request timed out — check your connection and try again.")),
-          12_000,
-        ),
-      ),
-    ]);
-  }
-
   const handleSubmit = async () => {
     setFormError(null);
-    setCodeError(null);
     setPasswordError(null);
     setConfirmError(null);
 
     let valid = true;
-    if (!code || code.length !== 6) {
-      setCodeError("Enter the 6-digit code from your email");
-      valid = false;
-    }
     if (!newPassword || newPassword.length < 8) {
       setPasswordError("Password must be at least 8 characters");
       valid = false;
@@ -112,23 +114,8 @@ export default function ResetPasswordScreen() {
 
     setLoading(true);
     try {
-      console.log("[ResetPassword] verifyOtp start");
-      const { error: verifyError } = await withTimeout(
-        supabase.auth.verifyOtp({ email: email!, token: code, type: "recovery" }),
-      );
-      console.log("[ResetPassword] verifyOtp done", verifyError ?? "ok");
-
-      if (verifyError) {
-        console.error("[ResetPassword] verifyOtp error:", verifyError.message);
-        const m = verifyError.message.toLowerCase();
-        if (m.includes("expired") || m.includes("invalid") || m.includes("otp")) {
-          setCodeError("Code is invalid or has expired — request a new one below.");
-        } else {
-          setFormError(verifyError.message);
-        }
-        return;
-      }
-
+      // The PASSWORD_RECOVERY deep-link already established a recovery session
+      // in AuthContext — we just update the password directly, no OTP needed.
       console.log("[ResetPassword] updateUser start");
       const { error: updateError } = await withTimeout(
         supabase.auth.updateUser({ password: newPassword }),
@@ -138,7 +125,11 @@ export default function ResetPasswordScreen() {
       if (updateError) {
         console.error("[ResetPassword] updateUser error:", updateError.message);
         const m = updateError.message.toLowerCase();
-        if (m.includes("weak") || m.includes("password") || m.includes("characters")) {
+        if (
+          m.includes("weak") ||
+          m.includes("password") ||
+          m.includes("characters")
+        ) {
           setPasswordError(updateError.message);
         } else {
           setFormError(updateError.message);
@@ -169,6 +160,122 @@ export default function ResetPasswordScreen() {
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
+  // ── Success state ────────────────────────────────────────────────────────────
+  if (done) {
+    return (
+      <View style={styles.root}>
+        <KeyboardAwareScrollViewCompat
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: topInset + 24,
+              paddingBottom: (Platform.OS === "web" ? 34 : insets.bottom) + 24,
+            },
+          ]}
+          bottomOffset={30}
+        >
+          <GundrukLogo subtitle="Set new password" />
+          <View style={styles.card}>
+            <Text style={styles.successIcon}>✅</Text>
+            <Text style={styles.successTitle}>Password updated!</Text>
+            <Text style={[styles.successBody, { color: colors.mutedForeground }]}>
+              Your password has been changed successfully. You can now sign in.
+            </Text>
+            <GradientButton onPress={handleContinue} title="Continue to App" />
+          </View>
+        </KeyboardAwareScrollViewCompat>
+      </View>
+    );
+  }
+
+  // ── Waiting state: user hasn't tapped the link yet ───────────────────────────
+  // needsPasswordReset flips to true in AuthContext when PASSWORD_RECOVERY fires
+  // (i.e. when the user taps the link in the email).
+  if (!needsPasswordReset) {
+    return (
+      <View style={styles.root}>
+        <KeyboardAwareScrollViewCompat
+          style={{ flex: 1 }}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: topInset + 24,
+              paddingBottom: (Platform.OS === "web" ? 34 : insets.bottom) + 24,
+            },
+          ]}
+          bottomOffset={30}
+        >
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
+            <Text style={styles.backText}>← Back</Text>
+          </TouchableOpacity>
+
+          <GundrukLogo subtitle="Check your email" />
+
+          <View style={styles.card}>
+            <ActivityIndicator
+              size="small"
+              color="#8B5CF6"
+              style={{ marginBottom: 4 }}
+            />
+            <Text style={[styles.description, { color: colors.mutedForeground }]}>
+              We sent a reset link to{" "}
+              <Text style={styles.emailHighlight}>{email}</Text>. Tap the link
+              in that email to continue setting your new password.
+            </Text>
+
+            {formError != null && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{formError}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={handleResend}
+              disabled={resendCooldown > 0 || resending}
+              style={styles.resendRow}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.resendText,
+                  {
+                    color:
+                      resendCooldown > 0
+                        ? colors.mutedForeground
+                        : "#A78BFA",
+                  },
+                ]}
+              >
+                {resending
+                  ? "Sending…"
+                  : resendCooldown > 0
+                    ? `Resend link in ${resendCooldown}s`
+                    : "Resend link"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.loginRow}>
+            <Text style={[styles.loginText, { color: colors.mutedForeground }]}>
+              Wrong account?{" "}
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.replace("/(auth)/login")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loginLink}>Sign in instead →</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAwareScrollViewCompat>
+      </View>
+    );
+  }
+
+  // ── Password entry state: recovery session is active ────────────────────────
   return (
     <View style={styles.root}>
       <KeyboardAwareScrollViewCompat
@@ -182,124 +289,69 @@ export default function ResetPasswordScreen() {
         ]}
         bottomOffset={30}
       >
-        {!done && (
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backText}>← Back</Text>
-          </TouchableOpacity>
-        )}
-
         <GundrukLogo subtitle="Set new password" />
 
-        {done ? (
-          <View style={styles.card}>
-            <Text style={styles.successIcon}>✅</Text>
-            <Text style={styles.successTitle}>Password updated!</Text>
-            <Text style={[styles.successBody, { color: colors.mutedForeground }]}>
-              Your password has been changed successfully. You can now sign in.
-            </Text>
-            <GradientButton onPress={handleContinue} title="Continue to App" />
-          </View>
-        ) : (
-          <View style={styles.card}>
-            <Text style={[styles.description, { color: colors.mutedForeground }]}>
-              Enter the 6-digit code sent to{" "}
-              <Text style={styles.emailHighlight}>{email}</Text>
-              {" "}and choose a new password.
-            </Text>
+        <View style={styles.card}>
+          <Text style={[styles.description, { color: colors.mutedForeground }]}>
+            Choose a new password for{" "}
+            <Text style={styles.emailHighlight}>{email}</Text>.
+          </Text>
 
-            {/* OTP input */}
-            <View style={{ gap: 4 }}>
-              <TextInput
-                value={code}
-                onChangeText={v => {
-                  setCode(v.replace(/\D/g, "").slice(0, 6));
-                  setCodeError(null);
-                  setFormError(null);
-                }}
-                placeholder="6-digit code"
-                placeholderTextColor="rgba(156,163,175,0.55)"
-                keyboardType="number-pad"
-                maxLength={6}
-                style={[styles.input, styles.codeInput, codeError != null && styles.inputError]}
-              />
-              {codeError != null && (
-                <Text style={styles.fieldError}>⚠️ {codeError}</Text>
-              )}
-            </View>
-
-            {/* New password */}
-            <View style={{ gap: 4 }}>
-              <TextInput
-                value={newPassword}
-                onChangeText={v => {
-                  setNewPassword(v);
-                  setPasswordError(null);
-                  setFormError(null);
-                }}
-                placeholder="New password"
-                placeholderTextColor="rgba(156,163,175,0.55)"
-                secureTextEntry
-                style={[styles.input, passwordError != null && styles.inputError]}
-              />
-              {passwordError != null && (
-                <Text style={styles.fieldError}>⚠️ {passwordError}</Text>
-              )}
-            </View>
-
-            {/* Confirm password */}
-            <View style={{ gap: 4 }}>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={v => {
-                  setConfirmPassword(v);
-                  setConfirmError(null);
-                  setFormError(null);
-                }}
-                placeholder="Confirm new password"
-                placeholderTextColor="rgba(156,163,175,0.55)"
-                secureTextEntry
-                style={[styles.input, confirmError != null && styles.inputError]}
-              />
-              {confirmError != null && (
-                <Text style={styles.fieldError}>⚠️ {confirmError}</Text>
-              )}
-            </View>
-
-            {formError != null && (
-              <View style={styles.errorBanner}>
-                <Text style={styles.errorBannerText}>{formError}</Text>
-              </View>
-            )}
-
-            <GradientButton
-              onPress={handleSubmit}
-              title="Set New Password"
-              loading={loading}
-              disabled={loading}
-              style={{ marginTop: 4 }}
+          {/* New password */}
+          <View style={{ gap: 4 }}>
+            <TextInput
+              value={newPassword}
+              onChangeText={(v) => {
+                setNewPassword(v);
+                setPasswordError(null);
+                setFormError(null);
+              }}
+              placeholder="New password"
+              placeholderTextColor="rgba(156,163,175,0.55)"
+              secureTextEntry
+              style={[styles.input, passwordError != null && styles.inputError]}
             />
-
-            <TouchableOpacity
-              onPress={handleResend}
-              disabled={resendCooldown > 0 || resending}
-              style={styles.resendRow}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.resendText,
-                  { color: resendCooldown > 0 ? colors.mutedForeground : "#A78BFA" },
-                ]}
-              >
-                {resending
-                  ? "Sending…"
-                  : resendCooldown > 0
-                  ? `Resend code in ${resendCooldown}s`
-                  : "Resend code"}
-              </Text>
-            </TouchableOpacity>
+            {passwordError != null && (
+              <Text style={styles.fieldError}>⚠️ {passwordError}</Text>
+            )}
           </View>
-        )}
+
+          {/* Confirm password */}
+          <View style={{ gap: 4 }}>
+            <TextInput
+              value={confirmPassword}
+              onChangeText={(v) => {
+                setConfirmPassword(v);
+                setConfirmError(null);
+                setFormError(null);
+              }}
+              placeholder="Confirm new password"
+              placeholderTextColor="rgba(156,163,175,0.55)"
+              secureTextEntry
+              style={[
+                styles.input,
+                confirmError != null && styles.inputError,
+              ]}
+            />
+            {confirmError != null && (
+              <Text style={styles.fieldError}>⚠️ {confirmError}</Text>
+            )}
+          </View>
+
+          {formError != null && (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{formError}</Text>
+            </View>
+          )}
+
+          <GradientButton
+            onPress={handleSubmit}
+            title="Set New Password"
+            loading={loading}
+            disabled={loading}
+            style={{ marginTop: 4 }}
+          />
+        </View>
       </KeyboardAwareScrollViewCompat>
     </View>
   );
@@ -344,12 +396,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.05)",
     color: "#fff",
   },
-  codeInput: {
-    letterSpacing: 6,
-    fontSize: 20,
-    fontFamily: "Poppins_700Bold",
-    textAlign: "center",
-  },
   inputError: {
     borderColor: "rgba(248,113,113,0.5)",
     backgroundColor: "rgba(248,113,113,0.05)",
@@ -376,6 +422,17 @@ const styles = StyleSheet.create({
   },
   resendRow: { alignItems: "center", paddingVertical: 4 },
   resendText: { fontSize: 14, fontFamily: "Poppins_500Medium" },
+  loginRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loginText: { fontSize: 14, fontFamily: "Poppins_400Regular" },
+  loginLink: {
+    fontSize: 14,
+    fontFamily: "Poppins_600SemiBold",
+    color: "#A78BFA",
+  },
   successIcon: { fontSize: 48, textAlign: "center" },
   successTitle: {
     fontSize: 20,
