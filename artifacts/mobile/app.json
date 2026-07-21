@@ -25,7 +25,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.prakasharyal.gundruk",
-      "buildNumber": "22",
+      "buildNumber": "23",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Gundruk uses your camera to let you take photos and record videos to share as posts, reels, and stories, and to capture profile pictures.",
