@@ -8,6 +8,7 @@ import { Image } from "expo-image";
 import {
   Alert,
   Animated,
+  DeviceEventEmitter,
   Dimensions,
   Linking,
   Modal,
@@ -1054,7 +1055,10 @@ export default function UserProfileScreen() {
                         <ProfileGridThumb
                           key={item.id}
                           item={item}
-                          onPress={() => router.navigate({ pathname: "/(tabs)/index" as any, params: { startReelId: item.id, userId: profile?.id ?? "" } })}
+                          onPress={() => {
+                            DeviceEventEmitter.emit("openReelInFeed", { reelId: item.id, userId: profile?.id ?? "" });
+                            router.navigate("/(tabs)/index" as any);
+                          }}
                         />
                       ))}
                     </View>
