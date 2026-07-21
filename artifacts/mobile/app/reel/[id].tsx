@@ -23,7 +23,7 @@ import { shareContent } from "@/lib/share";
 const { width: W, height: H } = Dimensions.get("window");
 
 export default function ReelDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, userId } = useLocalSearchParams<{ id: string; userId?: string }>();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const [reel, setReel] = useState<Reel | null>(null);
@@ -41,6 +41,7 @@ export default function ReelDetailScreen() {
     const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
     (async () => {
       try {
+        // Primary: dedicated single-reel endpoint (available once server is updated)
         const res = await fetch(`${API_BASE}/reels/${encodeURIComponent(id)}`);
         if (res.ok) {
           const body = await res.json();
@@ -48,17 +49,33 @@ export default function ReelDetailScreen() {
           if (data) {
             setReel(data as Reel);
             setLikesCount(data.likes_count ?? 0);
+            return;
           }
-        } else {
-          console.error("[reel-detail] API error", res.status);
         }
+
+        // Fallback: endpoint not yet deployed on this server — fetch all reels
+        // for the profile owner (userId passed as route param) and find this one.
+        if (userId) {
+          const fbRes = await fetch(`${API_BASE}/posts/user/${encodeURIComponent(userId)}`);
+          if (fbRes.ok) {
+            const fbBody = await fbRes.json();
+            const match = (fbBody.reels as any[] ?? []).find((r: any) => r.id === id);
+            if (match) {
+              setReel(match as Reel);
+              setLikesCount(match.likes_count ?? 0);
+              return;
+            }
+          }
+        }
+
+        console.warn("[reel-detail] could not load reel", id);
       } catch (e: any) {
         console.error("[reel-detail] fetch threw:", e?.message);
       } finally {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, userId]);
 
   const handleLike = async () => {
     if (!session?.user?.id || !id) return;

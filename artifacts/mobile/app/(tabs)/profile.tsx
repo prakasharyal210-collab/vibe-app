@@ -1630,7 +1630,7 @@ export default function ProfileScreen() {
                   <GridPageCell
                     key={item.id}
                     item={item}
-                    onPress={() => router.push(`/reel/${item.id.replace(/^reel_/, "")}` as any)}
+                    onPress={() => router.push(`/reel/${item.id.replace(/^reel_/, "")}?userId=${session?.user?.id ?? ""}` as any)}
                     onLongPress={() => handleGridLongPress(item)}
                   />
                 ))}

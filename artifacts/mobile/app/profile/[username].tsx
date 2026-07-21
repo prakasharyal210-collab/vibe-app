@@ -1054,7 +1054,7 @@ export default function UserProfileScreen() {
                         <ProfileGridThumb
                           key={item.id}
                           item={item}
-                          onPress={() => router.push(`/reel/${item.id}` as any)}
+                          onPress={() => router.push(`/reel/${item.id}?userId=${profile?.id ?? ""}` as any)}
                         />
                       ))}
                     </View>
