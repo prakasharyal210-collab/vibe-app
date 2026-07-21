@@ -23,7 +23,7 @@ import { shareContent } from "@/lib/share";
 const { width: W, height: H } = Dimensions.get("window");
 
 export default function ReelDetailScreen() {
-  const { id, userId } = useLocalSearchParams<{ id: string; userId?: string }>();
+  const { id, userId, profileUsername, profileAvatar } = useLocalSearchParams<{ id: string; userId?: string; profileUsername?: string; profileAvatar?: string }>();
   const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const [reel, setReel] = useState<Reel | null>(null);
@@ -122,7 +122,8 @@ export default function ReelDetailScreen() {
     );
   }
 
-  const username = (reel as any).profiles?.username ?? "user";
+  const username = (reel as any).profiles?.username ?? profileUsername ?? "user";
+  const avatarUrl = (reel as any).profiles?.avatar_url ?? (profileAvatar ? decodeURIComponent(profileAvatar) : undefined);
   const thumbnail = cardUrl(reel.thumbnail_url) ?? `https://picsum.photos/seed/${reel.id}/450/900`;
   const videoUrl = reel.video_url;
 
@@ -187,7 +188,7 @@ export default function ReelDetailScreen() {
           style={styles.userRow}
           onPress={() => router.push(`/profile/${username}` as any)}
         >
-          <UserAvatar username={username} url={(reel as any).profiles?.avatar_url} size={38} showBorder />
+          <UserAvatar username={username} url={avatarUrl} size={38} showBorder />
           <View>
             <Text style={styles.username}>@{username}</Text>
             {(reel as any).profiles?.is_verified && (
