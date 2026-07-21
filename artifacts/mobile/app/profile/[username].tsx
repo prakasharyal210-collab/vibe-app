@@ -1054,7 +1054,7 @@ export default function UserProfileScreen() {
                         <ProfileGridThumb
                           key={item.id}
                           item={item}
-                          onPress={() => router.push(`/reel/${item.id}?userId=${profile?.id ?? ""}` as any)}
+                          onPress={() => router.navigate({ pathname: "/(tabs)/index" as any, params: { startReelId: item.id, userId: profile?.id ?? "" } })}
                         />
                       ))}
                     </View>

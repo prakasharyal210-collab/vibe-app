@@ -1630,7 +1630,7 @@ export default function ProfileScreen() {
                   <GridPageCell
                     key={item.id}
                     item={item}
-                    onPress={() => router.push(`/reel/${item.id.replace(/^reel_/, "")}?userId=${session?.user?.id ?? ""}` as any)}
+                    onPress={() => router.navigate({ pathname: "/(tabs)/index" as any, params: { startReelId: item.id.replace(/^reel_/, ""), userId: session?.user?.id ?? "" } })}
                     onLongPress={() => handleGridLongPress(item)}
                   />
                 ))}
