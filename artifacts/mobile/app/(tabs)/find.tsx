@@ -1509,7 +1509,9 @@ function SwipeCardDeck({ cards, onRequireLogin, userId, isAnonymous, myGoals, on
     );
   }
 
-  const CARD_H = H * 0.62;
+  // Cap at 560 so the card doesn't grow into the action-button zone on large
+  // screens (iPad Air 11-inch H≈1180 would otherwise produce a 731px card).
+  const CARD_H = Math.min(H * 0.62, 560);
   const topCard = cards[currentIndex];
   const nextCard = cards[currentIndex + 1];
   const thirdCard = cards[currentIndex + 2];
@@ -3284,7 +3286,7 @@ const styles = StyleSheet.create({
   interestTag: { backgroundColor: "rgba(255,255,255,0.18)", paddingHorizontal: 11, paddingVertical: 5, borderRadius: 10, borderWidth: 0.5, borderColor: "rgba(255,255,255,0.3)" },
   interestTagMatch: { backgroundColor: "rgba(124,58,237,0.65)", borderColor: "#A78BFA" },
   interestText: { color: "#fff", fontSize: 12, fontFamily: "Poppins_600SemiBold" },
-  actionButtons: { position: "absolute", bottom: Platform.OS === "web" ? 108 : 96, flexDirection: "row", alignItems: "center", gap: 20 },
+  actionButtons: { position: "absolute", bottom: Platform.OS === "web" ? 108 : 96, flexDirection: "row", alignItems: "center", gap: 20, zIndex: 20 },
   actionCircle: { width: 68, height: 68, borderRadius: 34, borderWidth: 1.5, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   vibeCircle: { width: 80, height: 80, borderRadius: 40, overflow: "hidden", shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 10 },
   vibeGradient: { flex: 1, alignItems: "center", justifyContent: "center" },
