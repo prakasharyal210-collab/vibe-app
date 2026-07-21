@@ -11,6 +11,32 @@ function makeSupabase() {
   return createClient(url, key);
 }
 
+// GET /api/reels/:id — fetch a single reel by UUID with author profile data.
+// Returns { data: Reel } on success, 404 when not found.
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  if (!id) { res.status(400).json({ error: "id required" }); return; }
+  const sb = makeSupabase();
+  try {
+    const { data, error } = await sb
+      .from("reels")
+      .select("*, profiles!user_id(id, username, avatar_url, full_name, is_verified)")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      res.status(500).json({ error: error.message });
+      return;
+    }
+    if (!data) {
+      res.status(404).json({ error: "Reel not found" });
+      return;
+    }
+    res.json({ data });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "unknown" });
+  }
+});
+
 // POST /api/reels/watch — log a watch event and immediately refresh reel score
 router.post("/watch", async (req, res) => {
   const { userId, reelId, watchDuration, videoDuration } = req.body as {
