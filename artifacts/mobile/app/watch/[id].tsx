@@ -828,7 +828,10 @@ export default function WatchScreen() {
     const uid = session?.user?.id;
     const q = uid ? `?viewerId=${encodeURIComponent(uid)}` : "";
     fetch(`${API_BASE}/posts/${encodeURIComponent(id)}${q}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`GET /posts/${id} → ${r.status}`);
+        return r.json();
+      })
       .then((body) => {
         const data = body.data as any;
         if (data) {
@@ -839,7 +842,9 @@ export default function WatchScreen() {
           setHideLikeCount(data.hide_like_count ?? false);
         }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        console.warn("[WatchScreen] failed to load post", id, err instanceof Error ? err.message : err);
+      });
   }, [id, session?.user?.id]);
 
   // ── Fetch author stats once post loads ────────────────────────────────────────
@@ -909,7 +914,9 @@ export default function WatchScreen() {
       .then((r) => r.json())
       .then((body) => {
         const raw = (body.posts ?? body.data ?? []) as Post[];
-        const videos = raw.filter((p) => p.id !== id && isVideoPost(p)).slice(0, 20);
+        // Require is_video===true (the canonical DB flag) so non-video feed posts
+        // and any reel-type content never leak into a regular video post's Up Next queue.
+        const videos = raw.filter((p) => p.id !== id && p.is_video === true && isVideoPost(p)).slice(0, 20);
         if (videos.length === 0) return;
         // Seed feedPostCache so swapToPost can load instantly from cache.
         for (const v of videos) {
