@@ -633,68 +633,8 @@ export default function ReelsScreen() {
   const viewTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   useEffect(() => { feedTabRef.current = feedTab; }, [feedTab]);
 
-  // Reel deep-link: tapping a reel on a profile emits "openReelInFeed".
-  // We pin that reel at index 0 so it plays immediately (TikTok pattern).
-  const [pinnedReel, setPinnedReel] = useState<Reel | null>(null);
-
-  useEffect(() => {
-    const sub = DeviceEventEmitter.addListener(
-      "openReelInFeed",
-      ({ reelId, userId }: { reelId: string; userId: string }) => {
-        const API_BASE = (process.env["EXPO_PUBLIC_API_URL"] ?? "") + "/api";
-        (async () => {
-          try {
-            let data: any = null;
-            // Primary: dedicated endpoint (works once server is updated)
-            const res = await fetch(`${API_BASE}/reels/${encodeURIComponent(reelId)}`);
-            if (res.ok) {
-              const body = await res.json();
-              data = body.data ?? null;
-            }
-            // Fallback: fetch user's reels and find by ID (works on current Railway)
-            if (!data && userId) {
-              const fbRes = await fetch(`${API_BASE}/posts/user/${encodeURIComponent(userId)}`);
-              if (fbRes.ok) {
-                const fbBody = await fbRes.json();
-                data = (fbBody.reels as any[] ?? []).find((r: any) => r.id === reelId) ?? null;
-              }
-            }
-            if (!data) return;
-            const pinned: Reel = {
-              id: data.id,
-              image: data.thumbnail_url ?? `https://picsum.photos/seed/${data.id}/450/900`,
-              videoUrl: data.video_url ?? undefined,
-              username: data.profiles?.username ?? data.username ?? "user",
-              caption: data.caption ?? "",
-              likes: data.likes_count ?? 0,
-              comments: data.comments_count ?? 0,
-              shares: data.shares_count ?? 0,
-              views: data.views_count ?? 0,
-              sound: data.sound_name ?? "Original Sound",
-              isVerified: data.profiles?.is_verified ?? data.is_verified ?? false,
-              duration: data.duration ?? 14,
-              allowDownload: data.allow_download ?? true,
-            };
-            seenReelIdsRef.current.add(pinned.id);
-            setPinnedReel(pinned);
-            setFeedTab("foryou");
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: false });
-            setActiveIndex(0);
-            dragStartIndexRef.current = 0;
-          } catch (e: any) {
-            if (__DEV__) console.warn("[Reels] openReelInFeed fetch failed:", e?.message);
-          }
-        })();
-      }
-    );
-    return () => sub.remove();
-  }, []);
-
   const reels = feedTab === "foryou" ? forYouReels : followingReels;
-  // Pin the deep-linked reel at index 0; dedupe it from the rest of the feed.
-  const displayReels = pinnedReel
-    ? [pinnedReel, ...reels.filter((r) => r.id !== pinnedReel.id)]
-    : reels;
+  const displayReels = reels;
 
   // Instagram-style single-reel-ahead preload: silently buffer index+1's video
   // (shouldPlay=false, isMuted, invisible 1x1 layer) so the swipe transition

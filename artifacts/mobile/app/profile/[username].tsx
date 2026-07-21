@@ -1055,10 +1055,7 @@ export default function UserProfileScreen() {
                         <ProfileGridThumb
                           key={item.id}
                           item={item}
-                          onPress={() => {
-                            DeviceEventEmitter.emit("openReelInFeed", { reelId: item.id, userId: profile?.id ?? "" });
-                            router.navigate("/(tabs)/index" as any);
-                          }}
+                          onPress={() => router.push(`/reel/${item.id}?userId=${profile?.id ?? ""}` as any)}
                         />
                       ))}
                     </View>
