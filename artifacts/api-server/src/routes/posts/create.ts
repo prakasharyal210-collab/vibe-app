@@ -819,6 +819,57 @@ router.post("/create", async (req, res) => {
 
   // ── Fire-and-forget side-effects ─────────────────────────────────────────────
 
+  // 0. Referral activation — award coins to the referrer on the new user's FIRST post
+  if (isFirstPost) {
+    void (async () => {
+      try {
+        const { data: profile } = await sb
+          .from("profiles")
+          .select("referred_by")
+          .eq("id", userId)
+          .maybeSingle();
+
+        const referrerId = (profile as any)?.referred_by as string | null | undefined;
+        if (!referrerId) return;
+
+        // Idempotency guard — only award once per referred user
+        const { count: existingCount } = await sb
+          .from("coin_transactions")
+          .select("*", { count: "exact", head: true })
+          .eq("reason", "referral_activated")
+          .eq("related_user_id", userId);
+
+        if ((existingCount ?? 0) > 0) return;
+
+        const REFERRAL_COINS = 50;
+
+        await sb.from("coin_transactions").insert({
+          user_id: referrerId,
+          amount: REFERRAL_COINS,
+          reason: "referral_activated",
+          related_user_id: userId,
+        });
+
+        // Upsert wallet balance for the referrer
+        const { data: existing } = await sb
+          .from("wallet")
+          .select("coins")
+          .eq("user_id", referrerId)
+          .maybeSingle();
+
+        const newBalance = ((existing as any)?.coins ?? 0) + REFERRAL_COINS;
+        await sb.from("wallet").upsert(
+          { user_id: referrerId, coins: newBalance },
+          { onConflict: "user_id" },
+        );
+
+        logger.info({ referrerId, referredUserId: userId, coins: REFERRAL_COINS }, "referral_activated: coins awarded");
+      } catch (err: any) {
+        logger.warn({ err: err?.message, userId }, "referral_activated: side-effect failed (non-fatal)");
+      }
+    })();
+  }
+
   // 1. Tag users — filtered by each tagged user's mention_permission setting
   if (options.taggedUsers?.length) {
     void (async () => {

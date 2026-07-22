@@ -42,6 +42,8 @@ import coupleFeedRouter from "./couple-feed";
 import coupleGamesRouter from "./coupleGames";
 import authRouter from "./auth";
 import pollsRouter from "./polls";
+import referralRouter from "./referral";
+import walletRouter from "./wallet";
 
 const router: IRouter = Router();
 
@@ -89,5 +91,7 @@ router.use("/couple-feed", coupleFeedRouter);
 router.use("/couple-games", coupleGamesRouter);
 router.use("/auth", authRouter);
 router.use("/polls", pollsRouter);
+router.use("/referral", referralRouter);
+router.use("/wallet", walletRouter);
 
 export default router;

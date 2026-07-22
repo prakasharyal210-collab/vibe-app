@@ -37,6 +37,7 @@ export default function SignupScreen() {
   const [focused, setFocused]   = useState<"username" | "email" | "password" | null>(null);
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
+  const [refCode, setRefCode] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Inline field errors
@@ -127,6 +128,15 @@ export default function SignupScreen() {
       if (data.user?.identities?.length === 0) {
         setFormError("email_exists");
         return;
+      }
+
+      // Apply referral code (fire-and-forget — never blocks signup)
+      if (refCode.trim() && data.user?.id) {
+        void fetch(`${API_BASE}/api/referral/apply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: data.user.id, referralCode: refCode.trim().toUpperCase() }),
+        }).catch(() => {});
       }
 
       // session === null means email confirmation required — go to OTP screen
@@ -268,6 +278,22 @@ export default function SignupScreen() {
                 At least 6 characters
               </Text>
             )}
+          </View>
+
+          {/* ── Referral code (optional) ── */}
+          <View style={{ gap: 4 }}>
+            <TextInput
+              value={refCode}
+              onChangeText={v => setRefCode(v.toUpperCase())}
+              placeholder="Referral code (optional)"
+              placeholderTextColor="rgba(156,163,175,0.55)"
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={12}
+              style={[styles.input, focused === "username" && { borderColor: "rgba(255,255,255,0.12)" }]}
+              onFocus={() => setFocused(null)}
+              onBlur={() => setFocused(null)}
+            />
           </View>
 
           {/* ── Form-level error banner ── */}

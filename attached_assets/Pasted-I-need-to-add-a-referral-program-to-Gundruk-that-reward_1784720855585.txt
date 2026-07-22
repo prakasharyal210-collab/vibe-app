@@ -1,0 +1,54 @@
+I need to add a referral program to Gundruk that rewards users with coins when they refer new users. Here's the full spec:
+
+1. Database migration — create a new file scripts/referral-coins-migration.sql:
+
+sql
+-- Add referral fields to users table
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS coins_balance INT DEFAULT 0;
+
+-- Coin transaction ledger (auditable log, never just a balance)
+CREATE TABLE IF NOT EXISTS coin_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) NOT NULL,
+  amount INT NOT NULL,
+  reason TEXT NOT NULL,
+  related_user_id UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Backfill referral_code for existing users (short random alphanumeric)
+UPDATE users SET referral_code = UPPER(SUBSTRING(MD5(id::text), 1, 8)) WHERE referral_code IS NULL;
+
+Run this migration against Supabase project tatroqgcyebuqqkhmvpa via the Supabase Dashboard SQL Editor (not via mobile/API — SQL migrations only run there per our existing workflow).
+
+2. API endpoints — add to artifacts/api-server, following our existing pattern of all DB access going through the API server with the service-role key, never direct Supabase calls from mobile:
+
+GET /api/referral/my-code — returns the authenticated user's referral_code (generate one if somehow missing)
+GET /api/wallet/balance — returns coins_balance plus the 20 most recent rows from coin_transactions for the authenticated user
+Modify the existing signup endpoint to accept an optional ?ref=CODE query param — look up the user with that referral_code, and if found, set the new user's referred_by to that user's id. If the code is invalid or missing, just skip it silently, don't error.
+
+3. Reward trigger — this is the important part, must prevent farming:
+
+Do NOT award coins at signup. Instead, hook into whatever code path handles a user's FIRST post creation (or, if easier, first profile-completion event) and add this logic there:
+
+Check if the current user has a referred_by value set
+Check if a coin_transactions row already exists where reason = 'referral_activated' AND related_user_id = <this user's id> — if one exists, do nothing (prevents double-rewarding)
+If no such row exists, insert a new coin_transactions row: user_id = referred_by (the referrer gets the coins), amount = 50 (or whatever amount you think is reasonable, flag it to me), reason = 'referral_activated', related_user_id = <the referred user's id>
+Increment the referrer's coins_balance by that same amount
+
+4. Mobile UI:
+
+Add an "Invite Friends" screen (Settings menu is fine) showing the user's referral code, a shareable deep link like gundrukapp.com/r/<CODE>, a copy-to-clipboard button, and the native share sheet
+Show coins_balance somewhere visible — profile screen or a small wallet indicator is fine for now, no spend/redeem UI yet, that's future scope
+
+5. Verify after building:
+
+Create two test accounts, have account B sign up using account A's referral link
+Confirm referred_by is set correctly on account B
+Have account B create their first post
+Confirm a coin_transactions row appears for account A with reason = 'referral_activated', and account A's coins_balance incremented correctly
+Try having account B post AGAIN — confirm account A does NOT get rewarded a second time
+
+Remember: all database access must go through the API server (service-role key), never direct Supabase client calls from mobile — direct calls hang indefinitely under RLS with the anon key.

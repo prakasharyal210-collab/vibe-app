@@ -1279,6 +1279,22 @@ export default function SettingsScreen() {
         </View>
 
         {/* ════════════════════════════════════════════════════
+            EARN & REWARDS
+        ════════════════════════════════════════════════════ */}
+        <View style={styles.section}>
+          <SecLabel label="Earn & Rewards" />
+          <Card>
+            <Row icon="gift-outline" iconBg="#7C3AED" label="Invite Friends"
+              sub="Earn 50 coins for every friend who joins"
+              onPress={() => router.push("/invite-friends" as any)} />
+            <Row icon="wallet-outline" iconBg="#EA580C" label="My Wallet"
+              sub="Coins balance & transaction history"
+              onPress={() => router.push("/wallet" as any)}
+              isLast />
+          </Card>
+        </View>
+
+        {/* ════════════════════════════════════════════════════
             CREATOR TOOLS
         ════════════════════════════════════════════════════ */}
         <View style={styles.section}>
