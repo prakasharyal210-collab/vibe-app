@@ -30,5 +30,4 @@ CREATE INDEX IF NOT EXISTS coin_transactions_user_id_idx
 
 -- Index for idempotency check ("has this referral already been activated?")
 CREATE INDEX IF NOT EXISTS coin_transactions_referral_idx
-  ON coin_transactions (reason, related_user_id)
-  WHERE reason = 'referral_activated';
+  ON coin_transactions (reason, related_user_id);
