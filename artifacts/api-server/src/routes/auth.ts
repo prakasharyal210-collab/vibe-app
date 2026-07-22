@@ -27,9 +27,10 @@ router.post("/google", async (req, res) => {
 });
 
 router.post("/apple", async (req, res) => {
-  const { identityToken, fullName } = req.body as {
+  const { identityToken, fullName, nonce } = req.body as {
     identityToken?: string;
     fullName?: string;
+    nonce?: string;
   };
 
   if (!identityToken) {
@@ -41,6 +42,9 @@ router.post("/apple", async (req, res) => {
   const { data, error } = await sb.auth.signInWithIdToken({
     provider: "apple",
     token: identityToken,
+    // nonce must be the raw (un-hashed) value; Supabase hashes it internally
+    // and compares it against the SHA-256 hash Apple embedded in the JWT.
+    ...(nonce ? { nonce } : {}),
   });
 
   if (error) {

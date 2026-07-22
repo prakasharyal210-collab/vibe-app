@@ -1,5 +1,7 @@
 import * as AppleAuthentication from "expo-apple-authentication";
+import * as Crypto from "expo-crypto";
 import React, { useState } from "react";
+import { Alert } from "react-native";
 import { supabase } from "@/lib/supabase";
 
 const API_URL = process.env["EXPO_PUBLIC_API_URL"] ?? "";
@@ -18,21 +20,37 @@ export function AppleSignInButton({ onError }: Props) {
     try {
       const available = await AppleAuthentication.isAvailableAsync();
       if (!available) {
-        onError?.("Sign in with Apple is not available on this device.");
+        const msg = "Sign in with Apple is not available on this device.";
+        onError?.(msg);
         return;
       }
 
-      // signInAsync must be called directly (not deferred via setTimeout) so it
-      // runs inside the native press-event context. On iPad, Apple Sign-In
-      // renders as a popover anchored to the tapping view; deferring the call
-      // out of the native event drops that anchor, causing an immediate
-      // ERR_REQUEST_CANCELED before any sheet appears. Calling synchronously
-      // here keeps the anchor intact on both iPhone and iPad.
+      // Generate a cryptographic nonce.
+      // Apple embeds a SHA-256 hash of the nonce inside the identity token;
+      // Supabase verifies that the raw nonce hashes to the same value.
+      // Without a matching nonce the token is rejected and sign-in silently
+      // fails. We must generate the nonce BEFORE calling signInAsync so both
+      // sides use the same value.
+      const rawNonce = Array.from(
+        Crypto.getRandomBytes(16),
+        (b) => b.toString(16).padStart(2, "0"),
+      ).join("");
+
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
+      // signInAsync must be called directly (not deferred) so it runs inside
+      // the native press-event context. On iPad, Apple Sign-In renders as a
+      // popover anchored to the tapping view; deferring via setTimeout drops
+      // the anchor and triggers ERR_REQUEST_CANCELED before the sheet appears.
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       });
 
       if (!credential.identityToken) {
@@ -51,6 +69,7 @@ export function AppleSignInButton({ onError }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           identityToken: credential.identityToken,
+          nonce: rawNonce,
           ...(fullName ? { fullName } : {}),
         }),
       });
@@ -71,17 +90,21 @@ export function AppleSignInButton({ onError }: Props) {
 
       // Success — navigation is driven by onAuthStateChange in _layout.tsx
     } catch (e: any) {
-      // ERR_REQUEST_CANCELED / ERR_CANCELED means the user dismissed the sheet
-      // intentionally. Because we call signInAsync synchronously (no deferred
-      // setTimeout), this error no longer fires due to anchor failure — it only
-      // fires on genuine user dismissal. Suppress it silently.
+      // ERR_REQUEST_CANCELED / ERR_CANCELED = user dismissed the Apple sheet.
+      // Suppress silently — this is an intentional user action, not an error.
       if (
         e?.code === "ERR_REQUEST_CANCELED" ||
         e?.code === "ERR_CANCELED"
       ) {
         return;
       }
-      onError?.(e?.message ?? "Apple Sign In failed. Please try again.");
+
+      const msg = e?.message ?? "Apple Sign In failed. Please try again.";
+      onError?.(msg);
+      // Always show an Alert so the error is visible regardless of scroll
+      // position (the inline error banner in the card can be off-screen when
+      // the user taps the Apple button at the bottom of the login form).
+      Alert.alert("Sign In Failed", msg);
     } finally {
       setLoading(false);
     }
